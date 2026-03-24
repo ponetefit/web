@@ -8,6 +8,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
     <script>
+        // Fallback si cdnjs falla
+        if (typeof window.jspdf === 'undefined' && typeof window.jsPDF === 'undefined') {
+            document.write('<scr' + 'ipt src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"><\/scr' + 'ipt>');
+        }
+    </script>
+    <script>
         tailwind.config = {
             theme: {
                 extend: {
@@ -961,6 +967,40 @@
         return [];
     }
 
+    // Resuelve los datos de una rutina a un objeto unificado.
+    // Maneja tanto formato anidado {datos: {bloques, warmup_ejercicios, ...}}
+    // como formato plano del backend {datos: [...], warmup_ejercicios: [...], ...}
+    function resolverDatos(r) {
+        let rawDatos = r.datos;
+        // Si datos viene como string JSON
+        if (typeof rawDatos === 'string') {
+            try { rawDatos = JSON.parse(rawDatos); } catch(e) { rawDatos = null; }
+        }
+
+        let datos = {};
+        // Copiar propiedades relevantes de r (formato plano del backend)
+        const skip = { alumno:1, tipo:1, timestamp:1, codigo:1, ok:1 };
+        for (const key of Object.keys(r)) {
+            if (!skip[key] && key !== 'datos') {
+                datos[key] = r[key];
+            }
+        }
+
+        // Si rawDatos es un objeto (no array), sus propiedades tienen prioridad
+        if (rawDatos && typeof rawDatos === 'object' && !Array.isArray(rawDatos)) {
+            for (const key of Object.keys(rawDatos)) {
+                datos[key] = rawDatos[key];
+            }
+        } else if (Array.isArray(rawDatos)) {
+            // rawDatos es un array (el array interno de datos/rutina)
+            if (!datos.datos) {
+                datos.datos = rawDatos;
+            }
+        }
+
+        return datos;
+    }
+
     // Normaliza cualquier formato de ejercicio a {nombre, link, reps, unit, series, descanso, nota_tecnica}
     function normalizeEj(ej) {
         if (!ej) return { nombre:'', link:'', reps:'', unit:'Reps', series:'', descanso:'', nota_tecnica:'' };
@@ -1108,12 +1148,8 @@
     // ====================================================================
 
     function generarHTMLRutina(codigo, r) {
-        let datos  = r.datos  || r;
-        // Si datos viene como string JSON (algunos backends lo serializan así)
-        if (typeof datos === 'string') {
-            try { datos = JSON.parse(datos); } catch(e) { datos = r; }
-        }
-        const alumno = r.alumno || '';
+        const datos  = resolverDatos(r);
+        const alumno = r.alumno || datos.alumno || '';
         const tipo   = r.tipo   || 'ENTRENAMIENTO';
         const fecha  = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
         const ff     = 'font-family:Helvetica,Arial,sans-serif;';
@@ -1281,12 +1317,8 @@
             const cW       = pw - mL - mR;  // contenido ancho
             let   y        = 20;
 
-            let datos  = r.datos  || r;
-            // Si datos viene como string JSON
-            if (typeof datos === 'string') {
-                try { datos = JSON.parse(datos); } catch(e) { datos = r; }
-            }
-            const alumno = r.alumno || '';
+            const datos  = resolverDatos(r);
+            const alumno = r.alumno || datos.alumno || '';
             const tipo   = r.tipo   || 'ENTRENAMIENTO';
             const fecha  = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
 
