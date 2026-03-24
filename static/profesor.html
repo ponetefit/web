@@ -222,6 +222,7 @@
                     </div>
                     <p class="text-xs text-textoSuave mb-4">Incluye Calentamiento + Bloque Principal</p>
                     <button onclick="copiarCodigo()" class="bg-azul/20 text-azul px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-azul/30 transition mb-3 w-full">Copiar Codigo</button>
+                    <button onclick="descargarPDFDesdeModal()" class="btn-primary px-6 py-2.5 rounded-xl text-white text-sm font-bold mb-3 w-full uppercase tracking-wider">Descargar PDF</button>
                     <button onclick="document.getElementById('modal-codigo').classList.add('hidden')" class="text-textoSuave text-sm hover:text-texto transition w-full py-2">Cerrar</button>
                 </div>
             </div>
@@ -383,7 +384,6 @@
             if (!sel) return;
             sel.innerHTML = cats.map(c => '<option>' + c + '</option>').join('');
         });
-        // Cargar ejercicios para warmup y bloque selects
         cargarEjsWarmup();
         cargarEjsBloque();
     }
@@ -517,7 +517,6 @@
         sel.innerHTML = ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + (e.nombre||e[0]) + '</option>').join('');
     }
 
-    // Listener cambio de categoria en warmup
     document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('warmup-cat-select')?.addEventListener('change', cargarEjsWarmup);
     });
@@ -574,10 +573,8 @@
 
     function renderWarmupEjs() {
         const lista = document.getElementById('warmup-ejercicios-lista');
-        if (warmupEjercicios.length === 0) {
-            lista.innerHTML = '';
-            return;
-        }
+        lista.innerHTML = '';
+        if (warmupEjercicios.length === 0) return;
         lista.innerHTML = warmupEjercicios.map((ej, i) =>
             `<div class="exercise-chip flex items-center justify-between bg-fondoAlt rounded-xl px-4 py-2.5 border border-borde/50">
                 <div class="flex items-center gap-3">
@@ -666,6 +663,7 @@
 
     function renderBloqueEjsTemp() {
         const lista = document.getElementById('bloque-ejercicios-lista');
+        lista.innerHTML = '';
         const tipo = document.getElementById('bloque-tipo').value;
         const mostrarSeries = (tipo === 'Series');
         const mostrarReps = (tipo !== 'Tabata');
@@ -703,7 +701,6 @@
             ejercicios: JSON.parse(JSON.stringify(bloqueEjsTemp))
         };
 
-        // Parametros segun tipo
         if (tipo === 'Circuito') {
             bloque.vueltas = parseInt(document.getElementById('bp-vueltas')?.value || 3);
             bloque.pausa_vuelta = parseInt(document.getElementById('bp-pausa-vuelta')?.value || 60);
@@ -718,7 +715,6 @@
             bloque.minutos_totales = parseInt(document.getElementById('bp-minutos')?.value || 10);
             bloque.ejercicios_por_minuto = parseInt(document.getElementById('bp-ej-por-min')?.value || 1);
         }
-        // Series: los datos ya estan en cada ejercicio
 
         if (editandoBloqueIdx !== null) {
             bloquesRutina[editandoBloqueIdx] = bloque;
@@ -737,7 +733,6 @@
         document.getElementById('bloque-desc').value = b.descripcion || '';
         actualizarBloqueParams();
 
-        // Restaurar parametros
         if (b.tipo === 'Circuito') {
             const v = document.getElementById('bp-vueltas'); if(v) v.value = b.vueltas || 3;
             const p = document.getElementById('bp-pausa-vuelta'); if(p) p.value = b.pausa_vuelta || 60;
@@ -769,8 +764,9 @@
         const lista = document.getElementById('bloques-lista');
         const sinBloques = document.getElementById('sin-bloques');
 
+        lista.innerHTML = '';
+
         if (bloquesRutina.length === 0) {
-            lista.innerHTML = '';
             sinBloques.classList.remove('hidden');
             return;
         }
@@ -820,13 +816,11 @@
             return;
         }
 
-        // Determinar tipo
         let tipo = 'ENTRENAMIENTO';
         if (bloquesRutina.length === 1) {
             tipo = bloquesRutina[0].tipo;
         }
 
-        // Construir warmup config detalle
         const warmupTipo = document.getElementById('warmup-tipo').value;
         const warmupDetalle = { tipo: warmupTipo };
         if (warmupTipo === 'Circuito (Vueltas)') {
@@ -844,10 +838,8 @@
             warmupDetalle.reps = parseInt(document.getElementById('warmup-reps-val')?.value || 10);
         }
 
-        // Construir warmup ejercicios como arrays [nombre, link, reps, unit]
         const warmupEjsExport = warmupEjercicios.map(e => [e.nombre, e.link, e.reps || '', e.unit || 'Reps']);
 
-        // Construir datos del bloque principal
         let datos = {};
         if (bloquesRutina.length === 1 && tipo !== 'ENTRENAMIENTO') {
             const b = bloquesRutina[0];
@@ -875,7 +867,6 @@
                 const repsDict = {};
                 const unitsDict = {};
                 b.ejercicios.forEach(e => { repsDict[e.nombre] = e.reps; unitsDict[e.nombre] = e.unit; });
-                // Crear ciclo minuto a minuto
                 const ciclo = [];
                 for (let m = 0; m < b.minutos_totales; m++) {
                     const ejsMin = [];
@@ -896,14 +887,12 @@
                     descripcion: b.descripcion || descGlobal
                 };
             } else if (tipo === 'Series') {
-                tipo = 'Series';
                 datos = {
                     datos: b.ejercicios,
                     descripcion: b.descripcion || descGlobal
                 };
             }
         } else {
-            // Mix / ENTRENAMIENTO
             tipo = 'ENTRENAMIENTO';
             datos = {
                 bloques: bloquesRutina,
@@ -929,9 +918,40 @@
             });
             const data = await res.json();
             if (data.ok) {
-                document.getElementById('modal-codigo-text').innerText = data.codigo.toUpperCase();
+                const codigoNuevo = data.codigo.toUpperCase();
+
+                // ── FIX #3: Actualizar el estado global inmediatamente ──
+                // Construir el objeto de rutina con todos sus datos para el cache
+                const nuevaRutina = {
+                    alumno: alumno,
+                    tipo: tipo,
+                    datos: datos,
+                    timestamp: Math.floor(Date.now() / 1000),
+                    // Preservar warmup y bloques al nivel raiz para compatibilidad
+                    warmup_ejercicios: datos.warmup_ejercicios,
+                    warmup_tipo: datos.warmup_tipo,
+                    warmup_vueltas: datos.warmup_vueltas,
+                    warmup_config_detalle: datos.warmup_config_detalle,
+                    bloques: datos.bloques || null
+                };
+                historialRutinasCache[codigoNuevo] = nuevaRutina;
+
+                // ── FIX #2: Establecer currentData y rutinaModalActual con el codigo ──
+                currentData = nuevaRutina;
+                rutinaModalActual = { codigo: codigoNuevo, ...nuevaRutina };
+
+                // Actualizar el modal de codigo generado
+                document.getElementById('modal-codigo-text').innerText = codigoNuevo;
                 document.getElementById('modal-info').innerText = `Rutina tipo ${data.tipo} asignada a ${data.alumno}`;
                 document.getElementById('modal-codigo').classList.remove('hidden');
+
+                // ── FIX #3: Refrescar historial si el alumno ya está seleccionado ──
+                const selAlumno = document.getElementById('select-alumno');
+                if (selAlumno && selAlumno.value &&
+                    selAlumno.value.toLowerCase() === alumno.toLowerCase()) {
+                    await buscarRutinasAlumno();
+                }
+
                 toast('Rutina compartida!');
             } else {
                 toast('Error: ' + data.error);
@@ -953,7 +973,6 @@
     // UTILIDADES DE DATOS
     // ====================================================================
 
-    // Convierte arrays Firebase (objetos con keys numéricas) a arrays JS
     function toArray(val) {
         if (!val) return [];
         if (Array.isArray(val)) return val;
@@ -961,7 +980,6 @@
         return [];
     }
 
-    // Normaliza cualquier formato de ejercicio a {nombre, link, reps, unit, series, descanso}
     function normalizeEj(ej) {
         if (Array.isArray(ej)) {
             return {
@@ -1005,6 +1023,7 @@
     async function buscarRutinasAlumno() {
         const nombre = document.getElementById('select-alumno').value;
         const lista  = document.getElementById('historial-lista');
+        lista.innerHTML = '';
         if (!nombre) {
             lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">Selecciona un alumno del desplegable</p>';
             return;
@@ -1016,6 +1035,7 @@
             if (data.ok) {
                 historialRutinasCache = data.rutinas || {};
                 const keys = Object.keys(historialRutinasCache);
+                lista.innerHTML = '';
                 if (keys.length === 0) {
                     lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">No se encontraron rutinas</p>';
                     return;
@@ -1058,11 +1078,12 @@
 
     async function verRutina(codigo) {
         const content = document.getElementById('modal-rutina-content');
+        // ── FIX #1: Limpiar contenedor antes de cargar ──
+        content.innerHTML = '';
         content.innerHTML = '<p style="text-align:center;color:#888;padding:40px;">Cargando rutina...</p>';
         document.getElementById('modal-ver-rutina').classList.remove('hidden');
 
         try {
-            // Primero verificar si ya lo tenemos en cache
             let r = historialRutinasCache[codigo];
             if (!r || !r.datos) {
                 const res  = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
@@ -1075,28 +1096,34 @@
                 historialRutinasCache[codigo] = r;
             }
 
-            // Guardar en globales para que el sistema sepa qué rutina estamos viendo
-            currentData        = r;
-            rutinaModalActual  = { codigo, ...r };
+            // ── FIX #2: Guardar estado global para PDF ──
+            currentData       = r;
+            rutinaModalActual = { codigo, ...r };
 
-            content.innerHTML  = generarHTMLRutina(codigo, r);
+            // ── FIX #1: Limpiar y renderizar contenido fresco ──
+            content.innerHTML = '';
+            content.innerHTML = generarHTMLRutina(codigo, r);
         } catch (e) {
             content.innerHTML = '<p style="text-align:center;color:#EF5350;padding:40px;">Error de conexion</p>';
         }
     }
 
     // ====================================================================
-    // GENERAR HTML MODAL (estilo ALE-0002)
+    // GENERAR HTML MODAL
     // ====================================================================
 
     function generarHTMLRutina(codigo, r) {
-        const datos  = r.datos  || r;
+        // ── FIX #1: Resolver el objeto de datos correctamente ──
+        // Los datos de la rutina pueden vivir en r.datos o directamente en r
+        // Para warmup y bloques siempre buscamos primero en la raiz de r,
+        // luego en r.datos como fallback.
+        const datosRaiz = r.datos && typeof r.datos === 'object' ? r.datos : r;
+
         const alumno = r.alumno || '';
         const tipo   = r.tipo   || 'ENTRENAMIENTO';
         const fecha  = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
         const ff     = 'font-family:Helvetica,Arial,sans-serif;';
 
-        // Estilos reutilizables
         const sSecHeader  = ff + 'font-weight:700;font-size:14px;color:#fff;padding:9px 16px;border-radius:6px;margin:0 0 10px;';
         const sSubHeader  = ff + 'background:#FF6B35;color:#fff;font-weight:700;font-size:13px;padding:7px 14px;border-radius:5px;margin:14px 0 6px;';
         const sEjBox      = 'background:#F0F0F0;border-radius:6px;padding:10px 14px;margin-bottom:8px;';
@@ -1105,7 +1132,6 @@
         const sEjLink     = ff + 'color:#1565C0;font-size:12px;text-decoration:underline;white-space:nowrap;margin-left:10px;';
         const sEjMeta     = ff + 'font-size:11px;color:#555;margin:0;';
 
-        // --- Función interna para renderizar un ejercicio en caja gris ---
         function ejBox(ej) {
             const e = normalizeEj(ej);
             if (!e.nombre) return '';
@@ -1123,7 +1149,6 @@
             </div>`;
         }
 
-        // --- Header ---
         let html = `
         <div style="${ff}text-align:center;margin-bottom:20px;padding-bottom:16px;border-bottom:3px solid #FF6B35;">
             <h2 style="color:#FF6B35;font-size:28px;font-weight:900;margin:0;letter-spacing:-0.5px;">PONETE FIT</h2>
@@ -1135,34 +1160,34 @@
             </p>
         </div>`;
 
-        // --- 1. Calentamiento ---
-        const wEjs    = toArray(datos.warmup_ejercicios);
-        const wTipo   = datos.warmup_tipo || '';
-        const wConfig = datos.warmup_config_detalle || {};
+        // ── FIX #1: Leer warmup_ejercicios buscando en ambas ubicaciones ──
+        const wEjs    = toArray(datosRaiz.warmup_ejercicios);
+        const wTipo   = datosRaiz.warmup_tipo || '';
+        const wConfig = datosRaiz.warmup_config_detalle || {};
+
         if (wEjs.length > 0) {
             html += `<div style="${sSecHeader}background:#4FC3F7;">1. CALENTAMIENTO${wTipo ? ' — ' + wTipo.toUpperCase() : ''}</div>`;
-            // Metadata del warmup
             const wParts = [];
-            if (wConfig.vueltas)        wParts.push('Vueltas: ' + wConfig.vueltas);
-            if (wConfig.pausa_vuelta)   wParts.push('Pausa entre vueltas: ' + wConfig.pausa_vuelta + 's');
+            if (wConfig.vueltas)         wParts.push('Vueltas: ' + wConfig.vueltas);
+            if (wConfig.pausa_vuelta)    wParts.push('Pausa entre vueltas: ' + wConfig.pausa_vuelta + 's');
             if (wConfig.duracion_bloque) wParts.push('Duracion: ' + wConfig.duracion_bloque + ' min');
-            if (wConfig.trabajo)        wParts.push('Trabajo: ' + wConfig.trabajo + 's / Pausa: ' + (wConfig.pausa||10) + 's');
-            if (wConfig.minutos)        wParts.push('Minutos: ' + wConfig.minutos);
+            if (wConfig.trabajo)         wParts.push('Trabajo: ' + wConfig.trabajo + 's / Pausa: ' + (wConfig.pausa||10) + 's');
+            if (wConfig.minutos)         wParts.push('Minutos: ' + wConfig.minutos);
             if (wParts.length) html += `<p style="${ff}color:#555;font-style:italic;font-size:12px;margin:0 0 10px 2px;">${wParts.join(' | ')}</p>`;
             wEjs.forEach(ej => { html += ejBox(ej); });
             html += '<hr style="border:none;border-top:2px solid #eee;margin:20px 0;">';
         }
 
-        // --- 2. Bloque Principal ---
-        function renderBloques(listaBloques) {
+        // ── FIX #1: Leer bloques buscando en ambas ubicaciones ──
+        function renderBloquesHTML(listaBloques) {
             listaBloques.forEach((b, i) => {
                 const ejsB = toArray(b.ejercicios || b.datos || b.rutina || []);
                 let meta = '';
-                if      (b.tipo === 'Tabata')           meta = (b.trabajo||20) + 's act. / ' + (b.pausa||10) + 's pausa — ' + (b.rondas||1) + ' ronda(s)';
-                else if (b.tipo === 'Circuito')         meta = (b.vueltas||3) + ' vueltas | Pausa: ' + (b.pausa_vuelta||60) + 's';
+                if      (b.tipo === 'Tabata')              meta = (b.trabajo||20) + 's act. / ' + (b.pausa||10) + 's pausa — ' + (b.rondas||1) + ' ronda(s)';
+                else if (b.tipo === 'Circuito')            meta = (b.vueltas||3) + ' vueltas | Pausa: ' + (b.pausa_vuelta||60) + 's';
                 else if (b.tipo === 'Circuito por Tiempo') meta = (b.duracion_min||5) + ' min';
-                else if (b.tipo === 'EMOM')             meta = (b.minutos_totales||10) + ' min | ' + (b.ejercicios_por_minuto||1) + ' ej/min';
-                else if (b.tipo === 'Series')           meta = ejsB.length + ' ejercicio(s)';
+                else if (b.tipo === 'EMOM')                meta = (b.minutos_totales||10) + ' min | ' + (b.ejercicios_por_minuto||1) + ' ej/min';
+                else if (b.tipo === 'Series')              meta = ejsB.length + ' ejercicio(s)';
                 html += `<div style="${sSubHeader}">Bloque ${i+1}: ${b.tipo}${meta ? ' — ' + meta : ''}</div>`;
                 if (b.descripcion) html += `<p style="${ff}color:#666;font-size:12px;font-style:italic;margin:0 0 8px 2px;">${b.descripcion}</p>`;
                 if (ejsB.length === 0) {
@@ -1173,32 +1198,30 @@
             });
         }
 
-        const bloques = toArray(datos.bloques);
+        const bloques = toArray(datosRaiz.bloques);
         if (bloques.length > 0) {
             html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — ${tipo}</div>`;
-            renderBloques(bloques);
+            renderBloquesHTML(bloques);
         } else if (tipo === 'Tabata' || tipo === 'EMOM') {
-            // Formato legacy de rutina plana
             html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — ${tipo}</div>`;
-            const ejsFlat = toArray(datos.rutina || datos.datos || []);
+            const ejsFlat = toArray(datosRaiz.rutina || datosRaiz.datos || []);
             if (ejsFlat.length > 0) {
-                html += `<div style="${sSubHeader}">${tipo}${tipo === 'Tabata' ? ' — ' + (datos.trabajo||20) + 's / ' + (datos.pausa||10) + 's | ' + (datos.rondas||1) + ' ronda(s)' : ''}</div>`;
+                html += `<div style="${sSubHeader}">${tipo}${tipo === 'Tabata' ? ' — ' + (datosRaiz.trabajo||20) + 's / ' + (datosRaiz.pausa||10) + 's | ' + (datosRaiz.rondas||1) + ' ronda(s)' : ''}</div>`;
                 ejsFlat.forEach(ej => { html += ejBox(ej); });
             }
         } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo') {
             html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — ${tipo}</div>`;
-            const gruposC = toArray(datos.datos || datos.rutina || []);
+            const gruposC = toArray(datosRaiz.datos || datosRaiz.rutina || []);
             if (gruposC.length > 0 && (gruposC[0].ejercicios !== undefined)) {
-                renderBloques(gruposC);
+                renderBloquesHTML(gruposC);
             } else {
                 gruposC.forEach(ej => { html += ejBox(ej); });
             }
         } else if (tipo === 'Series') {
             html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — SERIES</div>`;
-            toArray(datos.datos || datos.rutina || []).forEach(ej => { html += ejBox(ej); });
+            toArray(datosRaiz.datos || datosRaiz.rutina || []).forEach(ej => { html += ejBox(ej); });
         }
 
-        // --- Footer ---
         html += `<hr style="border:none;border-top:1px solid #ddd;margin:24px 0 8px;">
         <p style="${ff}color:#aaa;font-size:11px;text-align:center;margin:0;">
             Generado por PONETE FIT &nbsp;|&nbsp; ${fecha} &nbsp;|&nbsp; Codigo: ${codigo.toUpperCase()}
@@ -1208,20 +1231,23 @@
     }
 
     // ====================================================================
-    // PDF PROFESIONAL (ESTILO ALE-0002)
+    // PDF PROFESIONAL
     // ====================================================================
 
     function descargarPDFDesdeModal() {
-        if (!rutinaModalActual) { toast('No hay rutina seleccionada'); return; }
+        // ── FIX #2: Usar currentData y rutinaModalActual directamente ──
+        if (!rutinaModalActual || !rutinaModalActual.codigo) {
+            toast('No hay rutina seleccionada');
+            return;
+        }
         descargarPDF(rutinaModalActual.codigo);
     }
 
     async function descargarPDF(codigo) {
-        // Detectar jsPDF (UMD expone window.jspdf, algunos builds window.jsPDF)
         const jsPDFLib = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
         if (!jsPDFLib) { toast('Libreria PDF no disponible, recarga la pagina'); return; }
 
-        // Obtener datos (cache o API)
+        // ── FIX #2: Buscar en cache; si no existe, buscar por API ──
         let r = historialRutinasCache[codigo];
         if (!r) {
             toast('Cargando rutina para PDF...');
@@ -1234,25 +1260,25 @@
             } catch (e) { toast('Error de conexion'); return; }
         }
 
+        // ── FIX #2: Usar datos normalizados correctamente ──
+        // La misma lógica de resolución de datos que en generarHTMLRutina
+        const datosRaiz = r.datos && typeof r.datos === 'object' ? r.datos : r;
+
         try {
             const doc      = new jsPDFLib({ unit: 'mm', format: 'a4' });
-            const pw       = doc.internal.pageSize.getWidth();   // 210
-            const ph       = doc.internal.pageSize.getHeight();  // 297
+            const pw       = doc.internal.pageSize.getWidth();
+            const ph       = doc.internal.pageSize.getHeight();
             const mL       = 15, mR = 15, mBot = 18;
-            const cW       = pw - mL - mR;  // contenido ancho
+            const cW       = pw - mL - mR;
             let   y        = 20;
 
-            const datos  = r.datos  || r;
             const alumno = r.alumno || '';
             const tipo   = r.tipo   || 'ENTRENAMIENTO';
             const fecha  = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
 
-            // ── Helpers ──────────────────────────────────────────────────
-
             function newPage() { doc.addPage(); y = 18; }
             function chk(h)   { if (y + h > ph - mBot) newPage(); }
 
-            // Barra de color con texto
             function colorBar(text, r255, g255, b255, h = 8) {
                 chk(h + 4);
                 doc.setFillColor(r255, g255, b255);
@@ -1264,7 +1290,6 @@
                 y += h + 4;
             }
 
-            // Sub-barra naranja (bloque)
             function subBar(text) {
                 chk(8);
                 doc.setFillColor(255, 107, 53);
@@ -1276,12 +1301,9 @@
                 y += 10;
             }
 
-            // Ejercicio en caja gris #F0F0F0 — nombre + video + Series|Reps|Pausa
             function ejGris(ej) {
                 const e = normalizeEj(ej);
                 if (!e.nombre) return;
-
-                // Calcular altura: fila 1 (nombre + link) + fila 2 (meta) si existe
                 const metaParts = [];
                 if (e.series)   metaParts.push('Series: ' + e.series);
                 if (e.reps)     metaParts.push('Reps: ' + e.reps + (e.unit ? ' ' + e.unit : ''));
@@ -1291,17 +1313,14 @@
 
                 chk(boxH + 3);
 
-                // Fondo gris
                 doc.setFillColor(240, 240, 240);
                 doc.roundedRect(mL, y, cW, boxH, 2, 2, 'F');
 
-                // Nombre (negrita, izquierda)
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(10);
                 doc.setTextColor(17, 17, 17);
                 doc.text(e.nombre, mL + 4, y + 7);
 
-                // Ver video (azul, derecha)
                 if (e.link) {
                     const linkTxt = 'Ver video';
                     const linkW   = doc.getTextWidth(linkTxt);
@@ -1311,7 +1330,6 @@
                     doc.textWithLink(linkTxt, pw - mR - linkW, y + 7, { url: e.link });
                 }
 
-                // Metadata (debajo, gris oscuro)
                 if (metaStr) {
                     doc.setFont('helvetica', 'normal');
                     doc.setFontSize(9);
@@ -1322,22 +1340,18 @@
                 y += boxH + 3;
             }
 
-            // ── ENCABEZADO ───────────────────────────────────────────────
-
-            // Titulo PONETE FIT
+            // ── ENCABEZADO ──
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(30);
             doc.setTextColor(255, 107, 53);
             doc.text('PONETE FIT', pw / 2, y, { align: 'center' });
             y += 8;
 
-            // Linea divisoria naranja
             doc.setDrawColor(255, 107, 53);
             doc.setLineWidth(0.8);
             doc.line(mL, y, pw - mR, y);
             y += 6;
 
-            // Datos del alumno
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(10);
             doc.setTextColor(80, 80, 80);
@@ -1345,22 +1359,21 @@
             doc.text(infoLine, pw / 2, y, { align: 'center' });
             y += 10;
 
-            // ── CALENTAMIENTO ────────────────────────────────────────────
-
-            const wEjs    = toArray(datos.warmup_ejercicios);
-            const wTipo   = datos.warmup_tipo || '';
-            const wConfig = datos.warmup_config_detalle || {};
+            // ── CALENTAMIENTO ──
+            // ── FIX #2: Leer warmup de datosRaiz para incluirlo siempre ──
+            const wEjs    = toArray(datosRaiz.warmup_ejercicios);
+            const wTipo   = datosRaiz.warmup_tipo || '';
+            const wConfig = datosRaiz.warmup_config_detalle || {};
 
             if (wEjs.length > 0) {
                 colorBar('1. CALENTAMIENTO' + (wTipo ? '  —  ' + wTipo.toUpperCase() : ''), 79, 195, 247);
 
-                // Metadata warmup
                 const wParts = [];
-                if (wConfig.vueltas)        wParts.push('Vueltas: '    + wConfig.vueltas);
-                if (wConfig.pausa_vuelta)   wParts.push('Pausa vuelta: ' + wConfig.pausa_vuelta + 's');
-                if (wConfig.duracion_bloque) wParts.push('Duracion: '  + wConfig.duracion_bloque + ' min');
-                if (wConfig.trabajo)        wParts.push('Trabajo: '    + wConfig.trabajo + 's / Pausa: ' + (wConfig.pausa||10) + 's');
-                if (wConfig.minutos)        wParts.push('Minutos: '    + wConfig.minutos);
+                if (wConfig.vueltas)         wParts.push('Vueltas: '     + wConfig.vueltas);
+                if (wConfig.pausa_vuelta)    wParts.push('Pausa vuelta: ' + wConfig.pausa_vuelta + 's');
+                if (wConfig.duracion_bloque) wParts.push('Duracion: '    + wConfig.duracion_bloque + ' min');
+                if (wConfig.trabajo)         wParts.push('Trabajo: '     + wConfig.trabajo + 's / Pausa: ' + (wConfig.pausa||10) + 's');
+                if (wConfig.minutos)         wParts.push('Minutos: '     + wConfig.minutos);
                 if (wParts.length) {
                     chk(8);
                     doc.setFont('helvetica', 'italic');
@@ -1372,7 +1385,6 @@
 
                 wEjs.forEach(ej => ejGris(ej));
 
-                // Divisor
                 chk(10);
                 doc.setDrawColor(210, 210, 210);
                 doc.setLineWidth(0.4);
@@ -1380,17 +1392,16 @@
                 y += 10;
             }
 
-            // ── BLOQUE PRINCIPAL ─────────────────────────────────────────
-
+            // ── BLOQUE PRINCIPAL ──
             function renderBloquePDF(listaBloques) {
                 listaBloques.forEach((b, i) => {
                     const ejsB = toArray(b.ejercicios || b.datos || b.rutina || []);
                     let meta = '';
-                    if      (b.tipo === 'Tabata')            meta = (b.trabajo||20) + 's / ' + (b.pausa||10) + 's | ' + (b.rondas||1) + ' ronda(s)';
-                    else if (b.tipo === 'Circuito')          meta = (b.vueltas||3) + ' vueltas | Pausa: ' + (b.pausa_vuelta||60) + 's';
+                    if      (b.tipo === 'Tabata')              meta = (b.trabajo||20) + 's / ' + (b.pausa||10) + 's | ' + (b.rondas||1) + ' ronda(s)';
+                    else if (b.tipo === 'Circuito')            meta = (b.vueltas||3) + ' vueltas | Pausa: ' + (b.pausa_vuelta||60) + 's';
                     else if (b.tipo === 'Circuito por Tiempo') meta = (b.duracion_min||5) + ' min';
-                    else if (b.tipo === 'EMOM')              meta = (b.minutos_totales||10) + ' min | ' + (b.ejercicios_por_minuto||1) + ' ej/min';
-                    else if (b.tipo === 'Series')            meta = ejsB.length + ' ejercicio(s)';
+                    else if (b.tipo === 'EMOM')                meta = (b.minutos_totales||10) + ' min | ' + (b.ejercicios_por_minuto||1) + ' ej/min';
+                    else if (b.tipo === 'Series')              meta = ejsB.length + ' ejercicio(s)';
                     subBar('Bloque ' + (i+1) + ': ' + b.tipo + (meta ? '  —  ' + meta : ''));
                     if (ejsB.length === 0) {
                         chk(8);
@@ -1405,17 +1416,17 @@
                 });
             }
 
-            const bloques = toArray(datos.bloques);
+            const bloques = toArray(datosRaiz.bloques);
             if (bloques.length > 0) {
                 colorBar('2. BLOQUE PRINCIPAL  —  ' + tipo, 206, 147, 216);
                 renderBloquePDF(bloques);
             } else if (tipo === 'Tabata' || tipo === 'EMOM') {
                 colorBar('2. BLOQUE PRINCIPAL  —  ' + tipo, 206, 147, 216);
-                subBar(tipo + (tipo === 'Tabata' ? '  —  ' + (datos.trabajo||20) + 's / ' + (datos.pausa||10) + 's | ' + (datos.rondas||1) + ' ronda(s)' : ''));
-                toArray(datos.rutina || datos.datos || []).forEach(ej => ejGris(ej));
+                subBar(tipo + (tipo === 'Tabata' ? '  —  ' + (datosRaiz.trabajo||20) + 's / ' + (datosRaiz.pausa||10) + 's | ' + (datosRaiz.rondas||1) + ' ronda(s)' : ''));
+                toArray(datosRaiz.rutina || datosRaiz.datos || []).forEach(ej => ejGris(ej));
             } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo' || tipo === 'Series') {
                 colorBar('2. BLOQUE PRINCIPAL  —  ' + tipo, 206, 147, 216);
-                const flatList = toArray(datos.datos || datos.rutina || []);
+                const flatList = toArray(datosRaiz.datos || datosRaiz.rutina || []);
                 if (flatList.length && flatList[0].ejercicios !== undefined) {
                     renderBloquePDF(flatList);
                 } else {
@@ -1423,8 +1434,7 @@
                 }
             }
 
-            // ── FOOTER ───────────────────────────────────────────────────
-
+            // ── FOOTER ──
             chk(14);
             doc.setDrawColor(200, 200, 200);
             doc.setLineWidth(0.4);
