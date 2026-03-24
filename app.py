@@ -374,6 +374,22 @@ def rutinas_por_alumno(nombre):
 
 
 # ──────────────────────────────────────────────────────────────
+#  API - ALUMNOS
+# ──────────────────────────────────────────────────────────────
+
+@app.route("/api/alumnos", methods=["GET"])
+def listar_alumnos():
+    """Lista todos los alumnos que tienen rutinas asignadas."""
+    try:
+        ref = get_db_ref("/alumnos")
+        data = ref.get() or {}
+        alumnos = sorted(data.keys())
+        return jsonify({"ok": True, "alumnos": alumnos})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ──────────────────────────────────────────────────────────────
 #  API - UTILIDADES
 # ──────────────────────────────────────────────────────────────
 
