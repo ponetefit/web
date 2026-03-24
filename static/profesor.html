@@ -88,8 +88,8 @@
     <!-- TABS -->
     <nav class="bg-tarjeta border-b border-borde">
         <div class="max-w-6xl mx-auto flex gap-0">
-            <button onclick="showTab('videoteca')" id="tab-videoteca" class="tab-active px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Videoteca</button>
-            <button onclick="showTab('rutina')" id="tab-rutina" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Crear Rutina</button>
+            <button onclick="showTab('rutina')" id="tab-rutina" class="tab-active px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Crear Rutina</button>
+            <button onclick="showTab('videoteca')" id="tab-videoteca" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Videoteca</button>
             <button onclick="showTab('historial')" id="tab-historial" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Historial</button>
         </div>
     </nav>
@@ -99,7 +99,7 @@
         <!-- ═══════════════════════════════════════════ -->
         <!-- TAB: VIDEOTECA -->
         <!-- ═══════════════════════════════════════════ -->
-        <section id="sec-videoteca">
+        <section id="sec-videoteca" class="hidden">
             <!-- Buscador de ejercicios -->
             <div class="mb-4">
                 <div class="relative">
@@ -155,7 +155,7 @@
         <!-- ═══════════════════════════════════════════ -->
         <!-- TAB: CREAR RUTINA -->
         <!-- ═══════════════════════════════════════════ -->
-        <section id="sec-rutina" class="hidden">
+        <section id="sec-rutina">
 
             <!-- Paso 1: Nombre del alumno -->
             <div class="bg-tarjeta rounded-2xl border border-borde p-6 mb-6">
@@ -192,6 +192,9 @@
                 </div>
                 <div class="mb-4">
                     <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Ejercicios del Calentamiento</label>
+                    <div class="mb-2">
+                        <input id="warmup-buscar-ej" type="text" placeholder="Buscar ejercicio..." onkeyup="filtrarEjsWarmup()" class="w-full rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-azul focus:ring-2 focus:ring-azul/30 transition">
+                    </div>
                     <div class="flex gap-2 mb-3">
                         <select id="warmup-cat-select" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
                         </select>
@@ -317,6 +320,9 @@
                 <!-- Ejercicios del bloque -->
                 <div>
                     <label class="text-xs text-textoSuave uppercase tracking-wider block mb-2">Ejercicios</label>
+                    <div class="mb-2">
+                        <input id="bloque-buscar-ej" type="text" placeholder="Buscar ejercicio..." onkeyup="filtrarEjsBloque()" class="w-full rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-verde focus:ring-2 focus:ring-verde/30 transition">
+                    </div>
                     <div class="flex gap-2 mb-3">
                         <select id="bloque-cat-select" onchange="cargarEjsBloque()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
                         </select>
@@ -588,6 +594,25 @@
         sel.innerHTML = ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + (e.nombre||e[0]) + '</option>').join('');
     }
 
+    function filtrarEjsWarmup() {
+        const query = (document.getElementById('warmup-buscar-ej')?.value || '').trim().toLowerCase();
+        const sel = document.getElementById('warmup-ej-select');
+        if (!query) { cargarEjsWarmup(); return; }
+        // Buscar en TODAS las categorias
+        let resultados = [];
+        for (const [cat, ejercicios] of Object.entries(videotecaCache)) {
+            (ejercicios || []).forEach(e => {
+                const nombre = (e.nombre || e[0] || '').toLowerCase();
+                if (nombre.includes(query)) {
+                    resultados.push({ nombre: e.nombre || e[0], link: e.link || e[1] || '', cat });
+                }
+            });
+        }
+        sel.innerHTML = resultados.length
+            ? resultados.map(r => '<option value="' + r.nombre + '" data-cat="' + r.cat + '">' + r.nombre + ' (' + r.cat + ')</option>').join('')
+            : '<option value="">Sin resultados</option>';
+    }
+
     // Listener cambio de categoria en warmup
     document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('warmup-cat-select')?.addEventListener('change', cargarEjsWarmup);
@@ -623,15 +648,21 @@
     }
 
     function agregarEjWarmup() {
-        const nombre = document.getElementById('warmup-ej-select').value;
+        const selEj = document.getElementById('warmup-ej-select');
+        const nombre = selEj.value;
         const reps = document.getElementById('warmup-ej-reps').value.trim() || '';
         const unit = document.getElementById('warmup-ej-unit').value;
         if (!nombre) return;
 
-        const cat = document.getElementById('warmup-cat-select').value;
+        // Detectar categoria: si viene de busqueda usar data-cat, sino el select de categoria
+        const selectedOption = selEj.options[selEj.selectedIndex];
+        const cat = (selectedOption && selectedOption.dataset.cat) || document.getElementById('warmup-cat-select').value;
         const ejs = videotecaCache[cat] || [];
         const ejData = ejs.find(e => (e.nombre||e[0]) === nombre);
         const link = ejData ? (ejData.link||ejData[1]||'') : '';
+        // Limpiar buscador despues de agregar
+        const buscador = document.getElementById('warmup-buscar-ej');
+        if (buscador) buscador.value = '';
 
         warmupEjercicios.push({ nombre, link, reps, unit });
         renderWarmupEjs();
@@ -681,6 +712,25 @@
         sel.innerHTML = ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + (e.nombre||e[0]) + '</option>').join('');
     }
 
+    function filtrarEjsBloque() {
+        const query = (document.getElementById('bloque-buscar-ej')?.value || '').trim().toLowerCase();
+        const sel = document.getElementById('bloque-ej-select');
+        if (!query) { cargarEjsBloque(); return; }
+        // Buscar en TODAS las categorias
+        let resultados = [];
+        for (const [cat, ejercicios] of Object.entries(videotecaCache)) {
+            (ejercicios || []).forEach(e => {
+                const nombre = (e.nombre || e[0] || '').toLowerCase();
+                if (nombre.includes(query)) {
+                    resultados.push({ nombre: e.nombre || e[0], link: e.link || e[1] || '', cat });
+                }
+            });
+        }
+        sel.innerHTML = resultados.length
+            ? resultados.map(r => '<option value="' + r.nombre + '" data-cat="' + r.cat + '">' + r.nombre + ' (' + r.cat + ')</option>').join('')
+            : '<option value="">Sin resultados</option>';
+    }
+
     function actualizarBloqueParams() {
         const tipo = document.getElementById('bloque-tipo').value;
         const container = document.getElementById('bloque-params-container');
@@ -720,12 +770,18 @@
     }
 
     function agregarEjBloque() {
-        const nombre = document.getElementById('bloque-ej-select').value;
+        const selEj = document.getElementById('bloque-ej-select');
+        const nombre = selEj.value;
         if (!nombre) return;
-        const cat = document.getElementById('bloque-cat-select').value;
+        // Detectar categoria: si viene de busqueda usar data-cat, sino el select de categoria
+        const selectedOption = selEj.options[selEj.selectedIndex];
+        const cat = (selectedOption && selectedOption.dataset.cat) || document.getElementById('bloque-cat-select').value;
         const ejs = videotecaCache[cat] || [];
         const ejData = ejs.find(e => (e.nombre||e[0]) === nombre);
         const link = ejData ? (ejData.link||ejData[1]||'') : '';
+        // Limpiar buscador despues de agregar
+        const buscador = document.getElementById('bloque-buscar-ej');
+        if (buscador) buscador.value = '';
         bloqueEjsTemp.push({ nombre, link, reps: '12', unit: 'Reps', series: 4, nota_tecnica: '' });
         renderBloqueEjsTemp();
     }
@@ -1614,6 +1670,7 @@
         cargarVideoteca();
         actualizarWarmupUI();
         cargarListaAlumnos();
+        inicializarRutina();
     });
     </script>
 </body>
