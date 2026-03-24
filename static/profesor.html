@@ -1009,13 +1009,24 @@
     }
 
     // --- Ver Rutina (modal) ---
-    function verRutina(codigo) {
-        const r = historialRutinasCache[codigo];
-        if (!r) { toast('Rutina no encontrada'); return; }
-        rutinaModalActual = { codigo, ...r };
+    async function verRutina(codigo) {
         const content = document.getElementById('modal-rutina-content');
-        content.innerHTML = generarHTMLRutina(codigo, r);
+        content.innerHTML = '<p style="text-align:center;color:#888;padding:40px;">Cargando rutina...</p>';
         document.getElementById('modal-ver-rutina').classList.remove('hidden');
+        try {
+            const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+            const data = await res.json();
+            if (data.ok) {
+                const r = data.rutina;
+                historialRutinasCache[codigo] = r;
+                rutinaModalActual = { codigo, ...r };
+                content.innerHTML = generarHTMLRutina(codigo, r);
+            } else {
+                content.innerHTML = '<p style="text-align:center;color:#EF5350;padding:40px;">Error: ' + (data.error||'No encontrada') + '</p>';
+            }
+        } catch (e) {
+            content.innerHTML = '<p style="text-align:center;color:#EF5350;padding:40px;">Error de conexion</p>';
+        }
     }
 
     function generarHTMLRutina(codigo, r) {
@@ -1124,9 +1135,26 @@
         descargarPDF(rutinaModalActual.codigo);
     }
 
-    function descargarPDF(codigo) {
-        const r = historialRutinasCache[codigo];
-        if (!r) { toast('Rutina no encontrada'); return; }
+    async function descargarPDF(codigo) {
+        let r = historialRutinasCache[codigo];
+        // Si no tenemos los datos completos (solo resumen del listado), los buscamos
+        if (!r || !r.warmup_ejercicios && !r.bloques && !r.datos && !r.rutina) {
+            toast('Cargando rutina...');
+            try {
+                const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+                const data = await res.json();
+                if (data.ok) {
+                    r = data.rutina;
+                    historialRutinasCache[codigo] = r;
+                } else {
+                    toast('Error: no se pudo cargar la rutina');
+                    return;
+                }
+            } catch (e) {
+                toast('Error de conexion');
+                return;
+            }
+        }
 
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ unit: 'mm', format: 'a4' });
