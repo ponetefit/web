@@ -1043,9 +1043,17 @@
         const tipo = r.tipo || 'ENTRENAMIENTO';
         const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
 
-        let html = `<div style="text-align:center;margin-bottom:24px;">
-            <h2 style="color:#FF6B35;font-size:28px;font-weight:900;margin:0;">PONETE FIT</h2>
-            <p style="color:#666;font-size:13px;margin-top:4px;">Rutina de: ${alumno.toUpperCase()}  |  Tipo: ${tipo}  |  Cod: ${codigo}</p>
+        const sHeader = 'font-family:Helvetica,Arial,sans-serif;';
+        const sEjRow = 'display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-bottom:1px solid #f0f0f0;';
+        const sEjNombre = 'font-weight:700;font-size:13px;color:#111;';
+        const sEjMeta = 'font-style:italic;font-size:11px;color:#888;margin-left:6px;';
+        const sLink = 'color:#4FC3F7;font-size:12px;text-decoration:underline;white-space:nowrap;margin-left:10px;';
+        const sBlockHeader = 'background:#FF6B35;color:#fff;font-weight:700;padding:7px 14px;border-radius:5px;margin:14px 0 6px;font-size:13px;' + sHeader;
+        const sSectionHeader = 'font-weight:700;padding:9px 16px;border-radius:6px;margin-bottom:10px;font-size:14px;color:#fff;' + sHeader;
+
+        let html = `<div style="${sHeader}text-align:center;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #FF6B35;">
+            <h2 style="color:#FF6B35;font-size:26px;font-weight:900;margin:0;letter-spacing:-0.5px;">PONETE FIT</h2>
+            <p style="color:#666;font-size:12px;margin-top:6px;">Rutina de: <strong>${alumno.toUpperCase()}</strong> &nbsp;|&nbsp; Tipo: <strong>${tipo}</strong> &nbsp;|&nbsp; Cod: <strong>${codigo}</strong></p>
         </div>`;
 
         // Calentamiento
@@ -1053,89 +1061,102 @@
         if (wEjs.length > 0) {
             const wTipo = datos.warmup_tipo || '';
             const wConfig = datos.warmup_config_detalle || {};
-            html += `<div style="background:#4FC3F7;color:#fff;font-weight:700;padding:8px 16px;border-radius:6px;margin-bottom:8px;font-size:14px;">1. CALENTAMIENTO  ${wTipo.toUpperCase()}</div>`;
+            html += `<div style="${sSectionHeader}background:#4FC3F7;">1. CALENTAMIENTO &nbsp; ${wTipo.toUpperCase()}</div>`;
             let metaW = '';
             if (wConfig.vueltas) metaW += 'Vueltas: ' + wConfig.vueltas;
-            if (wConfig.pausa_vuelta) metaW += '  |  Pausa entre vueltas: ' + wConfig.pausa_vuelta + 's';
+            if (wConfig.pausa_vuelta) metaW += ' &nbsp;|&nbsp; Pausa entre vueltas: ' + wConfig.pausa_vuelta + 's';
             if (wConfig.duracion_bloque) metaW += 'Duracion: ' + wConfig.duracion_bloque + ' min';
             if (wConfig.trabajo) metaW += 'Trabajo: ' + wConfig.trabajo + 's / Pausa: ' + (wConfig.pausa||10) + 's';
             if (wConfig.minutos) metaW += 'Minutos: ' + wConfig.minutos;
-            if (metaW) html += `<p style="color:#888;font-style:italic;font-size:12px;margin:4px 0 8px 8px;">${metaW}</p>`;
+            if (metaW) html += `<p style="color:#555;font-style:italic;font-size:12px;margin:0 0 8px 4px;">${metaW}</p>`;
+            html += '<div style="background:#fff;border:1px solid #e8e8e8;border-radius:6px;overflow:hidden;margin-bottom:4px;">';
             wEjs.forEach(ej => {
                 const nombre = ej[0] || ej.nombre || '';
                 const link = ej[1] || ej.link || '';
                 const reps = ej[2] || '';
                 const unit = ej[3] || 'Reps';
-                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;">
-                    <div><strong style="color:#000;font-size:13px;">- ${nombre}</strong> ${reps ? '<span style="color:#888;font-style:italic;font-size:12px;">  ' + reps + ' total de  ' + unit + '</span>' : ''}</div>
-                    ${link ? '<a href="' + link + '" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>' : ''}
+                html += `<div style="${sEjRow}">
+                    <div><span style="${sEjNombre}">- ${nombre}</span>${reps ? '<span style="'+sEjMeta+'">' + reps + ' total de ' + unit + '</span>' : ''}</div>
+                    ${link ? '<a href="' + link + '" target="_blank" style="'+sLink+'">Ver video</a>' : ''}
                 </div>`;
             });
-            html += '<hr style="border:none;border-top:1px solid #ddd;margin:16px 0;">';
+            html += '</div>';
+            html += '<hr style="border:none;border-top:2px solid #eee;margin:18px 0;">';
         }
 
         // Bloque Principal
         const bloques = toArray(datos.bloques);
         if (tipo === 'ENTRENAMIENTO' && bloques.length > 0) {
-            html += `<div style="background:#CE93D8;color:#fff;font-weight:700;padding:8px 16px;border-radius:6px;margin-bottom:12px;font-size:14px;">2. BLOQUE PRINCIPAL  ENTRENAMIENTO</div>`;
+            html += `<div style="${sSectionHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL &nbsp; ENTRENAMIENTO</div>`;
             bloques.forEach((b, i) => {
                 const ejsBloque = toArray(b.ejercicios);
                 let meta = '';
-                if (b.tipo === 'Tabata') meta = b.trabajo + 's actividad / ' + b.pausa + 's pausa  |  ' + (b.rondas||1) + ' ronda(s)';
+                if (b.tipo === 'Tabata') meta = b.trabajo + 's actividad / ' + b.pausa + 's pausa &nbsp;|&nbsp; ' + (b.rondas||1) + ' ronda(s)';
                 else if (b.tipo === 'Circuito') meta = b.vueltas + ' vueltas | Pausa: ' + b.pausa_vuelta + 's';
                 else if (b.tipo === 'Circuito por Tiempo') meta = b.duracion_min + ' min';
                 else if (b.tipo === 'EMOM') meta = b.minutos_totales + ' min | ' + b.ejercicios_por_minuto + ' ej/min';
                 else if (b.tipo === 'Series') meta = ejsBloque.length + ' ejercicios';
-                html += `<div style="background:#FF6B35;color:#fff;font-weight:600;padding:6px 16px;border-radius:4px;margin:12px 0 8px;font-size:13px;">Bloque ${i+1}: ${b.tipo}  ${meta}</div>`;
+                html += `<div style="${sBlockHeader}">Bloque ${i+1}: ${b.tipo} &nbsp; ${meta}</div>`;
+                html += '<div style="background:#fff;border:1px solid #e8e8e8;border-radius:6px;overflow:hidden;margin-bottom:6px;">';
                 ejsBloque.forEach(ej => {
                     const nombre = ej.nombre || ej[0] || '';
                     const link = ej.link || ej[1] || '';
                     const reps = ej.reps || '';
                     const unit = ej.unit || '';
                     const series = ej.series || '';
-                    html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;">
-                        <div><strong style="color:#000;font-size:13px;">- ${nombre}</strong> ${series ? '<span style="color:#888;font-style:italic;font-size:12px;">  ' + series + 'x' + reps + ' ' + unit + '</span>' : (reps ? '<span style="color:#888;font-style:italic;font-size:12px;">  ' + reps + ' ' + unit + '</span>' : '')}</div>
-                        ${link ? '<a href="' + link + '" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>' : ''}
+                    const metaEj = series && reps ? series+'x'+reps+' '+unit : (reps ? reps+' '+unit : '');
+                    html += `<div style="${sEjRow}">
+                        <div><span style="${sEjNombre}">- ${nombre}</span>${metaEj ? '<span style="'+sEjMeta+'">'+metaEj+'</span>' : ''}</div>
+                        ${link ? '<a href="' + link + '" target="_blank" style="'+sLink+'">Ver video</a>' : ''}
                     </div>`;
                 });
+                html += '</div>';
             });
         } else if (tipo === 'Tabata') {
-            html += `<div style="background:#CE93D8;color:#fff;font-weight:700;padding:8px 16px;border-radius:6px;margin-bottom:12px;font-size:14px;">2. BLOQUE PRINCIPAL  TABATA</div>`;
-            const meta = (datos.trabajo||20) + 's / ' + (datos.pausa||10) + 's | ' + (datos.rondas||1) + ' ronda(s)';
-            html += `<div style="background:#FF6B35;color:#fff;font-weight:600;padding:6px 16px;border-radius:4px;margin:8px 0;font-size:13px;">Tabata  ${meta}</div>`;
+            html += `<div style="${sSectionHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL &nbsp; TABATA</div>`;
+            const meta = (datos.trabajo||20) + 's actividad / ' + (datos.pausa||10) + 's pausa &nbsp;|&nbsp; ' + (datos.rondas||1) + ' ronda(s)';
+            html += `<div style="${sBlockHeader}">Tabata &nbsp; ${meta}</div>`;
+            html += '<div style="background:#fff;border:1px solid #e8e8e8;border-radius:6px;overflow:hidden;margin-bottom:6px;">';
             toArray(datos.rutina).forEach(ej => {
                 const nombre = ej[0] || ej.nombre || '';
                 const link = ej[1] || ej.link || '';
-                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;"><strong style="color:#000;font-size:13px;">- ${nombre}</strong>${link ? '<a href="'+link+'" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>' : ''}</div>`;
+                html += `<div style="${sEjRow}"><span style="${sEjNombre}">- ${nombre}</span>${link ? '<a href="'+link+'" target="_blank" style="'+sLink+'">Ver video</a>' : ''}</div>`;
             });
+            html += '</div>';
         } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo') {
-            html += `<div style="background:#CE93D8;color:#fff;font-weight:700;padding:8px 16px;border-radius:6px;margin-bottom:12px;font-size:14px;">2. BLOQUE PRINCIPAL  ${tipo.toUpperCase()}</div>`;
+            html += `<div style="${sSectionHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL &nbsp; ${tipo.toUpperCase()}</div>`;
+            html += '<div style="background:#fff;border:1px solid #e8e8e8;border-radius:6px;overflow:hidden;margin-bottom:6px;">';
             toArray(datos.datos).forEach(d => {
                 toArray(d.ejercicios).forEach(ej => {
                     const nombre = ej.nombre || ej[0] || '';
                     const link = ej.link || ej[1] || '';
                     const reps = ej.reps || '';
                     const unit = ej.unit || '';
-                    html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;"><div><strong style="color:#000;font-size:13px;">- ${nombre}</strong>${reps ? '<span style="color:#888;font-style:italic;font-size:12px;">  '+reps+' '+unit+'</span>':''}</div>${link?'<a href="'+link+'" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>':''}</div>`;
+                    html += `<div style="${sEjRow}"><div><span style="${sEjNombre}">- ${nombre}</span>${reps?'<span style="'+sEjMeta+'">'+reps+' '+unit+'</span>':''}</div>${link?'<a href="'+link+'" target="_blank" style="'+sLink+'">Ver video</a>':''}</div>`;
                 });
             });
+            html += '</div>';
         } else if (tipo === 'EMOM') {
-            html += `<div style="background:#CE93D8;color:#fff;font-weight:700;padding:8px 16px;border-radius:6px;margin-bottom:12px;font-size:14px;">2. BLOQUE PRINCIPAL  EMOM</div>`;
+            html += `<div style="${sSectionHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL &nbsp; EMOM</div>`;
+            html += '<div style="background:#fff;border:1px solid #e8e8e8;border-radius:6px;overflow:hidden;margin-bottom:6px;">';
             toArray(datos.rutina).forEach(ej => {
                 const nombre = ej[0] || ej.nombre || '';
                 const link = ej[1] || ej.link || '';
-                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;"><strong style="color:#000;font-size:13px;">- ${nombre}</strong>${link?'<a href="'+link+'" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>':''}</div>`;
+                html += `<div style="${sEjRow}"><span style="${sEjNombre}">- ${nombre}</span>${link?'<a href="'+link+'" target="_blank" style="'+sLink+'">Ver video</a>':''}</div>`;
             });
+            html += '</div>';
         } else if (tipo === 'Series') {
-            html += `<div style="background:#CE93D8;color:#fff;font-weight:700;padding:8px 16px;border-radius:6px;margin-bottom:12px;font-size:14px;">2. BLOQUE PRINCIPAL  SERIES</div>`;
+            html += `<div style="${sSectionHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL &nbsp; SERIES</div>`;
+            html += '<div style="background:#fff;border:1px solid #e8e8e8;border-radius:6px;overflow:hidden;margin-bottom:6px;">';
             toArray(datos.datos).forEach(ej => {
                 const nombre = ej.nombre || '';
                 const link = ej.link || '';
-                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;"><div><strong style="color:#000;font-size:13px;">- ${nombre}</strong><span style="color:#888;font-style:italic;font-size:12px;">  ${ej.series||''}x${ej.reps||''} ${ej.unit||''}</span></div>${link?'<a href="'+link+'" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>':''}</div>`;
+                html += `<div style="${sEjRow}"><div><span style="${sEjNombre}">- ${nombre}</span><span style="${sEjMeta}">${ej.series||''}x${ej.reps||''} ${ej.unit||''}</span></div>${link?'<a href="'+link+'" target="_blank" style="'+sLink+'">Ver video</a>':''}</div>`;
             });
+            html += '</div>';
         }
 
-        html += `<hr style="border:none;border-top:1px solid #ddd;margin:20px 0 8px;"><p style="color:#999;font-style:italic;font-size:11px;text-align:center;">Generado por PONETE FIT  |  ${fecha}  |  Codigo: ${codigo}</p>`;
+        html += `<hr style="border:none;border-top:1px solid #ddd;margin:20px 0 8px;"><p style="color:#aaa;font-style:italic;font-size:11px;text-align:center;font-family:Helvetica,Arial,sans-serif;">Generado por PONETE FIT &nbsp;|&nbsp; ${fecha} &nbsp;|&nbsp; Codigo: ${codigo}</p>`;
         return html;
     }
 
