@@ -1089,20 +1089,25 @@
         if (tipo === 'ENTRENAMIENTO' && bloques.length > 0) {
             html += `<div style="${sSectionHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL &nbsp; ENTRENAMIENTO</div>`;
             bloques.forEach((b, i) => {
-                const ejsBloque = toArray(b.ejercicios);
+                // Ejercicios: buscar en múltiples rutas posibles según cómo Firebase devuelva el dato
+                const ejsBloque = toArray(b.ejercicios || b.datos || b.rutina || []);
                 let meta = '';
-                if (b.tipo === 'Tabata') meta = b.trabajo + 's actividad / ' + b.pausa + 's pausa &nbsp;|&nbsp; ' + (b.rondas||1) + ' ronda(s)';
-                else if (b.tipo === 'Circuito') meta = b.vueltas + ' vueltas | Pausa: ' + b.pausa_vuelta + 's';
-                else if (b.tipo === 'Circuito por Tiempo') meta = b.duracion_min + ' min';
-                else if (b.tipo === 'EMOM') meta = b.minutos_totales + ' min | ' + b.ejercicios_por_minuto + ' ej/min';
+                if (b.tipo === 'Tabata') meta = (b.trabajo||20) + 's actividad / ' + (b.pausa||10) + 's pausa &nbsp;|&nbsp; ' + (b.rondas||1) + ' ronda(s)';
+                else if (b.tipo === 'Circuito') meta = (b.vueltas||3) + ' vueltas | Pausa: ' + (b.pausa_vuelta||60) + 's';
+                else if (b.tipo === 'Circuito por Tiempo') meta = (b.duracion_min||5) + ' min';
+                else if (b.tipo === 'EMOM') meta = (b.minutos_totales||10) + ' min | ' + (b.ejercicios_por_minuto||1) + ' ej/min';
                 else if (b.tipo === 'Series') meta = ejsBloque.length + ' ejercicios';
                 html += `<div style="${sBlockHeader}">Bloque ${i+1}: ${b.tipo} &nbsp; ${meta}</div>`;
                 html += '<div style="background:#fff;border:1px solid #e8e8e8;border-radius:6px;overflow:hidden;margin-bottom:6px;">';
+                if (ejsBloque.length === 0) {
+                    html += `<div style="padding:8px 12px;color:#aaa;font-size:12px;font-style:italic;">Sin ejercicios registrados</div>`;
+                }
                 ejsBloque.forEach(ej => {
+                    // Compatibilidad con arrays [nombre, link, reps, unit] u objetos {nombre, link, reps, unit, series}
                     const nombre = ej.nombre || ej[0] || '';
                     const link = ej.link || ej[1] || '';
-                    const reps = ej.reps || '';
-                    const unit = ej.unit || '';
+                    const reps = ej.reps || ej[2] || '';
+                    const unit = ej.unit || ej[3] || '';
                     const series = ej.series || '';
                     const metaEj = series && reps ? series+'x'+reps+' '+unit : (reps ? reps+' '+unit : '');
                     html += `<div style="${sEjRow}">
@@ -1167,9 +1172,16 @@
     }
 
     async function descargarPDF(codigo) {
+        // Verificar que jsPDF esté disponible
+        const jsPDFLib = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+        if (!jsPDFLib) {
+            toast('Error: libreria PDF no disponible, recarga la pagina');
+            return;
+        }
+
         let r = historialRutinasCache[codigo];
-        // Si no tenemos los datos completos (solo resumen del listado), los buscamos
-        if (!r || !r.warmup_ejercicios && !r.bloques && !r.datos && !r.rutina) {
+        // Si no tenemos datos en cache, los buscamos
+        if (!r) {
             toast('Cargando rutina...');
             try {
                 const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
@@ -1187,84 +1199,143 @@
             }
         }
 
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-        const pw = doc.internal.pageSize.getWidth();
-        const ph = doc.internal.pageSize.getHeight();
-        const marginL = 15;
-        const marginR = 15;
-        const contentW = pw - marginL - marginR;
-        let y = 20;
+        try {
+            const doc = new jsPDFLib({ unit: 'mm', format: 'a4' });
+            const pw = doc.internal.pageSize.getWidth();
+            const ph = doc.internal.pageSize.getHeight();
+            const marginL = 15;
+            const marginR = 15;
+            const contentW = pw - marginL - marginR;
+            let y = 20;
 
-        const datos = r.datos || r;
-        const alumno = r.alumno || '';
-        const tipo = r.tipo || 'ENTRENAMIENTO';
-        const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
+            const datos = r.datos || r;
+            const alumno = r.alumno || '';
+            const tipo = r.tipo || 'ENTRENAMIENTO';
+            const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
 
-        function checkPage(need) {
-            if (y + need > ph - 20) {
-                doc.addPage();
-                y = 20;
+            function checkPage(need) {
+                if (y + need > ph - 20) {
+                    doc.addPage();
+                    y = 20;
+                }
             }
-        }
 
-        // Header
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(28);
-        doc.setTextColor(255, 107, 53);
-        doc.text('PONETE FIT', pw / 2, y, { align: 'center' });
-        y += 8;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(100, 100, 100);
-        doc.text('Rutina de: ' + alumno.toUpperCase() + '   |   Tipo: ' + tipo + '   |   Cod: ' + codigo, pw / 2, y, { align: 'center' });
-        y += 12;
-
-        // Calentamiento
-        const wEjs = toArray(datos.warmup_ejercicios);
-        if (wEjs.length > 0) {
-            const wTipo = datos.warmup_tipo || '';
-            const wConfig = datos.warmup_config_detalle || {};
-            checkPage(20);
-            doc.setFillColor(79, 195, 247);
-            doc.roundedRect(marginL, y, contentW, 8, 2, 2, 'F');
+            // Header
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(11);
-            doc.setTextColor(255, 255, 255);
-            doc.text('  1. CALENTAMIENTO  ' + wTipo.toUpperCase(), marginL + 2, y + 5.5);
+            doc.setFontSize(28);
+            doc.setTextColor(255, 107, 53);
+            doc.text('PONETE FIT', pw / 2, y, { align: 'center' });
+            y += 8;
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(100, 100, 100);
+            doc.text('Rutina de: ' + alumno.toUpperCase() + '   |   Tipo: ' + tipo + '   |   Cod: ' + codigo, pw / 2, y, { align: 'center' });
             y += 12;
 
-            let metaW = '';
-            if (wConfig.vueltas) metaW += 'Vueltas: ' + wConfig.vueltas;
-            if (wConfig.pausa_vuelta) metaW += '   |   Pausa entre vueltas: ' + wConfig.pausa_vuelta + 's';
-            if (wConfig.duracion_bloque) metaW += 'Duracion: ' + wConfig.duracion_bloque + ' min';
-            if (wConfig.trabajo) metaW += 'Trabajo: ' + wConfig.trabajo + 's / Pausa: ' + (wConfig.pausa||10) + 's';
-            if (wConfig.minutos) metaW += 'Minutos: ' + wConfig.minutos;
-            if (metaW) {
-                doc.setFont('helvetica', 'italic');
-                doc.setFontSize(9);
-                doc.setTextColor(130, 130, 130);
-                doc.text(metaW, marginL + 4, y);
-                y += 6;
+            // Calentamiento
+            const wEjs = toArray(datos.warmup_ejercicios);
+            if (wEjs.length > 0) {
+                const wTipo = datos.warmup_tipo || '';
+                const wConfig = datos.warmup_config_detalle || {};
+                checkPage(20);
+                doc.setFillColor(79, 195, 247);
+                doc.roundedRect(marginL, y, contentW, 8, 2, 2, 'F');
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.setTextColor(255, 255, 255);
+                doc.text('  1. CALENTAMIENTO  ' + wTipo.toUpperCase(), marginL + 2, y + 5.5);
+                y += 12;
+
+                let metaW = '';
+                if (wConfig.vueltas) metaW += 'Vueltas: ' + wConfig.vueltas;
+                if (wConfig.pausa_vuelta) metaW += '   |   Pausa entre vueltas: ' + wConfig.pausa_vuelta + 's';
+                if (wConfig.duracion_bloque) metaW += 'Duracion: ' + wConfig.duracion_bloque + ' min';
+                if (wConfig.trabajo) metaW += 'Trabajo: ' + wConfig.trabajo + 's / Pausa: ' + (wConfig.pausa||10) + 's';
+                if (wConfig.minutos) metaW += 'Minutos: ' + wConfig.minutos;
+                if (metaW) {
+                    doc.setFont('helvetica', 'italic');
+                    doc.setFontSize(9);
+                    doc.setTextColor(130, 130, 130);
+                    doc.text(metaW, marginL + 4, y);
+                    y += 6;
+                }
+
+                wEjs.forEach(ej => {
+                    checkPage(8);
+                    const nombre = ej[0] || ej.nombre || '';
+                    const link = ej[1] || ej.link || '';
+                    const reps = ej[2] || ej.reps || '';
+                    const unit = ej[3] || ej.unit || 'Reps';
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(10);
+                    doc.setTextColor(0, 0, 0);
+                    let txt = '- ' + nombre;
+                    doc.text(txt, marginL + 4, y);
+                    if (reps) {
+                        const tw = doc.getTextWidth(txt);
+                        doc.setFont('helvetica', 'italic');
+                        doc.setFontSize(9);
+                        doc.setTextColor(130, 130, 130);
+                        doc.text('   ' + reps + ' total de  ' + unit, marginL + 4 + tw, y);
+                    }
+                    if (link) {
+                        doc.setFont('helvetica', 'normal');
+                        doc.setFontSize(9);
+                        doc.setTextColor(79, 195, 247);
+                        doc.textWithLink('Ver video', pw - marginR - doc.getTextWidth('Ver video'), y, { url: link });
+                    }
+                    y += 7;
+                });
+
+                y += 2;
+                doc.setDrawColor(200, 200, 200);
+                doc.line(marginL, y, pw - marginR, y);
+                y += 8;
             }
 
-            wEjs.forEach(ej => {
+            // Bloque Principal
+            function renderBloqueHeader(titulo) {
+                checkPage(14);
+                doc.setFillColor(206, 147, 216);
+                doc.roundedRect(marginL, y, contentW, 8, 2, 2, 'F');
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.setTextColor(255, 255, 255);
+                doc.text('  ' + titulo, marginL + 2, y + 5.5);
+                y += 12;
+            }
+
+            function renderSubHeader(text) {
+                checkPage(12);
+                doc.setFillColor(255, 107, 53);
+                doc.roundedRect(marginL, y, contentW, 7, 2, 2, 'F');
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(10);
+                doc.setTextColor(255, 255, 255);
+                doc.text('  ' + text, marginL + 2, y + 5);
+                y += 10;
+            }
+
+            function renderEjercicio(nombre, link, reps, unit, series) {
+                if (!nombre) return;
                 checkPage(8);
-                const nombre = ej[0] || ej.nombre || '';
-                const link = ej[1] || ej.link || '';
-                const reps = ej[2] || '';
-                const unit = ej[3] || 'Reps';
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(10);
                 doc.setTextColor(0, 0, 0);
                 let txt = '- ' + nombre;
                 doc.text(txt, marginL + 4, y);
-                if (reps) {
+                if (series && reps) {
                     const tw = doc.getTextWidth(txt);
                     doc.setFont('helvetica', 'italic');
                     doc.setFontSize(9);
                     doc.setTextColor(130, 130, 130);
-                    doc.text('   ' + reps + ' total de  ' + unit, marginL + 4 + tw, y);
+                    doc.text('   ' + series + 'x' + reps + ' ' + (unit||''), marginL + 4 + tw, y);
+                } else if (reps) {
+                    const tw = doc.getTextWidth(txt);
+                    doc.setFont('helvetica', 'italic');
+                    doc.setFontSize(9);
+                    doc.setTextColor(130, 130, 130);
+                    doc.text('   ' + reps + ' ' + (unit||''), marginL + 4 + tw, y);
                 }
                 if (link) {
                     doc.setFont('helvetica', 'normal');
@@ -1273,112 +1344,64 @@
                     doc.textWithLink('Ver video', pw - marginR - doc.getTextWidth('Ver video'), y, { url: link });
                 }
                 y += 7;
-            });
+            }
 
-            y += 2;
+            const pdfBloques = toArray(datos.bloques);
+            if (tipo === 'ENTRENAMIENTO' && pdfBloques.length > 0) {
+                renderBloqueHeader('2. BLOQUE PRINCIPAL  ENTRENAMIENTO');
+                pdfBloques.forEach((b, i) => {
+                    const ejsB = toArray(b.ejercicios || b.datos || b.rutina || []);
+                    let meta = '';
+                    if (b.tipo === 'Tabata') meta = (b.trabajo||20) + 's actividad / ' + (b.pausa||10) + 's pausa  |  ' + (b.rondas||1) + ' ronda(s)';
+                    else if (b.tipo === 'Circuito') meta = (b.vueltas||3) + ' vueltas | Pausa: ' + (b.pausa_vuelta||60) + 's';
+                    else if (b.tipo === 'Circuito por Tiempo') meta = (b.duracion_min||5) + ' min';
+                    else if (b.tipo === 'EMOM') meta = (b.minutos_totales||10) + ' min | ' + (b.ejercicios_por_minuto||1) + ' ej/min';
+                    else if (b.tipo === 'Series') meta = ejsB.length + ' ejercicios';
+                    renderSubHeader('Bloque ' + (i+1) + ': ' + b.tipo + '  ' + meta);
+                    ejsB.forEach(ej => {
+                        renderEjercicio(
+                            ej.nombre||ej[0]||'',
+                            ej.link||ej[1]||'',
+                            ej.reps||ej[2]||'',
+                            ej.unit||ej[3]||'',
+                            ej.series||''
+                        );
+                    });
+                });
+            } else if (tipo === 'Tabata') {
+                renderBloqueHeader('2. BLOQUE PRINCIPAL  TABATA');
+                renderSubHeader('Tabata  ' + (datos.trabajo||20) + 's actividad / ' + (datos.pausa||10) + 's pausa  |  ' + (datos.rondas||1) + ' ronda(s)');
+                toArray(datos.rutina).forEach(ej => renderEjercicio(ej[0]||ej.nombre||'', ej[1]||ej.link||'', '', '', ''));
+            } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo') {
+                renderBloqueHeader('2. BLOQUE PRINCIPAL  ' + tipo.toUpperCase());
+                toArray(datos.datos).forEach(d => {
+                    toArray(d.ejercicios).forEach(ej => renderEjercicio(ej.nombre||ej[0]||'', ej.link||ej[1]||'', ej.reps||'', ej.unit||'', ''));
+                });
+            } else if (tipo === 'EMOM') {
+                renderBloqueHeader('2. BLOQUE PRINCIPAL  EMOM');
+                toArray(datos.rutina).forEach(ej => renderEjercicio(ej[0]||ej.nombre||'', ej[1]||ej.link||'', '', '', ''));
+            } else if (tipo === 'Series') {
+                renderBloqueHeader('2. BLOQUE PRINCIPAL  SERIES');
+                toArray(datos.datos).forEach(ej => renderEjercicio(ej.nombre||'', ej.link||'', ej.reps||'', ej.unit||'', ej.series||''));
+            }
+
+            // Footer
+            y += 6;
+            checkPage(10);
             doc.setDrawColor(200, 200, 200);
             doc.line(marginL, y, pw - marginR, y);
-            y += 8;
+            y += 6;
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(9);
+            doc.setTextColor(150, 150, 150);
+            doc.text('Generado por PONETE FIT  |  ' + fecha + '  |  Codigo: ' + codigo, pw / 2, y, { align: 'center' });
+
+            doc.save(codigo + '.pdf');
+            toast('PDF descargado!');
+        } catch (err) {
+            console.error('Error generando PDF:', err);
+            toast('Error al generar PDF: ' + (err.message || 'desconocido'));
         }
-
-        // Bloque Principal
-        function renderBloqueHeader(titulo) {
-            checkPage(14);
-            doc.setFillColor(206, 147, 216);
-            doc.roundedRect(marginL, y, contentW, 8, 2, 2, 'F');
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(11);
-            doc.setTextColor(255, 255, 255);
-            doc.text('  ' + titulo, marginL + 2, y + 5.5);
-            y += 12;
-        }
-
-        function renderSubHeader(text) {
-            checkPage(12);
-            doc.setFillColor(255, 107, 53);
-            doc.roundedRect(marginL, y, contentW, 7, 2, 2, 'F');
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(10);
-            doc.setTextColor(255, 255, 255);
-            doc.text('  ' + text, marginL + 2, y + 5);
-            y += 10;
-        }
-
-        function renderEjercicio(nombre, link, reps, unit, series) {
-            checkPage(8);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(10);
-            doc.setTextColor(0, 0, 0);
-            let txt = '- ' + nombre;
-            doc.text(txt, marginL + 4, y);
-            if (series && reps) {
-                const tw = doc.getTextWidth(txt);
-                doc.setFont('helvetica', 'italic');
-                doc.setFontSize(9);
-                doc.setTextColor(130, 130, 130);
-                doc.text('   ' + series + 'x' + reps + ' ' + (unit||''), marginL + 4 + tw, y);
-            } else if (reps) {
-                const tw = doc.getTextWidth(txt);
-                doc.setFont('helvetica', 'italic');
-                doc.setFontSize(9);
-                doc.setTextColor(130, 130, 130);
-                doc.text('   ' + reps + ' ' + (unit||''), marginL + 4 + tw, y);
-            }
-            if (link) {
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(9);
-                doc.setTextColor(79, 195, 247);
-                doc.textWithLink('Ver video', pw - marginR - doc.getTextWidth('Ver video'), y, { url: link });
-            }
-            y += 7;
-        }
-
-        const pdfBloques = toArray(datos.bloques);
-        if (tipo === 'ENTRENAMIENTO' && pdfBloques.length > 0) {
-            renderBloqueHeader('2. BLOQUE PRINCIPAL  ENTRENAMIENTO');
-            pdfBloques.forEach((b, i) => {
-                const ejsB = toArray(b.ejercicios);
-                let meta = '';
-                if (b.tipo === 'Tabata') meta = b.trabajo + 's actividad / ' + b.pausa + 's pausa  |  ' + (b.rondas||1) + ' ronda(s)';
-                else if (b.tipo === 'Circuito') meta = b.vueltas + ' vueltas | Pausa: ' + b.pausa_vuelta + 's';
-                else if (b.tipo === 'Circuito por Tiempo') meta = b.duracion_min + ' min';
-                else if (b.tipo === 'EMOM') meta = b.minutos_totales + ' min | ' + b.ejercicios_por_minuto + ' ej/min';
-                else if (b.tipo === 'Series') meta = ejsB.length + ' ejercicios';
-                renderSubHeader('Bloque ' + (i+1) + ': ' + b.tipo + '  ' + meta);
-                ejsB.forEach(ej => {
-                    renderEjercicio(ej.nombre||ej[0]||'', ej.link||ej[1]||'', ej.reps||'', ej.unit||'', ej.series||'');
-                });
-            });
-        } else if (tipo === 'Tabata') {
-            renderBloqueHeader('2. BLOQUE PRINCIPAL  TABATA');
-            renderSubHeader('Tabata  ' + (datos.trabajo||20) + 's / ' + (datos.pausa||10) + 's | ' + (datos.rondas||1) + ' ronda(s)');
-            toArray(datos.rutina).forEach(ej => renderEjercicio(ej[0]||ej.nombre||'', ej[1]||ej.link||'', '', '', ''));
-        } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo') {
-            renderBloqueHeader('2. BLOQUE PRINCIPAL  ' + tipo.toUpperCase());
-            toArray(datos.datos).forEach(d => {
-                toArray(d.ejercicios).forEach(ej => renderEjercicio(ej.nombre||ej[0]||'', ej.link||ej[1]||'', ej.reps||'', ej.unit||'', ''));
-            });
-        } else if (tipo === 'EMOM') {
-            renderBloqueHeader('2. BLOQUE PRINCIPAL  EMOM');
-            toArray(datos.rutina).forEach(ej => renderEjercicio(ej[0]||ej.nombre||'', ej[1]||ej.link||'', '', '', ''));
-        } else if (tipo === 'Series') {
-            renderBloqueHeader('2. BLOQUE PRINCIPAL  SERIES');
-            toArray(datos.datos).forEach(ej => renderEjercicio(ej.nombre||'', ej.link||'', ej.reps||'', ej.unit||'', ej.series||''));
-        }
-
-        // Footer
-        y += 6;
-        checkPage(10);
-        doc.setDrawColor(200, 200, 200);
-        doc.line(marginL, y, pw - marginR, y);
-        y += 6;
-        doc.setFont('helvetica', 'italic');
-        doc.setFontSize(9);
-        doc.setTextColor(150, 150, 150);
-        doc.text('Generado por PONETE FIT  |  ' + fecha + '  |  Codigo: ' + codigo, pw / 2, y, { align: 'center' });
-
-        doc.save(codigo + '.pdf');
-        toast('PDF descargado!');
     }
 
     // ====================================================================
