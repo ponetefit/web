@@ -1028,14 +1028,15 @@
         lista.innerHTML = keys.sort().reverse().map(cod => {
             const r = historialCache[cod];
             const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
-            return `<div onclick="verDetalleRutina('${cod.replace(/'/g, "\\'")    }')" class="bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50 flex items-center justify-between cursor-pointer hover:border-naranja/50 hover:bg-tarjetaAlt transition group">
-                <div>
+            return `<div class="bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50 flex items-center justify-between hover:border-naranja/50 hover:bg-tarjetaAlt transition group">
+                <div onclick="verDetalleRutina('${cod.replace(/'/g, "\\'")}')" class="flex-1 cursor-pointer">
                     <span class="font-mono font-bold text-amarillo text-sm group-hover:text-naranja transition">${cod.toUpperCase()}</span>
                     <span class="text-xs text-textoSuave ml-3">${r.tipo} | ${fecha}</span>
                 </div>
                 <div class="flex items-center gap-3">
                     <span class="text-xs text-textoSuave">${r.alumno}</span>
-                    <span class="text-xs text-naranja opacity-0 group-hover:opacity-100 transition">Ver &rarr;</span>
+                    <button onclick="event.stopPropagation(); descargarPDFDirecto('${cod.replace(/'/g, "\\'")}')" class="bg-naranja/20 text-naranja px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition whitespace-nowrap">PDF</button>
+                    <span onclick="verDetalleRutina('${cod.replace(/'/g, "\\'")}')" class="text-xs text-naranja opacity-0 group-hover:opacity-100 transition cursor-pointer">Ver &rarr;</span>
                 </div>
             </div>`;
         }).join('');
@@ -1147,6 +1148,18 @@
 
     function cerrarDetalleRutina() {
         document.getElementById('modal-detalle-rutina').classList.add('hidden');
+    }
+
+    function descargarPDFDirecto(codigo) {
+        const r = historialCache[codigo];
+        if (!r) { toast('Rutina no encontrada'); return; }
+        currentData = {
+            alumno: r.alumno || 'ALUMNO',
+            tipo: r.tipo || 'ENTRENAMIENTO',
+            codigo: codigo,
+            datos: r.datos || r
+        };
+        descargarPDF();
     }
 
     // Helper: normalizar datos de cualquier tipo de rutina a array de bloques
