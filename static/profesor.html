@@ -6,6 +6,7 @@
     <title>PONETE FIT | Panel del Profesor</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700;900&family=Roboto+Mono:wght@700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -310,6 +311,7 @@
     const API_BASE = ''; // Mismo origen
 
     // Estado global
+    let currentData = null;
     let videotecaCache = {};
     let warmupEjercicios = [];
     let bloquesRutina = [];
@@ -955,13 +957,315 @@
                             <span class="font-mono font-bold text-amarillo text-sm">${cod.toUpperCase()}</span>
                             <span class="text-xs text-textoSuave ml-3">${r.tipo} | ${fecha}</span>
                         </div>
-                        <span class="text-xs text-textoSuave">${r.alumno}</span>
+                        <div class="flex items-center gap-2">
+                            <button onclick="cargarYDescargarPDF('${cod}')" class="bg-naranja/20 text-naranja px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition">PDF</button>
+                            <span class="text-xs text-textoSuave">${r.alumno}</span>
+                        </div>
                     </div>`;
                 }).join('');
             }
         } catch (e) {
             lista.innerHTML = '<p class="text-rojo text-sm text-center py-8">Error de conexion</p>';
         }
+    }
+
+    // ====================================================================
+    // DESCARGAR PDF
+    // ====================================================================
+    async function cargarYDescargarPDF(codigo) {
+        try {
+            toast('Generando PDF...');
+            const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+            const data = await res.json();
+            if (data.ok) {
+                currentData = {
+                    alumno: data.alumno || data.nombre || 'ALUMNO',
+                    tipo: data.tipo || 'ENTRENAMIENTO',
+                    codigo: codigo,
+                    datos: data.datos || data
+                };
+                descargarPDF();
+            } else {
+                toast('Error: ' + (data.error || 'No se pudo cargar'));
+            }
+        } catch (e) {
+            toast('Error de conexion');
+        }
+    }
+
+    function descargarPDF() {
+        if (!currentData) { toast('No hay datos para descargar'); return; }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const pageW = doc.internal.pageSize.getWidth();
+        const pageH = doc.internal.pageSize.getHeight();
+        const mL = 15;
+        const mR = 15;
+        const cW = pageW - mL - mR;
+        let y = 20;
+
+        const nombre = (currentData.alumno || 'ALUMNO').toUpperCase();
+        const tipo   = currentData.tipo   || 'ENTRENAMIENTO';
+        const codigo = (currentData.codigo || '---').toUpperCase();
+        const datos  = currentData.datos  || {};
+
+        // Helpers
+        function addFooter() {
+            doc.setFont('Helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.setTextColor(180, 180, 180);
+            doc.text('Entren\u00E1 con disciplina. Ponete Fit.', pageW / 2, pageH - 10, { align: 'center' });
+        }
+
+        function checkPage(needed) {
+            if (y + needed > pageH - 25) {
+                addFooter();
+                doc.addPage();
+                y = 20;
+            }
+        }
+
+        // ── ENCABEZADO ──
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(22);
+        doc.setTextColor(0, 0, 0);
+        doc.text('PONETE FIT', pageW / 2, y, { align: 'center' });
+        y += 9;
+
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(80, 80, 80);
+        doc.text('Rutina de: ' + nombre + '  |  Tipo: ' + tipo + '  |  Cod: ' + codigo, pageW / 2, y, { align: 'center' });
+        y += 5;
+
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.5);
+        doc.line(mL, y, pageW - mR, y);
+        y += 10;
+
+        // ── SECCION 1 — CALENTAMIENTO ──
+        var warmupEjs = datos.warmup_ejercicios || [];
+        if (warmupEjs.length > 0) {
+            checkPage(20);
+
+            doc.setFont('Helvetica', 'bold');
+            doc.setFontSize(13);
+            doc.setTextColor(255, 107, 53);
+            doc.text('1. CALENTAMIENTO / WARM-UP', mL, y);
+            y += 5;
+
+            var wTipo = datos.warmup_tipo || '';
+            var wConf = datos.warmup_config_detalle || {};
+            var wInfo = wTipo;
+            if (wConf.vueltas)         wInfo += ' \u2014 ' + wConf.vueltas + ' vueltas';
+            if (wConf.pausa_vuelta)    wInfo += ' | Pausa: ' + wConf.pausa_vuelta + 's';
+            if (wConf.duracion_bloque) wInfo += ' \u2014 ' + wConf.duracion_bloque + ' min';
+            if (wConf.trabajo)         wInfo += ' \u2014 ' + wConf.trabajo + 's/' + wConf.pausa + 's';
+            if (wConf.minutos)         wInfo += ' \u2014 ' + wConf.minutos + ' min';
+            if (wConf.series)          wInfo += ' \u2014 ' + wConf.series + ' series x ' + wConf.reps + ' reps';
+
+            if (wInfo) {
+                doc.setFont('Helvetica', 'italic');
+                doc.setFontSize(9);
+                doc.setTextColor(130, 130, 130);
+                doc.text(wInfo, mL, y);
+                y += 6;
+            }
+
+            y += 2;
+
+            doc.setFont('Helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(50, 50, 50);
+
+            warmupEjs.forEach(function (ej) {
+                checkPage(7);
+                var ejNom  = Array.isArray(ej) ? ej[0] : (ej.nombre || '');
+                var ejReps = Array.isArray(ej) ? ej[2] : (ej.reps   || '');
+                var ejUnit = Array.isArray(ej) ? ej[3] : (ej.unit   || '');
+                var linea  = ejNom;
+                if (ejReps) linea += '  \u2014  ' + ejReps + ' ' + ejUnit;
+
+                doc.setFont('Helvetica', 'normal');
+                doc.setFontSize(10);
+                doc.setTextColor(50, 50, 50);
+                doc.text('\u2022', mL + 2, y);
+                doc.text(linea, mL + 8, y);
+                y += 6;
+            });
+
+            y += 6;
+        }
+
+        // ── SECCION 2 — BLOQUE PRINCIPAL ──
+        var bloques = [];
+
+        if (datos.bloques && Array.isArray(datos.bloques)) {
+            bloques = datos.bloques;
+        } else if (datos.datos && Array.isArray(datos.datos)) {
+            if (tipo === 'Series') {
+                bloques = [{ tipo: 'Series', descripcion: datos.descripcion || '', ejercicios: datos.datos }];
+            } else {
+                var primerBloque = datos.datos[0] || {};
+                bloques = [{
+                    tipo: tipo,
+                    descripcion: datos.descripcion || '',
+                    vueltas: datos.vueltas_bloque,
+                    pausa_vuelta: datos.pausa_vuelta,
+                    duracion_min: primerBloque.tiempo_min,
+                    ejercicios: primerBloque.ejercicios || datos.datos
+                }];
+            }
+        } else if (datos.rutina && Array.isArray(datos.rutina)) {
+            var ejerciciosNorm = datos.rutina.map(function (r) {
+                var n = Array.isArray(r) ? r[0] : r.nombre;
+                var l = Array.isArray(r) ? r[1] : r.link;
+                return {
+                    nombre: n, link: l,
+                    reps: datos.reps_por_ejercicio  ? (datos.reps_por_ejercicio[n]  || '') : '',
+                    unit: datos.units_por_ejercicio ? (datos.units_por_ejercicio[n] || '') : ''
+                };
+            });
+            bloques = [{
+                tipo: tipo, descripcion: datos.descripcion || '',
+                trabajo: datos.trabajo, pausa: datos.pausa,
+                rondas: datos.rondas, pausa_entre_rondas: datos.pausa_entre_rondas,
+                minutos_totales: datos.minutos_totales,
+                ejercicios_por_minuto: datos.ejercicios_por_minuto,
+                ejercicios: ejerciciosNorm
+            }];
+        }
+
+        if (bloques.length > 0) {
+            checkPage(20);
+
+            doc.setFont('Helvetica', 'bold');
+            doc.setFontSize(13);
+            doc.setTextColor(255, 107, 53);
+            doc.text('2. BLOQUE PRINCIPAL ENTRENAMIENTO', mL, y);
+            y += 10;
+
+            bloques.forEach(function (bloque, bIdx) {
+                checkPage(15);
+
+                if (bloques.length > 1) {
+                    doc.setFont('Helvetica', 'bold');
+                    doc.setFontSize(11);
+                    doc.setTextColor(60, 60, 60);
+                    doc.text('Bloque ' + (bIdx + 1) + ':  ' + (bloque.tipo || tipo), mL, y);
+                    y += 5;
+                }
+
+                var meta = '';
+                var bTipo = bloque.tipo || tipo;
+                if (bTipo === 'Circuito' && bloque.vueltas)
+                    meta = bloque.vueltas + ' vueltas  |  Pausa entre vueltas: ' + (bloque.pausa_vuelta || 0) + 's';
+                else if (bTipo === 'Circuito por Tiempo' && bloque.duracion_min)
+                    meta = 'Duraci\u00F3n: ' + bloque.duracion_min + ' min';
+                else if (bTipo === 'Tabata')
+                    meta = 'Trabajo: ' + (bloque.trabajo || 20) + 's  |  Pausa: ' + (bloque.pausa || 10) + 's  |  Rondas: ' + (bloque.rondas || 1);
+                else if (bTipo === 'EMOM')
+                    meta = (bloque.minutos_totales || 10) + ' min  |  ' + (bloque.ejercicios_por_minuto || 1) + ' ej/min';
+                else if (bTipo === 'Series')
+                    meta = (bloque.ejercicios || []).length + ' ejercicios';
+
+                if (meta) {
+                    doc.setFont('Helvetica', 'italic');
+                    doc.setFontSize(9);
+                    doc.setTextColor(130, 130, 130);
+                    doc.text(meta, mL, y);
+                    y += 5;
+                }
+
+                if (bloque.descripcion) {
+                    doc.setFont('Helvetica', 'italic');
+                    doc.setFontSize(9);
+                    doc.setTextColor(110, 110, 110);
+                    var descLines = doc.splitTextToSize(bloque.descripcion, cW - 8);
+                    doc.text(descLines, mL, y);
+                    y += descLines.length * 4 + 2;
+                }
+
+                y += 2;
+
+                var ejercicios = bloque.ejercicios || [];
+                ejercicios.forEach(function (ej) {
+                    var ejNom   = ej.nombre  || (Array.isArray(ej) ? ej[0] : '');
+                    var ejLink  = ej.link    || (Array.isArray(ej) ? ej[1] : '');
+                    var ejSer   = ej.series  || '';
+                    var ejReps  = ej.reps    || '';
+                    var ejUnit  = ej.unit    || '';
+                    var ejNota  = ej.nota_tecnica || '';
+                    var ejPausa = '';
+                    if (bTipo === 'Circuito')    ejPausa = bloque.pausa_vuelta || '';
+                    else if (bTipo === 'Tabata') ejPausa = bloque.pausa || '';
+
+                    var blockH = 18;
+                    if (ejNota) blockH += 5;
+
+                    checkPage(blockH + 3);
+
+                    var blockY = y;
+
+                    doc.setFillColor(240, 240, 240);
+                    doc.roundedRect(mL, blockY, cW, blockH, 2, 2, 'F');
+
+                    doc.setFont('Helvetica', 'bold');
+                    doc.setFontSize(10);
+                    doc.setTextColor(30, 30, 30);
+                    doc.text(ejNom, mL + 4, blockY + 6);
+
+                    if (ejLink) {
+                        doc.setFont('Helvetica', 'normal');
+                        doc.setFontSize(8);
+                        doc.setTextColor(41, 98, 255);
+                        var linkText = 'Ver video';
+                        var linkW    = doc.getTextWidth(linkText);
+                        doc.textWithLink(linkText, pageW - mR - linkW - 4, blockY + 6, { url: ejLink });
+                    }
+
+                    var detalles = '';
+                    if (ejSer)  detalles += 'Series/Rondas: ' + ejSer;
+                    if (ejReps) {
+                        if (detalles) detalles += '  |  ';
+                        detalles += 'Reps/Tiempo: ' + ejReps + (ejUnit ? ' ' + ejUnit : '');
+                    }
+                    if (ejPausa) {
+                        if (detalles) detalles += '  |  ';
+                        detalles += 'Pausa: ' + ejPausa + 's';
+                    }
+
+                    if (detalles) {
+                        doc.setFont('Helvetica', 'normal');
+                        doc.setFontSize(8);
+                        doc.setTextColor(100, 100, 100);
+                        doc.text(detalles, mL + 4, blockY + 12);
+                    }
+
+                    if (ejNota) {
+                        doc.setFont('Helvetica', 'italic');
+                        doc.setFontSize(7.5);
+                        doc.setTextColor(140, 140, 140);
+                        doc.text('Nota: ' + ejNota, mL + 4, blockY + 17);
+                    }
+
+                    y = blockY + blockH + 3;
+                });
+
+                y += 4;
+            });
+        }
+
+        // Pie de pagina en todas las paginas
+        var totalPages = doc.internal.getNumberOfPages();
+        for (var p = 1; p <= totalPages; p++) {
+            doc.setPage(p);
+            addFooter();
+        }
+
+        var fileName = 'rutina-' + nombre.toLowerCase().replace(/\s+/g, '-') + '-' + codigo.toLowerCase() + '.pdf';
+        doc.save(fileName);
     }
 
     // ====================================================================
