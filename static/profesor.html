@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700;900&family=Roboto+Mono:wght@700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <script>
         // Fallback si cdnjs falla
         if (typeof window.jspdf === 'undefined' && typeof window.jsPDF === 'undefined') {
@@ -70,6 +71,34 @@
         ::-webkit-scrollbar-track { background: #0a0a0c; }
         ::-webkit-scrollbar-thumb { background: #2a2a35; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #3a3a45; }
+        .dash-fade-in { animation: dashFadeIn 0.4s ease-out; }
+        @keyframes dashFadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .kpi-card {
+            background: linear-gradient(135deg, #141418 0%, #1a1a20 100%);
+            border: 1px solid #2a2a35;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+        .bar-fill {
+            transition: width 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+            border-radius: 0 4px 4px 0;
+        }
+        .dash-table tr:hover {
+            background: rgba(255,107,53,0.06) !important;
+            cursor: pointer;
+        }
+        .modal-glass {
+            background: rgba(20,20,24,0.92);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
     </style>
 </head>
 <body class="bg-fondo text-texto min-h-screen">
@@ -88,13 +117,141 @@
     <!-- TABS -->
     <nav class="bg-tarjeta border-b border-borde">
         <div class="max-w-6xl mx-auto flex gap-0">
-            <button onclick="showTab('rutina')" id="tab-rutina" class="tab-active px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Crear Rutina</button>
+            <button onclick="showTab('dashboard')" id="tab-dashboard" class="tab-active px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Dashboard</button>
+            <button onclick="showTab('rutina')" id="tab-rutina" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Crear Rutina</button>
             <button onclick="showTab('videoteca')" id="tab-videoteca" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Videoteca</button>
             <button onclick="showTab('historial')" id="tab-historial" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Historial</button>
         </div>
     </nav>
 
     <main class="max-w-6xl mx-auto p-6">
+
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- TAB: DASHBOARD -->
+        <!-- ═══════════════════════════════════════════ -->
+        <section id="sec-dashboard">
+
+            <!-- Selector de Alumno -->
+            <div class="bg-tarjeta rounded-2xl border border-borde p-6 mb-6">
+                <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-naranja uppercase tracking-wider mb-1">Dashboard del Alumno</h2>
+                        <p class="text-xs text-textoSuave">Selecciona un alumno para ver su analisis completo</p>
+                    </div>
+                    <div class="flex gap-3 items-center w-full md:w-auto">
+                        <select id="dash-select-alumno" onchange="cargarDashboard()" class="rounded-lg px-4 py-2.5 text-sm flex-1 md:min-w-[220px]">
+                            <option value="">-- Seleccionar alumno --</option>
+                        </select>
+                        <button onclick="cargarAlumnosDash()" class="bg-naranja/20 text-naranja px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition whitespace-nowrap">Actualizar</button>
+                    </div>
+                </div>
+                <!-- Perfil -->
+                <div id="dash-perfil" class="hidden mt-4 pt-4 border-t border-borde">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full bg-naranja/20 flex items-center justify-center text-naranja font-black text-lg" id="dash-avatar">?</div>
+                        <div>
+                            <p class="font-bold text-lg" id="dash-nombre-alumno"></p>
+                            <p class="text-xs text-textoSuave"><span id="dash-nivel" class="text-azul font-bold"></span> <span id="dash-objetivo" class="ml-2"></span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenido del Dashboard (se muestra al seleccionar alumno) -->
+            <div id="dash-contenido" class="hidden dash-fade-in">
+
+                <!-- KPIs -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div class="kpi-card rounded-2xl p-5 text-center">
+                        <p class="text-3xl font-black text-naranja" id="kpi-total-rutinas">0</p>
+                        <p class="text-xs text-textoSuave uppercase tracking-wider mt-1">Total Rutinas</p>
+                    </div>
+                    <div class="kpi-card rounded-2xl p-5 text-center">
+                        <p class="text-xl font-black text-azul" id="kpi-metodo-dominante">--</p>
+                        <p class="text-xs text-textoSuave uppercase tracking-wider mt-1">Metodo Dominante</p>
+                    </div>
+                    <div class="kpi-card rounded-2xl p-5 text-center">
+                        <p class="text-3xl font-black text-verde" id="kpi-ejs-unicos">0</p>
+                        <p class="text-xs text-textoSuave uppercase tracking-wider mt-1">Ejercicios Unicos</p>
+                    </div>
+                    <div class="kpi-card rounded-2xl p-5 text-center">
+                        <p class="text-xl font-black text-amarillo" id="kpi-frecuencia">--</p>
+                        <p class="text-xs text-textoSuave uppercase tracking-wider mt-1">Frecuencia Semanal</p>
+                    </div>
+                </div>
+
+                <!-- Analisis Videoteca: Top 10 Mas / Menos usados -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <!-- Top 10 Mas usados -->
+                    <div class="bg-tarjeta rounded-2xl border border-borde p-5">
+                        <h3 class="text-sm font-bold text-verde uppercase tracking-wider mb-4">Top 10 Mas Utilizados</h3>
+                        <div id="dash-top-mas" class="space-y-2">
+                            <p class="text-textoSuave text-xs text-center py-4">Sin datos</p>
+                        </div>
+                    </div>
+                    <!-- Top 10 Menos usados -->
+                    <div class="bg-tarjeta rounded-2xl border border-borde p-5">
+                        <h3 class="text-sm font-bold text-rojo uppercase tracking-wider mb-4">Top 10 Menos Utilizados</h3>
+                        <div id="dash-top-menos" class="space-y-2">
+                            <p class="text-textoSuave text-xs text-center py-4">Sin datos</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Distribucion de Metodos + Ultimas 5 Rutinas -->
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+                    <!-- Grafico Doughnut -->
+                    <div class="lg:col-span-2 bg-tarjeta rounded-2xl border border-borde p-5">
+                        <h3 class="text-sm font-bold text-purpura uppercase tracking-wider mb-4">Distribucion de Metodos</h3>
+                        <div class="flex items-center justify-center" style="max-height:280px;">
+                            <canvas id="dash-chart-metodos" width="260" height="260"></canvas>
+                        </div>
+                        <div id="dash-chart-leyenda" class="mt-4 flex flex-wrap gap-3 justify-center text-xs"></div>
+                    </div>
+
+                    <!-- Ultimas 5 rutinas -->
+                    <div class="lg:col-span-3 bg-tarjeta rounded-2xl border border-borde p-5">
+                        <h3 class="text-sm font-bold text-amarillo uppercase tracking-wider mb-4">Ultimas 5 Rutinas</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm dash-table">
+                                <thead>
+                                    <tr class="text-textoSuave text-xs uppercase tracking-wider border-b border-borde">
+                                        <th class="text-left py-2 px-2">Fecha</th>
+                                        <th class="text-left py-2 px-2">Codigo</th>
+                                        <th class="text-left py-2 px-2">Metodo</th>
+                                        <th class="text-center py-2 px-2">Ejercicios</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dash-tabla-rutinas">
+                                    <tr><td colspan="4" class="text-center text-textoSuave py-6">Sin datos</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Estado vacio -->
+            <div id="dash-vacio" class="text-center py-16">
+                <div class="text-6xl mb-4">&#128202;</div>
+                <p class="text-textoSuave text-sm">Selecciona un alumno del desplegable para ver su dashboard</p>
+            </div>
+        </section>
+
+        <!-- Modal Dashboard Ver Rutina -->
+        <div id="modal-dash-rutina" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+            <div class="modal-glass rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold text-naranja">Detalle de Rutina</h3>
+                        <button onclick="document.getElementById('modal-dash-rutina').classList.add('hidden')" class="text-textoSuave hover:text-texto text-2xl leading-none">&times;</button>
+                    </div>
+                    <div id="modal-dash-rutina-content">
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- ═══════════════════════════════════════════ -->
         <!-- TAB: VIDEOTECA -->
@@ -155,7 +312,7 @@
         <!-- ═══════════════════════════════════════════ -->
         <!-- TAB: CREAR RUTINA -->
         <!-- ═══════════════════════════════════════════ -->
-        <section id="sec-rutina">
+        <section id="sec-rutina" class="hidden">
 
             <!-- Paso 1: Nombre del alumno -->
             <div class="bg-tarjeta rounded-2xl border border-borde p-6 mb-6">
@@ -364,13 +521,14 @@
     // TABS
     // ====================================================================
     function showTab(tab) {
-        ['videoteca', 'rutina', 'historial'].forEach(t => {
+        ['dashboard', 'videoteca', 'rutina', 'historial'].forEach(t => {
             document.getElementById('sec-' + t).classList.toggle('hidden', t !== tab);
             document.getElementById('tab-' + t).className = t === tab
                 ? 'tab-active px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors'
                 : 'tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors';
         });
         if (tab === 'rutina') inicializarRutina();
+        if (tab === 'dashboard') cargarAlumnosDash();
     }
 
     // ====================================================================
@@ -1809,13 +1967,427 @@
     }
 
     // ====================================================================
+    // DASHBOARD
+    // ====================================================================
+
+    let dashChartInstance = null;
+    let dashRutinasData = {};
+
+    async function cargarAlumnosDash() {
+        const sel = document.getElementById('dash-select-alumno');
+        try {
+            const res = await fetch(API_BASE + '/api/alumnos');
+            const data = await res.json();
+            if (data.ok && data.alumnos) {
+                const current = sel.value;
+                sel.innerHTML = '<option value="">-- Seleccionar alumno --</option>' +
+                    data.alumnos.map(a => `<option value="${a}">${a.toUpperCase()}</option>`).join('');
+                if (current) sel.value = current;
+            }
+        } catch (e) {
+            console.error('Error cargando alumnos para dashboard:', e);
+        }
+    }
+
+    async function cargarDashboard() {
+        const nombre = document.getElementById('dash-select-alumno').value;
+        const contenido = document.getElementById('dash-contenido');
+        const vacio = document.getElementById('dash-vacio');
+        const perfil = document.getElementById('dash-perfil');
+
+        if (!nombre) {
+            contenido.classList.add('hidden');
+            vacio.classList.remove('hidden');
+            perfil.classList.add('hidden');
+            return;
+        }
+
+        vacio.classList.add('hidden');
+        perfil.classList.remove('hidden');
+
+        // Mostrar perfil
+        document.getElementById('dash-avatar').textContent = nombre.charAt(0).toUpperCase();
+        document.getElementById('dash-nombre-alumno').textContent = nombre.toUpperCase();
+
+        // Cargar rutinas del alumno
+        try {
+            const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre));
+            const data = await res.json();
+            if (data.ok) {
+                dashRutinasData = data.rutinas || {};
+                procesarDashboard(nombre);
+                contenido.classList.remove('hidden');
+                // Re-trigger animation
+                contenido.classList.remove('dash-fade-in');
+                void contenido.offsetWidth;
+                contenido.classList.add('dash-fade-in');
+            } else {
+                toast('Error cargando datos del alumno');
+            }
+        } catch (e) {
+            toast('Error de conexion');
+            console.error(e);
+        }
+    }
+
+    function procesarDashboard(nombre) {
+        const rutinas = dashRutinasData;
+        const keys = Object.keys(rutinas);
+        const totalRutinas = keys.length;
+
+        // -- KPI: Total Rutinas --
+        document.getElementById('kpi-total-rutinas').textContent = totalRutinas;
+
+        if (totalRutinas === 0) {
+            document.getElementById('kpi-metodo-dominante').textContent = '--';
+            document.getElementById('kpi-ejs-unicos').textContent = '0';
+            document.getElementById('kpi-frecuencia').textContent = '--';
+            document.getElementById('dash-nivel').textContent = 'Nuevo';
+            document.getElementById('dash-objetivo').textContent = '';
+            document.getElementById('dash-top-mas').innerHTML = '<p class="text-textoSuave text-xs text-center py-4">Sin datos</p>';
+            document.getElementById('dash-top-menos').innerHTML = '<p class="text-textoSuave text-xs text-center py-4">Sin datos</p>';
+            document.getElementById('dash-tabla-rutinas').innerHTML = '<tr><td colspan="4" class="text-center text-textoSuave py-6">Sin rutinas</td></tr>';
+            renderChartMetodos({});
+            return;
+        }
+
+        // Recopilar datos de todas las rutinas
+        const metodoCount = {};
+        const ejercicioCount = {};
+        const timestamps = [];
+
+        keys.forEach(cod => {
+            const r = rutinas[cod];
+            const tipo = r.tipo || 'ENTRENAMIENTO';
+            metodoCount[tipo] = (metodoCount[tipo] || 0) + 1;
+            if (r.timestamp) timestamps.push(r.timestamp);
+
+            // Extraer ejercicios de la rutina
+            const datos = resolverDatos(r);
+            const allEjs = extraerEjerciciosDeRutina(r, datos);
+            allEjs.forEach(nombre => {
+                ejercicioCount[nombre] = (ejercicioCount[nombre] || 0) + 1;
+            });
+        });
+
+        // -- KPI: Metodo Dominante --
+        let metDominante = '--';
+        let metMax = 0;
+        for (const [m, c] of Object.entries(metodoCount)) {
+            if (c > metMax) { metMax = c; metDominante = m; }
+        }
+        document.getElementById('kpi-metodo-dominante').textContent = metDominante;
+
+        // -- KPI: Ejercicios Unicos --
+        const ejsUnicos = Object.keys(ejercicioCount).length;
+        document.getElementById('kpi-ejs-unicos').textContent = ejsUnicos;
+
+        // -- KPI: Frecuencia semanal --
+        if (timestamps.length >= 2) {
+            timestamps.sort((a, b) => a - b);
+            const rangoSeg = timestamps[timestamps.length - 1] - timestamps[0];
+            const semanas = Math.max(rangoSeg / 604800, 1);
+            const freq = (totalRutinas / semanas).toFixed(1);
+            document.getElementById('kpi-frecuencia').textContent = freq + '/sem';
+        } else {
+            document.getElementById('kpi-frecuencia').textContent = totalRutinas + '/sem';
+        }
+
+        // -- Nivel --
+        let nivel = 'Principiante';
+        if (totalRutinas > 30) nivel = 'Avanzado';
+        else if (totalRutinas > 10) nivel = 'Intermedio';
+        document.getElementById('dash-nivel').textContent = nivel;
+        document.getElementById('dash-objetivo').textContent = '| ' + totalRutinas + ' rutinas entregadas';
+
+        // -- Top 10 Mas usados --
+        const ejsSorted = Object.entries(ejercicioCount).sort((a, b) => b[1] - a[1]);
+        const maxCount = ejsSorted.length > 0 ? ejsSorted[0][1] : 1;
+        renderBarChart('dash-top-mas', ejsSorted.slice(0, 10), maxCount, '#69F0AE');
+
+        // -- Top 10 Menos usados --
+        const ejsLeast = Object.entries(ejercicioCount).sort((a, b) => a[1] - b[1]);
+        const maxCountLeast = ejsLeast.length > 0 ? ejsLeast[ejsLeast.length - 1][1] : 1;
+        renderBarChart('dash-top-menos', ejsLeast.slice(0, 10), maxCountLeast, '#EF5350');
+
+        // -- Chart Metodos --
+        renderChartMetodos(metodoCount);
+
+        // -- Tabla Ultimas 5 --
+        renderTablaUltimas(keys, rutinas);
+    }
+
+    function extraerEjerciciosDeRutina(r, datos) {
+        const nombres = [];
+
+        // Warmup
+        const wEjs = toArray(datos.warmup_ejercicios);
+        wEjs.forEach(ej => {
+            const e = normalizeEj(ej);
+            if (e.nombre) nombres.push(e.nombre.toUpperCase());
+        });
+
+        // Bloques
+        const bloques = toArray(datos.bloques);
+        if (bloques.length > 0) {
+            bloques.forEach(b => {
+                toArray(b.ejercicios || []).forEach(ej => {
+                    const e = normalizeEj(ej);
+                    if (e.nombre) nombres.push(e.nombre.toUpperCase());
+                });
+            });
+        } else {
+            // Formatos simples
+            const ejsFlat = toArray(datos.rutina || datos.datos || []);
+            ejsFlat.forEach(item => {
+                if (item && item.ejercicios) {
+                    toArray(item.ejercicios).forEach(ej => {
+                        const e = normalizeEj(ej);
+                        if (e.nombre) nombres.push(e.nombre.toUpperCase());
+                    });
+                } else {
+                    const e = normalizeEj(item);
+                    if (e.nombre) nombres.push(e.nombre.toUpperCase());
+                }
+            });
+        }
+
+        return nombres;
+    }
+
+    function renderBarChart(containerId, data, maxVal, color) {
+        const container = document.getElementById(containerId);
+        if (data.length === 0) {
+            container.innerHTML = '<p class="text-textoSuave text-xs text-center py-4">Sin datos suficientes</p>';
+            return;
+        }
+        container.innerHTML = data.map(([nombre, count]) => {
+            const pct = Math.max((count / maxVal) * 100, 4);
+            return `<div class="flex items-center gap-2">
+                <span class="text-xs text-textoSuave w-28 truncate text-right flex-shrink-0" title="${nombre}">${nombre}</span>
+                <div class="flex-1 bg-fondoAlt rounded h-5 overflow-hidden">
+                    <div class="bar-fill h-full" style="width:${pct}%;background:${color};"></div>
+                </div>
+                <span class="text-xs font-bold w-6 text-right" style="color:${color}">${count}</span>
+            </div>`;
+        }).join('');
+        // Animate bars
+        setTimeout(() => {
+            container.querySelectorAll('.bar-fill').forEach(b => {
+                const w = b.style.width;
+                b.style.width = '0%';
+                requestAnimationFrame(() => { b.style.width = w; });
+            });
+        }, 50);
+    }
+
+    function renderChartMetodos(metodoCount) {
+        const ctx = document.getElementById('dash-chart-metodos');
+        if (!ctx) return;
+
+        if (dashChartInstance) {
+            dashChartInstance.destroy();
+            dashChartInstance = null;
+        }
+
+        const labels = Object.keys(metodoCount);
+        const values = Object.values(metodoCount);
+
+        if (labels.length === 0) {
+            document.getElementById('dash-chart-leyenda').innerHTML = '<span class="text-textoSuave">Sin datos</span>';
+            return;
+        }
+
+        const colores = ['#FF6B35', '#4FC3F7', '#69F0AE', '#FFD54F', '#CE93D8', '#EF5350', '#80CBC4', '#FFB74D'];
+
+        dashChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: colores.slice(0, labels.length),
+                    borderColor: '#0a0a0c',
+                    borderWidth: 3,
+                    hoverBorderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                cutout: '65%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1a1a20',
+                        titleColor: '#f0f0f5',
+                        bodyColor: '#8a8a9a',
+                        borderColor: '#2a2a35',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 10
+                    }
+                },
+                animation: {
+                    animateRotate: true,
+                    duration: 800
+                }
+            }
+        });
+
+        // Leyenda custom
+        const leyenda = document.getElementById('dash-chart-leyenda');
+        const total = values.reduce((a, b) => a + b, 0);
+        leyenda.innerHTML = labels.map((l, i) => {
+            const pct = total > 0 ? Math.round(values[i] / total * 100) : 0;
+            return `<span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm inline-block" style="background:${colores[i]}"></span>${l} (${pct}%)</span>`;
+        }).join('');
+    }
+
+    function renderTablaUltimas(keys, rutinas) {
+        const tbody = document.getElementById('dash-tabla-rutinas');
+
+        // Ordenar por timestamp desc
+        const sorted = keys.sort((a, b) => {
+            const ta = rutinas[a].timestamp || 0;
+            const tb = rutinas[b].timestamp || 0;
+            return tb - ta;
+        }).slice(0, 5);
+
+        if (sorted.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-textoSuave py-6">Sin rutinas</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = sorted.map(cod => {
+            const r = rutinas[cod];
+            const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleDateString('es-AR') : '--';
+            const tipo = r.tipo || 'ENTRENAMIENTO';
+            const datos = resolverDatos(r);
+            const cantEjs = extraerEjerciciosDeRutina(r, datos).length;
+            return `<tr onclick="verRutinaDash('${cod}')" class="border-b border-borde/30 transition-colors">
+                <td class="py-3 px-2 text-textoSuave">${fecha}</td>
+                <td class="py-3 px-2 font-mono font-bold text-amarillo">${cod.toUpperCase()}</td>
+                <td class="py-3 px-2"><span class="text-xs bg-naranja/15 text-naranja px-2 py-0.5 rounded font-bold">${tipo}</span></td>
+                <td class="py-3 px-2 text-center text-verde font-bold">${cantEjs}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    async function verRutinaDash(codigo) {
+        const content = document.getElementById('modal-dash-rutina-content');
+        content.innerHTML = '<p class="text-textoSuave text-center py-8">Cargando...</p>';
+        document.getElementById('modal-dash-rutina').classList.remove('hidden');
+
+        try {
+            let r = dashRutinasData[codigo];
+            if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios)) {
+                const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+                const data = await res.json();
+                if (!data.ok) {
+                    content.innerHTML = '<p class="text-rojo text-center py-8">Error: ' + (data.error || 'No encontrada') + '</p>';
+                    return;
+                }
+                r = data.rutina;
+                dashRutinasData[codigo] = r;
+            }
+
+            const datos = resolverDatos(r);
+            const alumno = r.alumno || '';
+            const tipo = r.tipo || 'ENTRENAMIENTO';
+            const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
+
+            let html = `<div class="mb-4 pb-3 border-b border-borde/50">
+                <p class="text-xs text-textoSuave">Alumno: <strong class="text-texto">${alumno.toUpperCase()}</strong> | Tipo: <strong class="text-naranja">${tipo}</strong> | Codigo: <strong class="text-amarillo">${codigo.toUpperCase()}</strong>${fecha ? ' | ' + fecha : ''}</p>
+            </div>`;
+
+            // Calentamiento
+            const wEjs = toArray(datos.warmup_ejercicios);
+            const wTipo = datos.warmup_tipo || '';
+            const wConfig = datos.warmup_config_detalle || {};
+            if (wEjs.length > 0) {
+                html += `<div class="mb-4"><h4 class="text-sm font-bold text-azul uppercase tracking-wider mb-2">Entrada en Calor${wTipo ? ' — ' + wTipo : ''}</h4>`;
+                const wParts = [];
+                if (wConfig.vueltas) wParts.push('Vueltas: ' + wConfig.vueltas);
+                if (wConfig.pausa_vuelta) wParts.push('Pausa: ' + wConfig.pausa_vuelta + 's');
+                if (wConfig.duracion_bloque) wParts.push('Duracion: ' + wConfig.duracion_bloque + ' min');
+                if (wConfig.trabajo) wParts.push('Trabajo: ' + wConfig.trabajo + 's / Pausa: ' + (wConfig.pausa||10) + 's');
+                if (wConfig.minutos) wParts.push('Minutos: ' + wConfig.minutos);
+                if (wParts.length) html += `<p class="text-xs text-textoSuave italic mb-2">${wParts.join(' | ')}</p>`;
+                wEjs.forEach(ej => {
+                    const e = normalizeEj(ej);
+                    if (e.nombre) {
+                        html += `<div class="bg-fondoAlt rounded-lg px-3 py-2 mb-1.5 flex items-center justify-between">
+                            <span class="text-sm font-bold">${e.nombre}</span>
+                            <span class="text-xs text-textoSuave">${e.reps ? e.reps + ' ' + (e.unit||'') : ''}</span>
+                        </div>`;
+                    }
+                });
+                html += '</div><hr class="border-borde/30 my-3">';
+            }
+
+            // Bloque Principal
+            const bloques = toArray(datos.bloques);
+            html += `<div><h4 class="text-sm font-bold text-purpura uppercase tracking-wider mb-2">Bloque Principal — ${tipo}</h4>`;
+            if (bloques.length > 0) {
+                bloques.forEach((b, i) => {
+                    const ejsB = toArray(b.ejercicios || []);
+                    const bTipo = b.tipo || tipo;
+                    let meta = '';
+                    if (bTipo === 'Circuito') meta = (b.vueltas||3) + ' vueltas | Pausa: ' + (b.pausa_vuelta||60) + 's';
+                    else if (bTipo === 'Tabata') meta = (b.trabajo||20) + 's/' + (b.pausa||10) + 's | ' + (b.rondas||1) + ' ronda(s)';
+                    else if (bTipo === 'EMOM') meta = (b.minutos_totales||10) + ' min';
+                    else if (bTipo === 'Circuito por Tiempo') meta = (b.duracion_min||5) + ' min';
+                    html += `<div class="bg-naranja/10 rounded-lg px-3 py-1.5 mb-2"><span class="text-xs font-bold text-naranja">${bTipo}</span><span class="text-xs text-textoSuave ml-2">${meta}</span></div>`;
+                    if (b.descripcion) html += `<p class="text-xs text-textoSuave italic mb-1">${b.descripcion}</p>`;
+                    ejsB.forEach(ej => {
+                        const e = normalizeEj(ej);
+                        if (e.nombre) {
+                            const metaParts = [];
+                            if (e.series) metaParts.push(e.series + ' series');
+                            if (e.reps) metaParts.push(e.reps + ' ' + (e.unit||''));
+                            if (e.nota_tecnica) metaParts.push(e.nota_tecnica);
+                            html += `<div class="bg-fondoAlt rounded-lg px-3 py-2 mb-1.5 flex items-center justify-between">
+                                <span class="text-sm font-bold">${e.nombre}</span>
+                                <span class="text-xs text-textoSuave">${metaParts.join(' | ')}</span>
+                            </div>`;
+                        }
+                    });
+                });
+            } else {
+                const ejsFlat = toArray(datos.rutina || datos.datos || []);
+                ejsFlat.forEach(item => {
+                    if (item && item.ejercicios) {
+                        toArray(item.ejercicios).forEach(ej => {
+                            const e = normalizeEj(ej);
+                            if (e.nombre) {
+                                html += `<div class="bg-fondoAlt rounded-lg px-3 py-2 mb-1.5"><span class="text-sm font-bold">${e.nombre}</span></div>`;
+                            }
+                        });
+                    } else {
+                        const e = normalizeEj(item);
+                        if (e.nombre) {
+                            html += `<div class="bg-fondoAlt rounded-lg px-3 py-2 mb-1.5"><span class="text-sm font-bold">${e.nombre}</span></div>`;
+                        }
+                    }
+                });
+            }
+            html += '</div>';
+
+            content.innerHTML = html;
+        } catch (e) {
+            content.innerHTML = '<p class="text-rojo text-center py-8">Error de conexion</p>';
+        }
+    }
+
+    // ====================================================================
     // INIT
     // ====================================================================
     document.addEventListener('DOMContentLoaded', () => {
         cargarVideoteca();
         actualizarWarmupUI();
         cargarListaAlumnos();
-        inicializarRutina();
+        cargarAlumnosDash();
     });
     </script>
 </body>
