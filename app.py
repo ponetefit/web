@@ -146,9 +146,21 @@ def guardar_ejercicio():
         categoria = body.get("categoria", "").strip()
         nombre = body.get("nombre", "").strip().upper()
         link = body.get("link", "").strip()
+        musculo1 = body.get("musculo1", "").strip()
+        musculo2 = body.get("musculo2", "").strip()
+        sinergista = body.get("sinergista", "").strip()
 
         if not categoria or not nombre or not link:
             return jsonify({"ok": False, "error": "Categoria, nombre y link son obligatorios"}), 400
+
+        # Construir objeto del ejercicio con campos de musculos
+        ej_data = {"nombre": nombre, "link": link}
+        if musculo1:
+            ej_data["musculo1"] = musculo1
+        if musculo2:
+            ej_data["musculo2"] = musculo2
+        if sinergista:
+            ej_data["sinergista"] = sinergista
 
         ref = get_db_ref(f"/videoteca/{categoria}")
         ejercicios = ref.get() or []
@@ -157,12 +169,12 @@ def guardar_ejercicio():
         encontrado = False
         for i, ej in enumerate(ejercicios):
             if isinstance(ej, dict) and ej.get("nombre") == nombre:
-                ejercicios[i] = {"nombre": nombre, "link": link}
+                ejercicios[i] = ej_data
                 encontrado = True
                 break
 
         if not encontrado:
-            ejercicios.append({"nombre": nombre, "link": link})
+            ejercicios.append(ej_data)
 
         ref.set(ejercicios)
         accion = "actualizado" if encontrado else "guardado"
