@@ -1008,6 +1008,14 @@
         }
     }
 
+    // --- Utilidad: Firebase a veces devuelve objetos en vez de arrays ---
+    function toArray(val) {
+        if (!val) return [];
+        if (Array.isArray(val)) return val;
+        if (typeof val === 'object') return Object.values(val);
+        return [];
+    }
+
     // --- Ver Rutina (modal) ---
     async function verRutina(codigo) {
         const content = document.getElementById('modal-rutina-content');
@@ -1041,7 +1049,7 @@
         </div>`;
 
         // Calentamiento
-        const wEjs = datos.warmup_ejercicios || [];
+        const wEjs = toArray(datos.warmup_ejercicios);
         if (wEjs.length > 0) {
             const wTipo = datos.warmup_tipo || '';
             const wConfig = datos.warmup_config_detalle || {};
@@ -1059,7 +1067,7 @@
                 const reps = ej[2] || '';
                 const unit = ej[3] || 'Reps';
                 html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;">
-                    <div><strong style="font-size:13px;">- ${nombre}</strong> ${reps ? '<span style="color:#888;font-style:italic;font-size:12px;">  ' + reps + ' total de  ' + unit + '</span>' : ''}</div>
+                    <div><strong style="color:#000;font-size:13px;">- ${nombre}</strong> ${reps ? '<span style="color:#888;font-style:italic;font-size:12px;">  ' + reps + ' total de  ' + unit + '</span>' : ''}</div>
                     ${link ? '<a href="' + link + '" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>' : ''}
                 </div>`;
             });
@@ -1067,24 +1075,26 @@
         }
 
         // Bloque Principal
-        if (tipo === 'ENTRENAMIENTO' && datos.bloques) {
+        const bloques = toArray(datos.bloques);
+        if (tipo === 'ENTRENAMIENTO' && bloques.length > 0) {
             html += `<div style="background:#CE93D8;color:#fff;font-weight:700;padding:8px 16px;border-radius:6px;margin-bottom:12px;font-size:14px;">2. BLOQUE PRINCIPAL  ENTRENAMIENTO</div>`;
-            datos.bloques.forEach((b, i) => {
+            bloques.forEach((b, i) => {
+                const ejsBloque = toArray(b.ejercicios);
                 let meta = '';
                 if (b.tipo === 'Tabata') meta = b.trabajo + 's actividad / ' + b.pausa + 's pausa  |  ' + (b.rondas||1) + ' ronda(s)';
                 else if (b.tipo === 'Circuito') meta = b.vueltas + ' vueltas | Pausa: ' + b.pausa_vuelta + 's';
                 else if (b.tipo === 'Circuito por Tiempo') meta = b.duracion_min + ' min';
                 else if (b.tipo === 'EMOM') meta = b.minutos_totales + ' min | ' + b.ejercicios_por_minuto + ' ej/min';
-                else if (b.tipo === 'Series') meta = b.ejercicios.length + ' ejercicios';
+                else if (b.tipo === 'Series') meta = ejsBloque.length + ' ejercicios';
                 html += `<div style="background:#FF6B35;color:#fff;font-weight:600;padding:6px 16px;border-radius:4px;margin:12px 0 8px;font-size:13px;">Bloque ${i+1}: ${b.tipo}  ${meta}</div>`;
-                (b.ejercicios||[]).forEach(ej => {
+                ejsBloque.forEach(ej => {
                     const nombre = ej.nombre || ej[0] || '';
                     const link = ej.link || ej[1] || '';
                     const reps = ej.reps || '';
                     const unit = ej.unit || '';
                     const series = ej.series || '';
                     html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;">
-                        <div><strong style="font-size:13px;">- ${nombre}</strong> ${series ? '<span style="color:#888;font-style:italic;font-size:12px;">  ' + series + 'x' + reps + ' ' + unit + '</span>' : (reps ? '<span style="color:#888;font-style:italic;font-size:12px;">  ' + reps + ' ' + unit + '</span>' : '')}</div>
+                        <div><strong style="color:#000;font-size:13px;">- ${nombre}</strong> ${series ? '<span style="color:#888;font-style:italic;font-size:12px;">  ' + series + 'x' + reps + ' ' + unit + '</span>' : (reps ? '<span style="color:#888;font-style:italic;font-size:12px;">  ' + reps + ' ' + unit + '</span>' : '')}</div>
                         ${link ? '<a href="' + link + '" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>' : ''}
                     </div>`;
                 });
@@ -1093,35 +1103,35 @@
             html += `<div style="background:#CE93D8;color:#fff;font-weight:700;padding:8px 16px;border-radius:6px;margin-bottom:12px;font-size:14px;">2. BLOQUE PRINCIPAL  TABATA</div>`;
             const meta = (datos.trabajo||20) + 's / ' + (datos.pausa||10) + 's | ' + (datos.rondas||1) + ' ronda(s)';
             html += `<div style="background:#FF6B35;color:#fff;font-weight:600;padding:6px 16px;border-radius:4px;margin:8px 0;font-size:13px;">Tabata  ${meta}</div>`;
-            (datos.rutina||[]).forEach(ej => {
+            toArray(datos.rutina).forEach(ej => {
                 const nombre = ej[0] || ej.nombre || '';
                 const link = ej[1] || ej.link || '';
-                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;"><strong style="font-size:13px;">- ${nombre}</strong>${link ? '<a href="'+link+'" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>' : ''}</div>`;
+                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;"><strong style="color:#000;font-size:13px;">- ${nombre}</strong>${link ? '<a href="'+link+'" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>' : ''}</div>`;
             });
         } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo') {
             html += `<div style="background:#CE93D8;color:#fff;font-weight:700;padding:8px 16px;border-radius:6px;margin-bottom:12px;font-size:14px;">2. BLOQUE PRINCIPAL  ${tipo.toUpperCase()}</div>`;
-            (datos.datos||[]).forEach(d => {
-                (d.ejercicios||[]).forEach(ej => {
+            toArray(datos.datos).forEach(d => {
+                toArray(d.ejercicios).forEach(ej => {
                     const nombre = ej.nombre || ej[0] || '';
                     const link = ej.link || ej[1] || '';
                     const reps = ej.reps || '';
                     const unit = ej.unit || '';
-                    html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;"><div><strong style="font-size:13px;">- ${nombre}</strong>${reps ? '<span style="color:#888;font-style:italic;font-size:12px;">  '+reps+' '+unit+'</span>':''}</div>${link?'<a href="'+link+'" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>':''}</div>`;
+                    html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;"><div><strong style="color:#000;font-size:13px;">- ${nombre}</strong>${reps ? '<span style="color:#888;font-style:italic;font-size:12px;">  '+reps+' '+unit+'</span>':''}</div>${link?'<a href="'+link+'" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>':''}</div>`;
                 });
             });
         } else if (tipo === 'EMOM') {
             html += `<div style="background:#CE93D8;color:#fff;font-weight:700;padding:8px 16px;border-radius:6px;margin-bottom:12px;font-size:14px;">2. BLOQUE PRINCIPAL  EMOM</div>`;
-            (datos.rutina||[]).forEach(ej => {
-                const nombre = ej[0] || '';
-                const link = ej[1] || '';
-                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;"><strong style="font-size:13px;">- ${nombre}</strong>${link?'<a href="'+link+'" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>':''}</div>`;
+            toArray(datos.rutina).forEach(ej => {
+                const nombre = ej[0] || ej.nombre || '';
+                const link = ej[1] || ej.link || '';
+                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;"><strong style="color:#000;font-size:13px;">- ${nombre}</strong>${link?'<a href="'+link+'" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>':''}</div>`;
             });
         } else if (tipo === 'Series') {
             html += `<div style="background:#CE93D8;color:#fff;font-weight:700;padding:8px 16px;border-radius:6px;margin-bottom:12px;font-size:14px;">2. BLOQUE PRINCIPAL  SERIES</div>`;
-            (datos.datos||[]).forEach(ej => {
+            toArray(datos.datos).forEach(ej => {
                 const nombre = ej.nombre || '';
                 const link = ej.link || '';
-                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;"><div><strong style="font-size:13px;">- ${nombre}</strong><span style="color:#888;font-style:italic;font-size:12px;">  ${ej.series||''}x${ej.reps||''} ${ej.unit||''}</span></div>${link?'<a href="'+link+'" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>':''}</div>`;
+                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;"><div><strong style="color:#000;font-size:13px;">- ${nombre}</strong><span style="color:#888;font-style:italic;font-size:12px;">  ${ej.series||''}x${ej.reps||''} ${ej.unit||''}</span></div>${link?'<a href="'+link+'" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>':''}</div>`;
             });
         }
 
@@ -1190,7 +1200,7 @@
         y += 12;
 
         // Calentamiento
-        const wEjs = datos.warmup_ejercicios || [];
+        const wEjs = toArray(datos.warmup_ejercicios);
         if (wEjs.length > 0) {
             const wTipo = datos.warmup_tipo || '';
             const wConfig = datos.warmup_config_detalle || {};
@@ -1219,13 +1229,13 @@
 
             wEjs.forEach(ej => {
                 checkPage(8);
-                const nombre = ej[0] || '';
-                const link = ej[1] || '';
+                const nombre = ej[0] || ej.nombre || '';
+                const link = ej[1] || ej.link || '';
                 const reps = ej[2] || '';
                 const unit = ej[3] || 'Reps';
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(10);
-                doc.setTextColor(40, 40, 40);
+                doc.setTextColor(0, 0, 0);
                 let txt = '- ' + nombre;
                 doc.text(txt, marginL + 4, y);
                 if (reps) {
@@ -1277,7 +1287,7 @@
             checkPage(8);
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(10);
-            doc.setTextColor(40, 40, 40);
+            doc.setTextColor(0, 0, 0);
             let txt = '- ' + nombre;
             doc.text(txt, marginL + 4, y);
             if (series && reps) {
@@ -1302,35 +1312,37 @@
             y += 7;
         }
 
-        if (tipo === 'ENTRENAMIENTO' && datos.bloques) {
+        const pdfBloques = toArray(datos.bloques);
+        if (tipo === 'ENTRENAMIENTO' && pdfBloques.length > 0) {
             renderBloqueHeader('2. BLOQUE PRINCIPAL  ENTRENAMIENTO');
-            datos.bloques.forEach((b, i) => {
+            pdfBloques.forEach((b, i) => {
+                const ejsB = toArray(b.ejercicios);
                 let meta = '';
                 if (b.tipo === 'Tabata') meta = b.trabajo + 's actividad / ' + b.pausa + 's pausa  |  ' + (b.rondas||1) + ' ronda(s)';
                 else if (b.tipo === 'Circuito') meta = b.vueltas + ' vueltas | Pausa: ' + b.pausa_vuelta + 's';
                 else if (b.tipo === 'Circuito por Tiempo') meta = b.duracion_min + ' min';
                 else if (b.tipo === 'EMOM') meta = b.minutos_totales + ' min | ' + b.ejercicios_por_minuto + ' ej/min';
-                else if (b.tipo === 'Series') meta = b.ejercicios.length + ' ejercicios';
+                else if (b.tipo === 'Series') meta = ejsB.length + ' ejercicios';
                 renderSubHeader('Bloque ' + (i+1) + ': ' + b.tipo + '  ' + meta);
-                (b.ejercicios||[]).forEach(ej => {
+                ejsB.forEach(ej => {
                     renderEjercicio(ej.nombre||ej[0]||'', ej.link||ej[1]||'', ej.reps||'', ej.unit||'', ej.series||'');
                 });
             });
         } else if (tipo === 'Tabata') {
             renderBloqueHeader('2. BLOQUE PRINCIPAL  TABATA');
             renderSubHeader('Tabata  ' + (datos.trabajo||20) + 's / ' + (datos.pausa||10) + 's | ' + (datos.rondas||1) + ' ronda(s)');
-            (datos.rutina||[]).forEach(ej => renderEjercicio(ej[0]||'', ej[1]||'', '', '', ''));
+            toArray(datos.rutina).forEach(ej => renderEjercicio(ej[0]||ej.nombre||'', ej[1]||ej.link||'', '', '', ''));
         } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo') {
             renderBloqueHeader('2. BLOQUE PRINCIPAL  ' + tipo.toUpperCase());
-            (datos.datos||[]).forEach(d => {
-                (d.ejercicios||[]).forEach(ej => renderEjercicio(ej.nombre||ej[0]||'', ej.link||ej[1]||'', ej.reps||'', ej.unit||'', ''));
+            toArray(datos.datos).forEach(d => {
+                toArray(d.ejercicios).forEach(ej => renderEjercicio(ej.nombre||ej[0]||'', ej.link||ej[1]||'', ej.reps||'', ej.unit||'', ''));
             });
         } else if (tipo === 'EMOM') {
             renderBloqueHeader('2. BLOQUE PRINCIPAL  EMOM');
-            (datos.rutina||[]).forEach(ej => renderEjercicio(ej[0]||'', ej[1]||'', '', '', ''));
+            toArray(datos.rutina).forEach(ej => renderEjercicio(ej[0]||ej.nombre||'', ej[1]||ej.link||'', '', '', ''));
         } else if (tipo === 'Series') {
             renderBloqueHeader('2. BLOQUE PRINCIPAL  SERIES');
-            (datos.datos||[]).forEach(ej => renderEjercicio(ej.nombre||'', ej.link||'', ej.reps||'', ej.unit||'', ej.series||''));
+            toArray(datos.datos).forEach(ej => renderEjercicio(ej.nombre||'', ej.link||'', ej.reps||'', ej.unit||'', ej.series||''));
         }
 
         // Footer
