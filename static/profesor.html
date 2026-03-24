@@ -2093,17 +2093,36 @@
                 ejercicioCount[n] = (ejercicioCount[n] || 0) + 1;
             });
 
-            // Contar metodos: usar tipos internos de cada bloque, no solo el tipo top-level
+            // Contar metodos: SIEMPRE buscar tipos internos de cada bloque
             const bloques = toArray(datos.bloques);
+            let metodosContados = false;
             if (bloques.length > 0) {
                 bloques.forEach(b => {
-                    const bTipo = b.tipo || r.tipo || 'ENTRENAMIENTO';
-                    metodoCount[bTipo] = (metodoCount[bTipo] || 0) + 1;
+                    const bTipo = b.tipo || '';
+                    if (bTipo && bTipo !== 'ENTRENAMIENTO') {
+                        metodoCount[bTipo] = (metodoCount[bTipo] || 0) + 1;
+                        metodosContados = true;
+                    }
                 });
-            } else {
-                // Sin bloques internos, contar tipo top-level
+            }
+            // Si no se encontraron metodos en bloques, usar tipo top-level
+            // Pero si es ENTRENAMIENTO, intentar inferir del formato de datos
+            if (!metodosContados) {
                 const tipo = r.tipo || 'ENTRENAMIENTO';
-                metodoCount[tipo] = (metodoCount[tipo] || 0) + 1;
+                if (tipo !== 'ENTRENAMIENTO') {
+                    metodoCount[tipo] = (metodoCount[tipo] || 0) + 1;
+                } else {
+                    // Intentar inferir metodo de los datos
+                    if (datos.trabajo && datos.pausa && datos.rutina) {
+                        metodoCount['Tabata'] = (metodoCount['Tabata'] || 0) + 1;
+                    } else if (datos.minutos_totales && datos.ejercicios_por_minuto) {
+                        metodoCount['EMOM'] = (metodoCount['EMOM'] || 0) + 1;
+                    } else if (datos.vueltas_bloque || (datos.datos && datos.datos[0] && datos.datos[0].ejercicios)) {
+                        metodoCount['Circuito'] = (metodoCount['Circuito'] || 0) + 1;
+                    } else {
+                        metodoCount['ENTRENAMIENTO'] = (metodoCount['ENTRENAMIENTO'] || 0) + 1;
+                    }
+                }
             }
         });
 
@@ -2281,6 +2300,34 @@
         }).join('');
     }
 
+    // Obtiene los metodos reales de una rutina (bloque-level o inferido)
+    function obtenerMetodosRutina(r) {
+        const datos = resolverDatos(r);
+        const metodos = [];
+        const bloques = toArray(datos.bloques);
+        if (bloques.length > 0) {
+            bloques.forEach(b => {
+                const bTipo = b.tipo || '';
+                if (bTipo && !metodos.includes(bTipo)) metodos.push(bTipo);
+            });
+        }
+        if (metodos.length === 0) {
+            const tipo = r.tipo || 'ENTRENAMIENTO';
+            if (tipo !== 'ENTRENAMIENTO') {
+                metodos.push(tipo);
+            } else if (datos.trabajo && datos.pausa && datos.rutina) {
+                metodos.push('Tabata');
+            } else if (datos.minutos_totales && datos.ejercicios_por_minuto) {
+                metodos.push('EMOM');
+            } else if (datos.vueltas_bloque || (datos.datos && datos.datos[0] && datos.datos[0].ejercicios)) {
+                metodos.push('Circuito');
+            } else {
+                metodos.push(tipo);
+            }
+        }
+        return metodos;
+    }
+
     function renderTablaUltimas(keys, rutinas) {
         const tbody = document.getElementById('dash-tabla-rutinas');
 
@@ -2299,13 +2346,14 @@
         tbody.innerHTML = sorted.map(cod => {
             const r = rutinas[cod];
             const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleDateString('es-AR') : '--';
-            const tipo = r.tipo || 'ENTRENAMIENTO';
+            const metodos = obtenerMetodosRutina(r);
+            const metodosHTML = metodos.map(m => `<span class="text-xs bg-naranja/15 text-naranja px-2 py-0.5 rounded font-bold">${m}</span>`).join(' ');
             const datos = resolverDatos(r);
             const cantEjs = extraerEjerciciosDeRutina(r, datos).length;
             return `<tr onclick="verRutinaDash('${cod}')" class="border-b border-borde/30 transition-colors">
                 <td class="py-3 px-2 text-textoSuave">${fecha}</td>
                 <td class="py-3 px-2 font-mono font-bold text-amarillo">${cod.toUpperCase()}</td>
-                <td class="py-3 px-2"><span class="text-xs bg-naranja/15 text-naranja px-2 py-0.5 rounded font-bold">${tipo}</span></td>
+                <td class="py-3 px-2">${metodosHTML}</td>
                 <td class="py-3 px-2 text-center text-verde font-bold">${cantEjs}</td>
             </tr>`;
         }).join('');
@@ -2329,89 +2377,8 @@
                 dashRutinasData[codigo] = r;
             }
 
-            const datos = resolverDatos(r);
-            const alumno = r.alumno || '';
-            const tipo = r.tipo || 'ENTRENAMIENTO';
-            const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
-
-            let html = `<div class="mb-4 pb-3 border-b border-borde/50">
-                <p class="text-xs text-textoSuave">Alumno: <strong class="text-texto">${alumno.toUpperCase()}</strong> | Tipo: <strong class="text-naranja">${tipo}</strong> | Codigo: <strong class="text-amarillo">${codigo.toUpperCase()}</strong>${fecha ? ' | ' + fecha : ''}</p>
-            </div>`;
-
-            // Calentamiento
-            const wEjs = toArray(datos.warmup_ejercicios);
-            const wTipo = datos.warmup_tipo || '';
-            const wConfig = datos.warmup_config_detalle || {};
-            if (wEjs.length > 0) {
-                html += `<div class="mb-4"><h4 class="text-sm font-bold text-azul uppercase tracking-wider mb-2">Entrada en Calor${wTipo ? ' — ' + wTipo : ''}</h4>`;
-                const wParts = [];
-                if (wConfig.vueltas) wParts.push('Vueltas: ' + wConfig.vueltas);
-                if (wConfig.pausa_vuelta) wParts.push('Pausa: ' + wConfig.pausa_vuelta + 's');
-                if (wConfig.duracion_bloque) wParts.push('Duracion: ' + wConfig.duracion_bloque + ' min');
-                if (wConfig.trabajo) wParts.push('Trabajo: ' + wConfig.trabajo + 's / Pausa: ' + (wConfig.pausa||10) + 's');
-                if (wConfig.minutos) wParts.push('Minutos: ' + wConfig.minutos);
-                if (wParts.length) html += `<p class="text-xs text-textoSuave italic mb-2">${wParts.join(' | ')}</p>`;
-                wEjs.forEach(ej => {
-                    const e = normalizeEj(ej);
-                    if (e.nombre) {
-                        html += `<div class="bg-fondoAlt rounded-lg px-3 py-2 mb-1.5 flex items-center justify-between">
-                            <span class="text-sm font-bold">${e.nombre}</span>
-                            <span class="text-xs text-textoSuave">${e.reps ? e.reps + ' ' + (e.unit||'') : ''}</span>
-                        </div>`;
-                    }
-                });
-                html += '</div><hr class="border-borde/30 my-3">';
-            }
-
-            // Bloque Principal
-            const bloques = toArray(datos.bloques);
-            html += `<div><h4 class="text-sm font-bold text-purpura uppercase tracking-wider mb-2">Bloque Principal — ${tipo}</h4>`;
-            if (bloques.length > 0) {
-                bloques.forEach((b, i) => {
-                    const ejsB = toArray(b.ejercicios || []);
-                    const bTipo = b.tipo || tipo;
-                    let meta = '';
-                    if (bTipo === 'Circuito') meta = (b.vueltas||3) + ' vueltas | Pausa: ' + (b.pausa_vuelta||60) + 's';
-                    else if (bTipo === 'Tabata') meta = (b.trabajo||20) + 's/' + (b.pausa||10) + 's | ' + (b.rondas||1) + ' ronda(s)';
-                    else if (bTipo === 'EMOM') meta = (b.minutos_totales||10) + ' min';
-                    else if (bTipo === 'Circuito por Tiempo') meta = (b.duracion_min||5) + ' min';
-                    html += `<div class="bg-naranja/10 rounded-lg px-3 py-1.5 mb-2"><span class="text-xs font-bold text-naranja">${bTipo}</span><span class="text-xs text-textoSuave ml-2">${meta}</span></div>`;
-                    if (b.descripcion) html += `<p class="text-xs text-textoSuave italic mb-1">${b.descripcion}</p>`;
-                    ejsB.forEach(ej => {
-                        const e = normalizeEj(ej);
-                        if (e.nombre) {
-                            const metaParts = [];
-                            if (e.series) metaParts.push(e.series + ' series');
-                            if (e.reps) metaParts.push(e.reps + ' ' + (e.unit||''));
-                            if (e.nota_tecnica) metaParts.push(e.nota_tecnica);
-                            html += `<div class="bg-fondoAlt rounded-lg px-3 py-2 mb-1.5 flex items-center justify-between">
-                                <span class="text-sm font-bold">${e.nombre}</span>
-                                <span class="text-xs text-textoSuave">${metaParts.join(' | ')}</span>
-                            </div>`;
-                        }
-                    });
-                });
-            } else {
-                const ejsFlat = toArray(datos.rutina || datos.datos || []);
-                ejsFlat.forEach(item => {
-                    if (item && item.ejercicios) {
-                        toArray(item.ejercicios).forEach(ej => {
-                            const e = normalizeEj(ej);
-                            if (e.nombre) {
-                                html += `<div class="bg-fondoAlt rounded-lg px-3 py-2 mb-1.5"><span class="text-sm font-bold">${e.nombre}</span></div>`;
-                            }
-                        });
-                    } else {
-                        const e = normalizeEj(item);
-                        if (e.nombre) {
-                            html += `<div class="bg-fondoAlt rounded-lg px-3 py-2 mb-1.5"><span class="text-sm font-bold">${e.nombre}</span></div>`;
-                        }
-                    }
-                });
-            }
-            html += '</div>';
-
-            content.innerHTML = html;
+            // Reusar la funcion generarHTMLRutina del historial que maneja TODOS los formatos
+            content.innerHTML = generarHTMLRutina(codigo, r);
         } catch (e) {
             content.innerHTML = '<p class="text-rojo text-center py-8">Error de conexion</p>';
         }
