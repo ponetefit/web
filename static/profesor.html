@@ -1120,9 +1120,9 @@
         document.getElementById('modal-ver-rutina').classList.remove('hidden');
 
         try {
-            // Primero verificar si ya lo tenemos en cache
+            // Primero verificar si ya lo tenemos en cache (con datos completos)
             let r = historialRutinasCache[codigo];
-            if (!r || !r.datos) {
+            if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios)) {
                 const res  = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
                 const data = await res.json();
                 if (!data.ok) {
@@ -1296,9 +1296,9 @@
         const jsPDFLib = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
         if (!jsPDFLib) { toast('Libreria PDF no disponible, recarga la pagina'); return; }
 
-        // Obtener datos (cache o API)
+        // Obtener datos (cache o API) - verificar que tenga datos completos
         let r = historialRutinasCache[codigo];
-        if (!r) {
+        if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios)) {
             toast('Cargando rutina para PDF...');
             try {
                 const res  = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
