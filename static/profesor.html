@@ -6,7 +6,7 @@
     <title>PONETE FIT | Panel del Profesor</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700;900&family=Roboto+Mono:wght@700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -234,42 +234,25 @@
             <div class="bg-tarjeta rounded-2xl border border-borde p-6">
                 <h2 class="text-lg font-bold text-purpura uppercase tracking-wider mb-4">Rutinas Compartidas</h2>
                 <div class="flex gap-3 mb-4">
-                    <button onclick="cargarTodasRutinas()" class="bg-purpura/20 text-purpura px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-purpura/30 transition whitespace-nowrap">Cargar Rutinas</button>
-                </div>
-                <!-- Select filtro de alumnos -->
-                <div id="filtro-alumno-container" class="hidden mb-4">
-                    <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Filtrar por alumno</label>
-                    <select id="filtro-alumno" onchange="filtrarRutinasPorAlumno()" class="w-full rounded-lg px-3 py-2.5 text-sm">
-                        <option value="">-- Todos los alumnos --</option>
+                    <select id="select-alumno" onchange="buscarRutinasAlumno()" class="rounded-lg px-3 py-2.5 text-sm flex-1">
+                        <option value="">-- Seleccionar alumno --</option>
                     </select>
+                    <button onclick="cargarListaAlumnos()" class="bg-purpura/20 text-purpura px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition whitespace-nowrap">Actualizar</button>
                 </div>
-                <div id="historial-lista" class="space-y-3 max-h-[500px] overflow-y-auto pr-2">
-                    <p class="text-textoSuave text-sm text-center py-8">Haz clic en "Cargar Rutinas" para ver el historial</p>
+                <div id="historial-lista" class="space-y-3">
+                    <p class="text-textoSuave text-sm text-center py-8">Selecciona un alumno del desplegable</p>
                 </div>
             </div>
         </section>
 
-        <!-- Modal Detalle de Rutina -->
-        <div id="modal-detalle-rutina" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div class="bg-tarjeta rounded-3xl border border-borde max-w-2xl w-full max-h-[90vh] flex flex-col">
-                <!-- Header del modal -->
-                <div class="p-6 border-b border-borde flex-shrink-0">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h3 id="detalle-titulo" class="text-xl font-black text-naranja"></h3>
-                            <p id="detalle-subtitulo" class="text-xs text-textoSuave mt-1"></p>
-                        </div>
-                        <button onclick="cerrarDetalleRutina()" class="text-textoSuave hover:text-texto text-2xl leading-none">&times;</button>
-                    </div>
+        <!-- Modal Ver Rutina -->
+        <div id="modal-ver-rutina" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div id="modal-rutina-content" class="p-8">
                 </div>
-                <!-- Body scrollable -->
-                <div class="p-6 overflow-y-auto flex-1" id="detalle-body">
-                    <!-- Contenido dinamico -->
-                </div>
-                <!-- Footer con boton PDF -->
-                <div class="p-4 border-t border-borde flex-shrink-0 flex gap-3">
-                    <button onclick="descargarPDF()" class="btn-primary flex-1 py-3 rounded-xl text-white font-bold text-sm uppercase tracking-wider">Descargar PDF</button>
-                    <button onclick="cerrarDetalleRutina()" class="flex-1 py-3 rounded-xl border border-borde text-textoSuave text-sm font-bold hover:text-texto transition">Cerrar</button>
+                <div class="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex gap-3 rounded-b-3xl">
+                    <button onclick="descargarPDFDesdeModal()" class="btn-primary flex-1 py-3 rounded-xl text-white font-bold text-sm uppercase tracking-wider">Descargar PDF</button>
+                    <button onclick="document.getElementById('modal-ver-rutina').classList.add('hidden')" class="flex-1 py-3 rounded-xl border border-gray-300 text-gray-500 text-sm font-bold hover:text-gray-700 transition">Cerrar</button>
                 </div>
             </div>
         </div>
@@ -347,8 +330,6 @@
     let bloquesRutina = [];
     let bloqueEjsTemp = [];
     let editandoBloqueIdx = null;
-    let currentData = null;
-    let historialCache = {};
 
     // ====================================================================
     // TABS
@@ -964,443 +945,379 @@
     }
 
     // --- Historial ---
-    async function cargarTodasRutinas() {
+    let historialRutinasCache = {};
+    let rutinaModalActual = null;
+
+    async function cargarListaAlumnos() {
+        const sel = document.getElementById('select-alumno');
+        try {
+            const res = await fetch(API_BASE + '/api/alumnos');
+            const data = await res.json();
+            if (data.ok && data.alumnos) {
+                const alumnos = data.alumnos;
+                sel.innerHTML = '<option value="">-- Seleccionar alumno --</option>' +
+                    alumnos.map(a => '<option value="' + a + '">' + a.toUpperCase() + '</option>').join('');
+                toast('Alumnos cargados');
+            }
+        } catch (e) {
+            console.error('Error cargando alumnos:', e);
+        }
+    }
+
+    async function buscarRutinasAlumno() {
+        const nombre = document.getElementById('select-alumno').value;
+        if (!nombre) {
+            document.getElementById('historial-lista').innerHTML = '<p class="text-textoSuave text-sm text-center py-8">Selecciona un alumno del desplegable</p>';
+            return;
+        }
+
         const lista = document.getElementById('historial-lista');
-        lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">Cargando rutinas...</p>';
+        lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">Buscando...</p>';
 
         try {
-            const res = await fetch(API_BASE + '/api/rutinas');
+            const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre));
             const data = await res.json();
             if (data.ok) {
-                historialCache = data.rutinas || {};
-                const keys = Object.keys(historialCache);
+                const rutinas = data.rutinas;
+                historialRutinasCache = rutinas;
+                const keys = Object.keys(rutinas);
                 if (keys.length === 0) {
-                    lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">No hay rutinas guardadas</p>';
-                    document.getElementById('filtro-alumno-container').classList.add('hidden');
+                    lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">No se encontraron rutinas</p>';
                     return;
                 }
-
-                // Extraer nombres unicos de alumnos
-                const alumnosSet = new Set();
-                keys.forEach(cod => {
-                    const alumno = historialCache[cod].alumno || '';
-                    if (alumno) alumnosSet.add(alumno.toUpperCase());
-                });
-                const alumnos = Array.from(alumnosSet).sort();
-
-                // Poblar select de filtro
-                const filtroSelect = document.getElementById('filtro-alumno');
-                filtroSelect.innerHTML = '<option value="">-- Todos los alumnos --</option>' +
-                    alumnos.map(a => '<option value="' + a + '">' + a + '</option>').join('');
-                document.getElementById('filtro-alumno-container').classList.remove('hidden');
-
-                // Mostrar todas las rutinas
-                renderHistorialLista(keys);
-                toast(keys.length + ' rutinas cargadas');
-            } else {
-                lista.innerHTML = '<p class="text-rojo text-sm text-center py-8">Error: ' + (data.error || 'desconocido') + '</p>';
+                lista.innerHTML = keys.sort().reverse().map(cod => {
+                    const r = rutinas[cod];
+                    const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
+                    return `<div class="bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50">
+                        <div class="flex items-center justify-between mb-2">
+                            <div>
+                                <span class="font-mono font-bold text-amarillo text-sm">${cod.toUpperCase()}</span>
+                                <span class="text-xs text-textoSuave ml-3">${r.tipo} | ${fecha}</span>
+                            </div>
+                            <span class="text-xs text-textoSuave">${r.alumno}</span>
+                        </div>
+                        <div class="flex gap-2 mt-2">
+                            <button onclick="verRutina('${cod}')" class="bg-azul/20 text-azul px-4 py-2 rounded-lg text-xs font-bold hover:bg-azul/30 transition">Ver Rutina</button>
+                            <button onclick="descargarPDF('${cod}')" class="bg-naranja/20 text-naranja px-4 py-2 rounded-lg text-xs font-bold hover:bg-naranja/30 transition">Descargar PDF</button>
+                        </div>
+                    </div>`;
+                }).join('');
             }
         } catch (e) {
             lista.innerHTML = '<p class="text-rojo text-sm text-center py-8">Error de conexion</p>';
         }
     }
 
-    function filtrarRutinasPorAlumno() {
-        const alumnoFiltro = document.getElementById('filtro-alumno').value;
-        const keys = Object.keys(historialCache);
-        if (!alumnoFiltro) {
-            renderHistorialLista(keys);
-        } else {
-            const filtered = keys.filter(cod => {
-                const r = historialCache[cod];
-                return (r.alumno || '').toUpperCase() === alumnoFiltro;
-            });
-            renderHistorialLista(filtered);
-        }
-    }
-
-    function renderHistorialLista(keys) {
-        const lista = document.getElementById('historial-lista');
-        if (keys.length === 0) {
-            lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">No se encontraron rutinas para este alumno</p>';
-            return;
-        }
-        lista.innerHTML = keys.sort().reverse().map(cod => {
-            const r = historialCache[cod];
-            const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
-            return `<div class="bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50 flex items-center justify-between hover:border-naranja/50 hover:bg-tarjetaAlt transition group">
-                <div onclick="verDetalleRutina('${cod.replace(/'/g, "\\'")}')" class="flex-1 cursor-pointer">
-                    <span class="font-mono font-bold text-amarillo text-sm group-hover:text-naranja transition">${cod.toUpperCase()}</span>
-                    <span class="text-xs text-textoSuave ml-3">${r.tipo} | ${fecha}</span>
-                </div>
-                <div class="flex items-center gap-3">
-                    <span class="text-xs text-textoSuave">${r.alumno}</span>
-                    <button onclick="event.stopPropagation(); descargarPDFDirecto('${cod.replace(/'/g, "\\'")}')" class="bg-naranja/20 text-naranja px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition whitespace-nowrap">PDF</button>
-                    <span onclick="verDetalleRutina('${cod.replace(/'/g, "\\'")}')" class="text-xs text-naranja opacity-0 group-hover:opacity-100 transition cursor-pointer">Ver &rarr;</span>
-                </div>
-            </div>`;
-        }).join('');
-    }
-
-    function verDetalleRutina(codigo) {
-        const r = historialCache[codigo];
+    // --- Ver Rutina (modal) ---
+    function verRutina(codigo) {
+        const r = historialRutinasCache[codigo];
         if (!r) { toast('Rutina no encontrada'); return; }
+        rutinaModalActual = { codigo, ...r };
+        const content = document.getElementById('modal-rutina-content');
+        content.innerHTML = generarHTMLRutina(codigo, r);
+        document.getElementById('modal-ver-rutina').classList.remove('hidden');
+    }
 
-        // Setear currentData para que descargarPDF() funcione
-        currentData = {
-            alumno: r.alumno || 'ALUMNO',
-            tipo: r.tipo || 'ENTRENAMIENTO',
-            codigo: codigo,
-            datos: r.datos || r
-        };
+    function generarHTMLRutina(codigo, r) {
+        const datos = r.datos || r;
+        const alumno = r.alumno || '';
+        const tipo = r.tipo || 'ENTRENAMIENTO';
+        const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
 
-        const datos = currentData.datos;
+        let html = `<div style="text-align:center;margin-bottom:24px;">
+            <h2 style="color:#FF6B35;font-size:28px;font-weight:900;margin:0;">PONETE FIT</h2>
+            <p style="color:#666;font-size:13px;margin-top:4px;">Rutina de: ${alumno.toUpperCase()}  |  Tipo: ${tipo}  |  Cod: ${codigo}</p>
+        </div>`;
 
-        // Header del modal
-        document.getElementById('detalle-titulo').innerText = currentData.alumno + ' — ' + codigo.toUpperCase();
-        document.getElementById('detalle-subtitulo').innerText = 'Tipo: ' + currentData.tipo + (r.timestamp ? ' | ' + new Date(r.timestamp * 1000).toLocaleString('es-AR') : '');
-
-        // Construir contenido del body
-        let html = '';
-
-        // ── CALENTAMIENTO ──
-        const warmupEjs = datos.warmup_ejercicios || [];
-        if (warmupEjs.length > 0) {
-            html += '<div class="mb-6">';
-            html += '<h4 class="text-sm font-bold text-naranja uppercase tracking-wider mb-3">1. Calentamiento / Warm-up</h4>';
-
+        // Calentamiento
+        const wEjs = datos.warmup_ejercicios || [];
+        if (wEjs.length > 0) {
             const wTipo = datos.warmup_tipo || '';
-            const wCfg = datos.warmup_config_detalle || {};
-            if (wTipo) {
-                let cfgParts = [wTipo];
-                if (wCfg.vueltas)         cfgParts.push('Vueltas: ' + wCfg.vueltas);
-                if (wCfg.pausa_vuelta)    cfgParts.push('Pausa: ' + wCfg.pausa_vuelta + 's');
-                if (wCfg.duracion_bloque) cfgParts.push('Duración: ' + wCfg.duracion_bloque + ' min');
-                if (wCfg.trabajo)         cfgParts.push('Trabajo: ' + wCfg.trabajo + 's');
-                if (wCfg.pausa)           cfgParts.push('Pausa: ' + wCfg.pausa + 's');
-                if (wCfg.minutos)         cfgParts.push('Minutos: ' + wCfg.minutos);
-                if (wCfg.series)          cfgParts.push('Series: ' + wCfg.series);
-                if (wCfg.reps)            cfgParts.push('Reps: ' + wCfg.reps);
-                html += '<p class="text-xs text-textoSuave mb-2 italic">' + cfgParts.join(' | ') + '</p>';
-            }
-
-            html += '<div class="space-y-1">';
-            warmupEjs.forEach(function(ej) {
-                const ejNombre = Array.isArray(ej) ? ej[0] : (ej.nombre || '');
-                const ejReps   = Array.isArray(ej) ? ej[2] : (ej.reps || '');
-                const ejUnit   = Array.isArray(ej) ? ej[3] : (ej.unit || '');
-                const ejLink   = Array.isArray(ej) ? ej[1] : (ej.link || '');
-                html += '<div class="flex items-center justify-between bg-fondoAlt rounded-lg px-3 py-2 border border-borde/30">';
-                html += '<div class="flex items-center gap-2">';
-                html += '<span class="text-naranja text-xs">&#9679;</span>';
-                html += '<span class="text-sm">' + ejNombre + '</span>';
-                if (ejReps) html += '<span class="text-xs text-amarillo font-bold ml-2">' + ejReps + ' ' + ejUnit + '</span>';
-                html += '</div>';
-                if (ejLink) html += '<a href="' + ejLink + '" target="_blank" class="text-xs text-azul hover:underline">Ver video</a>';
-                html += '</div>';
+            const wConfig = datos.warmup_config_detalle || {};
+            html += `<div style="background:#4FC3F7;color:#fff;font-weight:700;padding:8px 16px;border-radius:6px;margin-bottom:8px;font-size:14px;">1. CALENTAMIENTO  ${wTipo.toUpperCase()}</div>`;
+            let metaW = '';
+            if (wConfig.vueltas) metaW += 'Vueltas: ' + wConfig.vueltas;
+            if (wConfig.pausa_vuelta) metaW += '  |  Pausa entre vueltas: ' + wConfig.pausa_vuelta + 's';
+            if (wConfig.duracion_bloque) metaW += 'Duracion: ' + wConfig.duracion_bloque + ' min';
+            if (wConfig.trabajo) metaW += 'Trabajo: ' + wConfig.trabajo + 's / Pausa: ' + (wConfig.pausa||10) + 's';
+            if (wConfig.minutos) metaW += 'Minutos: ' + wConfig.minutos;
+            if (metaW) html += `<p style="color:#888;font-style:italic;font-size:12px;margin:4px 0 8px 8px;">${metaW}</p>`;
+            wEjs.forEach(ej => {
+                const nombre = ej[0] || ej.nombre || '';
+                const link = ej[1] || ej.link || '';
+                const reps = ej[2] || '';
+                const unit = ej[3] || 'Reps';
+                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;">
+                    <div><strong style="font-size:13px;">- ${nombre}</strong> ${reps ? '<span style="color:#888;font-style:italic;font-size:12px;">  ' + reps + ' total de  ' + unit + '</span>' : ''}</div>
+                    ${link ? '<a href="' + link + '" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>' : ''}
+                </div>`;
             });
-            html += '</div></div>';
+            html += '<hr style="border:none;border-top:1px solid #ddd;margin:16px 0;">';
         }
 
-        // ── BLOQUE PRINCIPAL ──
-        let bloques = extraerBloques(currentData.tipo, datos);
-
-        if (bloques.length > 0) {
-            html += '<div>';
-            html += '<h4 class="text-sm font-bold text-naranja uppercase tracking-wider mb-3">2. Bloque Principal Entrenamiento</h4>';
-
-            bloques.forEach(function(bloque, bIdx) {
-                if (bloques.length > 1) {
-                    let subTitle = 'Bloque ' + (bIdx + 1) + ': ' + bloque.tipo;
-                    if (bloque.tipo === 'Circuito') subTitle += ' — ' + (bloque.vueltas || '') + ' vueltas';
-                    else if (bloque.tipo === 'Tabata') subTitle += ' — ' + bloque.trabajo + 's/' + bloque.pausa + 's';
-                    else if (bloque.tipo === 'EMOM') subTitle += ' — ' + bloque.minutos_totales + ' min';
-                    else if (bloque.tipo === 'Circuito por Tiempo') subTitle += ' — ' + bloque.duracion_min + ' min';
-                    html += '<p class="text-xs font-bold text-purpura uppercase tracking-wider mt-4 mb-2">' + subTitle + '</p>';
-                    if (bloque.descripcion) html += '<p class="text-xs text-textoSuave italic mb-2">' + bloque.descripcion + '</p>';
-                }
-
-                (bloque.ejercicios || []).forEach(function(ej, eIdx) {
-                    const seriesVal = ej.series || bloque.vueltas || bloque.rondas || '-';
-                    const repsVal = ej.reps || '-';
-                    let pausaVal = ej.nota_tecnica || bloque.pausa_vuelta || bloque.pausa || '-';
-                    if (typeof pausaVal === 'number') pausaVal = pausaVal + 's';
-
-                    html += '<div class="bg-fondoAlt rounded-xl px-4 py-3 border border-borde/30 mb-2">';
-                    html += '<div class="flex items-center justify-between mb-1">';
-                    html += '<span class="text-sm font-bold">' + (eIdx + 1) + '. ' + (ej.nombre || '') + '</span>';
-                    if (ej.link) html += '<a href="' + ej.link + '" target="_blank" class="text-xs text-azul hover:underline">Ver video</a>';
-                    html += '</div>';
-                    html += '<p class="text-xs text-textoSuave">Series/Rondas: ' + seriesVal + '  |  Reps/Tiempo: ' + repsVal + (ej.unit ? ' ' + ej.unit : '') + '  |  Pausa: ' + pausaVal + '</p>';
-                    html += '</div>';
+        // Bloque Principal
+        if (tipo === 'ENTRENAMIENTO' && datos.bloques) {
+            html += `<div style="background:#CE93D8;color:#fff;font-weight:700;padding:8px 16px;border-radius:6px;margin-bottom:12px;font-size:14px;">2. BLOQUE PRINCIPAL  ENTRENAMIENTO</div>`;
+            datos.bloques.forEach((b, i) => {
+                let meta = '';
+                if (b.tipo === 'Tabata') meta = b.trabajo + 's actividad / ' + b.pausa + 's pausa  |  ' + (b.rondas||1) + ' ronda(s)';
+                else if (b.tipo === 'Circuito') meta = b.vueltas + ' vueltas | Pausa: ' + b.pausa_vuelta + 's';
+                else if (b.tipo === 'Circuito por Tiempo') meta = b.duracion_min + ' min';
+                else if (b.tipo === 'EMOM') meta = b.minutos_totales + ' min | ' + b.ejercicios_por_minuto + ' ej/min';
+                else if (b.tipo === 'Series') meta = b.ejercicios.length + ' ejercicios';
+                html += `<div style="background:#FF6B35;color:#fff;font-weight:600;padding:6px 16px;border-radius:4px;margin:12px 0 8px;font-size:13px;">Bloque ${i+1}: ${b.tipo}  ${meta}</div>`;
+                (b.ejercicios||[]).forEach(ej => {
+                    const nombre = ej.nombre || ej[0] || '';
+                    const link = ej.link || ej[1] || '';
+                    const reps = ej.reps || '';
+                    const unit = ej.unit || '';
+                    const series = ej.series || '';
+                    html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;">
+                        <div><strong style="font-size:13px;">- ${nombre}</strong> ${series ? '<span style="color:#888;font-style:italic;font-size:12px;">  ' + series + 'x' + reps + ' ' + unit + '</span>' : (reps ? '<span style="color:#888;font-style:italic;font-size:12px;">  ' + reps + ' ' + unit + '</span>' : '')}</div>
+                        ${link ? '<a href="' + link + '" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>' : ''}
+                    </div>`;
                 });
             });
-            html += '</div>';
-        }
-
-        if (!html) {
-            html = '<p class="text-textoSuave text-sm text-center py-8">Sin datos de ejercicios disponibles</p>';
-        }
-
-        document.getElementById('detalle-body').innerHTML = html;
-        document.getElementById('modal-detalle-rutina').classList.remove('hidden');
-    }
-
-    function cerrarDetalleRutina() {
-        document.getElementById('modal-detalle-rutina').classList.add('hidden');
-    }
-
-    function descargarPDFDirecto(codigo) {
-        const r = historialCache[codigo];
-        if (!r) { toast('Rutina no encontrada'); return; }
-        currentData = {
-            alumno: r.alumno || 'ALUMNO',
-            tipo: r.tipo || 'ENTRENAMIENTO',
-            codigo: codigo,
-            datos: r.datos || r
-        };
-        descargarPDF();
-    }
-
-    // Helper: normalizar datos de cualquier tipo de rutina a array de bloques
-    function extraerBloques(tipo, datos) {
-        let bloques = [];
-        if (tipo === 'ENTRENAMIENTO' && datos.bloques) {
-            bloques = datos.bloques;
-        } else if (tipo === 'Series') {
-            const ejsSeries = Array.isArray(datos.datos) ? datos.datos : [];
-            bloques = [{ tipo: 'Series', ejercicios: ejsSeries, descripcion: datos.descripcion || '' }];
-        } else if (tipo === 'Circuito') {
-            const bdCirc = (datos.datos || [])[0] || {};
-            bloques = [{ tipo: 'Circuito', ejercicios: bdCirc.ejercicios || [], vueltas: datos.vueltas_bloque, pausa_vuelta: datos.pausa_vuelta, descripcion: datos.descripcion || '' }];
-        } else if (tipo === 'Circuito por Tiempo') {
-            const bdCT = (datos.datos || [])[0] || {};
-            bloques = [{ tipo: 'Circuito por Tiempo', ejercicios: bdCT.ejercicios || [], duracion_min: bdCT.tiempo_min, descripcion: datos.descripcion || '' }];
         } else if (tipo === 'Tabata') {
-            const ejsTab = (datos.rutina || []).map(function(e) {
-                return { nombre: Array.isArray(e) ? e[0] : e.nombre, link: Array.isArray(e) ? e[1] : e.link, reps: datos.trabajo ? datos.trabajo + 's' : '', unit: '' };
+            html += `<div style="background:#CE93D8;color:#fff;font-weight:700;padding:8px 16px;border-radius:6px;margin-bottom:12px;font-size:14px;">2. BLOQUE PRINCIPAL  TABATA</div>`;
+            const meta = (datos.trabajo||20) + 's / ' + (datos.pausa||10) + 's | ' + (datos.rondas||1) + ' ronda(s)';
+            html += `<div style="background:#FF6B35;color:#fff;font-weight:600;padding:6px 16px;border-radius:4px;margin:8px 0;font-size:13px;">Tabata  ${meta}</div>`;
+            (datos.rutina||[]).forEach(ej => {
+                const nombre = ej[0] || ej.nombre || '';
+                const link = ej[1] || ej.link || '';
+                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;"><strong style="font-size:13px;">- ${nombre}</strong>${link ? '<a href="'+link+'" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>' : ''}</div>`;
             });
-            bloques = [{ tipo: 'Tabata', ejercicios: ejsTab, rondas: datos.rondas, trabajo: datos.trabajo, pausa: datos.pausa, descripcion: datos.descripcion || '' }];
+        } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo') {
+            html += `<div style="background:#CE93D8;color:#fff;font-weight:700;padding:8px 16px;border-radius:6px;margin-bottom:12px;font-size:14px;">2. BLOQUE PRINCIPAL  ${tipo.toUpperCase()}</div>`;
+            (datos.datos||[]).forEach(d => {
+                (d.ejercicios||[]).forEach(ej => {
+                    const nombre = ej.nombre || ej[0] || '';
+                    const link = ej.link || ej[1] || '';
+                    const reps = ej.reps || '';
+                    const unit = ej.unit || '';
+                    html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;"><div><strong style="font-size:13px;">- ${nombre}</strong>${reps ? '<span style="color:#888;font-style:italic;font-size:12px;">  '+reps+' '+unit+'</span>':''}</div>${link?'<a href="'+link+'" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>':''}</div>`;
+                });
+            });
         } else if (tipo === 'EMOM') {
-            const ejsEmom = (datos.rutina || []).map(function(e) {
-                const n = Array.isArray(e) ? e[0] : e.nombre;
-                return { nombre: n, link: Array.isArray(e) ? e[1] : e.link, reps: (datos.reps_por_ejercicio && datos.reps_por_ejercicio[n]) || '', unit: (datos.units_por_ejercicio && datos.units_por_ejercicio[n]) || 'Reps' };
+            html += `<div style="background:#CE93D8;color:#fff;font-weight:700;padding:8px 16px;border-radius:6px;margin-bottom:12px;font-size:14px;">2. BLOQUE PRINCIPAL  EMOM</div>`;
+            (datos.rutina||[]).forEach(ej => {
+                const nombre = ej[0] || '';
+                const link = ej[1] || '';
+                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;"><strong style="font-size:13px;">- ${nombre}</strong>${link?'<a href="'+link+'" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>':''}</div>`;
             });
-            bloques = [{ tipo: 'EMOM', ejercicios: ejsEmom, minutos_totales: datos.minutos_totales, descripcion: datos.descripcion || '' }];
+        } else if (tipo === 'Series') {
+            html += `<div style="background:#CE93D8;color:#fff;font-weight:700;padding:8px 16px;border-radius:6px;margin-bottom:12px;font-size:14px;">2. BLOQUE PRINCIPAL  SERIES</div>`;
+            (datos.datos||[]).forEach(ej => {
+                const nombre = ej.nombre || '';
+                const link = ej.link || '';
+                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;"><div><strong style="font-size:13px;">- ${nombre}</strong><span style="color:#888;font-style:italic;font-size:12px;">  ${ej.series||''}x${ej.reps||''} ${ej.unit||''}</span></div>${link?'<a href="'+link+'" target="_blank" style="color:#4FC3F7;font-size:12px;text-decoration:underline;">Ver video</a>':''}</div>`;
+            });
         }
-        return bloques;
+
+        html += `<hr style="border:none;border-top:1px solid #ddd;margin:20px 0 8px;"><p style="color:#999;font-style:italic;font-size:11px;text-align:center;">Generado por PONETE FIT  |  ${fecha}  |  Codigo: ${codigo}</p>`;
+        return html;
     }
 
-    // ====================================================================
-    // DESCARGAR PDF
-    // ====================================================================
-    function descargarPDF() {
-        if (!currentData) { toast('No hay datos para descargar'); return; }
+    // --- Descargar PDF ---
+    function descargarPDFDesdeModal() {
+        if (!rutinaModalActual) return;
+        descargarPDF(rutinaModalActual.codigo);
+    }
+
+    function descargarPDF(codigo) {
+        const r = historialRutinasCache[codigo];
+        if (!r) { toast('Rutina no encontrada'); return; }
 
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF('p', 'mm', 'a4');
-        const pageW = doc.internal.pageSize.getWidth();
-        const pageH = doc.internal.pageSize.getHeight();
-        const mL = 15;
-        const mR = 15;
-        const cW = pageW - mL - mR;
+        const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+        const pw = doc.internal.pageSize.getWidth();
+        const ph = doc.internal.pageSize.getHeight();
+        const marginL = 15;
+        const marginR = 15;
+        const contentW = pw - marginL - marginR;
         let y = 20;
 
-        // Paleta de colores
-        const ORANGE   = [255, 107, 53];
-        const DGRAY    = [80, 80, 80];
-        const LGRAY_BG = [240, 240, 240];
-        const BLUE     = [41, 98, 255];
-        const FGRAY    = [180, 180, 180];
+        const datos = r.datos || r;
+        const alumno = r.alumno || '';
+        const tipo = r.tipo || 'ENTRENAMIENTO';
+        const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
 
-        // Datos
-        const nombre = currentData.alumno || 'ALUMNO';
-        const tipo   = currentData.tipo   || 'ENTRENAMIENTO';
-        const codigo = currentData.codigo || '';
-        const datos  = currentData.datos  || currentData;
-
-        // Helpers
-        function addFooter() {
-            doc.setFont('Helvetica', 'normal');
-            doc.setFontSize(8);
-            doc.setTextColor(...FGRAY);
-            doc.text('Entrená con disciplina. Ponete Fit.', pageW / 2, pageH - 10, { align: 'center' });
-        }
-
-        function checkBreak(need) {
-            if (y + need > pageH - 25) {
-                addFooter();
+        function checkPage(need) {
+            if (y + need > ph - 20) {
                 doc.addPage();
                 y = 20;
             }
         }
 
-        // ── ENCABEZADO ──
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(22);
-        doc.setTextColor(0, 0, 0);
-        doc.text('PONETE FIT', pageW / 2, y, { align: 'center' });
-        y += 10;
-
-        doc.setFont('Helvetica', 'normal');
+        // Header
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(28);
+        doc.setTextColor(255, 107, 53);
+        doc.text('PONETE FIT', pw / 2, y, { align: 'center' });
+        y += 8;
+        doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
-        doc.setTextColor(...DGRAY);
-        doc.text(
-            'Rutina de: ' + nombre + '  |  Tipo: ' + tipo + '  |  Cod: ' + codigo,
-            pageW / 2, y, { align: 'center' }
-        );
-        y += 6;
-
-        doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.5);
-        doc.line(mL, y, pageW - mR, y);
+        doc.setTextColor(100, 100, 100);
+        doc.text('Rutina de: ' + alumno.toUpperCase() + '   |   Tipo: ' + tipo + '   |   Cod: ' + codigo, pw / 2, y, { align: 'center' });
         y += 12;
 
-        // ── 1. CALENTAMIENTO / WARM-UP ──
-        var warmupEjs = datos.warmup_ejercicios || [];
-        if (warmupEjs.length > 0) {
-            checkBreak(25);
+        // Calentamiento
+        const wEjs = datos.warmup_ejercicios || [];
+        if (wEjs.length > 0) {
+            const wTipo = datos.warmup_tipo || '';
+            const wConfig = datos.warmup_config_detalle || {};
+            checkPage(20);
+            doc.setFillColor(79, 195, 247);
+            doc.roundedRect(marginL, y, contentW, 8, 2, 2, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.setTextColor(255, 255, 255);
+            doc.text('  1. CALENTAMIENTO  ' + wTipo.toUpperCase(), marginL + 2, y + 5.5);
+            y += 12;
 
-            doc.setFont('Helvetica', 'bold');
-            doc.setFontSize(13);
-            doc.setTextColor(...ORANGE);
-            doc.text('1. CALENTAMIENTO / WARM-UP', mL, y);
-            y += 8;
-
-            var wTipo = datos.warmup_tipo || '';
-            var wCfg  = datos.warmup_config_detalle || {};
-            if (wTipo) {
-                doc.setFont('Helvetica', 'italic');
+            let metaW = '';
+            if (wConfig.vueltas) metaW += 'Vueltas: ' + wConfig.vueltas;
+            if (wConfig.pausa_vuelta) metaW += '   |   Pausa entre vueltas: ' + wConfig.pausa_vuelta + 's';
+            if (wConfig.duracion_bloque) metaW += 'Duracion: ' + wConfig.duracion_bloque + ' min';
+            if (wConfig.trabajo) metaW += 'Trabajo: ' + wConfig.trabajo + 's / Pausa: ' + (wConfig.pausa||10) + 's';
+            if (wConfig.minutos) metaW += 'Minutos: ' + wConfig.minutos;
+            if (metaW) {
+                doc.setFont('helvetica', 'italic');
                 doc.setFontSize(9);
-                doc.setTextColor(...DGRAY);
-                var cfgParts = [wTipo];
-                if (wCfg.vueltas)         cfgParts.push('Vueltas: ' + wCfg.vueltas);
-                if (wCfg.pausa_vuelta)    cfgParts.push('Pausa: ' + wCfg.pausa_vuelta + 's');
-                if (wCfg.duracion_bloque) cfgParts.push('Duración: ' + wCfg.duracion_bloque + ' min');
-                if (wCfg.trabajo)         cfgParts.push('Trabajo: ' + wCfg.trabajo + 's');
-                if (wCfg.pausa)           cfgParts.push('Pausa: ' + wCfg.pausa + 's');
-                if (wCfg.minutos)         cfgParts.push('Minutos: ' + wCfg.minutos);
-                if (wCfg.series)          cfgParts.push('Series: ' + wCfg.series);
-                if (wCfg.reps)            cfgParts.push('Reps: ' + wCfg.reps);
-                doc.text(cfgParts.join('  |  '), mL, y);
+                doc.setTextColor(130, 130, 130);
+                doc.text(metaW, marginL + 4, y);
                 y += 6;
             }
-            y += 2;
 
-            warmupEjs.forEach(function(ej) {
-                checkBreak(8);
-                var ejNombre = Array.isArray(ej) ? ej[0] : (ej.nombre || '');
-                var ejReps   = Array.isArray(ej) ? ej[2] : (ej.reps || '');
-                var ejUnit   = Array.isArray(ej) ? ej[3] : (ej.unit || '');
-
-                doc.setFont('Helvetica', 'normal');
+            wEjs.forEach(ej => {
+                checkPage(8);
+                const nombre = ej[0] || '';
+                const link = ej[1] || '';
+                const reps = ej[2] || '';
+                const unit = ej[3] || 'Reps';
+                doc.setFont('helvetica', 'bold');
                 doc.setFontSize(10);
-                doc.setTextColor(0, 0, 0);
-
-                doc.setFillColor(0, 0, 0);
-                doc.circle(mL + 2, y - 1.2, 1, 'F');
-
-                var txt = ejNombre;
-                if (ejReps) txt += '  —  ' + ejReps + ' ' + ejUnit;
-                doc.text(txt, mL + 7, y);
+                doc.setTextColor(40, 40, 40);
+                let txt = '- ' + nombre;
+                doc.text(txt, marginL + 4, y);
+                if (reps) {
+                    const tw = doc.getTextWidth(txt);
+                    doc.setFont('helvetica', 'italic');
+                    doc.setFontSize(9);
+                    doc.setTextColor(130, 130, 130);
+                    doc.text('   ' + reps + ' total de  ' + unit, marginL + 4 + tw, y);
+                }
+                if (link) {
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(9);
+                    doc.setTextColor(79, 195, 247);
+                    doc.textWithLink('Ver video', pw - marginR - doc.getTextWidth('Ver video'), y, { url: link });
+                }
                 y += 7;
             });
 
+            y += 2;
+            doc.setDrawColor(200, 200, 200);
+            doc.line(marginL, y, pw - marginR, y);
             y += 8;
         }
 
-        // ── 2. BLOQUE PRINCIPAL ENTRENAMIENTO ──
-        var bloques = extraerBloques(tipo, datos);
-
-        if (bloques.length > 0) {
-            checkBreak(20);
-
-            doc.setFont('Helvetica', 'bold');
-            doc.setFontSize(13);
-            doc.setTextColor(...ORANGE);
-            doc.text('2. BLOQUE PRINCIPAL ENTRENAMIENTO', mL, y);
-            y += 10;
-
-            bloques.forEach(function(bloque, bIdx) {
-
-                if (bloques.length > 1) {
-                    checkBreak(15);
-                    doc.setFont('Helvetica', 'bold');
-                    doc.setFontSize(10);
-                    doc.setTextColor(...DGRAY);
-
-                    var subTitle = 'Bloque ' + (bIdx + 1) + ': ' + bloque.tipo;
-                    if (bloque.tipo === 'Circuito')
-                        subTitle += '  —  ' + (bloque.vueltas || '') + ' vueltas, Pausa: ' + (bloque.pausa_vuelta || '') + 's';
-                    else if (bloque.tipo === 'Tabata')
-                        subTitle += '  —  ' + bloque.trabajo + 's/' + bloque.pausa + 's, ' + bloque.rondas + ' ronda(s)';
-                    else if (bloque.tipo === 'EMOM')
-                        subTitle += '  —  ' + bloque.minutos_totales + ' min';
-                    else if (bloque.tipo === 'Circuito por Tiempo')
-                        subTitle += '  —  ' + bloque.duracion_min + ' min';
-                    else if (bloque.tipo === 'Series')
-                        subTitle += '  —  ' + (bloque.ejercicios || []).length + ' ejercicios';
-
-                    doc.text(subTitle, mL, y);
-                    y += 5;
-
-                    if (bloque.descripcion) {
-                        doc.setFont('Helvetica', 'italic');
-                        doc.setFontSize(8);
-                        doc.setTextColor(...DGRAY);
-                        doc.text(bloque.descripcion, mL, y);
-                        y += 5;
-                    }
-                    y += 3;
-                }
-
-                var ejercicios = bloque.ejercicios || [];
-                ejercicios.forEach(function(ej, eIdx) {
-                    checkBreak(22);
-
-                    doc.setFillColor(...LGRAY_BG);
-                    doc.roundedRect(mL, y - 4, cW, 18, 2, 2, 'F');
-
-                    doc.setFont('Helvetica', 'bold');
-                    doc.setFontSize(11);
-                    doc.setTextColor(0, 0, 0);
-                    doc.text((eIdx + 1) + '. ' + (ej.nombre || ''), mL + 4, y + 1);
-
-                    if (ej.link) {
-                        doc.setFont('Helvetica', 'normal');
-                        doc.setFontSize(9);
-                        doc.setTextColor(...BLUE);
-                        var linkTxt = 'Ver video';
-                        var linkW = doc.getTextWidth(linkTxt);
-                        doc.textWithLink(linkTxt, pageW - mR - linkW - 4, y + 1, { url: ej.link });
-                    }
-
-                    doc.setFont('Helvetica', 'normal');
-                    doc.setFontSize(9);
-                    doc.setTextColor(...DGRAY);
-
-                    var seriesVal = ej.series || bloque.vueltas || bloque.rondas || '-';
-                    var repsVal   = ej.reps || '-';
-                    var pausaVal  = ej.nota_tecnica || bloque.pausa_vuelta || bloque.pausa || '-';
-                    if (typeof pausaVal === 'number') pausaVal = pausaVal + 's';
-
-                    var detLine = 'Series/Rondas: ' + seriesVal +
-                        '  |  Reps/Tiempo: ' + repsVal + (ej.unit ? ' ' + ej.unit : '') +
-                        '  |  Pausa: ' + pausaVal;
-                    doc.text(detLine, mL + 4, y + 7);
-
-                    y += 22;
-                });
-
-                if (bIdx < bloques.length - 1) y += 5;
-            });
+        // Bloque Principal
+        function renderBloqueHeader(titulo) {
+            checkPage(14);
+            doc.setFillColor(206, 147, 216);
+            doc.roundedRect(marginL, y, contentW, 8, 2, 2, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.setTextColor(255, 255, 255);
+            doc.text('  ' + titulo, marginL + 2, y + 5.5);
+            y += 12;
         }
 
-        // Pie de página última hoja
-        addFooter();
+        function renderSubHeader(text) {
+            checkPage(12);
+            doc.setFillColor(255, 107, 53);
+            doc.roundedRect(marginL, y, contentW, 7, 2, 2, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.setTextColor(255, 255, 255);
+            doc.text('  ' + text, marginL + 2, y + 5);
+            y += 10;
+        }
 
-        // Descargar
-        doc.save(nombre + '-' + (codigo || 'rutina') + '.pdf');
+        function renderEjercicio(nombre, link, reps, unit, series) {
+            checkPage(8);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.setTextColor(40, 40, 40);
+            let txt = '- ' + nombre;
+            doc.text(txt, marginL + 4, y);
+            if (series && reps) {
+                const tw = doc.getTextWidth(txt);
+                doc.setFont('helvetica', 'italic');
+                doc.setFontSize(9);
+                doc.setTextColor(130, 130, 130);
+                doc.text('   ' + series + 'x' + reps + ' ' + (unit||''), marginL + 4 + tw, y);
+            } else if (reps) {
+                const tw = doc.getTextWidth(txt);
+                doc.setFont('helvetica', 'italic');
+                doc.setFontSize(9);
+                doc.setTextColor(130, 130, 130);
+                doc.text('   ' + reps + ' ' + (unit||''), marginL + 4 + tw, y);
+            }
+            if (link) {
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9);
+                doc.setTextColor(79, 195, 247);
+                doc.textWithLink('Ver video', pw - marginR - doc.getTextWidth('Ver video'), y, { url: link });
+            }
+            y += 7;
+        }
+
+        if (tipo === 'ENTRENAMIENTO' && datos.bloques) {
+            renderBloqueHeader('2. BLOQUE PRINCIPAL  ENTRENAMIENTO');
+            datos.bloques.forEach((b, i) => {
+                let meta = '';
+                if (b.tipo === 'Tabata') meta = b.trabajo + 's actividad / ' + b.pausa + 's pausa  |  ' + (b.rondas||1) + ' ronda(s)';
+                else if (b.tipo === 'Circuito') meta = b.vueltas + ' vueltas | Pausa: ' + b.pausa_vuelta + 's';
+                else if (b.tipo === 'Circuito por Tiempo') meta = b.duracion_min + ' min';
+                else if (b.tipo === 'EMOM') meta = b.minutos_totales + ' min | ' + b.ejercicios_por_minuto + ' ej/min';
+                else if (b.tipo === 'Series') meta = b.ejercicios.length + ' ejercicios';
+                renderSubHeader('Bloque ' + (i+1) + ': ' + b.tipo + '  ' + meta);
+                (b.ejercicios||[]).forEach(ej => {
+                    renderEjercicio(ej.nombre||ej[0]||'', ej.link||ej[1]||'', ej.reps||'', ej.unit||'', ej.series||'');
+                });
+            });
+        } else if (tipo === 'Tabata') {
+            renderBloqueHeader('2. BLOQUE PRINCIPAL  TABATA');
+            renderSubHeader('Tabata  ' + (datos.trabajo||20) + 's / ' + (datos.pausa||10) + 's | ' + (datos.rondas||1) + ' ronda(s)');
+            (datos.rutina||[]).forEach(ej => renderEjercicio(ej[0]||'', ej[1]||'', '', '', ''));
+        } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo') {
+            renderBloqueHeader('2. BLOQUE PRINCIPAL  ' + tipo.toUpperCase());
+            (datos.datos||[]).forEach(d => {
+                (d.ejercicios||[]).forEach(ej => renderEjercicio(ej.nombre||ej[0]||'', ej.link||ej[1]||'', ej.reps||'', ej.unit||'', ''));
+            });
+        } else if (tipo === 'EMOM') {
+            renderBloqueHeader('2. BLOQUE PRINCIPAL  EMOM');
+            (datos.rutina||[]).forEach(ej => renderEjercicio(ej[0]||'', ej[1]||'', '', '', ''));
+        } else if (tipo === 'Series') {
+            renderBloqueHeader('2. BLOQUE PRINCIPAL  SERIES');
+            (datos.datos||[]).forEach(ej => renderEjercicio(ej.nombre||'', ej.link||'', ej.reps||'', ej.unit||'', ej.series||''));
+        }
+
+        // Footer
+        y += 6;
+        checkPage(10);
+        doc.setDrawColor(200, 200, 200);
+        doc.line(marginL, y, pw - marginR, y);
+        y += 6;
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(9);
+        doc.setTextColor(150, 150, 150);
+        doc.text('Generado por PONETE FIT  |  ' + fecha + '  |  Codigo: ' + codigo, pw / 2, y, { align: 'center' });
+
+        doc.save(codigo + '.pdf');
+        toast('PDF descargado!');
     }
 
     // ====================================================================
@@ -1409,6 +1326,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         cargarVideoteca();
         actualizarWarmupUI();
+        cargarListaAlumnos();
     });
     </script>
 </body>
