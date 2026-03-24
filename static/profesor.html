@@ -2009,14 +2009,40 @@
         document.getElementById('dash-avatar').textContent = nombre.charAt(0).toUpperCase();
         document.getElementById('dash-nombre-alumno').textContent = nombre.toUpperCase();
 
-        // Cargar rutinas del alumno
+        // Mostrar loading
+        contenido.classList.remove('hidden');
+        document.getElementById('kpi-total-rutinas').textContent = '...';
+        document.getElementById('kpi-metodo-dominante').textContent = '...';
+        document.getElementById('kpi-ejs-unicos').textContent = '...';
+        document.getElementById('kpi-frecuencia').textContent = '...';
+
+        // Cargar lista de rutinas del alumno
         try {
             const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre));
             const data = await res.json();
             if (data.ok) {
-                dashRutinasData = data.rutinas || {};
+                const rutinasResumen = data.rutinas || {};
+                const codigos = Object.keys(rutinasResumen);
+
+                // Fetch FULL data for each routine in parallel
+                dashRutinasData = {};
+                const fetches = codigos.map(async (cod) => {
+                    try {
+                        const rr = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(cod));
+                        const dd = await rr.json();
+                        if (dd.ok && dd.rutina) {
+                            dashRutinasData[cod] = dd.rutina;
+                        } else {
+                            // Fallback: use summary data
+                            dashRutinasData[cod] = rutinasResumen[cod];
+                        }
+                    } catch (err) {
+                        dashRutinasData[cod] = rutinasResumen[cod];
+                    }
+                });
+                await Promise.all(fetches);
+
                 procesarDashboard(nombre);
-                contenido.classList.remove('hidden');
                 // Re-trigger animation
                 contenido.classList.remove('dash-fade-in');
                 void contenido.offsetWidth;
@@ -2058,16 +2084,27 @@
 
         keys.forEach(cod => {
             const r = rutinas[cod];
-            const tipo = r.tipo || 'ENTRENAMIENTO';
-            metodoCount[tipo] = (metodoCount[tipo] || 0) + 1;
             if (r.timestamp) timestamps.push(r.timestamp);
 
-            // Extraer ejercicios de la rutina
+            // Extraer ejercicios de la rutina (full data)
             const datos = resolverDatos(r);
             const allEjs = extraerEjerciciosDeRutina(r, datos);
-            allEjs.forEach(nombre => {
-                ejercicioCount[nombre] = (ejercicioCount[nombre] || 0) + 1;
+            allEjs.forEach(n => {
+                ejercicioCount[n] = (ejercicioCount[n] || 0) + 1;
             });
+
+            // Contar metodos: usar tipos internos de cada bloque, no solo el tipo top-level
+            const bloques = toArray(datos.bloques);
+            if (bloques.length > 0) {
+                bloques.forEach(b => {
+                    const bTipo = b.tipo || r.tipo || 'ENTRENAMIENTO';
+                    metodoCount[bTipo] = (metodoCount[bTipo] || 0) + 1;
+                });
+            } else {
+                // Sin bloques internos, contar tipo top-level
+                const tipo = r.tipo || 'ENTRENAMIENTO';
+                metodoCount[tipo] = (metodoCount[tipo] || 0) + 1;
+            }
         });
 
         // -- KPI: Metodo Dominante --
