@@ -100,6 +100,18 @@
         <!-- TAB: VIDEOTECA -->
         <!-- ═══════════════════════════════════════════ -->
         <section id="sec-videoteca">
+            <!-- Buscador de ejercicios -->
+            <div class="mb-4">
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                        <svg class="w-5 h-5 text-textoSuave" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"/>
+                        </svg>
+                    </span>
+                    <input id="buscar-ejercicio" type="text" placeholder="Buscar ejercicio por nombre..." onkeyup="filtrarVideoteca()" class="w-full rounded-2xl pl-12 pr-4 py-3 text-sm bg-tarjeta border border-borde text-texto placeholder-textoSuave focus:border-naranja focus:ring-2 focus:ring-naranja/30 transition">
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Lista de ejercicios -->
                 <div class="lg:col-span-2">
@@ -107,7 +119,7 @@
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-lg font-bold text-azul uppercase tracking-wider">Ejercicios</h2>
                             <div class="flex items-center gap-3">
-                                <select id="cat-select" onchange="cargarEjerciciosCategoria()" class="rounded-lg px-3 py-2 text-sm">
+                                <select id="cat-select" onchange="renderizarVideoteca()" class="rounded-lg px-3 py-2 text-sm">
                                 </select>
                                 <button onclick="modalNuevaCategoria()" class="bg-verde/20 text-verde px-3 py-2 rounded-lg text-xs font-bold hover:bg-verde/30 transition">+ Categoria</button>
                             </div>
@@ -368,14 +380,17 @@
     // ====================================================================
     // VIDEOTECA
     // ====================================================================
+    let VIDEOTECA_DATA = {}; // Datos completos de la videoteca
+
     async function cargarVideoteca() {
         try {
             const res = await fetch(API_BASE + '/api/videoteca');
             const data = await res.json();
             if (data.ok) {
-                videotecaCache = data.videoteca;
+                VIDEOTECA_DATA = data.videoteca;
+                videotecaCache = VIDEOTECA_DATA;
                 poblarCategorias();
-                cargarEjerciciosCategoria();
+                renderizarVideoteca();
             }
         } catch (e) {
             console.error('Error cargando videoteca:', e);
@@ -383,7 +398,7 @@
     }
 
     function poblarCategorias() {
-        const cats = Object.keys(videotecaCache);
+        const cats = Object.keys(VIDEOTECA_DATA);
         ['cat-select', 'warmup-cat-select', 'bloque-cat-select'].forEach(id => {
             const sel = document.getElementById(id);
             if (!sel) return;
@@ -394,17 +409,67 @@
         cargarEjsBloque();
     }
 
-    function cargarEjerciciosCategoria() {
-        const cat = document.getElementById('cat-select').value;
+    // Filtra la videoteca segun el texto del buscador
+    function filtrarVideoteca() {
+        const query = (document.getElementById('buscar-ejercicio')?.value || '').trim().toLowerCase();
+        if (!query) {
+            renderizarVideoteca();
+            return;
+        }
+
+        // Filtrar ejercicios por nombre manteniendo estructura de categorias
+        const filtrado = {};
+        for (const [cat, ejercicios] of Object.entries(VIDEOTECA_DATA)) {
+            const ejsFiltrados = (ejercicios || []).filter(ej => {
+                const nombre = (ej.nombre || ej[0] || '').toLowerCase();
+                return nombre.includes(query);
+            });
+            if (ejsFiltrados.length > 0) {
+                filtrado[cat] = ejsFiltrados;
+            }
+        }
+
+        renderizarVideoteca(filtrado);
+    }
+
+    // Renderiza la videoteca (completa o filtrada)
+    // Si se pasa dataOverride se usa eso, sino se usa la categoria seleccionada de VIDEOTECA_DATA
+    function renderizarVideoteca(dataOverride) {
         const lista = document.getElementById('lista-ejercicios');
-        const ejercicios = videotecaCache[cat] || [];
+        const catSelect = document.getElementById('cat-select');
+        const query = (document.getElementById('buscar-ejercicio')?.value || '').trim().toLowerCase();
+
+        // Modo busqueda: mostrar resultados agrupados por categoria
+        if (dataOverride) {
+            const cats = Object.keys(dataOverride);
+            if (cats.length === 0) {
+                lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">No se encontraron ejercicios</p>';
+                return;
+            }
+            let html = '';
+            cats.forEach(cat => {
+                html += `<div class="mb-1"><span class="text-xs font-bold text-naranja uppercase tracking-wider">${cat}</span></div>`;
+                html += renderEjerciciosList(dataOverride[cat]);
+            });
+            lista.innerHTML = html;
+            return;
+        }
+
+        // Modo normal: mostrar la categoria seleccionada
+        const cat = catSelect?.value;
+        const ejercicios = VIDEOTECA_DATA[cat] || [];
 
         if (ejercicios.length === 0) {
             lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">(Sin ejercicios en esta categoria)</p>';
             return;
         }
 
-        lista.innerHTML = ejercicios.map((ej, i) => {
+        lista.innerHTML = renderEjerciciosList(ejercicios);
+    }
+
+    // Renderiza una lista de ejercicios como tarjetas (reutilizable)
+    function renderEjerciciosList(ejercicios) {
+        return ejercicios.map((ej, i) => {
             const nombre = ej.nombre || ej[0] || '';
             const link = ej.link || ej[1] || '';
             return `<div class="flex items-center justify-between bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50 hover:border-borde transition group">
