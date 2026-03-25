@@ -2231,13 +2231,12 @@
         }
 
         // Descanso Tabata: solo pausa + próximo ejercicio (sin "momento de tomar agua")
-        function coachDescanso(segundos, proximoEjercicio, esUltima) {
-            if (esUltima) {
-                hablarCoach('Es la última, no aflojes!');
-            } else {
-                hablarCoach('Pausa.');
-                if (proximoEjercicio) hablarCoach('El próximo ejercicio es ' + proximoEjercicio + '.');
+        function coachDescanso(segundos, proximoEjercicio, esAnteultima) {
+            hablarCoach('Pausa.');
+            if (esAnteultima) {
+                hablarCoach('Vamos que es el último ejercicio, no aflojes!');
             }
+            if (proximoEjercicio) hablarCoach('El próximo ejercicio es ' + proximoEjercicio + '.');
         }
 
         function coachMotivacional() {
@@ -2574,16 +2573,20 @@
                 for (var i = 0; i < ejs.length; i++) total += (parseInt(ejs[i].series) || 3);
                 return total || 3;
             }
-            if (tipo === 'Circuito') return bloque.vueltas_bloque || 3;
+            if (tipo === 'Circuito') return bloque.vueltas_bloque || bloque.vueltas || 3;
             if (tipo === 'Tabata') {
                 var cfg = bloque.config || {};
-                return (cfg.rondas || bloque.rondas || 1);
+                return (cfg.cantidad || bloque.cantidad || 8) * (cfg.rondas || bloque.rondas || 1);
             }
             if (tipo === 'EMOM') return bloque.minutos_totales || 10;
             if (tipo === 'Circuito por Tiempo') {
                 var ejsCT = bloque.rutina || bloque.datos || [];
-                if (ejsCT.length > 0 && ejsCT[0] && ejsCT[0].ejercicios) return ejsCT.length;
-                return (bloque.config || {}).rondas || 1;
+                if (ejsCT.length > 0 && ejsCT[0] && ejsCT[0].ejercicios) {
+                    var totalMinCT = 0;
+                    for (var ci = 0; ci < ejsCT.length; ci++) totalMinCT += (ejsCT[ci].tiempo_min || 5);
+                    return totalMinCT;
+                }
+                return Math.ceil(((bloque.config || {}).trabajo || 300) / 60);
             }
             return 1;
         }
@@ -2597,13 +2600,20 @@
                 for (var i = 0; i < ejs.length; i++) total += (parseInt(ejs[i].series) || 3);
                 return total || 3;
             }
-            if (tipo === 'Circuito') return bloque.vueltas_bloque || 3;
-            if (tipo === 'Tabata') return 1;
-            if (tipo === 'EMOM') return 1;
+            if (tipo === 'Circuito') return bloque.vueltas_bloque || bloque.vueltas || 3;
+            if (tipo === 'Tabata') {
+                var cfgT = bloque.config || {};
+                return (cfgT.cantidad || bloque.cantidad || 8) * (cfgT.rondas || bloque.rondas || 1);
+            }
+            if (tipo === 'EMOM') return bloque.minutos_totales || 10;
             if (tipo === 'Circuito por Tiempo') {
                 var ejsCT2 = bloque.rutina || bloque.datos || [];
-                if (ejsCT2.length > 0 && ejsCT2[0] && ejsCT2[0].ejercicios) return ejsCT2.length;
-                return (bloque.config || {}).rondas || 1;
+                if (ejsCT2.length > 0 && ejsCT2[0] && ejsCT2[0].ejercicios) {
+                    var totalMinCT2 = 0;
+                    for (var ci2 = 0; ci2 < ejsCT2.length; ci2++) totalMinCT2 += (ejsCT2[ci2].tiempo_min || 5);
+                    return totalMinCT2;
+                }
+                return Math.ceil(((bloque.config || {}).trabajo || 300) / 60);
             }
             return 1;
         }
@@ -2628,9 +2638,15 @@
             if (hasWarmup) {
                 if (warmupTipo === 'Circuito (Vueltas)' || warmupTipo === 'Circuito') {
                     warmupItems = data.warmup_vueltas || warmupDet.vueltas || 2;
+                } else if (warmupTipo === 'Tabata') {
+                    warmupItems = warmupEjs.length || (warmupDet.cantidad || 8);
+                } else if (warmupTipo === 'EMOM') {
+                    warmupItems = warmupDet.minutos || 5;
+                } else if (warmupTipo === 'Circuito por Tiempo') {
+                    warmupItems = Math.ceil(((warmupDet.duracion_bloque || 3) * 60) / 60);
+                } else if (warmupTipo === 'Series/Reps') {
+                    warmupItems = warmupDet.series || 3;
                 } else {
-                    // Todos los demás tipos (Tabata, EMOM, Circuito por Tiempo, Series por tiempo)
-                    // usan 1 item que se completa al finalizar el calentamiento
                     warmupItems = 1;
                 }
             }
@@ -3107,7 +3123,22 @@
                     document.getElementById('alumno-nombre-display').innerText = 'ENTRENAMIENTO';
                     document.getElementById('id-display').innerText = cod.toUpperCase();
                 }
-                document.getElementById('tipo-tag').innerText = data.tipo.toUpperCase();
+                // Mostrar métodos de entrenamiento en el header
+                if (data.tipo && data.tipo.toUpperCase() === 'ENTRENAMIENTO' && data.bloques && data.bloques.length > 0) {
+                    var _modosHeader = [];
+                    for (var _mh = 0; _mh < data.bloques.length; _mh++) {
+                        var _modoH = (data.bloques[_mh].tipo || '').toUpperCase();
+                        if (_modoH && _modosHeader.indexOf(_modoH) === -1) _modosHeader.push(_modoH);
+                    }
+                    if (_modosHeader.length > 0) {
+                        document.getElementById('tipo-tag').innerText = 'MÉTODOS';
+                        document.getElementById('id-display').innerText = _modosHeader.join(' + ');
+                    } else {
+                        document.getElementById('tipo-tag').innerText = data.tipo.toUpperCase();
+                    }
+                } else {
+                    document.getElementById('tipo-tag').innerText = data.tipo.toUpperCase();
+                }
                 _pantallaFinMostrada = false;
                 _iniciarCronometroSesion();
                 render(data);
@@ -3549,7 +3580,6 @@
                     desactivarTimerGlobal();
                     if (_wPausaBtn) _wPausaBtn.style.display = 'none';
                     if (_wReinBtn) _wReinBtn.style.display = 'none';
-                    incrementarProgreso(1);
                     liberarWakeLock();
                     return;
                 }
@@ -3571,12 +3601,12 @@
                     if (rem <= 0) {
                         bgClearInterval(warmupTabInterval);
                         beep(800);
+                        incrementarProgreso(1);
                         document.getElementById('warmup-status').innerText = "DESCANSO";
-                        var _esUltimaWarmup = (ejIdx + 1 >= totalEjs);
-                        if (_esUltimaWarmup) {
-                            hablarCoach('Es la última, no aflojes!');
-                        } else {
-                            hablarCoach('Pausa.');
+                        var _esAnteultimaWarmup = (ejIdx + 2 >= totalEjs) && (ejIdx + 1 < totalEjs);
+                        hablarCoach('Pausa.');
+                        if (_esAnteultimaWarmup) {
+                            hablarCoach('Vamos que es el último ejercicio, no aflojes!');
                         }
                         const nextIdx = ejIdx + 1;
                         var nextNombre = '';
@@ -3765,7 +3795,6 @@
                     warmupEmomPausado = false;
                     if (pausaBtnEW) pausaBtnEW.style.display = 'none';
                     if (reiniciarBtnEW) reiniciarBtnEW.style.display = 'none';
-                    incrementarProgreso(1);
                     liberarWakeLock();
                     return;
                 }
@@ -3825,6 +3854,7 @@
                         bgClearInterval(warmupEmomInterval);
                         beep(800);
                         minActual++;
+                        incrementarProgreso(1);
                         sig();
                     }
                 }, 1000);
@@ -3884,11 +3914,11 @@
                     clock.innerText = "--";
                     document.getElementById('warmup-ej').innerText = "";
                     const nextIdx = idx + 1;
+                    incrementarProgreso(1);
                     if (nextIdx < totalSeries) {
                         document.getElementById('warmup-status').innerText = "LISTA PARA SERIE " + (nextIdx + 1) + "/" + totalSeries;
                     } else {
                         document.getElementById('warmup-status').innerText = "CALENTAMIENTO LISTO!";
-                        incrementarProgreso(1);
                         liberarWakeLock();
                     }
                 }
@@ -4155,7 +4185,7 @@
         var bloquesMix = [];
 
         function renderMix(data, pTitulo, pLista) {
-            pTitulo.innerText = "ENTRENAMIENTO";
+            pTitulo.innerText = "BLOQUE PRINCIPAL";
             _tipoEntrenamientoGlobal = 'ENTRENAMIENTO';
             const bloques = data.bloques || [];
             bloquesMix = bloques;
@@ -4241,6 +4271,7 @@
             mixOldCircVueltas[contId]--;
             const el = document.getElementById(contId);
             if (el) el.innerText = mixOldCircVueltas[contId] > 0 ? 'Vueltas restantes: ' + mixOldCircVueltas[contId] : 'CIRCUITO COMPLETO!';
+            incrementarProgreso(1);
             // >>> COACH: Pausa circuito vueltas mix old con motivación
             coachPausaVueltas(mixOldCircVueltas[contId]);
             if (pausaVuelta > 0 && mixOldCircVueltas[contId] > 0) iniciarDescansoCircuito(pausaVuelta);
@@ -4419,6 +4450,7 @@
             mixBloqueVueltas[uid]--;
             const el = document.getElementById(contId);
             if (el) el.innerText = mixBloqueVueltas[uid] > 0 ? 'Vueltas restantes: ' + mixBloqueVueltas[uid] : 'BLOQUE COMPLETO!';
+            incrementarProgreso(1);
             // >>> COACH: Pausa circuito vueltas mix con motivación y vueltas restantes
             coachPausaVueltas(mixBloqueVueltas[uid]);
             const btn = document.getElementById(uid + '-btn-vuelta');
@@ -4649,6 +4681,8 @@
             let rem = totalSeg;
             _btDeadlines[timerId] = Date.now() + totalSeg * 1000;
             var _btLastMinAnnounced = -1;
+            var _btTotalMin = Math.ceil(totalSeg / 60);
+            var _btMinProgressed = 0;
             bloqueTiempoIntervals[timerId] = bgSetInterval(function() {
                 if (bloqueTiempoPausado[timerId]) {
                     _btRems[timerId] = rem; // guardar rem actual mientras está pausado
@@ -4658,6 +4692,15 @@
                 const m = Math.floor(rem / 60),
                     s = rem % 60;
                 timerEl.innerText = m + ":" + (s < 10 ? "0" + s : s);
+
+                // >>> Progreso por minuto (entrenamiento y warmup)
+                var _btElapsed = totalSeg - rem;
+                var _btElapsedMin = Math.floor(_btElapsed / 60);
+                if (_btElapsedMin > _btMinProgressed) {
+                    var delta = _btElapsedMin - _btMinProgressed;
+                    _btMinProgressed = _btElapsedMin;
+                    incrementarProgreso(delta);
+                }
 
                 // >>> COACH: Anunciar cada minuto que pasa
                 if (rem > 0 && rem % 60 === 0) {
@@ -4696,7 +4739,9 @@
                     }
                     // >>> COACH: Bloque completado
                     coachFinalizacion();
-                    incrementarProgreso(1);
+                    // Progreso restante (minutos parciales al final)
+                    var _btRemaining = _btTotalMin - _btMinProgressed;
+                    if (_btRemaining > 0) incrementarProgreso(_btRemaining);
                     liberarWakeLock();
                 }
             }, 1000);
@@ -4859,14 +4904,15 @@
                         }
                     } else if (tFase === "trabajo") {
                         tIdx++;
+                        incrementarProgreso(1);
                         _setFase("pausa", pausa);
                         actualizarUI();
-                        var _esUltimaTabata = (tIdx >= cantidad - 1);
+                        var _esAnteultimaTabata = (tIdx >= cantidad - 2) && (tIdx < cantidad - 1);
                         if (tIdx < cantidad && rutina.length > 0) {
                             var _nxt = rutina[tIdx % rutina.length];
-                            coachDescanso(pausa, Array.isArray(_nxt) ? _nxt[0] : (_nxt.nombre || ""), _esUltimaTabata);
-                        } else if (_esUltimaTabata) {
-                            coachDescanso(pausa, '', true);
+                            coachDescanso(pausa, Array.isArray(_nxt) ? _nxt[0] : (_nxt.nombre || ""), _esAnteultimaTabata);
+                        } else if (tIdx >= cantidad - 1) {
+                            coachDescanso(pausa, '', false);
                         }
                     } else if (tFase === "pausa") {
                         if (tIdx >= cantidad) {
@@ -4903,7 +4949,6 @@
                                 liberarWakeLock();
                                 _detenerAudioKeepalive();
                                 coachFinalizacion();
-                                incrementarProgreso(1);
                             }
                         } else {
                             _setFase("trabajo", trabajo);
@@ -5166,6 +5211,7 @@
                         }
                     } else {
                         emomMinActual++;
+                        incrementarProgreso(1);
                         if (emomMinActual >= emomMinTotal) {
                             bgClearInterval(emomInterval);
                             emomInterval = null;
@@ -5186,7 +5232,6 @@
                             liberarWakeLock();
                             _detenerAudioKeepalive();
                             coachFinalizacion();
-                            incrementarProgreso(1);
                             return;
                         }
                         emomSegs = 60;
@@ -5331,7 +5376,6 @@
                         btn.innerText = "Reiniciar";
                         tabataRunningFlags[btnId] = false;
                         desactivarTimerGlobal();
-                        incrementarProgreso(1);
                         liberarWakeLock();
                         return;
                     }
@@ -5376,13 +5420,13 @@
                         if (t <= 0) {
                             bgClearInterval(_ivT);
                             beep(800);
+                            incrementarProgreso(1);
                             document.getElementById(statusId).innerText = "DESCANSO";
                             // >>> COACH: Pausa + próximo ejercicio (Tabata Mix) - sin 3 2 1 en rest
-                            var _esUltimaMix = (ejIdx + 1 >= cantidad);
-                            if (_esUltimaMix) {
-                                hablarCoach('Es la última, no aflojes!');
-                            } else {
-                                hablarCoach('Pausa.');
+                            var _esAnteultimaMix = (ejIdx + 2 >= cantidad) && (ejIdx + 1 < cantidad);
+                            hablarCoach('Pausa.');
+                            if (_esAnteultimaMix) {
+                                hablarCoach('Vamos que es el último ejercicio, no aflojes!');
                             }
                             var _nxtMix = rutina[(ejIdx + 1) % rutina.length];
                             var _nxtNombreMix = Array.isArray(_nxtMix) ? _nxtMix[0] : (_nxtMix.nombre || _nxtMix || '');
@@ -5474,7 +5518,6 @@
                     btn.innerText = "Reiniciar";
                     emomBloquePausado[clockId] = false;
                     desactivarTimerGlobal();
-                    incrementarProgreso(1);
                     if (pausaBtnEl) pausaBtnEl.style.display = 'none';
                     liberarWakeLock();
                     return;
@@ -5498,6 +5541,7 @@
                         bgClearInterval(iv);
                         beep(800);
                         minActual++;
+                        incrementarProgreso(1);
                         sig();
                     }
                 }, 1000);
@@ -5592,7 +5636,6 @@
                     btn.innerText = "Reiniciar";
                     emomBloquePausado[clockId] = false;
                     desactivarTimerGlobal();
-                    incrementarProgreso(1);
                     if (pausaBtnEl) pausaBtnEl.style.display = 'none';
                     liberarWakeLock();
                     return;
@@ -5635,6 +5678,7 @@
                         bgClearInterval(iv);
                         beep(800);
                         minActual++;
+                        incrementarProgreso(1);
                         sig();
                     }
                 }, 1000);
