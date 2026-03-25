@@ -3117,7 +3117,22 @@
                     document.getElementById('alumno-nombre-display').innerText = 'ENTRENAMIENTO';
                     document.getElementById('id-display').innerText = cod.toUpperCase();
                 }
-                document.getElementById('tipo-tag').innerText = data.tipo.toUpperCase();
+                // Mostrar métodos de entrenamiento en el header
+                if (data.tipo && data.tipo.toUpperCase() === 'ENTRENAMIENTO' && data.bloques && data.bloques.length > 0) {
+                    var _modosHeader = [];
+                    for (var _mh = 0; _mh < data.bloques.length; _mh++) {
+                        var _modoH = (data.bloques[_mh].tipo || '').toUpperCase();
+                        if (_modoH && _modosHeader.indexOf(_modoH) === -1) _modosHeader.push(_modoH);
+                    }
+                    if (_modosHeader.length > 0) {
+                        document.getElementById('tipo-tag').innerText = 'MÉTODOS';
+                        document.getElementById('id-display').innerText = _modosHeader.join(' + ');
+                    } else {
+                        document.getElementById('tipo-tag').innerText = data.tipo.toUpperCase();
+                    }
+                } else {
+                    document.getElementById('tipo-tag').innerText = data.tipo.toUpperCase();
+                }
                 _pantallaFinMostrada = false;
                 _iniciarCronometroSesion();
                 render(data);
@@ -4164,23 +4179,10 @@
         var bloquesMix = [];
 
         function renderMix(data, pTitulo, pLista) {
+            pTitulo.innerText = "BLOQUE PRINCIPAL";
+            _tipoEntrenamientoGlobal = 'ENTRENAMIENTO';
             const bloques = data.bloques || [];
             bloquesMix = bloques;
-            // Construir título con los modos de los bloques
-            var _modosTitulo = [];
-            if (bloques.length > 0) {
-                for (var _mt = 0; _mt < bloques.length; _mt++) {
-                    var _modoBlq = (bloques[_mt].tipo || '').toUpperCase();
-                    if (_modoBlq && _modosTitulo.indexOf(_modoBlq) === -1) _modosTitulo.push(_modoBlq);
-                }
-            }
-            if (_modosTitulo.length > 0) {
-                pTitulo.innerText = _modosTitulo.join(' + ');
-                _tipoEntrenamientoGlobal = _modosTitulo.join(' + ');
-            } else {
-                pTitulo.innerText = "ENTRENAMIENTO";
-                _tipoEntrenamientoGlobal = 'ENTRENAMIENTO';
-            }
 
             if (bloques.length > 0) {
                 bloques.forEach(function(bloque, idx) {
