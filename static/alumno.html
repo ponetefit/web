@@ -178,33 +178,54 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 14px 20px;
+            padding: 10px 16px;
             background: var(--tarjeta);
             border-bottom: 1px solid var(--borde);
             flex-shrink: 0;
             z-index: 1000;
+            position: sticky;
+            top: 0;
         }
         
         .header-rutina-info {
             display: flex;
             flex-direction: column;
+            flex: 1;
+            min-width: 0;
+        }
+        
+        #alumno-nombre-display {
+            font-size: 1.1rem;
+            font-weight: 900;
+            color: var(--texto);
+            letter-spacing: 0.5px;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .header-rutina-sub {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 2px;
         }
         
         .tipo-tag {
             display: inline-block;
             background: var(--naranja);
             color: white;
-            padding: 3px 10px;
-            border-radius: 6px;
+            padding: 2px 8px;
+            border-radius: 5px;
             font-weight: 900;
-            font-size: 0.65rem;
+            font-size: 0.6rem;
             letter-spacing: 2px;
             text-transform: uppercase;
-            margin-bottom: 2px;
         }
         
         #id-display {
-            font-size: 1rem;
+            font-size: 0.8rem;
             font-weight: 700;
             font-family: 'Roboto Mono', monospace;
             color: var(--texto-suave);
@@ -863,41 +884,41 @@
             margin: 6px 0;
         }
 
-        /* ─── BARRA DE PROGRESO GENERAL DE RUTINA ─── */
+        /* ─── BARRA DE PROGRESO GENERAL DE RUTINA (FIJA) ─── */
         .rutina-progress-container {
             background: var(--tarjeta);
-            border-radius: 12px;
-            padding: 12px 16px;
-            margin-bottom: 16px;
-            border: 1px solid var(--borde-sutil);
+            padding: 8px 16px 10px;
+            border-bottom: 1px solid var(--borde);
+            flex-shrink: 0;
         }
         .rutina-progress-label {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 8px;
-            font-size: 0.75rem;
+            margin-bottom: 6px;
+            font-size: 0.65rem;
             font-weight: 700;
             letter-spacing: 1.5px;
             color: var(--texto-suave);
+            text-transform: uppercase;
         }
         .rutina-progress-label span.pct {
             color: var(--verde);
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             font-family: 'Roboto Mono', monospace;
         }
         .rutina-progress-track {
             width: 100%;
-            height: 10px;
+            height: 6px;
             background: var(--fondo);
-            border-radius: 5px;
+            border-radius: 4px;
             overflow: hidden;
         }
         .rutina-progress-fill {
             height: 100%;
             width: 0%;
             background: linear-gradient(90deg, var(--verde), #00e676);
-            border-radius: 5px;
+            border-radius: 4px;
             transition: width 0.5s ease;
         }
 
@@ -998,23 +1019,27 @@
     <div id="rutina-modal">
         <div class="header-rutina">
             <div class="header-rutina-info">
-                <span class="tipo-tag" id="tipo-tag">MODO</span>
-                <span id="id-display">---</span>
+                <span id="alumno-nombre-display">---</span>
+                <div class="header-rutina-sub">
+                    <span class="tipo-tag" id="tipo-tag">MODO</span>
+                    <span id="id-display">---</span>
+                </div>
             </div>
             <button class="btn-header" onclick="cerrar()">Salir</button>
         </div>
 
-        <div class="container-scroll" id="modal-scroll">
-            <!-- Barra de progreso general de la rutina -->
-            <div class="rutina-progress-container" id="rutina-progress-container" style="display:none;">
-                <div class="rutina-progress-label">
-                    <span>PROGRESO DE RUTINA</span>
-                    <span class="pct" id="rutina-progress-pct">0%</span>
-                </div>
-                <div class="rutina-progress-track">
-                    <div class="rutina-progress-fill" id="rutina-progress-fill"></div>
-                </div>
+        <!-- Barra de progreso general de la rutina (fija, fuera del scroll) -->
+        <div class="rutina-progress-container" id="rutina-progress-container" style="display:none;">
+            <div class="rutina-progress-label">
+                <span>PROGRESO DE RUTINA</span>
+                <span class="pct" id="rutina-progress-pct">0%</span>
             </div>
+            <div class="rutina-progress-track">
+                <div class="rutina-progress-fill" id="rutina-progress-fill"></div>
+            </div>
+        </div>
+
+        <div class="container-scroll" id="modal-scroll">
             <div id="sec-warmup" class="seccion-card">
                 <div class="seccion-titulo" style="color:var(--azul);">Calentamiento</div>
                 <div id="warmup-meta" style="color:var(--amarillo); font-weight:700; margin-bottom:14px; font-size:0.85rem;"></div>
@@ -2166,8 +2191,12 @@
                     const nombre = partes[0].charAt(0).toUpperCase() + partes[0].slice(1);
                     nombreUsuario = nombre;
                     document.title = 'PONETEFIT | Entrenamiento para ' + nombre;
+                    document.getElementById('alumno-nombre-display').innerText = nombre.toUpperCase();
+                    document.getElementById('id-display').innerText = 'RUTINA ' + partes.slice(1).join('-').toUpperCase();
+                } else {
+                    document.getElementById('alumno-nombre-display').innerText = 'ENTRENAMIENTO';
+                    document.getElementById('id-display').innerText = cod.toUpperCase();
                 }
-                document.getElementById('id-display').innerText = cod.toUpperCase();
                 document.getElementById('tipo-tag').innerText = data.tipo.toUpperCase();
                 render(data);
                 document.getElementById('rutina-modal').classList.add('visible');
