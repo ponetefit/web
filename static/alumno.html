@@ -4161,6 +4161,26 @@
             if (!bloque) return;
             var totalMin = bloque.minutos_totales || 10;
             var ciclo = bloque.minutos_ciclo || [];
+            // Si no hay ciclo pero hay ejercicios, construir ciclo para anunciar nombres
+            if (ciclo.length === 0) {
+                var ejsBloque = bloque.rutina || bloque.ejercicios || [];
+                if (ejsBloque.length > 0) {
+                    var ejsPorMin = bloque.ejercicios_por_minuto || 1;
+                    for (var m = 0; m < totalMin; m++) {
+                        var ejsMin = [];
+                        for (var j = 0; j < ejsPorMin; j++) {
+                            var ejIdx = (m * ejsPorMin + j) % ejsBloque.length;
+                            var ej = ejsBloque[ejIdx];
+                            var nombre = Array.isArray(ej) ? ej[0] : (ej.nombre || '');
+                            var link = Array.isArray(ej) ? ej[1] : (ej.link || '');
+                            var reps = Array.isArray(ej) ? '' : (ej.reps || '');
+                            var unit = Array.isArray(ej) ? 'Reps' : (ej.unit || 'Reps');
+                            ejsMin.push({ nombre: nombre, link: link, reps: reps, unit: unit });
+                        }
+                        ciclo.push({ ejercicios: ejsMin, es_descanso: false });
+                    }
+                }
+            }
             iniciarEmomBloqueConCiclo(btnId, statusId, roundId, clockId, ejId || null, totalMin, ciclo);
         }
 
