@@ -1990,90 +1990,210 @@
             _timerGlobalActivo = false;
         }
 
-        // ─── PROGRESO DE RUTINA ───
-        var _progresoTotalItems = 0;
-        var _progresoCompletados = 0;
-        var _seriesOriginal = {};
+        // ─── PROGRESO DE RUTINA (SISTEMA POR SEGMENTOS PONDERADOS) ───
+        // Cada segmento: {nombre, pctStart, pctEnd, totalItems, completados}
+        // - Calentamiento siempre vale 10% (si existe)
+        // - Cada bloque de entrenamiento recibe el % restante proporcional a su peso
+        // - El peso se calcula según series/vueltas/minutos/etc. de cada bloque
+        var _progresoSegmentos = [];
+        var _progresoSegActual = 0;
+
+        // Calcula el "peso" de un bloque según su tipo y cantidad de trabajo
+        function _pesoBloqueProgreso(bloque) {
+            var tipo = bloque.tipo || '';
+            if (tipo === 'Series') {
+                var ejs = bloque.rutina || bloque.ejercicios || bloque.datos || [];
+                var total = 0;
+                for (var i = 0; i < ejs.length; i++) total += (parseInt(ejs[i].series) || 3);
+                return total || 3;
+            }
+            if (tipo === 'Circuito') return bloque.vueltas_bloque || 3;
+            if (tipo === 'Tabata') {
+                var cfg = bloque.config || {};
+                return (cfg.rondas || bloque.rondas || 1);
+            }
+            if (tipo === 'EMOM') return bloque.minutos_totales || 10;
+            if (tipo === 'Circuito por Tiempo') {
+                var ejsCT = bloque.rutina || bloque.datos || [];
+                if (ejsCT.length > 0 && ejsCT[0] && ejsCT[0].ejercicios) return ejsCT.length;
+                return (bloque.config || {}).rondas || 1;
+            }
+            return 1;
+        }
+
+        // Calcula cuántas llamadas a incrementarProgreso hará este bloque
+        function _itemsBloqueProgreso(bloque) {
+            var tipo = bloque.tipo || '';
+            if (tipo === 'Series') {
+                var ejs = bloque.rutina || bloque.ejercicios || bloque.datos || [];
+                var total = 0;
+                for (var i = 0; i < ejs.length; i++) total += (parseInt(ejs[i].series) || 3);
+                return total || 3;
+            }
+            if (tipo === 'Circuito') return bloque.vueltas_bloque || 3;
+            if (tipo === 'Tabata') return 1;
+            if (tipo === 'EMOM') return 1;
+            if (tipo === 'Circuito por Tiempo') {
+                var ejsCT2 = bloque.rutina || bloque.datos || [];
+                if (ejsCT2.length > 0 && ejsCT2[0] && ejsCT2[0].ejercicios) return ejsCT2.length;
+                return (bloque.config || {}).rondas || 1;
+            }
+            return 1;
+        }
 
         function inicializarProgreso(data) {
-            _progresoTotalItems = 0;
-            _progresoCompletados = 0;
-            _seriesOriginal = {};
+            _progresoSegmentos = [];
+            _progresoSegActual = 0;
 
             var container = document.getElementById('rutina-progress-container');
             if (container) container.style.display = 'block';
 
-            var tipo = data.tipo;
-            if (tipo === 'Series') {
-                var ejercicios = data.rutina || data.datos || [];
-                for (var i = 0; i < ejercicios.length; i++) {
-                    var s = parseInt(ejercicios[i].series) || 3;
-                    _progresoTotalItems += s;
-                    _seriesOriginal[i] = s;
+            // ── Detectar si hay calentamiento ──
+            // El warmup se almacena en data.warmup_ejercicios / data.warmup_tipo
+            var warmupEjs = data.warmup_ejercicios || [];
+            var warmupTipo = data.warmup_tipo || '';
+            var warmupDet = data.warmup_config_detalle || {};
+            var hasWarmup = warmupEjs.length > 0;
+            var warmupPct = hasWarmup ? 10 : 0;
+
+            // ── Calcular warmup totalItems (cuántas llamadas a incrementarProgreso hará) ──
+            // Solo warmup tipo "Circuito (Vueltas)" llama a incrementarProgreso por vuelta
+            var warmupItems = 0;
+            if (hasWarmup) {
+                if (warmupTipo === 'Circuito (Vueltas)' || warmupTipo === 'Circuito') {
+                    warmupItems = data.warmup_vueltas || warmupDet.vueltas || 2;
                 }
-            } else if (tipo === 'Circuito') {
-                _progresoTotalItems = data.vueltas_bloque || 3;
-            } else if (tipo === 'Tabata') {
-                var config = data.config || {};
-                _progresoTotalItems = (config.rondas || data.rondas || 1) * (config.cantidad || data.cantidad || 8);
-            } else if (tipo === 'EMOM') {
-                _progresoTotalItems = data.minutos_totales || 10;
-            } else if (tipo === 'Circuito por Tiempo') {
-                var ejsCT = data.rutina || data.datos || [];
-                if (ejsCT.length > 0 && ejsCT[0] && ejsCT[0].ejercicios) {
-                    _progresoTotalItems = ejsCT.length;
-                } else {
-                    var cfgCT = data.config || {};
-                    _progresoTotalItems = cfgCT.rondas || 1;
-                }
-            } else if (tipo === 'ENTRENAMIENTO') {
-                var bloques = data.bloques || [];
-                for (var bi = 0; bi < bloques.length; bi++) {
-                    var b = bloques[bi];
-                    if (b.tipo === 'Series') {
-                        var ejs = b.rutina || b.ejercicios || [];
-                        for (var j = 0; j < ejs.length; j++) {
-                            var s = parseInt(ejs[j].series) || 3;
-                            var offset = (bi + 1) * 100;
-                            _seriesOriginal[j + offset] = s;
-                            _progresoTotalItems += s;
-                        }
-                    } else {
-                        _progresoTotalItems++;
-                    }
-                }
-                // Fallback for old format
-                if (bloques.length === 0) {
-                    var modos = data.modos_seleccionados || [];
-                    if (modos.indexOf('series') !== -1 && data.series) {
-                        for (var k = 0; k < data.series.length; k++) {
-                            var s2 = parseInt(data.series[k].series) || 3;
-                            _seriesOriginal[k + 9000] = s2;
-                            _progresoTotalItems += s2;
-                        }
-                    }
-                    if (modos.indexOf('tabata') !== -1) _progresoTotalItems++;
-                    if (modos.indexOf('emom') !== -1) _progresoTotalItems++;
-                    if (modos.indexOf('circuito') !== -1) _progresoTotalItems += (data.circuito_vueltas || 3);
-                    if (modos.indexOf('circ_tiempo') !== -1) _progresoTotalItems++;
-                }
+                // Otros tipos de warmup (EMOM, Series por tiempo) no llaman a incrementarProgreso
+                // → items=0 → el segmento se auto-salta cuando empieza el entrenamiento
             }
 
-            if (_progresoTotalItems === 0) _progresoTotalItems = 1;
+            // ── Armar segmentos de entrenamiento ──
+            var trainingSegs = []; // [{peso, items}]
+            var tipo = data.tipo;
+
+            if (tipo === 'ENTRENAMIENTO') {
+                var bloques = data.bloques || [];
+                if (bloques.length > 0) {
+                    for (var bi = 0; bi < bloques.length; bi++) {
+                        trainingSegs.push({
+                            nombre: bloques[bi].tipo || ('Bloque ' + (bi + 1)),
+                            peso: _pesoBloqueProgreso(bloques[bi]),
+                            items: _itemsBloqueProgreso(bloques[bi])
+                        });
+                    }
+                } else {
+                    // Formato antiguo con modos_seleccionados
+                    var modos = data.modos_seleccionados || [];
+                    for (var mi = 0; mi < modos.length; mi++) {
+                        var m = modos[mi];
+                        var pseudoBloque = { tipo: m };
+                        if (m === 'series') { pseudoBloque.tipo = 'Series'; pseudoBloque.rutina = data.series || []; }
+                        else if (m === 'circuito') { pseudoBloque.tipo = 'Circuito'; pseudoBloque.vueltas_bloque = data.circuito_vueltas || 3; }
+                        else if (m === 'tabata') { pseudoBloque.tipo = 'Tabata'; }
+                        else if (m === 'emom') { pseudoBloque.tipo = 'EMOM'; pseudoBloque.minutos_totales = data.minutos_totales || 10; }
+                        else if (m === 'circ_tiempo') { pseudoBloque.tipo = 'Circuito por Tiempo'; pseudoBloque.config = data.config || {}; }
+                        trainingSegs.push({
+                            nombre: pseudoBloque.tipo,
+                            peso: _pesoBloqueProgreso(pseudoBloque),
+                            items: _itemsBloqueProgreso(pseudoBloque)
+                        });
+                    }
+                }
+            } else {
+                // Modo único
+                var singleBloque = { tipo: tipo, rutina: data.rutina || data.datos || [], config: data.config || {}, vueltas_bloque: data.vueltas_bloque, minutos_totales: data.minutos_totales };
+                trainingSegs.push({
+                    nombre: tipo,
+                    peso: _pesoBloqueProgreso(singleBloque),
+                    items: _itemsBloqueProgreso(singleBloque)
+                });
+            }
+
+            // ── Normalizar pesos de entrenamiento al (100 - warmupPct)% ──
+            var totalPeso = 0;
+            for (var ti = 0; ti < trainingSegs.length; ti++) totalPeso += trainingSegs[ti].peso;
+            if (totalPeso === 0) totalPeso = 1;
+            var trainingPct = 100 - warmupPct;
+
+            // ── Construir array final de segmentos ──
+            var curPct = 0;
+
+            if (hasWarmup) {
+                _progresoSegmentos.push({
+                    nombre: 'Calentamiento',
+                    pctStart: 0,
+                    pctEnd: warmupPct,
+                    totalItems: warmupItems, // 0 si no es circuito → se auto-salta
+                    completados: 0
+                });
+                curPct = warmupPct;
+            }
+
+            for (var si = 0; si < trainingSegs.length; si++) {
+                var segPct = (trainingSegs[si].peso / totalPeso) * trainingPct;
+                _progresoSegmentos.push({
+                    nombre: trainingSegs[si].nombre,
+                    pctStart: curPct,
+                    pctEnd: curPct + segPct,
+                    totalItems: trainingSegs[si].items || 1,
+                    completados: 0
+                });
+                curPct += segPct;
+            }
+
+            if (_progresoSegmentos.length === 0) {
+                _progresoSegmentos.push({ nombre: 'Entrenamiento', pctStart: 0, pctEnd: 100, totalItems: 1, completados: 0 });
+            }
+
+            // Si el primer segmento tiene 0 items (warmup no-circuito), avanzar automáticamente
+            _avanzarSegmentosVacios();
             actualizarProgresoUI();
         }
 
+        function _avanzarSegmentosVacios() {
+            while (_progresoSegActual < _progresoSegmentos.length - 1 &&
+                   _progresoSegmentos[_progresoSegActual].totalItems === 0) {
+                _progresoSegActual++;
+            }
+        }
+
         function incrementarProgreso(cantidad) {
-            _progresoCompletados += (cantidad || 1);
-            if (_progresoCompletados > _progresoTotalItems) _progresoCompletados = _progresoTotalItems;
+            if (_progresoSegmentos.length === 0) return;
+            var n = cantidad || 1;
+            var seg = _progresoSegmentos[_progresoSegActual];
+            if (!seg) return;
+
+            seg.completados += n;
+            if (seg.completados > seg.totalItems) seg.completados = seg.totalItems;
+
+            // Auto-avanzar al siguiente segmento cuando el actual se completa
+            while (_progresoSegActual < _progresoSegmentos.length - 1 &&
+                   _progresoSegmentos[_progresoSegActual].completados >= _progresoSegmentos[_progresoSegActual].totalItems) {
+                _progresoSegActual++;
+            }
+
             actualizarProgresoUI();
         }
 
         function actualizarProgresoUI() {
-            var pct = Math.min(100, (_progresoCompletados / _progresoTotalItems) * 100);
+            var pct = 0;
+            if (_progresoSegmentos.length > 0) {
+                // Sumar los segmentos completados + el parcial del actual
+                for (var i = 0; i < _progresoSegmentos.length; i++) {
+                    var seg = _progresoSegmentos[i];
+                    if (i < _progresoSegActual) {
+                        pct = seg.pctEnd; // segmento terminado → usar su tope
+                    } else if (i === _progresoSegActual) {
+                        var ratio = seg.totalItems > 0 ? (seg.completados / seg.totalItems) : 0;
+                        pct = seg.pctStart + ratio * (seg.pctEnd - seg.pctStart);
+                        break;
+                    }
+                }
+            }
+            pct = Math.min(100, Math.max(0, pct));
             var fillEl = document.getElementById('rutina-progress-fill');
             var pctEl = document.getElementById('rutina-progress-pct');
-            if (fillEl) fillEl.style.width = pct + '%';
+            if (fillEl) fillEl.style.width = pct.toFixed(1) + '%';
             if (pctEl) pctEl.innerText = Math.round(pct) + '%';
         }
 
