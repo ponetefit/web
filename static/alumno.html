@@ -663,6 +663,116 @@
                 opacity: 0;
             }
         }
+        /* ─── FULLSCREEN MODE ─── */
+        
+        #overlay-fullscreen {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #0a0a0c;
+            z-index: 6000;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        #overlay-fullscreen.visible {
+            display: flex;
+        }
+        
+        .fs-status {
+            font-size: clamp(0.9rem, 3vw, 1.4rem);
+            font-weight: 900;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: var(--texto-suave);
+            margin-bottom: 4px;
+        }
+        
+        .fs-ejercicio {
+            font-size: clamp(1.4rem, 5vw, 2.5rem);
+            font-weight: 900;
+            color: var(--texto);
+            margin-bottom: 8px;
+            max-width: 90vw;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .fs-info {
+            font-size: clamp(0.7rem, 2.5vw, 1rem);
+            color: var(--texto-suave);
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+        }
+        
+        .fs-clock {
+            font-size: clamp(10rem, 40vw, 20rem);
+            font-family: 'Roboto Mono', monospace;
+            font-weight: 700;
+            line-height: 1;
+            margin: 0 0 16px;
+            transition: color 0.3s;
+        }
+        
+        .fs-progress-bar {
+            width: 80vw;
+            max-width: 500px;
+            height: 8px;
+            background: var(--borde);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+        
+        .fs-progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            background: var(--verde);
+            width: 0%;
+            transition: width 1s linear;
+        }
+        
+        .fs-btn-salir {
+            background: rgba(255,255,255,0.08);
+            color: var(--texto-suave);
+            border: 1px solid var(--borde);
+            border-radius: 12px;
+            padding: 12px 28px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .fs-btn-salir:active {
+            background: rgba(255,255,255,0.15);
+        }
+        
+        .btn-fullscreen {
+            background: rgba(255,255,255,0.06);
+            color: var(--texto-suave);
+            border: 1px solid var(--borde-sutil);
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background 0.2s, color 0.2s;
+        }
+        
+        .btn-fullscreen:active {
+            background: rgba(255,255,255,0.12);
+            color: var(--texto);
+        }
         /* ─── OVERLAYS ─── */
         
         #overlay-descanso,
@@ -1236,6 +1346,18 @@
 
     <div id="toast">Rutina cargada</div>
 
+    <!-- Overlay Pantalla Completa -->
+    <div id="overlay-fullscreen">
+        <div class="fs-status" id="fs-status"></div>
+        <div class="fs-ejercicio" id="fs-ejercicio"></div>
+        <div class="fs-info" id="fs-info"></div>
+        <div class="fs-clock" id="fs-clock">--</div>
+        <div class="fs-progress-bar">
+            <div class="fs-progress-fill" id="fs-progress-fill"></div>
+        </div>
+        <button class="fs-btn-salir" onclick="salirFullscreen()">✕ SALIR</button>
+    </div>
+
     <!-- Overlay descanso circuito -->
     <div id="overlay-descanso">
         <div class="overlay-titulo" style="color:var(--purpura)">DESCANSO DE VUELTA</div>
@@ -1336,6 +1458,7 @@
                     <button class="btn-principal" id="btnStartTimer" onclick="iniciarCronometroTiempo()" style="background:linear-gradient(135deg,var(--verde),#00c853); color:#000; margin-bottom:10px;">EMPEZAR</button>
                     <button class="btn-pausa" id="btnPausaTimer" onclick="togglePausaTimer()" style="display:none;">⏸ PAUSAR</button>
                     <button class="btn-pausa" id="btnReiniciarTimer" onclick="reiniciarTimer()" style="display:none; margin-top:10px; background:var(--tarjeta-alt); color:var(--texto-suave); border-color:var(--borde);">↺ REINICIAR</button>
+                    <button class="btn-fullscreen" onclick="entrarFullscreen('tabata')">⛶ PANTALLA COMPLETA</button>
                 </div>
             </div>
 
@@ -1356,6 +1479,7 @@
                     <button class="btn-principal" id="btnStartEmom" onclick="iniciarEmom()" style="background:linear-gradient(135deg,var(--verde),#00c853); color:#000; margin-bottom:10px;">EMPEZAR</button>
                     <button class="btn-pausa" id="btnPausaEmom" onclick="pausarEmom()" style="display:none;">⏸ PAUSAR</button>
                     <button class="btn-pausa" id="btnReiniciarEmom" onclick="reiniciarEmom()" style="display:none; margin-top:10px; background:var(--tarjeta-alt); color:var(--texto-suave); border-color:var(--borde);">↺ REINICIAR</button>
+                    <button class="btn-fullscreen" onclick="entrarFullscreen('emom')">⛶ PANTALLA COMPLETA</button>
                 </div>
             </div>
         </div>
@@ -2173,6 +2297,162 @@
         // FIN COACH DE VOZ
         // ====================================================================
 
+        // ====================================================================
+        // PANTALLA COMPLETA (FULLSCREEN MODE)
+        // ====================================================================
+        var _fsActivo = false;
+        var _fsTipo = ''; // 'tabata', 'emom', 'inline-tabata', 'inline-emom'
+        var _fsSyncInterval = null;
+        var _fsInlineIds = null; // para inline timers: {status, ej, info, clock}
+
+        function entrarFullscreen(tipo, inlineIds) {
+            _fsTipo = tipo;
+            _fsInlineIds = inlineIds || null;
+            _fsActivo = true;
+            document.getElementById('overlay-fullscreen').classList.add('visible');
+
+            // Intentar Fullscreen API nativa
+            try {
+                var el = document.documentElement;
+                if (el.requestFullscreen) el.requestFullscreen().catch(function(){});
+                else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+            } catch (e) {}
+
+            // Iniciar polling de sincronización cada 200ms
+            _fsSyncInterval = setInterval(_syncFullscreen, 200);
+            _syncFullscreen(); // sync inmediato
+        }
+
+        function salirFullscreen() {
+            _fsActivo = false;
+            _fsTipo = '';
+            _fsInlineIds = null;
+            document.getElementById('overlay-fullscreen').classList.remove('visible');
+
+            if (_fsSyncInterval) {
+                clearInterval(_fsSyncInterval);
+                _fsSyncInterval = null;
+            }
+
+            // Salir del Fullscreen API nativo
+            try {
+                if (document.fullscreenElement) document.exitFullscreen().catch(function(){});
+                else if (document.webkitFullscreenElement) document.webkitExitFullscreen();
+            } catch (e) {}
+        }
+
+        function _syncFullscreen() {
+            if (!_fsActivo) return;
+            var fsStatus = document.getElementById('fs-status');
+            var fsEj = document.getElementById('fs-ejercicio');
+            var fsInfo = document.getElementById('fs-info');
+            var fsClock = document.getElementById('fs-clock');
+            var fsFill = document.getElementById('fs-progress-fill');
+
+            if (_fsTipo === 'tabata') {
+                // Timer Tabata / Circuito por Tiempo principal
+                var status = document.getElementById('t-status');
+                var ejNombre = document.getElementById('t-ejercicio-nombre');
+                var ejSub = document.getElementById('t-ejercicio');
+                var clock = document.getElementById('clock');
+                var fill = document.getElementById('timer-progress-fill');
+
+                fsStatus.textContent = status ? status.textContent : '';
+                fsEj.textContent = ejNombre ? ejNombre.textContent : '';
+                fsInfo.textContent = ejSub ? ejSub.textContent : '';
+                fsClock.textContent = clock ? clock.textContent : '--';
+                if (fill) fsFill.style.width = fill.style.width;
+
+                // Color del reloj según fase
+                var statusTxt = (status ? status.textContent : '').toUpperCase();
+                if (statusTxt.indexOf('TRABAJO') !== -1 || statusTxt.indexOf('TRABAJA') !== -1) {
+                    fsClock.style.color = 'var(--verde)';
+                } else if (statusTxt.indexOf('DESCANSO') !== -1 || statusTxt.indexOf('PAUSA') !== -1) {
+                    fsClock.style.color = 'var(--naranja)';
+                } else if (statusTxt.indexOf('PREP') !== -1) {
+                    fsClock.style.color = 'var(--amarillo)';
+                } else {
+                    fsClock.style.color = 'var(--texto)';
+                }
+
+            } else if (_fsTipo === 'emom') {
+                // Timer EMOM principal
+                var emStatus = document.getElementById('emom-status');
+                var emEj = document.getElementById('emom-ejercicio-nombre');
+                var emMin = document.getElementById('emom-minuto');
+                var emClock = document.getElementById('emom-clock');
+                var emFill = document.getElementById('emom-progress-fill');
+
+                fsStatus.textContent = emStatus ? emStatus.textContent : '';
+                fsEj.textContent = emEj ? emEj.textContent : '';
+                fsInfo.textContent = emMin ? emMin.textContent : '';
+                fsClock.textContent = emClock ? emClock.textContent : '--';
+                if (emFill) fsFill.style.width = emFill.style.width;
+
+                // Color
+                var emStatusTxt = (emStatus ? emStatus.textContent : '').toUpperCase();
+                if (emStatusTxt.indexOf('TRABAJA') !== -1 || emStatusTxt.indexOf('ARRANCAMOS') !== -1) {
+                    fsClock.style.color = 'var(--amarillo)';
+                } else if (emStatusTxt.indexOf('PREP') !== -1) {
+                    fsClock.style.color = 'var(--texto-suave)';
+                } else {
+                    fsClock.style.color = 'var(--amarillo)';
+                }
+
+            } else if (_fsTipo === 'inline' && _fsInlineIds) {
+                // Inline Tabata/EMOM blocks dentro de ENTRENAMIENTO mix
+                var ids = _fsInlineIds;
+                var iStatus = document.getElementById(ids.status);
+                var iEj = document.getElementById(ids.ej);
+                var iInfo = document.getElementById(ids.info);
+                var iClock = document.getElementById(ids.clock);
+
+                fsStatus.textContent = iStatus ? iStatus.textContent : '';
+                fsEj.textContent = iEj ? iEj.textContent : '';
+                fsInfo.textContent = iInfo ? iInfo.textContent : '';
+                fsClock.textContent = iClock ? iClock.textContent : '--';
+                fsFill.style.width = '0%'; // inline no tienen progress bar
+
+                var iStatusTxt = (iStatus ? iStatus.textContent : '').toUpperCase();
+                if (iStatusTxt.indexOf('TRABAJO') !== -1 || iStatusTxt.indexOf('TRABAJA') !== -1) {
+                    fsClock.style.color = 'var(--verde)';
+                } else if (iStatusTxt.indexOf('DESCANSO') !== -1 || iStatusTxt.indexOf('PAUSA') !== -1) {
+                    fsClock.style.color = 'var(--naranja)';
+                } else {
+                    fsClock.style.color = 'var(--amarillo)';
+                }
+
+            } else if (_fsTipo === 'warmup') {
+                // Warmup timer
+                var wStatus = document.getElementById('warmup-status');
+                var wEj = document.getElementById('warmup-ej');
+                var wClock = document.getElementById('warmup-clock');
+
+                fsStatus.textContent = 'CALENTAMIENTO';
+                fsEj.textContent = wEj ? wEj.textContent : '';
+                fsInfo.textContent = wStatus ? wStatus.textContent : '';
+                fsClock.textContent = wClock ? wClock.textContent : '--';
+                fsFill.style.width = '0%';
+                fsClock.style.color = 'var(--azul)';
+            }
+
+            // Sincronizar barra de progreso general de rutina
+            var rutinaFill = document.getElementById('rutina-progress-fill');
+            if (rutinaFill && fsFill && _fsTipo !== 'tabata' && _fsTipo !== 'emom') {
+                fsFill.style.width = rutinaFill.style.width;
+            }
+        }
+
+        // Auto-cerrar fullscreen si se completa el entrenamiento
+        document.addEventListener('fullscreenchange', function() {
+            if (!document.fullscreenElement && _fsActivo) {
+                salirFullscreen();
+            }
+        });
+        // ====================================================================
+        // FIN PANTALLA COMPLETA
+        // ====================================================================
+
         // ─── WAKE LOCK API ───
         let wakeLock = null;
         let _wakeLockVideoFallback = null;
@@ -2595,6 +2875,9 @@
         function mostrarPantallaFin() {
             if (_pantallaFinMostrada) return;
             _pantallaFinMostrada = true;
+
+            // Cerrar fullscreen si está activo
+            if (_fsActivo) salirFullscreen();
 
             var tiempo = _obtenerTiempoSesionFormateado();
             var nombre = nombreUsuario ? nombreUsuario.toUpperCase() : 'CAMPEÓN';
@@ -4168,6 +4451,7 @@
                 '<div class="emom-inline-clock" id="' + timerId + '">00</div>' +
                 '<button id="' + btnId + '" class="btn-rest" style="max-width:280px; margin:10px auto 0;" onclick="iniciarTabataBloque(\'' + btnId + '\',\'' + statusId + '\',\'' + ejId + '\',\'' + infoId + '\',\'' + timerId + '\',' + JSON.stringify(tc) + ',' + JSON.stringify(rutina) + ')">INICIAR TABATA</button>' +
                 '<button id="' + pausaId + '" class="btn-pausa" style="max-width:280px; margin:8px auto 0; display:none;" onclick="togglePausaTabataMix(\'' + pausaId + '\',\'' + btnId + '\')">⏸ PAUSAR</button>' +
+                '<button class="btn-fullscreen" onclick="entrarFullscreen(\'inline\',{status:\'' + statusId + '\',ej:\'' + ejId + '\',info:\'' + infoId + '\',clock:\'' + timerId + '\'})">⛶ PANTALLA COMPLETA</button>' +
                 '</div></div>';
             return html;
         }
@@ -4192,7 +4476,9 @@
                 '<div id="' + roundId + '" style="font-size:0.8rem; color:var(--amarillo);"></div>' +
                 '<div class="emom-inline-clock" id="' + clockId + '">05</div>' +
                 '<button id="' + btnId + '" class="btn-rest" style="max-width:280px; margin:10px auto 0; background:linear-gradient(135deg,var(--amarillo),#f9a825); color:#000;" ' +
-                'onclick="iniciarEmomBloque(\'' + btnId + '\',\'' + statusId + '\',\'' + roundId + '\',\'' + clockId + '\',' + ec.minutos_totales + ')">INICIAR EMOM</button></div></div>';
+                'onclick="iniciarEmomBloque(\'' + btnId + '\',\'' + statusId + '\',\'' + roundId + '\',\'' + clockId + '\',' + ec.minutos_totales + ')">INICIAR EMOM</button>' +
+                '<button class="btn-fullscreen" onclick="entrarFullscreen(\'inline\',{status:\'' + statusId + '\',ej:\'\',info:\'' + roundId + '\',clock:\'' + clockId + '\'})">⛶ PANTALLA COMPLETA</button>' +
+                '</div></div>';
             return html;
         }
 
