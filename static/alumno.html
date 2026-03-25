@@ -862,6 +862,88 @@
             line-height: 1;
             margin: 6px 0;
         }
+
+        /* ─── BARRA DE PROGRESO GENERAL DE RUTINA ─── */
+        .rutina-progress-container {
+            background: var(--tarjeta);
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            border: 1px solid var(--borde-sutil);
+        }
+        .rutina-progress-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            color: var(--texto-suave);
+        }
+        .rutina-progress-label span.pct {
+            color: var(--verde);
+            font-size: 0.9rem;
+            font-family: 'Roboto Mono', monospace;
+        }
+        .rutina-progress-track {
+            width: 100%;
+            height: 10px;
+            background: var(--fondo);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .rutina-progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--verde), #00e676);
+            border-radius: 5px;
+            transition: width 0.5s ease;
+        }
+
+        /* ─── TIMER BLOQUEADO (opacidad reducida) ─── */
+        .timer-bloqueado {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        /* ─── BOTONES CONTROL TIMER (iniciar/pausa/reiniciar) ─── */
+        .timer-controls {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        .timer-controls .btn-ctrl {
+            flex: 1;
+            min-width: 80px;
+            max-width: 140px;
+            padding: 10px 6px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            border: 1px solid var(--borde);
+            cursor: pointer;
+            text-align: center;
+            transition: background 0.2s, opacity 0.2s;
+        }
+        .btn-ctrl-iniciar {
+            background: linear-gradient(135deg, var(--verde), #00c853);
+            color: #000;
+            border-color: var(--verde) !important;
+        }
+        .btn-ctrl-pausa {
+            background: linear-gradient(135deg, var(--amarillo), #f9a825);
+            color: #000;
+            border-color: var(--amarillo) !important;
+        }
+        .btn-ctrl-reiniciar {
+            background: var(--tarjeta-alt);
+            color: var(--texto-suave);
+            border-color: var(--borde) !important;
+        }
     </style>
 </head>
 
@@ -923,6 +1005,16 @@
         </div>
 
         <div class="container-scroll" id="modal-scroll">
+            <!-- Barra de progreso general de la rutina -->
+            <div class="rutina-progress-container" id="rutina-progress-container" style="display:none;">
+                <div class="rutina-progress-label">
+                    <span>PROGRESO DE RUTINA</span>
+                    <span class="pct" id="rutina-progress-pct">0%</span>
+                </div>
+                <div class="rutina-progress-track">
+                    <div class="rutina-progress-fill" id="rutina-progress-fill"></div>
+                </div>
+            </div>
             <div id="sec-warmup" class="seccion-card">
                 <div class="seccion-titulo" style="color:var(--azul);">Calentamiento</div>
                 <div id="warmup-meta" style="color:var(--amarillo); font-weight:700; margin-bottom:14px; font-size:0.85rem;"></div>
@@ -961,6 +1053,7 @@
                     </div>
                     <button class="btn-principal" id="btnStartTimer" onclick="iniciarCronometroTiempo()" style="background:linear-gradient(135deg,var(--verde),#00c853); color:#000; margin-bottom:10px;">EMPEZAR</button>
                     <button class="btn-pausa" id="btnPausaTimer" onclick="togglePausaTimer()" style="display:none;">⏸ PAUSAR</button>
+                    <button class="btn-pausa" id="btnReiniciarTimer" onclick="reiniciarTimer()" style="display:none; margin-top:10px; background:var(--tarjeta-alt); color:var(--texto-suave); border-color:var(--borde);">↺ REINICIAR</button>
                 </div>
             </div>
 
@@ -1853,6 +1946,112 @@
         let emomMinutosCiclo = [];
         let emomCicloLen = 1;
 
+        // ─── BLOQUEO GLOBAL DE TIMERS ───
+        var _timerGlobalActivo = false;
+
+        function hayTimerActivo() {
+            if (_timerGlobalActivo) {
+                mostrarToast('Ya hay un timer activo. Esperá a que termine.');
+                return true;
+            }
+            return false;
+        }
+
+        function activarTimerGlobal() {
+            _timerGlobalActivo = true;
+        }
+
+        function desactivarTimerGlobal() {
+            _timerGlobalActivo = false;
+        }
+
+        // ─── PROGRESO DE RUTINA ───
+        var _progresoTotalItems = 0;
+        var _progresoCompletados = 0;
+        var _seriesOriginal = {};
+
+        function inicializarProgreso(data) {
+            _progresoTotalItems = 0;
+            _progresoCompletados = 0;
+            _seriesOriginal = {};
+
+            var container = document.getElementById('rutina-progress-container');
+            if (container) container.style.display = 'block';
+
+            var tipo = data.tipo;
+            if (tipo === 'Series') {
+                var ejercicios = data.rutina || data.datos || [];
+                for (var i = 0; i < ejercicios.length; i++) {
+                    var s = parseInt(ejercicios[i].series) || 3;
+                    _progresoTotalItems += s;
+                    _seriesOriginal[i] = s;
+                }
+            } else if (tipo === 'Circuito') {
+                _progresoTotalItems = data.vueltas_bloque || 3;
+            } else if (tipo === 'Tabata') {
+                var config = data.config || {};
+                _progresoTotalItems = (config.rondas || data.rondas || 1) * (config.cantidad || data.cantidad || 8);
+            } else if (tipo === 'EMOM') {
+                _progresoTotalItems = data.minutos_totales || 10;
+            } else if (tipo === 'Circuito por Tiempo') {
+                var ejsCT = data.rutina || data.datos || [];
+                if (ejsCT.length > 0 && ejsCT[0] && ejsCT[0].ejercicios) {
+                    _progresoTotalItems = ejsCT.length;
+                } else {
+                    var cfgCT = data.config || {};
+                    _progresoTotalItems = cfgCT.rondas || 1;
+                }
+            } else if (tipo === 'ENTRENAMIENTO') {
+                var bloques = data.bloques || [];
+                for (var bi = 0; bi < bloques.length; bi++) {
+                    var b = bloques[bi];
+                    if (b.tipo === 'Series') {
+                        var ejs = b.rutina || b.ejercicios || [];
+                        for (var j = 0; j < ejs.length; j++) {
+                            var s = parseInt(ejs[j].series) || 3;
+                            var offset = (bi + 1) * 100;
+                            _seriesOriginal[j + offset] = s;
+                            _progresoTotalItems += s;
+                        }
+                    } else {
+                        _progresoTotalItems++;
+                    }
+                }
+                // Fallback for old format
+                if (bloques.length === 0) {
+                    var modos = data.modos_seleccionados || [];
+                    if (modos.indexOf('series') !== -1 && data.series) {
+                        for (var k = 0; k < data.series.length; k++) {
+                            var s2 = parseInt(data.series[k].series) || 3;
+                            _seriesOriginal[k + 9000] = s2;
+                            _progresoTotalItems += s2;
+                        }
+                    }
+                    if (modos.indexOf('tabata') !== -1) _progresoTotalItems++;
+                    if (modos.indexOf('emom') !== -1) _progresoTotalItems++;
+                    if (modos.indexOf('circuito') !== -1) _progresoTotalItems += (data.circuito_vueltas || 3);
+                    if (modos.indexOf('circ_tiempo') !== -1) _progresoTotalItems++;
+                }
+            }
+
+            if (_progresoTotalItems === 0) _progresoTotalItems = 1;
+            actualizarProgresoUI();
+        }
+
+        function incrementarProgreso(cantidad) {
+            _progresoCompletados += (cantidad || 1);
+            if (_progresoCompletados > _progresoTotalItems) _progresoCompletados = _progresoTotalItems;
+            actualizarProgresoUI();
+        }
+
+        function actualizarProgresoUI() {
+            var pct = Math.min(100, (_progresoCompletados / _progresoTotalItems) * 100);
+            var fillEl = document.getElementById('rutina-progress-fill');
+            var pctEl = document.getElementById('rutina-progress-pct');
+            if (fillEl) fillEl.style.width = pct + '%';
+            if (pctEl) pctEl.innerText = Math.round(pct) + '%';
+        }
+
         // AudioContext
         let audio = null;
 
@@ -2122,6 +2321,7 @@
                     if (vRestantes <= 0) return;
                     vRestantes--;
                     vCounter.innerText = vRestantes > 0 ? 'Vueltas restantes: ' + vRestantes : 'CALENTAMIENTO COMPLETO!';
+                    incrementarProgreso(1);
                     // >>> COACH: Pausa circuito vueltas warmup con motivación y vueltas restantes
                     coachPausaVueltas(vRestantes);
                     if (pausaV > 0 && vRestantes > 0) iniciarDescansoCircuito(pausaV);
@@ -2151,6 +2351,16 @@
                     togglePausaBloqueTiempo('warmup-clock', pausaBtnCTW);
                 };
                 tBox.appendChild(pausaBtnCTW);
+                // Botón reiniciar para Circuito por Tiempo warmup
+                var reiniciarBtnCTW = document.createElement('button');
+                reiniciarBtnCTW.id = 'warmup-ct-reiniciar';
+                reiniciarBtnCTW.className = 'btn-pausa';
+                reiniciarBtnCTW.style.cssText = 'margin-top:8px; display:none; background:var(--tarjeta-alt); color:var(--texto-suave); border-color:var(--borde);';
+                reiniciarBtnCTW.innerText = '↺ REINICIAR';
+                reiniciarBtnCTW.onclick = function() {
+                    reiniciarWarmupCT(dur);
+                };
+                tBox.appendChild(reiniciarBtnCTW);
             } else if (tipo === "Tabata") {
                 tBox.style.display = "block";
                 tStatus.innerText = "TABATA CALENTAMIENTO";
@@ -2160,6 +2370,26 @@
                 tBtn.onclick = function() {
                     iniciarTabataWarmup(ejsW, det);
                 };
+                // Botón pausa para Tabata warmup
+                var pausaBtnTW = document.createElement('button');
+                pausaBtnTW.id = 'warmup-tabata-pausa';
+                pausaBtnTW.className = 'btn-pausa';
+                pausaBtnTW.style.cssText = 'margin-top:8px; display:none;';
+                pausaBtnTW.innerText = '⏸ PAUSAR';
+                pausaBtnTW.onclick = function() {
+                    togglePausaTabataWarmup(pausaBtnTW);
+                };
+                tBox.appendChild(pausaBtnTW);
+                // Botón reiniciar para Tabata warmup
+                var reiniciarBtnTW = document.createElement('button');
+                reiniciarBtnTW.id = 'warmup-tabata-reiniciar';
+                reiniciarBtnTW.className = 'btn-pausa';
+                reiniciarBtnTW.style.cssText = 'margin-top:8px; display:none; background:var(--tarjeta-alt); color:var(--texto-suave); border-color:var(--borde);';
+                reiniciarBtnTW.innerText = '↺ REINICIAR';
+                reiniciarBtnTW.onclick = function() {
+                    reiniciarTabataWarmup();
+                };
+                tBox.appendChild(reiniciarBtnTW);
             } else if (tipo === "EMOM") {
                 tBox.style.display = "block";
                 tStatus.innerText = "EMOM CALENTAMIENTO";
@@ -2187,6 +2417,16 @@
                     togglePausaEmomWarmup(pausaBtnEW);
                 };
                 tBox.appendChild(pausaBtnEW);
+                // Botón reiniciar para EMOM warmup
+                var reiniciarBtnEW = document.createElement('button');
+                reiniciarBtnEW.id = 'warmup-emom-reiniciar';
+                reiniciarBtnEW.className = 'btn-pausa';
+                reiniciarBtnEW.style.cssText = 'margin-top:8px; display:none; background:var(--tarjeta-alt); color:var(--texto-suave); border-color:var(--borde);';
+                reiniciarBtnEW.innerText = '↺ REINICIAR';
+                reiniciarBtnEW.onclick = function() {
+                    reiniciarEmomWarmup();
+                };
+                tBox.appendChild(reiniciarBtnEW);
             } else if (tipo === "Series/Reps") {
                 const seriesW = det.series || 3;
                 const repsW = det.reps || 10;
@@ -2220,7 +2460,9 @@
 
             if (tipo === "Tabata" || tipo === "EMOM" || tipo === "Circuito por Tiempo") {
                 if (warmupRunning) return;
+                if (hayTimerActivo()) return;
                 warmupRunning = true;
+                activarTimerGlobal();
                 solicitarWakeLock();
                 const btn = document.getElementById('warmup-btn');
                 if (btn) {
@@ -2252,6 +2494,8 @@
                         if (btn) btn.disabled = false;
                         var durSeg = (det.duracion_bloque || 3) * 60;
                         statusEl.innerText = "EN CURSO...";
+                        var _ctReinBtn = document.getElementById('warmup-ct-reiniciar');
+                        if (_ctReinBtn) _ctReinBtn.style.display = 'block';
                         iniciarBloqueTiempo('warmup-clock', 'warmup-btn', durSeg);
                     };
                 }
@@ -2263,10 +2507,17 @@
 
         function iniciarTabataWarmup(ejsW, det) {
             if (warmupRunning) return;
+            if (hayTimerActivo()) return;
             warmupRunning = true;
+            warmupTabataPausado = false;
+            activarTimerGlobal();
             solicitarWakeLock();
             document.getElementById('warmup-btn').disabled = true;
             document.getElementById('warmup-btn').innerText = "En curso...";
+            var _wPausaBtn = document.getElementById('warmup-tabata-pausa');
+            if (_wPausaBtn) _wPausaBtn.style.display = 'block';
+            var _wReinBtn = document.getElementById('warmup-tabata-reiniciar');
+            if (_wReinBtn) _wReinBtn.style.display = 'block';
             const trabajo = det.trabajo || 20;
             const pausa = det.pausa || 10;
             const totalEjs = ejsW.length;
@@ -2285,6 +2536,9 @@
                     document.getElementById('warmup-ej').innerText = "";
                     document.getElementById('warmup-clock').innerText = "OK";
                     warmupRunning = false;
+                    desactivarTimerGlobal();
+                    if (_wPausaBtn) _wPausaBtn.style.display = 'none';
+                    if (_wReinBtn) _wReinBtn.style.display = 'none';
                     liberarWakeLock();
                     return;
                 }
@@ -2298,6 +2552,7 @@
                 var _wkWorkDeadline = Date.now() + trabajo * 1000;
                 document.getElementById('warmup-clock').innerText = rem < 10 ? "0" + rem : rem;
                 warmupTabInterval = bgSetInterval(function() {
+                    if (warmupTabataPausado) return;
                     rem = Math.max(0, Math.round((_wkWorkDeadline - Date.now()) / 1000));
                     document.getElementById('warmup-clock').innerText = rem < 10 ? "0" + rem : rem;
                     if (rem === Math.floor(trabajo / 2) && rem > 3) coachMotivacional();
@@ -2326,6 +2581,7 @@
                         var _wkPausaDeadline = Date.now() + pausa * 1000;
                         document.getElementById('warmup-clock').innerText = d < 10 ? "0" + d : d;
                         warmupTabInterval = bgSetInterval(function() {
+                            if (warmupTabataPausado) return;
                             d = Math.max(0, Math.round((_wkPausaDeadline - Date.now()) / 1000));
                             document.getElementById('warmup-clock').innerText = d < 10 ? "0" + d : d;
                             if (d <= 0) {
@@ -2338,6 +2594,78 @@
                     }
                 }, 1000);
             }
+        }
+
+        // ─── PAUSE/REINICIAR TABATA WARMUP ───
+        var warmupTabataPausado = false;
+
+        function togglePausaTabataWarmup(pausaBtn) {
+            warmupTabataPausado = !warmupTabataPausado;
+            if (pausaBtn) pausaBtn.innerText = warmupTabataPausado ? '▶ REANUDAR' : '⏸ PAUSAR';
+            if (warmupTabataPausado) {
+                liberarWakeLock();
+                coachPausa();
+            } else {
+                solicitarWakeLock();
+            }
+        }
+
+        function reiniciarTabataWarmup() {
+            bgClearInterval(warmupTabInterval);
+            warmupRunning = false;
+            warmupTabataPausado = false;
+            desactivarTimerGlobal();
+            var clockEl = document.getElementById('warmup-clock');
+            var statusEl = document.getElementById('warmup-status');
+            var ejEl = document.getElementById('warmup-ej');
+            var btn = document.getElementById('warmup-btn');
+            if (clockEl) clockEl.innerText = '--';
+            if (statusEl) statusEl.innerText = 'TABATA CALENTAMIENTO';
+            if (ejEl) ejEl.innerText = '';
+            if (btn) { btn.disabled = false; btn.innerText = 'Iniciar Tabata Warmup'; }
+            var pausaBtn = document.getElementById('warmup-tabata-pausa');
+            if (pausaBtn) { pausaBtn.style.display = 'none'; pausaBtn.innerText = '⏸ PAUSAR'; }
+            var reiniciarBtn = document.getElementById('warmup-tabata-reiniciar');
+            if (reiniciarBtn) reiniciarBtn.style.display = 'none';
+            liberarWakeLock();
+        }
+
+        function reiniciarWarmupCT(durMin) {
+            bgClearInterval(bloqueTiempoIntervals['warmup-clock']);
+            warmupRunning = false;
+            bloqueTiempoPausado['warmup-clock'] = false;
+            desactivarTimerGlobal();
+            var clockEl = document.getElementById('warmup-clock');
+            var statusEl = document.getElementById('warmup-status');
+            var btn = document.getElementById('warmup-btn');
+            if (clockEl) clockEl.innerText = durMin + ':00';
+            if (statusEl) statusEl.innerText = 'TIEMPO: ' + durMin + ' min';
+            if (btn) { btn.disabled = false; btn.dataset.running = '0'; btn.innerText = 'Iniciar Tiempo'; }
+            var pausaBtn = document.getElementById('warmup-ct-pausa');
+            if (pausaBtn) { pausaBtn.style.display = 'none'; pausaBtn.innerText = '⏸ PAUSAR'; }
+            var reiniciarBtn = document.getElementById('warmup-ct-reiniciar');
+            if (reiniciarBtn) reiniciarBtn.style.display = 'none';
+            liberarWakeLock();
+        }
+
+        function reiniciarEmomWarmup() {
+            bgClearInterval(warmupEmomInterval);
+            warmupRunning = false;
+            warmupEmomPausado = false;
+            desactivarTimerGlobal();
+            var clockEl = document.getElementById('warmup-clock');
+            var statusEl = document.getElementById('warmup-status');
+            var ejEl = document.getElementById('warmup-ej');
+            var btn = document.getElementById('warmup-btn');
+            if (clockEl) { clockEl.innerText = '05'; clockEl.style.color = 'var(--verde)'; clockEl.style.textShadow = '0 0 40px var(--verde-glow)'; }
+            if (statusEl) statusEl.innerText = 'EMOM CALENTAMIENTO';
+            if (ejEl) ejEl.innerText = '';
+            if (btn) { btn.disabled = false; btn.innerText = 'Iniciar EMOM Warmup'; }
+            var pausaBtn = document.getElementById('warmup-emom-pausa');
+            if (pausaBtn) { pausaBtn.style.display = 'none'; pausaBtn.innerText = '⏸ PAUSAR'; }
+            var reiniciarBtn = document.getElementById('warmup-emom-reiniciar');
+            if (reiniciarBtn) reiniciarBtn.style.display = 'none';
+            liberarWakeLock();
         }
 
         let warmupEmomInterval = null;
@@ -2358,7 +2686,9 @@
 
         function iniciarEmomWarmup(det) {
             if (warmupRunning) return;
+            if (hayTimerActivo()) return;
             warmupRunning = true;
+            activarTimerGlobal();
             warmupEmomPausado = false;
             solicitarWakeLock();
             document.getElementById('warmup-btn').disabled = true;
@@ -2368,9 +2698,11 @@
             const ejsPorMin = ejsW.length > 0 ? Math.ceil(ejsW.length / mins) : 1;
             let minActual = 0;
 
-            // Mostrar boton pausa EMOM warmup
+            // Mostrar boton pausa y reiniciar EMOM warmup
             var pausaBtnEW = document.getElementById('warmup-emom-pausa');
             if (pausaBtnEW) pausaBtnEW.style.display = 'block';
+            var reiniciarBtnEW = document.getElementById('warmup-emom-reiniciar');
+            if (reiniciarBtnEW) reiniciarBtnEW.style.display = 'block';
 
             var clockEl = document.getElementById('warmup-clock');
             var statusEl = document.getElementById('warmup-status');
@@ -2395,8 +2727,10 @@
                     document.getElementById('warmup-ej').innerText = "";
                     document.getElementById('warmup-clock').innerText = "OK";
                     warmupRunning = false;
+                    desactivarTimerGlobal();
                     warmupEmomPausado = false;
                     if (pausaBtnEW) pausaBtnEW.style.display = 'none';
+                    if (reiniciarBtnEW) reiniciarBtnEW.style.display = 'none';
                     liberarWakeLock();
                     return;
                 }
@@ -2528,6 +2862,7 @@
         // ─── RENDER PRINCIPAL ───
         function render(data) {
             renderWarmup(data);
+            inicializarProgreso(data);
             document.getElementById('sec-emom-ui').style.display = "none";
             document.getElementById('sec-timer-ui').style.display = "none";
             const pLista = document.getElementById('principal-lista');
@@ -2613,6 +2948,7 @@
             circVueltasRestantes--;
             const el = document.getElementById(contId);
             if (el) el.innerText = circVueltasRestantes > 0 ? 'Vueltas restantes: ' + circVueltasRestantes : 'CIRCUITO COMPLETO!';
+            incrementarProgreso(1);
             // >>> COACH: Pausa circuito vueltas con motivación y vueltas restantes
             coachPausaVueltas(circVueltasRestantes);
             if (circVueltasRestantes <= 0) {
@@ -3128,11 +3464,15 @@
         // ─── MARCAR SERIE (con WakeLock) ───
         function marcarSerie(i, pausa) {
             if (seriesRestantes[i] <= 0) return;
-            seriesRestantes[i]--;
             const btn = document.getElementById('btn-' + i);
+            // Bloquear si ya está descansando
+            if (btn && btn.disabled) return;
+            seriesRestantes[i]--;
             const timer = document.getElementById('timer-' + i);
             const val = document.getElementById('s-val-' + i);
             if (val) val.innerText = seriesRestantes[i];
+            // Actualizar progreso
+            incrementarProgreso(1);
             if (seriesRestantes[i] <= 0) {
                 btn.innerText = "Completado";
                 btn.disabled = true;
@@ -3140,6 +3480,7 @@
             }
             btn.classList.add('active');
             btn.innerText = "Descansando...";
+            btn.disabled = true; // Bloquear botón durante descanso
             timer.style.display = "block";
             solicitarWakeLock();
 
@@ -3163,6 +3504,7 @@
                     }
                     timer.style.display = "none";
                     btn.classList.remove('active');
+                    btn.disabled = false; // Re-habilitar botón
                     btn.innerText = "Marcar Serie (" + seriesRestantes[i] + " rest.)";
                     liberarWakeLock();
                 }
@@ -3214,6 +3556,7 @@
             const btnEl = document.getElementById(btnId);
             if (!timerEl || !btnEl) return;
             if (btnEl.dataset.running === "1") return;
+            if (!_timerGlobalActivo) activarTimerGlobal();
             btnEl.dataset.running = "1";
             btnEl.disabled = true;
             btnEl.innerText = "En curso...";
@@ -3270,10 +3613,16 @@
                     btnEl.innerText = "Reiniciar";
                     btnEl.dataset.running = "0";
                     bloqueTiempoPausado[timerId] = false;
+                    desactivarTimerGlobal();
                     if (pausaBtnAssoc && timerId === 'warmup-clock') pausaBtnAssoc.style.display = 'none';
                     if (pausaBtnBloque) pausaBtnBloque.style.display = 'none';
+                    if (timerId === 'warmup-clock') {
+                        var _ctReinEnd = document.getElementById('warmup-ct-reiniciar');
+                        if (_ctReinEnd) _ctReinEnd.style.display = 'none';
+                    }
                     // >>> COACH: Bloque completado
                     coachFinalizacion();
+                    incrementarProgreso(1);
                     liberarWakeLock();
                 }
             }, 1000);
@@ -3299,6 +3648,8 @@
             const btnEl = document.getElementById(btnId);
             if (!timerEl || !btnEl) return;
             if (btnEl.dataset.running === "1") return;
+            if (hayTimerActivo()) return;
+            activarTimerGlobal();
             btnEl.dataset.running = "1";
             btnEl.disabled = true;
             btnEl.innerText = "Preparate...";
@@ -3317,7 +3668,9 @@
 
         function iniciarCronometroTiempo() {
             if (timerActivo) return;
+            if (hayTimerActivo()) return;
             timerActivo = true;
+            activarTimerGlobal();
             timerPausado = false;
             solicitarWakeLock();
             _iniciarAudioKeepalive();
@@ -3342,6 +3695,8 @@
                 btnPausa.style.display = "block";
                 btnPausa.innerText = "⏸ PAUSAR";
             }
+            var btnReiniciar = document.getElementById('btnReiniciarTimer');
+            if (btnReiniciar) btnReiniciar.style.display = 'block';
             if (dataGlobal && dataGlobal.tipo === 'Circuito por Tiempo') hablarCoach('Arranca el circuito, vamos con todo!');
 
             tSegs = 5;
@@ -3461,9 +3816,17 @@
                                 document.getElementById('clock').innerText = "00";
                                 document.getElementById('clock').className = "";
                                 timerActivo = false;
+                                desactivarTimerGlobal();
+                                var _btnPausaEnd = document.getElementById('btnPausaTimer');
+                                if (_btnPausaEnd) _btnPausaEnd.style.display = 'none';
+                                var _btnReinEnd = document.getElementById('btnReiniciarTimer');
+                                if (_btnReinEnd) _btnReinEnd.style.display = 'none';
+                                var _btnStartEnd = document.getElementById('btnStartTimer');
+                                if (_btnStartEnd) { _btnStartEnd.style.display = 'block'; _btnStartEnd.innerText = 'EMPEZAR'; }
                                 liberarWakeLock();
                                 _detenerAudioKeepalive();
                                 coachFinalizacion();
+                                incrementarProgreso(1);
                             }
                         } else {
                             _setFase("trabajo", trabajo);
@@ -3513,6 +3876,33 @@
             }
         }
 
+        function reiniciarTimer() {
+            bgClearInterval(tInterval);
+            bgClearInterval(pausaRondaInterval);
+            timerActivo = false;
+            timerPausado = false;
+            desactivarTimerGlobal();
+            tSegs = 5;
+            tFase = "prep";
+            tIdx = 0;
+            tRonda = 1;
+            document.getElementById('t-status').innerText = "LISTO";
+            document.getElementById('clock').innerText = "05";
+            document.getElementById('clock').className = '';
+            document.getElementById('t-ejercicio').innerText = "Preparate";
+            document.getElementById('t-ejercicio-nombre').innerText = "";
+            document.getElementById('t-ej-restantes').innerText = "";
+            var fillEl = document.getElementById('timer-progress-fill');
+            if (fillEl) fillEl.style.width = '100%';
+            document.getElementById('overlay-pausa-ronda').classList.remove('visible');
+            document.getElementById('overlay-pausa-ronda').style.display = 'none';
+            document.getElementById('btnStartTimer').style.display = "block";
+            document.getElementById('btnPausaTimer').style.display = "none";
+            document.getElementById('btnPausaTimer').innerText = "⏸ PAUSAR";
+            document.getElementById('btnReiniciarTimer').style.display = "none";
+            liberarWakeLock();
+        }
+
         // ─── PAUSA ENTRE RONDAS (overlay) ───
         function mostrarPausaRonda(segundos, rondaActual, totalRondas, callback) {
             bgClearInterval(tInterval);
@@ -3559,6 +3949,7 @@
             emomInterval = null;
             emomRunning = false;
             emomPausado = false;
+            desactivarTimerGlobal();
             document.getElementById('emom-clock').className = '';
             document.getElementById('sec-emom-ui').style.display = 'none';
             var secLista = document.getElementById('sec-rutina-lista');
@@ -3616,7 +4007,9 @@
 
         function iniciarEmom() {
             if (emomRunning) return;
+            if (hayTimerActivo()) return;
             emomRunning = true;
+            activarTimerGlobal();
             emomPausado = false;
             solicitarWakeLock();
             _iniciarAudioKeepalive();
@@ -3712,9 +4105,11 @@
                                 document.getElementById('btnStartEmom').style.display = "block";
                             }
                             emomRunning = false;
+                            desactivarTimerGlobal();
                             liberarWakeLock();
                             _detenerAudioKeepalive();
                             coachFinalizacion();
+                            incrementarProgreso(1);
                             return;
                         }
                         emomSegs = 60;
@@ -3787,6 +4182,7 @@
             emomInterval = null;
             emomRunning = false;
             emomPausado = false;
+            desactivarTimerGlobal();
             emomMinActual = 0;
             emomSegs = 5;
             emomFase = "prep";
@@ -3811,6 +4207,8 @@
         function iniciarTabataBloque(btnId, statusId, ejId, infoId, timerId, tc, rutina) {
             const btn = document.getElementById(btnId);
             if (!btn || tabataRunningFlags[btnId]) return;
+            if (hayTimerActivo()) return;
+            activarTimerGlobal();
             tabataRunningFlags[btnId] = true;
             const pausaId = btnId.replace('-btn', '-pausa');
             const pausaBtn = document.getElementById(pausaId);
@@ -3855,6 +4253,8 @@
                         btn.disabled = false;
                         btn.innerText = "Reiniciar";
                         tabataRunningFlags[btnId] = false;
+                        desactivarTimerGlobal();
+                        incrementarProgreso(1);
                         liberarWakeLock();
                         return;
                     }
@@ -3959,6 +4359,8 @@
         function iniciarEmomBloque(btnId, statusId, roundId, clockId, totalMin) {
             const btn = document.getElementById(btnId);
             if (btn.dataset.running === "1") return;
+            if (hayTimerActivo()) return;
+            activarTimerGlobal();
             btn.dataset.running = "1";
             btn.disabled = true;
             btn.innerText = "En curso...";
@@ -3994,6 +4396,8 @@
                     btn.disabled = false;
                     btn.innerText = "Reiniciar";
                     emomBloquePausado[clockId] = false;
+                    desactivarTimerGlobal();
+                    incrementarProgreso(1);
                     if (pausaBtnEl) pausaBtnEl.style.display = 'none';
                     liberarWakeLock();
                     return;
@@ -4056,6 +4460,8 @@
         function iniciarEmomBloqueConCiclo(btnId, statusId, roundId, clockId, ejId, totalMin, ciclo) {
             const btn = document.getElementById(btnId);
             if (btn.dataset.running === "1") return;
+            if (hayTimerActivo()) return;
+            activarTimerGlobal();
             btn.dataset.running = "1";
             btn.disabled = true;
             btn.innerText = "En curso...";
@@ -4108,6 +4514,8 @@
                     btn.disabled = false;
                     btn.innerText = "Reiniciar";
                     emomBloquePausado[clockId] = false;
+                    desactivarTimerGlobal();
+                    incrementarProgreso(1);
                     if (pausaBtnEl) pausaBtnEl.style.display = 'none';
                     liberarWakeLock();
                     return;
@@ -4195,6 +4603,7 @@
             timerPausado = false;
             emomRunning = false;
             warmupRunning = false;
+            desactivarTimerGlobal();
             document.getElementById('overlay-pausa-ronda').classList.remove('visible');
             document.getElementById('overlay-pausa-ronda').style.display = 'none';
             document.getElementById('sec-timer-ui').style.display = 'none';
@@ -4208,6 +4617,8 @@
                 btnPausa.style.display = 'none';
                 btnPausa.innerText = '⏸ PAUSAR';
             }
+            var btnReiniciarT = document.getElementById('btnReiniciarTimer');
+            if (btnReiniciarT) btnReiniciarT.style.display = 'none';
             var secLista = document.getElementById('sec-rutina-lista');
             if (secLista) {
                 secLista.style.display = 'block';
@@ -4252,6 +4663,7 @@
             warmupRunning = false;
             timerPausado = false;
             timerActivo = false;
+            desactivarTimerGlobal();
             restIntervals = {};
             bloqueTiempoIntervals = {};
             seriesRestantes = {};
