@@ -2692,12 +2692,16 @@
             }
 
             const config = data.config || {
-                trabajo: 20,
-                pausa: 10,
-                rondas: 1,
-                cantidad: 8,
-                pausa_entre_rondas: 0
+                trabajo: data.trabajo || 20,
+                pausa: data.pausa || 10,
+                rondas: data.rondas || 1,
+                cantidad: data.cantidad || 8,
+                pausa_entre_rondas: data.pausa_entre_rondas || 0
             };
+            // Guardar config en dataGlobal para que el timer lo use
+            if (dataGlobal && !dataGlobal.config) {
+                dataGlobal.config = config;
+            }
             const pr = config.pausa_entre_rondas || 0;
 
             pLista.innerHTML += '<div class="info-block" style="border-color:var(--naranja);">' +
@@ -2885,11 +2889,16 @@
                 if (bloque.descripcion) {
                     html += '<div class="bloque-descripcion">' + bloque.descripcion + '</div>';
                 }
-                (bloque.rutina || []).forEach(function(b) {
-                    html += '<div class="circ-bloque-header"><span class="circ-bloque-label">Bloque #' + b.id + '</span></div>';
-                    b.ejercicios.forEach(function(ej) {
+                // Compatibilidad: bloque.rutina (sub-bloques) o bloque.ejercicios (lista plana)
+                var circEjs = bloque.rutina || [];
+                if (circEjs.length === 0 && bloque.ejercicios) {
+                    circEjs = [{id: 1, ejercicios: bloque.ejercicios}];
+                }
+                circEjs.forEach(function(b) {
+                    html += '<div class="circ-bloque-header"><span class="circ-bloque-label">Bloque #' + (b.id || 1) + '</span></div>';
+                    (b.ejercicios || []).forEach(function(ej) {
                         var ejU = (ej.unit || "Reps").toUpperCase();
-                        html += crearCard(ej.nombre, ej.link, ej.reps + " " + ejU);
+                        html += crearCard(ej.nombre, ej.link, (ej.reps || "") + " " + ejU);
                     });
                 });
                 html += '<button id="' + uid + '-btn-vuelta" class="btn-rest" style="margin-top:12px;" ' +
@@ -2899,8 +2908,13 @@
             } else if (tipo === "Circuito por Tiempo") {
                 let html = '<div class="bloque-mix" style="border-color:' + color + ';">' +
                     '<div class="bloque-mix-titulo" style="color:' + color + ';">BLOQUE ' + idx + ' — CIRCUITO POR TIEMPO</div>';
-                (bloque.rutina || []).forEach(function(b, bIdx) {
-                    const tiempo = b.tiempo_min || 5;
+                // Compatibilidad: bloque.rutina (sub-bloques) o bloque.ejercicios (lista plana)
+                var ctEjs = bloque.rutina || [];
+                if (ctEjs.length === 0 && bloque.ejercicios) {
+                    ctEjs = [{id: 1, ejercicios: bloque.ejercicios, tiempo_min: bloque.duracion_min || 5}];
+                }
+                ctEjs.forEach(function(b, bIdx) {
+                    const tiempo = b.tiempo_min || bloque.duracion_min || 5;
                     const tId = uid + "-ct-" + bIdx;
                     const bId = uid + "-ct-btn-" + bIdx;
                     html += '<div style="background:var(--fondo); border-radius:12px; padding:12px; margin-bottom:10px;">' +
@@ -2927,10 +2941,10 @@
                     trabajo: bloque.trabajo || 20,
                     pausa: bloque.pausa || 10,
                     rondas: bloque.rondas || 1,
-                    cantidad: bloque.cantidad || 8,
+                    cantidad: bloque.cantidad || (bloque.ejercicios || bloque.rutina || []).length || 8,
                     pausa_entre_rondas: bloque.pausa_entre_rondas || 0
                 };
-                const rutinaTab = bloque.rutina || [];
+                const rutinaTab = bloque.rutina || bloque.ejercicios || [];
                 let htmlTab = '<div class="bloque-mix" style="border-color:var(--naranja);">' +
                     '<div class="bloque-mix-titulo" style="color:var(--naranja);">BLOQUE ' + idx + ' — TABATA</div>' +
                     '<div class="info-block" style="border-color:var(--naranja);">' +
@@ -2983,7 +2997,7 @@
                     });
                 } else {
                     var unitsDict = bloque.units_por_ejercicio || {};
-                    (bloque.rutina || []).forEach(function(ej) {
+                    (bloque.rutina || bloque.ejercicios || []).forEach(function(ej) {
                         const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej);
                         const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
                         const reps = repsDict[n] || "";
@@ -3006,7 +3020,7 @@
 
             } else if (tipo === "Series") {
                 const serialOffset = idx * 100;
-                renderSeriesMixInline(pLista, bloque.rutina || [], serialOffset, bloque.descripcion || "");
+                renderSeriesMixInline(pLista, bloque.rutina || bloque.ejercicios || [], serialOffset, bloque.descripcion || "");
             }
         }
 
@@ -4020,7 +4034,7 @@
                 cantidad: bloque.cantidad || 8,
                 pausa_entre_rondas: bloque.pausa_entre_rondas || 0
             };
-            var rutina = bloque.rutina || [];
+            var rutina = bloque.rutina || bloque.ejercicios || [];
             var uid = 'blq-' + (i + 1);
             activarTabataMixEnUI(tc, rutina, uid);
         }
