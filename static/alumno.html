@@ -992,6 +992,103 @@
             padding: 6px 10px;
             margin-top: 8px;
         }
+        /* ─── PESO / CARGA INPUT ─── */
+        
+        .peso-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            margin-bottom: 6px;
+            padding: 8px 12px;
+            background: var(--fondo-alt);
+            border-radius: 10px;
+            border: 1px solid var(--borde-sutil);
+        }
+        
+        .peso-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: var(--texto-suave);
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        
+        .peso-input {
+            width: 70px;
+            background: var(--tarjeta);
+            border: 1px solid var(--borde);
+            border-radius: 8px;
+            color: var(--texto);
+            font-size: 1rem;
+            font-weight: 700;
+            text-align: center;
+            padding: 6px 8px;
+            font-family: 'Roboto Mono', monospace;
+            -moz-appearance: textfield;
+        }
+        
+        .peso-input::-webkit-inner-spin-button,
+        .peso-input::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        .peso-input:focus {
+            outline: none;
+            border-color: var(--verde);
+            box-shadow: 0 0 8px var(--verde-glow);
+        }
+        
+        .peso-suffix {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--texto-suave);
+        }
+        
+        .peso-ultima {
+            font-size: 0.68rem;
+            color: var(--amarillo);
+            margin-left: auto;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+        /* ─── CALORIAS EN PANTALLA FIN ─── */
+        
+        .fin-stats {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 28px;
+            animation: finFadeUp 0.5s 0.65s both;
+        }
+        
+        .fin-stat-box {
+            background: var(--tarjeta);
+            border: 1px solid var(--borde);
+            border-radius: 14px;
+            padding: 12px 20px;
+            text-align: center;
+            min-width: 120px;
+        }
+        
+        .fin-stat-label {
+            font-size: 0.6rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: var(--texto-suave);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        
+        .fin-stat-value {
+            font-size: 1.6rem;
+            font-family: 'Roboto Mono', monospace;
+            font-weight: 700;
+            color: var(--naranja);
+            text-shadow: 0 0 15px var(--naranja-glow);
+        }
         /* ─── SCROLL CONTAINER ─── */
         
         .container-scroll::-webkit-scrollbar {
@@ -1274,6 +1371,12 @@
         <div class="fin-tiempo">
             <div class="fin-tiempo-label">Tiempo de entrenamiento</div>
             <div class="fin-tiempo-valor" id="fin-tiempo-valor">00:00</div>
+        </div>
+        <div class="fin-stats" id="fin-stats-container" style="display:none;">
+            <div class="fin-stat-box">
+                <div class="fin-stat-label">Calorias estimadas</div>
+                <div class="fin-stat-value" id="fin-calorias-valor">0</div>
+            </div>
         </div>
         <button class="fin-btn-salir" onclick="cerrarPantallaFin()">Volver al inicio</button>
     </div>
@@ -2463,6 +2566,32 @@
         // ─── PANTALLA DE FINALIZACIÓN ───
         var _pantallaFinMostrada = false;
 
+        // ─── CÁLCULO DE CALORÍAS ESTIMADAS ───
+        // MET aproximados por tipo de entrenamiento:
+        //   Series (fuerza): 5 MET
+        //   Circuito: 6 MET
+        //   Tabata (HIIT): 8 MET
+        //   EMOM: 7 MET
+        //   Circuito por Tiempo: 6 MET
+        //   ENTRENAMIENTO (mix): 6.5 MET
+        // Fórmula: Calorías = MET × peso(kg) × tiempo(horas)
+        // Peso por defecto: 70kg
+        function _calcularCaloriasEstimadas() {
+            if (!_tiempoInicioEntrenamiento) return 0;
+            var segTotal = Math.floor((Date.now() - _tiempoInicioEntrenamiento) / 1000);
+            var horas = segTotal / 3600;
+            var met = 6; // default
+            var tipo = _tipoEntrenamientoGlobal;
+            if (tipo === 'Series') met = 5;
+            else if (tipo === 'Circuito') met = 6;
+            else if (tipo === 'Tabata') met = 8;
+            else if (tipo === 'EMOM') met = 7;
+            else if (tipo === 'Circuito por Tiempo') met = 6;
+            else if (tipo === 'ENTRENAMIENTO') met = 6.5;
+            var pesoKg = 70; // peso promedio por defecto
+            return Math.round(met * pesoKg * horas);
+        }
+
         function mostrarPantallaFin() {
             if (_pantallaFinMostrada) return;
             _pantallaFinMostrada = true;
@@ -2476,6 +2605,15 @@
             document.getElementById('fin-mensaje-random').innerText = _mensajeAleatorio();
             document.getElementById('fin-tiempo-valor').innerText = tiempo;
 
+            // Calorías estimadas
+            var cals = _calcularCaloriasEstimadas();
+            var statsContainer = document.getElementById('fin-stats-container');
+            var calsEl = document.getElementById('fin-calorias-valor');
+            if (cals > 0 && statsContainer && calsEl) {
+                calsEl.innerText = cals + ' kcal';
+                statsContainer.style.display = 'flex';
+            }
+
             document.getElementById('pantalla-fin').classList.add('visible');
 
             // Confetti grande al finalizar
@@ -2483,7 +2621,8 @@
 
             // Voz de fin
             try {
-                hablarCoach('Felicitaciones ' + (nombreUsuario || '') + '! Completaste el entrenamiento. Sos un crack!');
+                var msgCals = cals > 0 ? ' Quemaste aproximadamente ' + cals + ' calorías.' : '';
+                hablarCoach('Felicitaciones ' + (nombreUsuario || '') + '! Completaste el entrenamiento.' + msgCals + ' Sos un crack!');
             } catch (e) {}
         }
 
@@ -2727,6 +2866,41 @@
 
         // Almacen global de nombres de ejercicios para coach de voz en Series
         var ejercicioNombres = {};
+
+        // ─── REGISTRO DE PESO / CARGA (localStorage) ───
+        function _pesoKey(nombreEj) {
+            return 'pf-peso-' + (nombreEj || '').toUpperCase().trim();
+        }
+
+        function obtenerUltimoPeso(nombreEj) {
+            try {
+                var val = localStorage.getItem(_pesoKey(nombreEj));
+                return val ? parseFloat(val) : null;
+            } catch (e) { return null; }
+        }
+
+        function guardarPeso(nombreEj, peso) {
+            try {
+                if (peso && !isNaN(peso) && peso > 0) {
+                    localStorage.setItem(_pesoKey(nombreEj), peso);
+                }
+            } catch (e) {}
+        }
+
+        function crearPesoRow(nombreEj, inputId) {
+            var ultimo = obtenerUltimoPeso(nombreEj);
+            var ultimaHtml = ultimo ? '<span class="peso-ultima">\u00DAltima vez: ' + ultimo + 'kg</span>' : '';
+            return '<div class="peso-row">' +
+                '<span class="peso-label">\u{1F3CB}\uFE0F Peso</span>' +
+                '<input type="number" class="peso-input" id="' + inputId + '" placeholder="0" min="0" step="0.5"' +
+                (ultimo ? ' value="' + ultimo + '"' : '') + '>' +
+                '<span class="peso-suffix">kg</span>' +
+                ultimaHtml +
+                '</div>';
+        }
+
+        // ─── TIPO DE ENTRENAMIENTO GLOBAL (para calorias) ───
+        var _tipoEntrenamientoGlobal = '';
 
         // ─── CREAR CARDS ───
         function svgPlay() {
@@ -3467,6 +3641,7 @@
         // ─── MODO SERIES ───
         function renderSeries(data, pTitulo, pLista, ejercicios) {
             pTitulo.innerText = "SERIES";
+            _tipoEntrenamientoGlobal = 'Series';
             if (data.descripcion) {
                 pLista.innerHTML += '<div class="bloque-descripcion">' + data.descripcion + '</div>';
             }
@@ -3475,6 +3650,7 @@
                 seriesRestantes[i] = parseInt(ej.series);
                 ejercicioNombres[i] = ej.nombre || '';
                 const notaHtml = ej.nota_tecnica ? '<div class="nota-tecnica">📝 ' + ej.nota_tecnica + '</div>' : '';
+                const pesoInputId = 'peso-' + i;
                 pLista.innerHTML += '<div class="serie-card">' +
                     '<div class="serie-header"><span class="serie-nombre">' + ej.nombre + '</span>' +
                     '<a href="' + ej.link + '" target="_blank" class="btn-play-video">' + svgPlay() + '</a></div>' +
@@ -3483,6 +3659,7 @@
                     '<div class="serie-meta-item"><span class="serie-meta-label">' + (ej.unit || 'Reps') + '</span><span class="serie-meta-value">' + ej.reps + '</span></div>' +
                     '<div class="serie-meta-item"><span class="serie-meta-label">Descanso</span><span class="serie-meta-value" style="color:var(--naranja)">' + formatearTiempo(pausa) + '</span></div>' +
                     '</div>' +
+                    crearPesoRow(ej.nombre, pesoInputId) +
                     notaHtml +
                     '<div style="text-align:center;">' +
                     '<div class="timer-display" id="timer-' + i + '">' + formatearTiempo(pausa) + '</div>' +
@@ -3494,6 +3671,7 @@
         // ─── MODO CIRCUITO ───
         function renderCircuito(data, pTitulo, pLista, ejercicios) {
             pTitulo.innerText = "CIRCUITO";
+            _tipoEntrenamientoGlobal = 'Circuito';
             if (data.descripcion) {
                 pLista.innerHTML += '<div class="bloque-descripcion">' + data.descripcion + '</div>';
             }
@@ -3544,6 +3722,7 @@
         // ─── MODO CIRCUITO POR TIEMPO ───
         function renderCircuitoTiempo(data, pTitulo, pLista, ejercicios) {
             pTitulo.innerText = "CIRCUITO POR TIEMPO";
+            _tipoEntrenamientoGlobal = 'Circuito por Tiempo';
             if (data.descripcion) {
                 pLista.innerHTML += '<div class="bloque-descripcion">' + data.descripcion + '</div>';
             }
@@ -3598,6 +3777,7 @@
         // ─── MODO TABATA ───
         function renderTabata(data, pTitulo, pLista, ejercicios) {
             pTitulo.innerText = "TABATA";
+            _tipoEntrenamientoGlobal = 'Tabata';
             document.getElementById('sec-timer-ui').style.display = "block";
             const btnPausa = document.getElementById('btnPausaTimer');
             if (btnPausa) {
@@ -3636,6 +3816,7 @@
         // ─── MODO EMOM ───
         function renderEmom(data, pTitulo, pLista) {
             pTitulo.innerText = "EMOM";
+            _tipoEntrenamientoGlobal = 'EMOM';
             document.getElementById('sec-emom-ui').style.display = "block";
             const minutos = data.minutos_totales || 10;
             const ejsPorMin = data.ejercicios_por_minuto || 1;
@@ -3692,6 +3873,7 @@
 
         function renderMix(data, pTitulo, pLista) {
             pTitulo.innerText = "ENTRENAMIENTO";
+            _tipoEntrenamientoGlobal = 'ENTRENAMIENTO';
             const bloques = data.bloques || [];
             bloquesMix = bloques;
 
@@ -4031,6 +4213,7 @@
                 seriesRestantes[idxS] = parseInt(seriesN);
                 ejercicioNombres[idxS] = nombre;
                 const notaHtml = ej.nota_tecnica ? '<div class="nota-tecnica">📝 ' + ej.nota_tecnica + '</div>' : '';
+                const pesoInputId = 'peso-' + idxS;
                 html += '<div class="serie-card">' +
                     '<div class="serie-header"><span class="serie-nombre">' + nombre + '</span>' +
                     (link ? '<a href="' + link + '" target="_blank" class="btn-play-video">' + svgPlay() + '</a>' : '') + '</div>' +
@@ -4039,6 +4222,7 @@
                     '<div class="serie-meta-item"><span class="serie-meta-label">' + (ej.unit || 'Reps') + '</span><span class="serie-meta-value">' + repsN + '</span></div>' +
                     '<div class="serie-meta-item"><span class="serie-meta-label">Descanso</span><span class="serie-meta-value" style="color:var(--naranja)">' + formatearTiempo(pausaN) + '</span></div>' +
                     '</div>' +
+                    crearPesoRow(nombre, pesoInputId) +
                     notaHtml +
                     '<div style="text-align:center;"><div class="timer-display" id="timer-' + idxS + '">' + formatearTiempo(pausaN) + '</div>' +
                     '<button class="btn-rest" id="btn-' + idxS + '" onclick="marcarSerie(' + idxS + ',' + pausaN + ')">Marcar Serie</button></div></div>';
@@ -4053,6 +4237,23 @@
             const btn = document.getElementById('btn-' + i);
             // Bloquear si ya está descansando
             if (btn && btn.disabled) return;
+            // Guardar peso en localStorage
+            var pesoInput = document.getElementById('peso-' + i);
+            if (pesoInput && pesoInput.value) {
+                var nombreEj = ejercicioNombres[i] || '';
+                guardarPeso(nombreEj, parseFloat(pesoInput.value));
+                // Actualizar texto "Última vez" en tiempo real
+                var pesoRow = pesoInput.closest('.peso-row');
+                if (pesoRow) {
+                    var ultimaSpan = pesoRow.querySelector('.peso-ultima');
+                    if (!ultimaSpan) {
+                        ultimaSpan = document.createElement('span');
+                        ultimaSpan.className = 'peso-ultima';
+                        pesoRow.appendChild(ultimaSpan);
+                    }
+                    ultimaSpan.textContent = '\u00DAltima vez: ' + pesoInput.value + 'kg';
+                }
+            }
             seriesRestantes[i]--;
             const timer = document.getElementById('timer-' + i);
             const val = document.getElementById('s-val-' + i);
