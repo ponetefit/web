@@ -99,6 +99,72 @@
             -webkit-backdrop-filter: blur(16px) saturate(180%);
             border: 1px solid rgba(255,255,255,0.08);
         }
+        /* Floating Video Preview Tooltip */
+        #video-preview-tooltip {
+            position: fixed;
+            z-index: 9998;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            width: 320px;
+        }
+        #video-preview-tooltip.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        #video-preview-tooltip .vpt-inner {
+            background: #141418;
+            border: 1px solid #2a2a35;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,107,53,0.15);
+        }
+        #video-preview-tooltip .vpt-header {
+            padding: 8px 12px;
+            background: linear-gradient(135deg, #1a1a20, #141418);
+            border-bottom: 1px solid #2a2a35;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        #video-preview-tooltip .vpt-header span {
+            font-size: 11px;
+            font-weight: 700;
+            color: #FF6B35;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #video-preview-tooltip .vpt-video {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #0a0a0c;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #video-preview-tooltip .vpt-video iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        #video-preview-tooltip .vpt-no-video {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #0a0a0c;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #8a8a9a;
+            font-size: 12px;
+        }
+        .ej-hover-preview {
+            cursor: pointer;
+        }
     </style>
 </head>
 <body class="bg-fondo text-texto min-h-screen">
@@ -586,6 +652,17 @@
         </div>
     </main>
 
+    <!-- VIDEO PREVIEW TOOLTIP -->
+    <div id="video-preview-tooltip">
+        <div class="vpt-inner">
+            <div class="vpt-header">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                <span id="vpt-title"></span>
+            </div>
+            <div id="vpt-body"></div>
+        </div>
+    </div>
+
     <!-- TOAST -->
     <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 translate-y-20 bg-verde text-black px-7 py-3.5 rounded-full font-black text-sm tracking-wider z-[9999] transition-transform duration-400" style="transition-timing-function: cubic-bezier(0.34,1.56,0.64,1);">Guardado</div>
 
@@ -831,7 +908,9 @@
             const muscBadges = [m1, m2].filter(Boolean).map(m => '<span class="text-[10px] bg-naranja/20 text-naranja px-1.5 py-0.5 rounded font-bold">' + m + '</span>').join(' ') +
                 (sin ? ' <span class="text-[10px] bg-azul/20 text-azul px-1.5 py-0.5 rounded font-bold">S: ' + sin + '</span>' : '');
             const ejJSON = JSON.stringify({nombre, link, m1, m2, sin}).replace(/'/g, "&#39;").replace(/"/g, '&quot;');
-            return `<div class="bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50 hover:border-borde transition group">
+            const linkEsc = link.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+            const nombreEsc = nombre.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+            return `<div class="bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50 hover:border-borde transition group ej-hover-preview" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()">
                 <div class="flex items-center justify-between">
                     <span class="font-bold text-sm flex-1">${nombre}</span>
                     <div class="flex items-center gap-2">
@@ -1054,16 +1133,18 @@
             lista.innerHTML = '';
             return;
         }
-        lista.innerHTML = warmupEjercicios.map((ej, i) =>
-            `<div class="exercise-chip flex items-center justify-between bg-fondoAlt rounded-xl px-4 py-2.5 border border-borde/50">
+        lista.innerHTML = warmupEjercicios.map((ej, i) => {
+            const linkEsc = (ej.link || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+            const nombreEsc = (ej.nombre || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+            return `<div class="exercise-chip flex items-center justify-between bg-fondoAlt rounded-xl px-4 py-2.5 border border-borde/50 ej-hover-preview" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()">
                 <div class="flex items-center gap-3">
                     <span class="text-xs text-textoSuave font-mono">${i+1}</span>
                     <span class="text-sm font-bold">${ej.nombre}</span>
                     ${ej.reps ? '<span class="text-xs text-amarillo font-bold">' + ej.reps + ' ' + ej.unit + '</span>' : ''}
                 </div>
                 <button onclick="quitarEjWarmup(${i})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none">&times;</button>
-            </div>`
-        ).join('');
+            </div>`;
+        }).join('');
     }
 
     // --- Bloques ---
@@ -1175,8 +1256,10 @@
             lista.innerHTML = '<p class="text-textoSuave text-xs text-center py-4">Agrega ejercicios al bloque</p>';
             return;
         }
-        lista.innerHTML = bloqueEjsTemp.map((ej, i) =>
-            `<div class="exercise-chip bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50">
+        lista.innerHTML = bloqueEjsTemp.map((ej, i) => {
+            const linkEsc = (ej.link || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+            const nombreEsc = (ej.nombre || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+            return `<div class="exercise-chip bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50 ej-hover-preview" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()">
                 <div class="flex items-center justify-between mb-2">
                     <span class="text-sm font-bold">${i+1}. ${ej.nombre}</span>
                     <button onclick="quitarEjBloque(${i})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none">&times;</button>
@@ -1188,8 +1271,8 @@
                     '<select onchange="bloqueEjsTemp['+i+'].unit=this.value" class="rounded-lg px-2 py-1 text-xs"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' : ''}
                     ${mostrarSeries ? '<input type="text" value="' + (ej.nota_tecnica||'') + '" onchange="bloqueEjsTemp['+i+'].nota_tecnica=this.value" class="rounded-lg px-2 py-1 text-xs flex-1" placeholder="Nota tecnica...">' : ''}
                 </div>
-            </div>`
-        ).join('');
+            </div>`;
+        }).join('');
     }
 
     function confirmarBloque() {
@@ -2821,6 +2904,102 @@
         } catch (e) {
             content.innerHTML = '<p class="text-rojo text-center py-8">Error de conexion</p>';
         }
+    }
+
+    // ====================================================================
+    // FLOATING VIDEO PREVIEW (TOOLTIP)
+    // ====================================================================
+    let videoPreviewTimer = null;
+    let currentPreviewUrl = '';
+
+    function getYouTubeEmbedUrl(url) {
+        if (!url) return null;
+        let videoId = null;
+        // youtube.com/watch?v=ID
+        const match1 = url.match(/[?&]v=([^&#]+)/);
+        if (match1) videoId = match1[1];
+        // youtu.be/ID
+        if (!videoId) {
+            const match2 = url.match(/youtu\.be\/([^?&#]+)/);
+            if (match2) videoId = match2[1];
+        }
+        // youtube.com/embed/ID
+        if (!videoId) {
+            const match3 = url.match(/youtube\.com\/embed\/([^?&#]+)/);
+            if (match3) videoId = match3[1];
+        }
+        // youtube.com/shorts/ID
+        if (!videoId) {
+            const match4 = url.match(/youtube\.com\/shorts\/([^?&#]+)/);
+            if (match4) videoId = match4[1];
+        }
+        if (videoId) {
+            return 'https://www.youtube.com/embed/' + videoId + '?autoplay=1&mute=1&loop=1&playlist=' + videoId + '&controls=0&modestbranding=1&rel=0';
+        }
+        return null;
+    }
+
+    function showVideoPreview(event, el) {
+        const url = el.getAttribute('data-video-url');
+        const nombre = el.getAttribute('data-ej-nombre') || '';
+        if (!url) return;
+
+        const embedUrl = getYouTubeEmbedUrl(url);
+        if (!embedUrl) return;
+
+        // Delay to avoid flickering on fast mouse movements
+        clearTimeout(videoPreviewTimer);
+        videoPreviewTimer = setTimeout(() => {
+            const tooltip = document.getElementById('video-preview-tooltip');
+            const title = document.getElementById('vpt-title');
+            const body = document.getElementById('vpt-body');
+
+            title.textContent = nombre;
+
+            // Only reload iframe if URL changed
+            if (currentPreviewUrl !== embedUrl) {
+                body.innerHTML = '<div class="vpt-video"><iframe src="' + embedUrl + '" allow="autoplay; encrypted-media" allowfullscreen loading="lazy"></iframe></div>';
+                currentPreviewUrl = embedUrl;
+            }
+
+            // Position tooltip near the element
+            const rect = el.getBoundingClientRect();
+            const tooltipW = 320;
+            const tooltipH = 230;
+            let left = rect.right + 12;
+            let top = rect.top;
+
+            // If tooltip goes off the right edge, show on the left
+            if (left + tooltipW > window.innerWidth) {
+                left = rect.left - tooltipW - 12;
+            }
+            // If still off-screen (left), position at mouse X
+            if (left < 8) {
+                left = Math.min(event.clientX + 16, window.innerWidth - tooltipW - 8);
+            }
+            // Vertical: don't go below viewport
+            if (top + tooltipH > window.innerHeight) {
+                top = window.innerHeight - tooltipH - 8;
+            }
+            if (top < 8) top = 8;
+
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+            tooltip.classList.add('visible');
+        }, 350);
+    }
+
+    function hideVideoPreview() {
+        clearTimeout(videoPreviewTimer);
+        const tooltip = document.getElementById('video-preview-tooltip');
+        tooltip.classList.remove('visible');
+        // Clean up iframe after fade-out to stop video playback
+        setTimeout(() => {
+            if (!tooltip.classList.contains('visible')) {
+                document.getElementById('vpt-body').innerHTML = '';
+                currentPreviewUrl = '';
+            }
+        }, 250);
     }
 
     // ====================================================================
