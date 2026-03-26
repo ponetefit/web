@@ -1424,6 +1424,117 @@
             transform: scale(0.97);
             box-shadow: 0 4px 12px var(--naranja-glow);
         }
+        /* ─── MODAL RETOMAR SESIÓN ─── */
+
+        #modal-retomar {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 10, 12, 0.92);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            z-index: 8000;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 30px 24px;
+            animation: overlayIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        #modal-retomar.visible {
+            display: flex;
+        }
+
+        .retomar-card {
+            background: var(--tarjeta);
+            border: 1px solid var(--borde);
+            border-radius: 24px;
+            padding: 32px 28px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+        }
+
+        .retomar-emoji {
+            font-size: 3.5rem;
+            margin-bottom: 12px;
+        }
+
+        .retomar-titulo {
+            font-size: 1.3rem;
+            font-weight: 900;
+            color: var(--texto);
+            margin-bottom: 8px;
+        }
+
+        .retomar-msg {
+            font-size: 0.9rem;
+            color: var(--texto-suave);
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        .retomar-progreso {
+            font-size: 1.1rem;
+            font-weight: 900;
+            color: var(--verde);
+            margin-bottom: 6px;
+        }
+
+        .retomar-tiempo {
+            font-size: 0.8rem;
+            color: var(--amarillo);
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        .retomar-btns {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .btn-retomar-si {
+            width: 100%;
+            padding: 16px;
+            border-radius: 14px;
+            border: none;
+            background: linear-gradient(135deg, var(--verde), #00c853);
+            color: #000;
+            font-weight: 900;
+            font-size: 0.95rem;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: 0 8px 24px var(--verde-glow);
+            min-height: 52px;
+            transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .btn-retomar-si:active {
+            transform: scale(0.97);
+        }
+
+        .btn-retomar-no {
+            width: 100%;
+            padding: 14px;
+            border-radius: 14px;
+            border: 1px solid var(--borde);
+            background: var(--tarjeta-alt);
+            color: var(--texto-suave);
+            font-weight: 700;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            min-height: 48px;
+            transition: background 0.15s;
+        }
+
+        .btn-retomar-no:active {
+            background: var(--borde);
+        }
     </style>
 </head>
 
@@ -1437,6 +1548,21 @@
     </video>
 
     <div id="toast">Rutina cargada</div>
+
+    <!-- Modal Retomar Sesión -->
+    <div id="modal-retomar">
+        <div class="retomar-card">
+            <div class="retomar-emoji">💪</div>
+            <div class="retomar-titulo">¡Tenés un entrenamiento en curso!</div>
+            <div class="retomar-msg">Se encontró una sesión guardada.<br>¿Querés retomar tu entrenamiento donde lo dejaste?</div>
+            <div class="retomar-progreso" id="retomar-progreso-pct"></div>
+            <div class="retomar-tiempo" id="retomar-tiempo-info"></div>
+            <div class="retomar-btns">
+                <button class="btn-retomar-si" onclick="_retomarSesionGuardada()">Retomar Entrenamiento</button>
+                <button class="btn-retomar-no" onclick="_descartarSesionGuardada()">Empezar de Cero</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Overlay Video Embebido -->
     <div id="overlay-video">
@@ -5886,6 +6012,8 @@
 
         // ─── CERRAR RUTINA ───
         function cerrar() {
+            // Limpiar sesión guardada al salir voluntariamente
+            _limpiarSesionGuardada();
             var secLista = document.getElementById('sec-rutina-lista');
             if (secLista) secLista.style.display = 'block';
             var btnStart = document.getElementById('btnStartTimer');
@@ -5928,6 +6056,323 @@
             _bgFastForward = null;
             _bgFFMode = false;
         }
+
+        // ====================================================================
+        // PERSISTENCIA DE SESIÓN (Auto-save con localStorage)
+        // ====================================================================
+        var _SESION_STORAGE_KEY = 'pf-sesion-activa';
+        var _sesionAutoSaveInterval = null;
+        var _sesionRetomandose = false; // flag: estamos restaurando una sesión
+
+        // ─── GUARDAR ESTADO ───
+        function _guardarSesion() {
+            if (!currentCode || !dataGlobal) return;
+            if (_pantallaFinMostrada) return; // no guardar si ya terminó
+            try {
+                var estado = {
+                    codigo: currentCode,
+                    nombreUsuario: nombreUsuario,
+                    dataGlobal: dataGlobal,
+                    seriesRestantes: seriesRestantes,
+                    circVueltasRestantes: circVueltasRestantes,
+                    progresoSegmentos: _progresoSegmentos,
+                    progresoSegActual: _progresoSegActual,
+                    tipoEntrenamientoGlobal: _tipoEntrenamientoGlobal,
+                    tiempoInicioEntrenamiento: _tiempoInicioEntrenamiento,
+                    bloquesMixGuardados: bloquesMix,
+                    timestamp: Date.now()
+                };
+                // Guardar valores de peso inputs
+                var pesoInputs = document.querySelectorAll('.peso-input');
+                var pesosActuales = {};
+                pesoInputs.forEach(function(inp) {
+                    if (inp.id && inp.value) {
+                        pesosActuales[inp.id] = inp.value;
+                    }
+                });
+                estado.pesosActuales = pesosActuales;
+
+                // Guardar estado de botones de series (cuáles están completados)
+                var botonesEstado = {};
+                for (var key in seriesRestantes) {
+                    var btn = document.getElementById('btn-' + key);
+                    if (btn) {
+                        botonesEstado[key] = {
+                            disabled: btn.disabled,
+                            text: btn.innerText,
+                            isActive: btn.classList.contains('active')
+                        };
+                    }
+                }
+                estado.botonesEstado = botonesEstado;
+
+                localStorage.setItem(_SESION_STORAGE_KEY, JSON.stringify(estado));
+            } catch (e) {
+                // localStorage lleno o no disponible — fallar silenciosamente
+            }
+        }
+
+        // ─── LIMPIAR SESIÓN GUARDADA ───
+        function _limpiarSesionGuardada() {
+            try {
+                localStorage.removeItem(_SESION_STORAGE_KEY);
+            } catch (e) {}
+            _detenerAutoSave();
+        }
+
+        // ─── OBTENER SESIÓN GUARDADA ───
+        function _obtenerSesionGuardada() {
+            try {
+                var raw = localStorage.getItem(_SESION_STORAGE_KEY);
+                if (!raw) return null;
+                var estado = JSON.parse(raw);
+                // Validar que no sea demasiado vieja (más de 24 horas)
+                if (estado.timestamp && (Date.now() - estado.timestamp) > 24 * 60 * 60 * 1000) {
+                    _limpiarSesionGuardada();
+                    return null;
+                }
+                // Validar campos mínimos
+                if (!estado.codigo || !estado.dataGlobal) {
+                    _limpiarSesionGuardada();
+                    return null;
+                }
+                return estado;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // ─── INICIAR AUTO-SAVE PERIÓDICO ───
+        function _iniciarAutoSave() {
+            _detenerAutoSave();
+            _sesionAutoSaveInterval = setInterval(function() {
+                _guardarSesion();
+            }, 15000); // cada 15 segundos
+        }
+
+        function _detenerAutoSave() {
+            if (_sesionAutoSaveInterval) {
+                clearInterval(_sesionAutoSaveInterval);
+                _sesionAutoSaveInterval = null;
+            }
+        }
+
+        // ─── CALCULAR PROGRESO GUARDADO ───
+        function _calcularProgresoGuardado(estado) {
+            var segs = estado.progresoSegmentos || [];
+            var segActual = estado.progresoSegActual || 0;
+            var pct = 0;
+            for (var i = 0; i < segs.length; i++) {
+                var seg = segs[i];
+                if (i < segActual) {
+                    pct = seg.pctEnd;
+                } else if (i === segActual) {
+                    var ratio = seg.totalItems > 0 ? (seg.completados / seg.totalItems) : 0;
+                    pct = seg.pctStart + ratio * (seg.pctEnd - seg.pctStart);
+                    break;
+                }
+            }
+            return Math.min(100, Math.max(0, Math.round(pct)));
+        }
+
+        // ─── FORMATEAR TIEMPO GUARDADO ───
+        function _formatearTiempoGuardado(estado) {
+            if (!estado.tiempoInicioEntrenamiento) return '';
+            var seg = Math.floor((estado.timestamp - estado.tiempoInicioEntrenamiento) / 1000);
+            if (seg < 0) seg = 0;
+            var h = Math.floor(seg / 3600);
+            var m = Math.floor((seg % 3600) / 60);
+            var s = seg % 60;
+            if (h > 0) return h + ':' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+            return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+        }
+
+        // ─── MOSTRAR MODAL DE RETOMAR ───
+        function _mostrarModalRetomar(estado) {
+            var pct = _calcularProgresoGuardado(estado);
+            var tiempo = _formatearTiempoGuardado(estado);
+            var nombre = estado.nombreUsuario || '';
+
+            document.getElementById('retomar-progreso-pct').innerText = 'Progreso: ' + pct + '%';
+            var tiempoInfo = '';
+            if (tiempo) tiempoInfo = 'Tiempo transcurrido: ' + tiempo;
+            if (nombre) tiempoInfo = (tiempoInfo ? tiempoInfo + ' — ' : '') + nombre;
+            document.getElementById('retomar-tiempo-info').innerText = tiempoInfo;
+
+            document.getElementById('modal-retomar').classList.add('visible');
+        }
+
+        // ─── RETOMAR SESIÓN GUARDADA ───
+        function _retomarSesionGuardada() {
+            document.getElementById('modal-retomar').classList.remove('visible');
+            var estado = _obtenerSesionGuardada();
+            if (!estado) return;
+
+            _sesionRetomandose = true;
+
+            // Restaurar estado global
+            currentCode = estado.codigo;
+            nombreUsuario = estado.nombreUsuario || '';
+            dataGlobal = estado.dataGlobal;
+            _tipoEntrenamientoGlobal = estado.tipoEntrenamientoGlobal || '';
+            _tiempoInicioEntrenamiento = estado.tiempoInicioEntrenamiento || Date.now();
+            bloquesMix = estado.bloquesMixGuardados || [];
+
+            // Configurar header
+            var cod = currentCode;
+            if (cod.includes('-')) {
+                var partes = cod.split('-');
+                var nombre = partes[0].charAt(0).toUpperCase() + partes[0].slice(1);
+                document.title = 'PONETEFIT | Entrenamiento para ' + nombre;
+                document.getElementById('alumno-nombre-display').innerText = nombre.toUpperCase();
+                document.getElementById('id-display').innerText = 'RUTINA ' + partes.slice(1).join('-').toUpperCase();
+            } else {
+                document.getElementById('alumno-nombre-display').innerText = 'ENTRENAMIENTO';
+                document.getElementById('id-display').innerText = cod.toUpperCase();
+            }
+
+            // Configurar tipo tag en header
+            if (dataGlobal.tipo && dataGlobal.tipo.toUpperCase() === 'ENTRENAMIENTO' && dataGlobal.bloques && dataGlobal.bloques.length > 0) {
+                var _modosHeader = [];
+                for (var _mh = 0; _mh < dataGlobal.bloques.length; _mh++) {
+                    var _modoH = (dataGlobal.bloques[_mh].tipo || '').toUpperCase();
+                    if (_modoH && _modosHeader.indexOf(_modoH) === -1) _modosHeader.push(_modoH);
+                }
+                if (_modosHeader.length > 0) {
+                    document.getElementById('tipo-tag').innerText = 'MÉTODOS';
+                    document.getElementById('id-display').innerText = _modosHeader.join(' + ');
+                } else {
+                    document.getElementById('tipo-tag').innerText = dataGlobal.tipo.toUpperCase();
+                }
+            } else {
+                document.getElementById('tipo-tag').innerText = (dataGlobal.tipo || 'ENTRENAMIENTO').toUpperCase();
+            }
+
+            // Renderizar la rutina
+            _pantallaFinMostrada = false;
+            render(dataGlobal);
+
+            // Restaurar seriesRestantes (sobreescribir los valores del render fresco)
+            if (estado.seriesRestantes) {
+                for (var k in estado.seriesRestantes) {
+                    seriesRestantes[k] = estado.seriesRestantes[k];
+                    // Actualizar UI del contador de series
+                    var sValEl = document.getElementById('s-val-' + k);
+                    if (sValEl) sValEl.innerText = estado.seriesRestantes[k];
+                    // Actualizar texto del botón
+                    var btnEl = document.getElementById('btn-' + k);
+                    if (btnEl && estado.seriesRestantes[k] > 0) {
+                        var totalOriginal = 0;
+                        var ejercicios = dataGlobal.rutina || dataGlobal.datos || [];
+                        if (ejercicios[k]) totalOriginal = parseInt(ejercicios[k].series) || 0;
+                        if (estado.seriesRestantes[k] < totalOriginal) {
+                            btnEl.innerText = 'Marcar Serie (' + estado.seriesRestantes[k] + ' rest.)';
+                        }
+                    }
+                    // Si series = 0, marcar como completado
+                    if (estado.seriesRestantes[k] <= 0) {
+                        var btnDone = document.getElementById('btn-' + k);
+                        if (btnDone) {
+                            btnDone.disabled = true;
+                            btnDone.classList.add('active');
+                            btnDone.innerText = 'Completado';
+                        }
+                    }
+                }
+            }
+
+            // Restaurar circVueltasRestantes
+            if (estado.circVueltasRestantes > 0) {
+                circVueltasRestantes = estado.circVueltasRestantes;
+                // Buscar el contador de vueltas en el DOM y actualizarlo
+                var vCountEls = document.querySelectorAll('[id$="-vcount"], #circ-vueltas-counter');
+                vCountEls.forEach(function(el) {
+                    el.innerText = 'Vueltas restantes: ' + circVueltasRestantes;
+                });
+            }
+
+            // Restaurar progreso
+            if (estado.progresoSegmentos && estado.progresoSegmentos.length > 0) {
+                _progresoSegmentos = estado.progresoSegmentos;
+                _progresoSegActual = estado.progresoSegActual || 0;
+                actualizarProgresoUI();
+            }
+
+            // Restaurar valores de peso
+            if (estado.pesosActuales) {
+                setTimeout(function() {
+                    for (var pid in estado.pesosActuales) {
+                        var pesoInput = document.getElementById(pid);
+                        if (pesoInput) pesoInput.value = estado.pesosActuales[pid];
+                    }
+                }, 100);
+            }
+
+            // Mostrar modal de rutina
+            document.getElementById('rutina-modal').classList.add('visible');
+            mostrarToast('Sesión retomada');
+
+            // Iniciar auto-save
+            _iniciarAutoSave();
+            _sesionRetomandose = false;
+        }
+
+        // ─── DESCARTAR SESIÓN GUARDADA ───
+        function _descartarSesionGuardada() {
+            document.getElementById('modal-retomar').classList.remove('visible');
+            _limpiarSesionGuardada();
+            // La app queda en la pantalla home lista para ingresar código
+        }
+
+        // ─── HOOKS: Guardar en momentos clave ───
+
+        // Hook en incrementarProgreso (se llama cada vez que avanza el progreso)
+        var _origIncrementarProgreso = incrementarProgreso;
+        incrementarProgreso = function(cantidad) {
+            _origIncrementarProgreso(cantidad);
+            _guardarSesion();
+        };
+
+        // Hook en marcarSerie (se llama cada vez que se completa una serie)
+        var _origMarcarSerie = typeof marcarSerie === 'function' ? marcarSerie : null;
+
+        // Hook en mostrarPantallaFin: limpiar sesión guardada al completar
+        var _origMostrarPantallaFin = mostrarPantallaFin;
+        mostrarPantallaFin = function() {
+            _limpiarSesionGuardada();
+            _origMostrarPantallaFin();
+        };
+
+        // Guardar antes de cerrar la página
+        window.addEventListener('beforeunload', function() {
+            _guardarSesion();
+        });
+
+        // Guardar cuando la página pierde visibilidad (tab switch, lock screen)
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'hidden') {
+                _guardarSesion();
+            }
+        });
+
+        // ─── HOOK en consultarRutina: iniciar auto-save después de cargar ───
+        var _origConsultarRutina = consultarRutina;
+        consultarRutina = async function() {
+            await _origConsultarRutina();
+            // Si se cargó con éxito, iniciar auto-save
+            if (currentCode && dataGlobal) {
+                _iniciarAutoSave();
+            }
+        };
+
+        // ─── AL CARGAR LA PÁGINA: verificar sesión guardada ───
+        (function _checkSesionAlCargar() {
+            var estado = _obtenerSesionGuardada();
+            if (estado) {
+                _mostrarModalRetomar(estado);
+            }
+        })();
+
     </script>
 </body>
 
