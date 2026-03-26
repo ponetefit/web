@@ -165,6 +165,44 @@
         .ej-hover-preview {
             cursor: pointer;
         }
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 640px) {
+            /* Header */
+            header { padding: 0.75rem 1rem; }
+            header .max-w-6xl { flex-direction: column; gap: 4px; text-align: center; }
+            header h1 { font-size: 1.5rem; }
+            header p { font-size: 0.6rem; letter-spacing: 2px; }
+            header a { font-size: 0.7rem; }
+            /* Tabs */
+            nav .max-w-6xl { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+            nav .max-w-6xl::-webkit-scrollbar { display: none; }
+            nav button { padding: 0.6rem 0.75rem; font-size: 0.65rem; white-space: nowrap; flex-shrink: 0; letter-spacing: 0.05em; }
+            /* Main */
+            main { padding: 0.75rem; }
+            main .p-6 { padding: 1rem; }
+            main .p-5 { padding: 0.75rem; }
+            /* KPI cards */
+            .kpi-card { padding: 0.75rem; }
+            .kpi-card p:first-child { font-size: 1.25rem; }
+            /* Historial */
+            #sec-historial .bg-tarjeta { padding: 1rem; }
+            /* Dashboard selectors */
+            .flex.gap-3.items-center.w-full { flex-direction: column; width: 100%; }
+            /* Modals */
+            .fixed.inset-0 .max-w-2xl, .fixed.inset-0 .max-w-md, .fixed.inset-0 .max-w-lg { max-width: 95vw; margin: 0 auto; }
+            .fixed.inset-0 .p-8 { padding: 1rem; }
+            .fixed.inset-0 .p-6 { padding: 1rem; }
+            /* Body maps */
+            #body-front, #body-back { width: 140px; height: 295px; }
+            .flex.flex-col.lg\\:flex-row { gap: 1rem; }
+            /* Videoteca */
+            #sec-videoteca .grid.grid-cols-2 { grid-template-columns: 1fr; }
+            /* Tabla dashboard */
+            .dash-table th, .dash-table td { padding: 0.4rem 0.25rem; font-size: 0.7rem; }
+            /* General overflow prevention */
+            * { max-width: 100%; box-sizing: border-box; }
+            img, svg, video, canvas, iframe { max-width: 100%; height: auto; }
+        }
     </style>
 </head>
 <body class="bg-fondo text-texto min-h-screen">
@@ -1661,25 +1699,29 @@
                     const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
                     const tipo  = r.tipo || 'ENTRENAMIENTO';
                     return `<div class="bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50">
-                        <div class="flex items-center justify-between mb-2">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-1">
                             <div>
                                 <span class="font-mono font-bold text-amarillo text-sm">${cod.toUpperCase()}</span>
-                                <span class="text-xs text-textoSuave ml-3">${tipo} | ${fecha}</span>
+                                <span class="text-xs text-textoSuave ml-2">${tipo} | ${fecha}</span>
                             </div>
                             <span class="text-xs text-textoSuave">${r.alumno || nombre}</span>
                         </div>
-                        <div class="flex gap-2 mt-2">
+                        <div class="flex flex-wrap gap-2 mt-2">
                             <button onclick="verRutina('${cod}')"
-                                class="bg-azul/20 text-azul px-4 py-2 rounded-lg text-xs font-bold hover:bg-azul/30 transition">
+                                class="bg-azul/20 text-azul px-3 py-2 rounded-lg text-xs font-bold hover:bg-azul/30 transition flex-1 min-w-[100px]">
                                 Ver Rutina
                             </button>
                             <button onclick="editarRutinaDesdeHistorial('${cod}')"
-                                class="bg-verde/20 text-verde px-4 py-2 rounded-lg text-xs font-bold hover:bg-verde/30 transition">
+                                class="bg-verde/20 text-verde px-3 py-2 rounded-lg text-xs font-bold hover:bg-verde/30 transition flex-1 min-w-[100px]">
                                 Editar Rutina
                             </button>
                             <button onclick="descargarPDF('${cod}')"
-                                class="bg-naranja/20 text-naranja px-4 py-2 rounded-lg text-xs font-bold hover:bg-naranja/30 transition">
+                                class="bg-naranja/20 text-naranja px-3 py-2 rounded-lg text-xs font-bold hover:bg-naranja/30 transition flex-1 min-w-[100px]">
                                 Descargar PDF
+                            </button>
+                            <button onclick="eliminarRutinaHistorial('${cod}')" 
+                                class="bg-rojo/20 text-rojo px-3 py-2 rounded-lg text-xs font-bold hover:bg-rojo/30 transition flex-1 min-w-[100px]">
+                                Eliminar Rutina
                             </button>
                         </div>
                     </div>`;
@@ -1689,6 +1731,112 @@
             }
         } catch (e) {
             lista.innerHTML = '<p class="text-rojo text-sm text-center py-8">Error de conexion</p>';
+        }
+    }
+
+    // ====================================================================
+    // ELIMINAR RUTINA DESDE HISTORIAL (con renumeracion)
+    // ====================================================================
+
+    async function eliminarRutinaHistorial(codigo) {
+        if (!confirm('¿Estas seguro de eliminar la rutina ' + codigo.toUpperCase() + '? Esta accion no se puede deshacer.')) return;
+
+        toast('Eliminando rutina...');
+        try {
+            const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo), {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'}
+            });
+            const data = await res.json();
+            if (data.ok) {
+                toast('Rutina eliminada. Renumerando...');
+                // Eliminar del cache local
+                delete historialRutinasCache[codigo];
+
+                // Renumerar: obtener el alumno y su prefijo
+                const alumno = document.getElementById('select-alumno').value;
+                if (alumno) {
+                    await renumerarRutinas(alumno);
+                }
+
+                // Recargar la lista
+                await buscarRutinasAlumno();
+                toast('Rutina eliminada y renumerada correctamente');
+            } else {
+                toast('Error al eliminar: ' + (data.error || 'desconocido'));
+            }
+        } catch (e) {
+            console.error('Error eliminando rutina:', e);
+            toast('Error de conexion al eliminar');
+        }
+    }
+
+    async function renumerarRutinas(alumno) {
+        try {
+            const res = await fetch(API_BASE + '/api/rutinas/renumerar/' + encodeURIComponent(alumno), {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            });
+            const data = await res.json();
+            if (!data.ok) {
+                console.warn('Renumeracion automatica no disponible, intentando manual...');
+                // Fallback: renumerar manualmente en el cliente
+                await renumerarRutinasManual(alumno);
+            }
+        } catch (e) {
+            console.warn('Endpoint de renumeracion no disponible, intentando manual...');
+            await renumerarRutinasManual(alumno);
+        }
+    }
+
+    async function renumerarRutinasManual(alumno) {
+        try {
+            // Recargar rutinas actuales del servidor
+            const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(alumno));
+            const data = await res.json();
+            if (!data.ok) return;
+
+            const rutinas = data.rutinas || {};
+            const codigos = Object.keys(rutinas).sort();
+
+            // Extraer el prefijo del alumno (ej: "rafa" de "rafa-0001")
+            if (codigos.length === 0) return;
+            const primerCodigo = codigos[0];
+            const match = primerCodigo.match(/^(.+?)(\d+)$/);
+            if (!match) return;
+            const prefijo = match[1];
+
+            // Verificar si ya estan correctamente numerados
+            let necesitaRenumerar = false;
+            for (let i = 0; i < codigos.length; i++) {
+                const numEsperado = String(i + 1).padStart(4, '0');
+                const codigoEsperado = prefijo + numEsperado;
+                if (codigos[i] !== codigoEsperado) {
+                    necesitaRenumerar = true;
+                    break;
+                }
+            }
+
+            if (!necesitaRenumerar) return;
+
+            // Renumerar: para cada codigo que no coincide, llamar al endpoint de renombrar
+            for (let i = 0; i < codigos.length; i++) {
+                const numNuevo = String(i + 1).padStart(4, '0');
+                const codigoNuevo = prefijo + numNuevo;
+                if (codigos[i] !== codigoNuevo) {
+                    try {
+                        await fetch(API_BASE + '/api/rutina/renombrar', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ codigo_viejo: codigos[i], codigo_nuevo: codigoNuevo })
+                        });
+                    } catch (err) {
+                        console.warn('No se pudo renombrar ' + codigos[i] + ' a ' + codigoNuevo);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Error en renumeracion manual:', e);
         }
     }
 
