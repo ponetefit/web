@@ -3853,6 +3853,12 @@
                         bgClearInterval(warmupTabInterval);
                         beep(800);
                         incrementarProgreso(1);
+                        // Si es el último ejercicio, saltar la pausa e ir directo a completado
+                        if (ejIdx + 1 >= totalEjs) {
+                            ejIdx++;
+                            siguiente();
+                            return;
+                        }
                         document.getElementById('warmup-status').innerText = "DESCANSO";
                         var _esAnteultimaWarmup = (ejIdx + 2 >= totalEjs) && (ejIdx + 1 < totalEjs);
                         hablarCoach('Pausa.');
@@ -4832,6 +4838,40 @@
             if (seriesRestantes[i] <= 0) {
                 btn.innerText = "Completado";
                 btn.disabled = true;
+                btn.style.background = "linear-gradient(135deg,var(--verde),#00c853)";
+                btn.style.color = "#000";
+
+                // Confetti al completar ejercicio
+                lanzarConfetti(60);
+                var _serieNombreCompletado = ejercicioNombres[i] || '';
+
+                // Buscar si hay un próximo ejercicio con series pendientes
+                var _serieTodosCompletos = true;
+                var _serieSiguienteNombre = '';
+                var _serieKeys = Object.keys(seriesRestantes).map(Number).sort(function(a, b) { return a - b; });
+                var _serieFoundCurrent = false;
+                for (var _sk = 0; _sk < _serieKeys.length; _sk++) {
+                    if (_serieKeys[_sk] === i) { _serieFoundCurrent = true; continue; }
+                    if (seriesRestantes[_serieKeys[_sk]] > 0) {
+                        _serieTodosCompletos = false;
+                        if (_serieFoundCurrent && !_serieSiguienteNombre) {
+                            _serieSiguienteNombre = ejercicioNombres[_serieKeys[_sk]] || '';
+                        }
+                    }
+                }
+
+                if (_serieTodosCompletos) {
+                    // Último ejercicio completado
+                    lanzarConfetti(200);
+                    hablarCoach('Genial! Completaste el entrenamiento de series y repeticiones. Sos un crack!');
+                } else {
+                    if (_serieNombreCompletado) {
+                        hablarCoach('Completaste ' + _serieNombreCompletado + '.');
+                    }
+                    if (_serieSiguienteNombre) {
+                        hablarCoach('El siguiente ejercicio es ' + _serieSiguienteNombre + '.');
+                    }
+                }
                 return;
             }
             btn.classList.add('active');
@@ -5156,14 +5196,36 @@
                     } else if (tFase === "trabajo") {
                         tIdx++;
                         incrementarProgreso(1);
-                        _setFase("pausa", pausa);
-                        actualizarUI();
-                        var _esAnteultimaTabata = (tIdx >= cantidad - 2) && (tIdx < cantidad - 1);
-                        if (tIdx < cantidad && rutina.length > 0) {
-                            var _nxt = rutina[tIdx % rutina.length];
-                            coachDescanso(pausa, Array.isArray(_nxt) ? _nxt[0] : (_nxt.nombre || ""), _esAnteultimaTabata);
-                        } else if (tIdx >= cantidad - 1) {
-                            coachDescanso(pausa, '', false);
+                        // Si es el último ejercicio de la última ronda, saltar la pausa
+                        if (tIdx >= cantidad && tRonda >= rondas) {
+                            bgClearInterval(tInterval);
+                            document.getElementById('t-status').innerText = "COMPLETADO!";
+                            document.getElementById('clock').innerText = "00";
+                            document.getElementById('clock').className = "";
+                            timerActivo = false;
+                            desactivarTimerGlobal();
+                            var _btnPausaSkip = document.getElementById('btnPausaTimer');
+                            if (_btnPausaSkip) _btnPausaSkip.style.display = 'none';
+                            var _btnReinSkip = document.getElementById('btnReiniciarTimer');
+                            if (_btnReinSkip) _btnReinSkip.style.display = 'none';
+                            var _btnStartSkip = document.getElementById('btnStartTimer');
+                            if (_btnStartSkip) {
+                                _btnStartSkip.style.display = 'block';
+                                _btnStartSkip.innerText = 'EMPEZAR';
+                            }
+                            liberarWakeLock();
+                            _detenerAudioKeepalive();
+                            coachFinalizacion();
+                        } else {
+                            _setFase("pausa", pausa);
+                            actualizarUI();
+                            var _esAnteultimaTabata = (tIdx >= cantidad - 2) && (tIdx < cantidad - 1);
+                            if (tIdx < cantidad && rutina.length > 0) {
+                                var _nxt = rutina[tIdx % rutina.length];
+                                coachDescanso(pausa, Array.isArray(_nxt) ? _nxt[0] : (_nxt.nombre || ""), _esAnteultimaTabata);
+                            } else if (tIdx >= cantidad - 1) {
+                                coachDescanso(pausa, '', false);
+                            }
                         }
                     } else if (tFase === "pausa") {
                         if (tIdx >= cantidad) {
@@ -5672,6 +5734,11 @@
                             bgClearInterval(_ivT);
                             beep(800);
                             incrementarProgreso(1);
+                            // Si es el último ejercicio de la última ronda, saltar la pausa
+                            if (ejIdx + 1 >= cantidad && rondaActual >= rondas) {
+                                siguiente(ejIdx + 1, rondaActual);
+                                return;
+                            }
                             document.getElementById(statusId).innerText = "DESCANSO";
                             // >>> COACH: Pausa + próximo ejercicio (Tabata Mix) - sin 3 2 1 en rest
                             var _esAnteultimaMix = (ejIdx + 2 >= cantidad) && (ejIdx + 1 < cantidad);
