@@ -318,6 +318,9 @@
             text-decoration: none;
             flex-shrink: 0;
             transition: background 0.15s, transform 0.15s;
+            cursor: pointer;
+            padding: 0;
+            outline: none;
         }
         
         .btn-play-video:active {
@@ -1332,6 +1335,95 @@
             color: var(--texto-suave);
             border-color: var(--borde) !important;
         }
+        /* ─── VIDEO OVERLAY ─── */
+
+        #overlay-video {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 10, 12, 0.98);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            z-index: 7000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+
+        #overlay-video.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        #overlay-video .video-container {
+            width: 100%;
+            max-width: 700px;
+            aspect-ratio: 16 / 9;
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            transform: scale(0.85) translateY(30px);
+            transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        #overlay-video.visible .video-container {
+            transform: scale(1) translateY(0);
+        }
+
+        #overlay-video .video-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        #overlay-video .video-ejercicio-nombre {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--texto);
+            margin-bottom: 16px;
+            text-align: center;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.35s 0.15s ease, transform 0.35s 0.15s ease;
+        }
+
+        #overlay-video.visible .video-ejercicio-nombre {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .btn-volver-rutina {
+            margin-top: 28px;
+            background: linear-gradient(135deg, var(--naranja), #e85500);
+            color: white;
+            border: none;
+            padding: 16px 36px;
+            border-radius: 14px;
+            font-weight: 900;
+            font-size: 0.9rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: 0 8px 24px var(--naranja-glow);
+            min-height: 52px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.35s 0.25s ease, transform 0.35s 0.25s ease, box-shadow 0.15s;
+        }
+
+        #overlay-video.visible .btn-volver-rutina {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .btn-volver-rutina:active {
+            transform: scale(0.97);
+            box-shadow: 0 4px 12px var(--naranja-glow);
+        }
     </style>
 </head>
 
@@ -1345,6 +1437,15 @@
     </video>
 
     <div id="toast">Rutina cargada</div>
+
+    <!-- Overlay Video Embebido -->
+    <div id="overlay-video">
+        <div class="video-ejercicio-nombre" id="video-ej-nombre"></div>
+        <div class="video-container">
+            <iframe id="video-iframe" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
+        <button class="btn-volver-rutina" onclick="cerrarVideo()">&#8592; Volver a ver rutina</button>
+    </div>
 
     <!-- Overlay Pantalla Completa -->
     <div id="overlay-fullscreen">
@@ -3221,14 +3322,38 @@
             return '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg>';
         }
 
+        function extraerYoutubeEmbedUrl(url) {
+            if (!url) return '';
+            var match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{11})/);
+            if (match && match[1]) {
+                return 'https://www.youtube.com/embed/' + match[1] + '?autoplay=1&rel=0';
+            }
+            return url;
+        }
+
+        function abrirVideo(url, nombre) {
+            var embedUrl = extraerYoutubeEmbedUrl(url);
+            document.getElementById('video-iframe').src = embedUrl;
+            document.getElementById('video-ej-nombre').textContent = nombre || '';
+            document.getElementById('overlay-video').classList.add('visible');
+        }
+
+        function cerrarVideo() {
+            var overlay = document.getElementById('overlay-video');
+            overlay.classList.remove('visible');
+            setTimeout(function() {
+                document.getElementById('video-iframe').src = '';
+            }, 400);
+        }
+
         function crearCard(nombre, link, meta) {
-            const videoBtn = link ? '<a href="' + link + '" target="_blank" class="btn-play-video">' + svgPlay() + '</a>' : '';
+            const videoBtn = link ? '<button onclick="abrirVideo(\'' + link.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')" class="btn-play-video">' + svgPlay() + '</button>' : '';
             const metaHtml = meta ? '<span class="card-ejercicio-meta">' + meta + '</span>' : '';
             return '<div class="card-ejercicio"><span class="card-ejercicio-nombre">' + nombre + '</span>' + metaHtml + videoBtn + '</div>';
         }
 
         function crearCardNumero(idx, total, nombre, link) {
-            const videoBtn = link ? '<a href="' + link + '" target="_blank" class="btn-play-video">' + svgPlay() + '</a>' : '';
+            const videoBtn = link ? '<button onclick="abrirVideo(\'' + link.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')" class="btn-play-video">' + svgPlay() + '</button>' : '';
             return '<div class="card-numero">' +
                 '<div class="card-numero-header"><span class="card-numero-idx">EJ ' + idx + ' / ' + total + '</span></div>' +
                 '<div class="card-numero-body"><span class="card-numero-nombre">' + nombre + '</span>' + videoBtn + '</div>' +
@@ -3966,7 +4091,7 @@
                 const pesoInputId = 'peso-' + i;
                 pLista.innerHTML += '<div class="serie-card">' +
                     '<div class="serie-header"><span class="serie-nombre">' + ej.nombre + '</span>' +
-                    '<a href="' + ej.link + '" target="_blank" class="btn-play-video">' + svgPlay() + '</a></div>' +
+                    '<button onclick="abrirVideo(\'' + (ej.link || '').replace(/'/g, "\\'") + '\', \'' + (ej.nombre || '').replace(/'/g, "\\'") + '\')" class="btn-play-video">' + svgPlay() + '</button></div>' +
                     '<div class="serie-meta">' +
                     '<div class="serie-meta-item"><span class="serie-meta-label">Series</span><span class="serie-meta-value" id="s-val-' + i + '">' + ej.series + '</span></div>' +
                     '<div class="serie-meta-item"><span class="serie-meta-label">' + (ej.unit || 'Reps') + '</span><span class="serie-meta-value">' + ej.reps + '</span></div>' +
@@ -4534,7 +4659,7 @@
                 const pesoInputId = 'peso-' + idxS;
                 html += '<div class="serie-card">' +
                     '<div class="serie-header"><span class="serie-nombre">' + nombre + '</span>' +
-                    (link ? '<a href="' + link + '" target="_blank" class="btn-play-video">' + svgPlay() + '</a>' : '') + '</div>' +
+                    (link ? '<button onclick="abrirVideo(\'' + link.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')" class="btn-play-video">' + svgPlay() + '</button>' : '') + '</div>' +
                     '<div class="serie-meta">' +
                     '<div class="serie-meta-item"><span class="serie-meta-label">Series</span><span class="serie-meta-value" id="s-val-' + idxS + '">' + seriesN + '</span></div>' +
                     '<div class="serie-meta-item"><span class="serie-meta-label">' + (ej.unit || 'Reps') + '</span><span class="serie-meta-value">' + repsN + '</span></div>' +
