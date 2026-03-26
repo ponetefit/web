@@ -4,6 +4,7 @@ Flask API que reemplaza la logica de customtkinter de ponetefit.py
 """
 
 import random
+import re
 import time
 import os
 from flask import Flask, request, jsonify
@@ -359,6 +360,132 @@ def obtener_rutina(codigo):
         if not data:
             return jsonify({"ok": False, "error": "Codigo no encontrado"}), 404
         return jsonify({"ok": True, "rutina": data})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/rutina/<codigo>", methods=["DELETE"])
+def eliminar_rutina(codigo):
+    """Elimina una rutina por su codigo y ajusta el contador del alumno."""
+    try:
+        codigo = codigo.strip().lower()
+        ref = get_db_ref(f"/rutinas/{codigo}")
+        data = ref.get()
+        if not data:
+            return jsonify({"ok": False, "error": "Rutina no encontrada"}), 404
+
+        # Obtener el alumno antes de eliminar
+        alumno = data.get("alumno", "").strip().lower()
+
+        # Eliminar la rutina
+        ref.delete()
+
+        # Decrementar el contador del alumno
+        if alumno:
+            contador_ref = get_db_ref(f"/alumnos/{alumno}/contador")
+            contador_actual = contador_ref.get() or 0
+            if contador_actual > 0:
+                contador_ref.set(contador_actual - 1)
+
+        return jsonify({"ok": True, "mensaje": f"Rutina {codigo.upper()} eliminada correctamente"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/rutinas/renumerar/<nombre>", methods=["POST"])
+def renumerar_rutinas(nombre):
+    """Renumera todas las rutinas de un alumno para que sean consecutivas.
+    Ejemplo: si se elimina rafa-0002 de [rafa-0001, rafa-0002, rafa-0003],
+    rafa-0003 se renombra a rafa-0002 y el contador se ajusta a 2.
+    """
+    try:
+        nombre_lower = nombre.strip().lower()
+
+        # Obtener todas las rutinas del alumno
+        ref_rutinas = get_db_ref("/rutinas")
+        todas = ref_rutinas.get() or {}
+
+        # Filtrar rutinas del alumno y ordenarlas por codigo
+        rutinas_alumno = {}
+        for cod, data in todas.items():
+            if isinstance(data, dict) and data.get("alumno", "").lower() == nombre_lower:
+                rutinas_alumno[cod] = data
+
+        codigos_ordenados = sorted(rutinas_alumno.keys())
+
+        if not codigos_ordenados:
+            return jsonify({"ok": True, "mensaje": "No hay rutinas para renumerar", "cambios": 0})
+
+        # Extraer el prefijo (ej: "rafa-" de "rafa-0001")
+        primer_codigo = codigos_ordenados[0]
+        match = re.match(r'^(.+?)(\d+)$', primer_codigo)
+        if not match:
+            return jsonify({"ok": False, "error": "No se pudo determinar el formato del codigo"}), 400
+
+        prefijo = match.group(1)
+        cambios = 0
+
+        # Renumerar secuencialmente
+        for i, codigo_viejo in enumerate(codigos_ordenados):
+            num_nuevo = i + 1
+            codigo_nuevo = f"{prefijo}{num_nuevo:04d}"
+
+            if codigo_viejo != codigo_nuevo:
+                # Mover la rutina al nuevo codigo
+                data_rutina = rutinas_alumno[codigo_viejo]
+                ref_nuevo = get_db_ref(f"/rutinas/{codigo_nuevo}")
+                ref_viejo = get_db_ref(f"/rutinas/{codigo_viejo}")
+                ref_nuevo.set(data_rutina)
+                ref_viejo.delete()
+                cambios += 1
+
+        # Actualizar el contador del alumno
+        total = len(codigos_ordenados)
+        contador_ref = get_db_ref(f"/alumnos/{nombre_lower}/contador")
+        contador_ref.set(total)
+
+        return jsonify({
+            "ok": True,
+            "mensaje": f"Renumeracion completada: {cambios} rutina(s) renumerada(s)",
+            "cambios": cambios,
+            "total": total
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/rutina/renombrar", methods=["POST"])
+def renombrar_rutina():
+    """Renombra el codigo de una rutina (usado como fallback para renumeracion manual).
+    Body: { "codigo_viejo": "rafa-0005", "codigo_nuevo": "rafa-0004" }
+    """
+    try:
+        body = request.json
+        codigo_viejo = body.get("codigo_viejo", "").strip().lower()
+        codigo_nuevo = body.get("codigo_nuevo", "").strip().lower()
+
+        if not codigo_viejo or not codigo_nuevo:
+            return jsonify({"ok": False, "error": "codigo_viejo y codigo_nuevo son obligatorios"}), 400
+
+        if codigo_viejo == codigo_nuevo:
+            return jsonify({"ok": True, "mensaje": "Los codigos son iguales, nada que hacer"})
+
+        # Obtener datos de la rutina vieja
+        ref_viejo = get_db_ref(f"/rutinas/{codigo_viejo}")
+        data = ref_viejo.get()
+        if not data:
+            return jsonify({"ok": False, "error": f"Rutina {codigo_viejo} no encontrada"}), 404
+
+        # Verificar que el nuevo codigo no exista ya
+        ref_nuevo = get_db_ref(f"/rutinas/{codigo_nuevo}")
+        if ref_nuevo.get():
+            return jsonify({"ok": False, "error": f"El codigo {codigo_nuevo} ya existe"}), 409
+
+        # Mover: crear nuevo y eliminar viejo
+        ref_nuevo.set(data)
+        ref_viejo.delete()
+
+        return jsonify({"ok": True, "mensaje": f"Rutina renombrada de {codigo_viejo.upper()} a {codigo_nuevo.upper()}"})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
