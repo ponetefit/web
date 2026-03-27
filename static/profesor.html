@@ -60,6 +60,42 @@
             from { opacity: 0; transform: translateY(-4px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        /* Drag & Drop styles */
+        .drag-handle {
+            cursor: grab;
+            color: #8a8a9a;
+            display: flex;
+            align-items: center;
+            padding: 2px 4px;
+            border-radius: 4px;
+            transition: color 0.15s, background 0.15s;
+            touch-action: none;
+            user-select: none;
+        }
+        .drag-handle:hover {
+            color: #FF6B35;
+            background: rgba(255,107,53,0.1);
+        }
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+        .dragging {
+            opacity: 0.4;
+            transform: scale(0.97);
+            transition: opacity 0.15s, transform 0.15s;
+        }
+        .drag-over {
+            border-color: #FF6B35 !important;
+            box-shadow: 0 0 0 2px rgba(255,107,53,0.3);
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .drag-placeholder {
+            border: 2px dashed #FF6B35;
+            border-radius: 12px;
+            background: rgba(255,107,53,0.05);
+            min-height: 44px;
+            transition: all 0.2s;
+        }
         .btn-primary {
             background: linear-gradient(135deg, #FF6B35, #e85500);
             box-shadow: 0 8px 24px rgba(255,107,53,0.3);
@@ -1174,8 +1210,9 @@
         lista.innerHTML = warmupEjercicios.map((ej, i) => {
             const linkEsc = (ej.link || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
             const nombreEsc = (ej.nombre || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
-            return `<div class="exercise-chip flex items-center justify-between bg-fondoAlt rounded-xl px-4 py-2.5 border border-borde/50 ej-hover-preview" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()">
+            return `<div class="exercise-chip flex items-center justify-between bg-fondoAlt rounded-xl px-4 py-2.5 border border-borde/50 ej-hover-preview" draggable="true" data-idx="${i}" data-list="warmup" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)">
                 <div class="flex items-center gap-3">
+                    <span class="drag-handle" title="Arrastrar para reordenar"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
                     <span class="text-xs text-textoSuave font-mono">${i+1}</span>
                     <span class="text-sm font-bold">${ej.nombre}</span>
                     ${ej.reps ? '<span class="text-xs text-amarillo font-bold">' + ej.reps + ' ' + ej.unit + '</span>' : ''}
@@ -1183,6 +1220,7 @@
                 <button onclick="quitarEjWarmup(${i})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none">&times;</button>
             </div>`;
         }).join('');
+        initTouchDragForList(lista, 'warmup');
     }
 
     // --- Bloques ---
@@ -1297,9 +1335,12 @@
         lista.innerHTML = bloqueEjsTemp.map((ej, i) => {
             const linkEsc = (ej.link || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
             const nombreEsc = (ej.nombre || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
-            return `<div class="exercise-chip bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50 ej-hover-preview" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()">
+            return `<div class="exercise-chip bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50 ej-hover-preview" draggable="true" data-idx="${i}" data-list="bloque" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)">
                 <div class="flex items-center justify-between mb-2">
-                    <span class="text-sm font-bold">${i+1}. ${ej.nombre}</span>
+                    <div class="flex items-center gap-2">
+                        <span class="drag-handle" title="Arrastrar para reordenar"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
+                        <span class="text-sm font-bold">${i+1}. ${ej.nombre}</span>
+                    </div>
                     <button onclick="quitarEjBloque(${i})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none">&times;</button>
                 </div>
                 <div class="flex gap-2 items-center">
@@ -1311,6 +1352,7 @@
                 </div>
             </div>`;
         }).join('');
+        initTouchDragForList(lista, 'bloque');
     }
 
     function confirmarBloque() {
@@ -1415,9 +1457,10 @@
             else if (b.tipo === 'EMOM') metaHtml = b.minutos_totales + ' min | ' + b.ejercicios_por_minuto + ' ej/min';
             else if (b.tipo === 'Series') metaHtml = b.ejercicios.length + ' ejercicios';
 
-            return `<div class="bg-fondoAlt rounded-2xl border border-${color}/30 p-4">
+            return `<div class="bg-fondoAlt rounded-2xl border border-${color}/30 p-4" draggable="true" data-idx="${i}" data-list="bloques" ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)">
                 <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center gap-3">
+                        <span class="drag-handle" title="Arrastrar para reordenar"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
                         <span class="text-xs font-black text-${color} uppercase tracking-wider bg-${color}/10 px-3 py-1 rounded-lg">${b.tipo}</span>
                         <span class="text-xs text-textoSuave">${metaHtml}</span>
                     </div>
@@ -1430,6 +1473,167 @@
                 <div class="flex flex-wrap gap-1">${ejsHtml}</div>
             </div>`;
         }).join('');
+        initTouchDragForList(lista, 'bloques');
+    }
+
+    // ====================================================================
+    // DRAG & DROP - Reordenar ejercicios y bloques
+    // ====================================================================
+    let dragState = { srcIdx: null, listType: null };
+
+    function getDataArray(listType) {
+        if (listType === 'warmup') return warmupEjercicios;
+        if (listType === 'bloque') return bloqueEjsTemp;
+        if (listType === 'bloques') return bloquesRutina;
+        return null;
+    }
+
+    function rerenderList(listType) {
+        if (listType === 'warmup') renderWarmupEjs();
+        if (listType === 'bloque') renderBloqueEjsTemp();
+        if (listType === 'bloques') renderBloques();
+    }
+
+    function getDraggableParent(el) {
+        while (el && el.getAttribute && el.getAttribute('draggable') !== 'true') {
+            el = el.parentElement;
+        }
+        return el;
+    }
+
+    function onDragStart(e) {
+        const item = getDraggableParent(e.target);
+        if (!item) return;
+        dragState.srcIdx = parseInt(item.dataset.idx);
+        dragState.listType = item.dataset.list;
+        item.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', dragState.srcIdx);
+    }
+
+    function onDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    }
+
+    function onDragEnter(e) {
+        e.preventDefault();
+        const item = getDraggableParent(e.target);
+        if (item && item.dataset.list === dragState.listType) {
+            item.classList.add('drag-over');
+        }
+    }
+
+    function onDragLeave(e) {
+        const item = getDraggableParent(e.target);
+        if (item) item.classList.remove('drag-over');
+    }
+
+    function onDrop(e) {
+        e.preventDefault();
+        const item = getDraggableParent(e.target);
+        if (!item || item.dataset.list !== dragState.listType) return;
+        const destIdx = parseInt(item.dataset.idx);
+        const srcIdx = dragState.srcIdx;
+        if (srcIdx === destIdx) return;
+
+        const arr = getDataArray(dragState.listType);
+        if (!arr) return;
+
+        // Move element from srcIdx to destIdx
+        const [moved] = arr.splice(srcIdx, 1);
+        arr.splice(destIdx, 0, moved);
+
+        rerenderList(dragState.listType);
+    }
+
+    function onDragEnd(e) {
+        // Clean up all drag classes
+        document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        dragState = { srcIdx: null, listType: null };
+    }
+
+    // ====================================================================
+    // TOUCH DRAG & DROP (mobile support)
+    // ====================================================================
+    function initTouchDragForList(container, listType) {
+        const items = container.querySelectorAll('[draggable="true"]');
+        items.forEach(item => {
+            const handle = item.querySelector('.drag-handle');
+            if (!handle) return;
+
+            let touchState = null;
+            let clone = null;
+            let placeholder = null;
+
+            handle.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const rect = item.getBoundingClientRect();
+                touchState = {
+                    srcIdx: parseInt(item.dataset.idx),
+                    startY: touch.clientY,
+                    offsetY: touch.clientY - rect.top,
+                    currentIdx: parseInt(item.dataset.idx)
+                };
+
+                // Create visual clone
+                clone = item.cloneNode(true);
+                clone.style.position = 'fixed';
+                clone.style.left = rect.left + 'px';
+                clone.style.top = rect.top + 'px';
+                clone.style.width = rect.width + 'px';
+                clone.style.zIndex = '9999';
+                clone.style.opacity = '0.85';
+                clone.style.pointerEvents = 'none';
+                clone.style.boxShadow = '0 8px 32px rgba(255,107,53,0.3)';
+                clone.style.transform = 'scale(1.03)';
+                clone.style.transition = 'none';
+                document.body.appendChild(clone);
+
+                item.classList.add('dragging');
+            }, { passive: false });
+
+            handle.addEventListener('touchmove', function(e) {
+                if (!touchState || !clone) return;
+                e.preventDefault();
+                const touch = e.touches[0];
+                clone.style.top = (touch.clientY - touchState.offsetY) + 'px';
+
+                // Find which item we're over
+                const siblings = container.querySelectorAll('[draggable="true"]');
+                siblings.forEach(sib => sib.classList.remove('drag-over'));
+                siblings.forEach(sib => {
+                    const r = sib.getBoundingClientRect();
+                    if (touch.clientY > r.top && touch.clientY < r.bottom) {
+                        sib.classList.add('drag-over');
+                        touchState.currentIdx = parseInt(sib.dataset.idx);
+                    }
+                });
+            }, { passive: false });
+
+            handle.addEventListener('touchend', function(e) {
+                if (!touchState) return;
+                if (clone) { clone.remove(); clone = null; }
+
+                const srcIdx = touchState.srcIdx;
+                const destIdx = touchState.currentIdx;
+
+                document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
+                document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+
+                if (srcIdx !== destIdx) {
+                    const arr = getDataArray(listType);
+                    if (arr) {
+                        const [moved] = arr.splice(srcIdx, 1);
+                        arr.splice(destIdx, 0, moved);
+                        rerenderList(listType);
+                    }
+                }
+                touchState = null;
+            });
+        });
     }
 
     // --- Compartir ---
