@@ -251,9 +251,34 @@
             #sec-videoteca .grid.grid-cols-2 { grid-template-columns: 1fr; }
             /* Tabla dashboard */
             .dash-table th, .dash-table td { padding: 0.4rem 0.25rem; font-size: 0.7rem; }
+            /* Warmup exercise selectors - stack on mobile */
+            #sec-rutina .flex.gap-2.mb-3 { flex-wrap: wrap; }
+            #sec-rutina .flex.gap-2.mb-3 select { width: 100%; flex: 1 1 100%; }
+            #sec-rutina .flex.gap-2.mb-3 input { flex: 1 1 40%; }
+            #sec-rutina .flex.gap-2.mb-3 button { width: 100%; flex: 1 1 100%; }
+            /* Warmup exercise chips - prevent overflow */
+            #warmup-ejercicios-lista .exercise-chip { flex-wrap: wrap; }
+            #warmup-ejercicios-lista .exercise-chip .flex.items-center.gap-3 { flex-wrap: wrap; min-width: 0; flex: 1; overflow: hidden; }
+            #warmup-ejercicios-lista .exercise-chip .flex.items-center.gap-3 .text-sm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+            /* Bloque exercise chips - prevent overflow */
+            #bloque-ejercicios-lista .exercise-chip .flex.gap-2.items-center { flex-wrap: wrap; }
+            /* Video preview tooltip - mobile friendly */
+            #video-preview-tooltip { width: calc(100vw - 24px) !important; max-width: 320px; left: 50% !important; transform: translateX(-50%) !important; }
+            #video-preview-tooltip.visible { transform: translateX(-50%) !important; }
+            /* Modal bloque - force center on mobile */
+            #modal-bloque { align-items: flex-start !important; padding: 8px !important; }
+            #modal-bloque > div { margin: auto !important; max-width: 100% !important; }
+            /* Modal ver rutina - mobile */
+            #modal-ver-rutina > div { max-width: 95vw; }
+            #modal-ver-rutina .p-8 { padding: 1rem; }
+            /* Modal codigo - mobile */
+            #modal-codigo > div { max-width: 95vw; }
+            #modal-codigo .p-8 { padding: 1rem; }
             /* General overflow prevention */
             * { max-width: 100%; box-sizing: border-box; }
             img, svg, video, canvas, iframe { max-width: 100%; height: auto; }
+            /* Prevent horizontal scroll globally */
+            html, body { overflow-x: hidden; }
         }
     </style>
 
@@ -3438,27 +3463,42 @@
 
             // Position tooltip near the element
             const rect = el.getBoundingClientRect();
-            const tooltipW = 320;
+            const isMobile = window.innerWidth <= 640;
+            const tooltipW = isMobile ? (window.innerWidth - 24) : 320;
             const tooltipH = 230;
-            let left = rect.right + 12;
-            let top = rect.top;
 
-            // If tooltip goes off the right edge, show on the left
-            if (left + tooltipW > window.innerWidth) {
-                left = rect.left - tooltipW - 12;
+            if (isMobile) {
+                // On mobile: center horizontally, position below element or at top
+                let top = rect.bottom + 8;
+                if (top + tooltipH > window.innerHeight) {
+                    top = Math.max(8, rect.top - tooltipH - 8);
+                }
+                if (top < 8) top = 8;
+                tooltip.style.left = '50%';
+                tooltip.style.top = top + 'px';
+                tooltip.style.transform = 'translateX(-50%)';
+                tooltip.style.width = tooltipW + 'px';
+            } else {
+                let left = rect.right + 12;
+                let top = rect.top;
+                // If tooltip goes off the right edge, show on the left
+                if (left + tooltipW > window.innerWidth) {
+                    left = rect.left - tooltipW - 12;
+                }
+                // If still off-screen (left), position at mouse X
+                if (left < 8) {
+                    left = Math.min(event.clientX + 16, window.innerWidth - tooltipW - 8);
+                }
+                // Vertical: don't go below viewport
+                if (top + tooltipH > window.innerHeight) {
+                    top = window.innerHeight - tooltipH - 8;
+                }
+                if (top < 8) top = 8;
+                tooltip.style.left = left + 'px';
+                tooltip.style.top = top + 'px';
+                tooltip.style.transform = 'none';
+                tooltip.style.width = '320px';
             }
-            // If still off-screen (left), position at mouse X
-            if (left < 8) {
-                left = Math.min(event.clientX + 16, window.innerWidth - tooltipW - 8);
-            }
-            // Vertical: don't go below viewport
-            if (top + tooltipH > window.innerHeight) {
-                top = window.innerHeight - tooltipH - 8;
-            }
-            if (top < 8) top = 8;
-
-            tooltip.style.left = left + 'px';
-            tooltip.style.top = top + 'px';
             tooltip.classList.add('visible');
         }, 350);
     }
