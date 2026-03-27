@@ -5,6 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>PONETE FIT | Full Training Pro</title>
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#0a0a0c">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="PONETE FIT">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="PONETE FIT">
+    <meta name="description" content="Tu entrenador personal de fitness">
+    <link rel="manifest" id="pwa-manifest">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700;900&family=Roboto+Mono:wght@700&display=swap" rel="stylesheet">
     <style>
          :root {
@@ -1619,6 +1628,10 @@
             </div>
             <button class="btn-principal" onclick="consultarRutina()">Entrar a Entrenar</button>
         </div>
+        <!-- PWA Install Button -->
+        <button id="pwa-install-btn" onclick="_instalarPWA()" style="display:none; margin-top:16px; width:100%; max-width:420px; padding:14px 18px; border-radius:14px; border:1px solid var(--borde); background:var(--tarjeta); color:var(--texto); font-weight:700; font-size:0.85rem; letter-spacing:1px; text-transform:uppercase; cursor:pointer; transition:background 0.15s, transform 0.15s;">
+            📲 Instalar App
+        </button>
     </div>
 
     <!-- Modal de rutina -->
@@ -6440,6 +6453,206 @@
             }
         })();
 
+    </script>
+
+    <!-- ====================================================================
+         PWA: Offline Support — Service Worker + Manifest + Install Prompt
+         ==================================================================== -->
+    <script>
+    (function() {
+        // ─── INLINE MANIFEST ───
+        var manifestData = {
+            name: 'PONETE FIT | Full Training Pro',
+            short_name: 'PONETE FIT',
+            description: 'Tu entrenador personal de fitness',
+            start_url: location.href.split('?')[0],
+            display: 'standalone',
+            orientation: 'portrait',
+            background_color: '#0a0a0c',
+            theme_color: '#0a0a0c',
+            categories: ['fitness', 'health'],
+            icons: [
+                {
+                    src: _generarIconoPWA(192),
+                    sizes: '192x192',
+                    type: 'image/png',
+                    purpose: 'any maskable'
+                },
+                {
+                    src: _generarIconoPWA(512),
+                    sizes: '512x512',
+                    type: 'image/png',
+                    purpose: 'any maskable'
+                }
+            ]
+        };
+
+        // Generar icono dinámico con canvas
+        function _generarIconoPWA(size) {
+            var c = document.createElement('canvas');
+            c.width = size; c.height = size;
+            var ctx = c.getContext('2d');
+            // Fondo oscuro con gradiente
+            var grad = ctx.createRadialGradient(size/2, size*0.4, 0, size/2, size/2, size*0.7);
+            grad.addColorStop(0, '#1a1a28');
+            grad.addColorStop(1, '#0a0a0c');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.roundRect(0, 0, size, size, size * 0.18);
+            ctx.fill();
+            // Texto
+            ctx.fillStyle = '#FF6B35';
+            ctx.font = 'bold ' + Math.round(size * 0.22) + 'px Roboto, Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('PONETE', size/2, size * 0.38);
+            ctx.fillText('FIT', size/2, size * 0.62);
+            return c.toDataURL('image/png');
+        }
+
+        // Establecer manifest via blob URL
+        var manifestBlob = new Blob([JSON.stringify(manifestData)], { type: 'application/json' });
+        var manifestURL = URL.createObjectURL(manifestBlob);
+        var manifestLink = document.getElementById('pwa-manifest');
+        if (manifestLink) manifestLink.href = manifestURL;
+
+        // ─── SERVICE WORKER (inline via blob) ───
+        var swCode = `
+            var CACHE_NAME = 'ponetefit-v1';
+            var OFFLINE_URL = '/';
+
+            self.addEventListener('install', function(event) {
+                event.waitUntil(
+                    caches.open(CACHE_NAME).then(function(cache) {
+                        // Cache the current page and key resources
+                        return cache.addAll([
+                            self.registration.scope
+                        ]).catch(function() {
+                            // Silently fail if offline during install
+                        });
+                    })
+                );
+                self.skipWaiting();
+            });
+
+            self.addEventListener('activate', function(event) {
+                event.waitUntil(
+                    caches.keys().then(function(cacheNames) {
+                        return Promise.all(
+                            cacheNames.filter(function(name) {
+                                return name !== CACHE_NAME;
+                            }).map(function(name) {
+                                return caches.delete(name);
+                            })
+                        );
+                    })
+                );
+                self.clients.claim();
+            });
+
+            self.addEventListener('fetch', function(event) {
+                // Only handle GET requests
+                if (event.request.method !== 'GET') return;
+
+                event.respondWith(
+                    // Network first, fallback to cache
+                    fetch(event.request).then(function(response) {
+                        // Clone and cache the response
+                        if (response && response.status === 200) {
+                            var responseClone = response.clone();
+                            caches.open(CACHE_NAME).then(function(cache) {
+                                cache.put(event.request, responseClone);
+                            });
+                        }
+                        return response;
+                    }).catch(function() {
+                        // Network failed, try cache
+                        return caches.match(event.request).then(function(response) {
+                            return response || new Response('Offline — no hay cache disponible', {
+                                status: 503,
+                                headers: { 'Content-Type': 'text/plain' }
+                            });
+                        });
+                    })
+                );
+            });
+        `;
+
+        // Register service worker from blob
+        if ('serviceWorker' in navigator) {
+            var swBlob = new Blob([swCode], { type: 'application/javascript' });
+            var swURL = URL.createObjectURL(swBlob);
+            navigator.serviceWorker.register(swURL, { scope: location.pathname.substring(0, location.pathname.lastIndexOf('/') + 1) })
+                .then(function(reg) {
+                    console.log('[PWA] Service Worker registrado:', reg.scope);
+                })
+                .catch(function(err) {
+                    // Blob SW may not work in all browsers; try file-based fallback
+                    console.warn('[PWA] SW blob falló, intentando registro directo:', err);
+                    // Fallback: register as a file if served from a server
+                    if (location.protocol !== 'file:') {
+                        navigator.serviceWorker.register('sw.js', { scope: '/' }).catch(function() {});
+                    }
+                });
+        }
+
+        // ─── INSTALL PROMPT ───
+        var _deferredPrompt = null;
+
+        window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault();
+            _deferredPrompt = e;
+            _mostrarBotonInstalar();
+        });
+
+        // Detectar si ya está instalada
+        window.addEventListener('appinstalled', function() {
+            _deferredPrompt = null;
+            _ocultarBotonInstalar();
+            console.log('[PWA] App instalada correctamente');
+        });
+
+        function _mostrarBotonInstalar() {
+            var btn = document.getElementById('pwa-install-btn');
+            if (btn) btn.style.display = 'block';
+        }
+
+        function _ocultarBotonInstalar() {
+            var btn = document.getElementById('pwa-install-btn');
+            if (btn) btn.style.display = 'none';
+        }
+
+        window._instalarPWA = function() {
+            if (!_deferredPrompt) return;
+            _deferredPrompt.prompt();
+            _deferredPrompt.userChoice.then(function(result) {
+                if (result.outcome === 'accepted') {
+                    console.log('[PWA] Usuario aceptó instalar');
+                }
+                _deferredPrompt = null;
+                _ocultarBotonInstalar();
+            });
+        };
+
+        // Detectar modo standalone (ya instalada)
+        if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+            console.log('[PWA] Ejecutando en modo standalone');
+        }
+        if (window.navigator.standalone === true) {
+            console.log('[PWA] Ejecutando en modo standalone (iOS)');
+        }
+
+        // ─── CACHE OFFLINE: guardar el HTML completo en localStorage como fallback ───
+        try {
+            var _htmlCompleto = document.documentElement.outerHTML;
+            if (_htmlCompleto.length < 5000000) { // Solo si cabe (< 5MB)
+                localStorage.setItem('pf-offline-html', _htmlCompleto);
+                localStorage.setItem('pf-offline-timestamp', Date.now().toString());
+            }
+        } catch(e) {
+            // localStorage lleno o no disponible
+        }
+    })();
     </script>
 </body>
 
