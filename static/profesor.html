@@ -2625,6 +2625,95 @@
                 }
             }
 
+            // ── MAPA DE CALOR MUSCULAR ───────────────────────────────────
+            try {
+                const muscleCountPDF = calcularMusculosDeRutina(r);
+                const mcValues = Object.values(muscleCountPDF);
+                if (mcValues.length > 0 && Math.max(...mcValues) > 0) {
+                    const maxValPDF = Math.max(...mcValues);
+
+                    // Helper to convert SVG string to image data URL via canvas
+                    function svgToDataURL(svgMarkup, width, height) {
+                        return new Promise((resolve, reject) => {
+                            const svgBlob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
+                            const url = URL.createObjectURL(svgBlob);
+                            const img = new Image();
+                            img.onload = function() {
+                                const canvas = document.createElement('canvas');
+                                canvas.width = width * 2;
+                                canvas.height = height * 2;
+                                const ctx2 = canvas.getContext('2d');
+                                ctx2.scale(2, 2);
+                                ctx2.drawImage(img, 0, 0, width, height);
+                                URL.revokeObjectURL(url);
+                                resolve(canvas.toDataURL('image/png'));
+                            };
+                            img.onerror = function() {
+                                URL.revokeObjectURL(url);
+                                reject(new Error('SVG render failed'));
+                            };
+                            img.src = url;
+                        });
+                    }
+
+                    const svgFront = generarBodyMapSVG(muscleCountPDF, 'pdf-f', 'frontal');
+                    const svgBack  = generarBodyMapSVG(muscleCountPDF, 'pdf-b', 'posterior');
+
+                    // Wrap SVGs with proper XML namespace
+                    function wrapSVG(svgStr) {
+                        return svgStr.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
+                    }
+
+                    const imgW = 140, imgH = 290;
+                    const [dataFront, dataBack] = await Promise.all([
+                        svgToDataURL(wrapSVG(svgFront), imgW, imgH),
+                        svgToDataURL(wrapSVG(svgBack), imgW, imgH)
+                    ]);
+
+                    // Section title
+                    const hmSectionH = 8 + 6 + 70 + 20; // title + labels + images + detail
+                    chk(hmSectionH);
+                    colorBar('MAPA DE CALOR MUSCULAR', 255, 107, 53);
+
+                    // Labels "Frontal" and "Posterior"
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(8);
+                    doc.setTextColor(130, 130, 130);
+                    const imgPdfW = 32, imgPdfH = 66;
+                    const gapBetween = 10;
+                    const totalW = imgPdfW * 2 + gapBetween;
+                    const startX = (pw - totalW) / 2;
+                    doc.text('FRONTAL', startX + imgPdfW / 2, y, { align: 'center' });
+                    doc.text('POSTERIOR', startX + imgPdfW + gapBetween + imgPdfW / 2, y, { align: 'center' });
+                    y += 3;
+
+                    // Add body map images
+                    doc.addImage(dataFront, 'PNG', startX, y, imgPdfW, imgPdfH);
+                    doc.addImage(dataBack, 'PNG', startX + imgPdfW + gapBetween, y, imgPdfW, imgPdfH);
+                    y += imgPdfH + 4;
+
+                    // Muscle detail text
+                    const sortedMuscles = Object.entries(muscleCountPDF).sort((a, b) => b[1] - a[1]);
+                    if (sortedMuscles.length > 0) {
+                        doc.setFont('helvetica', 'normal');
+                        doc.setFontSize(8);
+                        const detailParts = sortedMuscles.map(([m, c]) => m + ': ' + Math.round(c) + ' (' + getHeatLabel(c / maxValPDF) + ')');
+                        // Split into lines of ~3 muscles each
+                        const perLine = 3;
+                        for (let i = 0; i < detailParts.length; i += perLine) {
+                            chk(5);
+                            const lineStr = detailParts.slice(i, i + perLine).join('   |   ');
+                            doc.setTextColor(100, 100, 100);
+                            doc.text(lineStr, pw / 2, y, { align: 'center' });
+                            y += 4;
+                        }
+                        y += 2;
+                    }
+                }
+            } catch (hmErr) {
+                console.warn('No se pudo agregar mapa muscular al PDF:', hmErr);
+            }
+
             // ── FOOTER ───────────────────────────────────────────────────
 
             chk(14);
