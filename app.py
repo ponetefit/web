@@ -1,551 +1,312 @@
-"""
-app.py - Backend API de PONETE FIT
-Flask API que reemplaza la logica de customtkinter de ponetefit.py
-"""
-
-import random
-import re
+import pygame
+import math
 import time
-import os
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-from firebase_config import get_db_ref, init_firebase
+import random
 
-app = Flask(__name__, static_folder="static", static_url_path="")
-CORS(app)
+# --- CONFIGURACIÓN GLOBAL INICIAL ---
+# Usamos flags para que la ventana sea redimensionable
+WIDTH, HEIGHT = 1200, 800
+FPS = 60
 
-# ──────────────────────────────────────────────────────────────
-#  VIDEOTECA - Datos por defecto
-# ──────────────────────────────────────────────────────────────
+# Colores de UI y Efectos
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 50, 50)
+BLUE = (50, 100, 255)
+GREEN = (50, 255, 100)
+YELLOW = (255, 255, 0)
 
-VIDEOTECA_DEFAULTS = {
-    "Todo el cuerpo": [
-        {"nombre": "VITALIZACIONES", "link": "https://www.youtube.com/watch?v=vzx2lNOCIdQ"},
-        {"nombre": "PUENTE SUPINO + PULLOVER", "link": "https://www.youtube.com/watch?v=Ue0ot0ToN_M"}
-    ],
-    "Piernas": [
-        {"nombre": "SENTADILLAS", "link": "https://www.youtube.com/watch?v=Dl6dn7c2uCY"},
-        {"nombre": "PESO MUERTO", "link": "https://www.youtube.com/watch?v=potGhXeDKdg"},
-        {"nombre": "GLUTEOS 4 APOYOS PATADA HACIA ATRAS", "link": "https://youtu.be/mfwa1a3BXVE"},
-        {"nombre": "ABDUCTORES DE COSTADO", "link": "https://youtu.be/mfwa1a3BXVE"},
-        {"nombre": "GEMELOS", "link": "https://www.youtube.com/watch?v=GoRvh9TpNpg"},
-        {"nombre": "ESTOCADAS LATERALES", "link": "https://www.youtube.com/watch?v=A78A0I_8M_I"}
-    ],
-    "Brazos": [
-        {"nombre": "LAGARTIJAS RODILLAS APOYADAS", "link": "https://www.youtube.com/watch?v=bpq9P-NJsrE"},
-        {"nombre": "PULL-OVER", "link": "https://www.youtube.com/watch?v=gn7lOaWxANs"},
-        {"nombre": "VUELOS POSTERIORES EN 4 APOYOS", "link": "https://www.youtube.com/watch?v=u4nhYOMkMbY"},
-        {"nombre": "TRICEPS FRANCES", "link": "https://www.youtube.com/watch?v=_1jpv8e44nM"}
-    ],
-    "Zona Media": [
-        {"nombre": "ABDOMINALES TIJERAS PARA ARRIBA", "link": "https://www.youtube.com/watch?v=NO5g_Mz_myU"},
-        {"nombre": "PLANCHA", "link": "https://www.youtube.com/watch?v=AZuRKHCZU0Q"},
-        {"nombre": "ABDOMINALES INFERIORES", "link": "https://www.youtube.com/watch?v=Fhbt2p_GBOU"},
-        {"nombre": "NADO CORTO", "link": "https://www.youtube.com/watch?v=gvRIYmNaKJo"},
-        {"nombre": "NADO LARGO", "link": "https://www.youtube.com/watch?v=6jFYBm2yOlM"},
-        {"nombre": "GATO CONTENTO GATO ENOJADO", "link": "https://www.youtube.com/watch?v=DedRH6CUOQQ"},
-        {"nombre": "BICHO MUERTO", "link": "https://www.youtube.com/watch?v=yrHeUccpyl0"},
-        {"nombre": "ROTACION LUMBAR PIES APOYADOS", "link": "https://youtu.be/SvIdn8l-VKQ"}
-    ]
-}
+# --- CONFIGURACIÓN DE CONTROLES ---
+PLAYER_CONTROLS = [
+    {'acc': pygame.K_a, 'brk': pygame.K_s, 'rst': pygame.K_d, 'color': RED, 'name': 'GT-RED'},
+    {'acc': pygame.K_UP, 'brk': pygame.K_DOWN, 'rst': pygame.K_RIGHT, 'color': BLUE, 'name': 'FORMULA-BLUE'},
+    {'acc': pygame.K_j, 'brk': pygame.K_k, 'rst': pygame.K_l, 'color': GREEN, 'name': 'VIPER-GREEN'},
+    {'acc': pygame.K_KP8, 'brk': pygame.K_KP5, 'rst': pygame.K_KP6, 'color': YELLOW, 'name': 'BUMBLE-BEE'}
+]
 
+# --- COORDENADAS NORMALIZADAS (0.0 a 1.0) ---
+# Esto permite que la pista sea responsive
+TRACK_RAW = [
+    (0.11, 0.32), (0.23, 0.27), (0.40, 0.22), (0.69, 0.15), (0.87, 0.14), 
+    (0.94, 0.21), (0.95, 0.85), (0.86, 0.98), (0.69, 0.95), (0.62, 0.79), 
+    (0.71, 0.60), (0.70, 0.49), (0.53, 0.64), (0.51, 0.80), (0.38, 0.98), 
+    (0.21, 0.97), (0.11, 0.79), (0.18, 0.68), (0.39, 0.67), (0.42, 0.54), 
+    (0.26, 0.51), (0.12, 0.52), (0.09, 0.43)
+]
 
-# ──────────────────────────────────────────────────────────────
-#  HELPERS
-# ──────────────────────────────────────────────────────────────
+# --- CLASES DE EFECTOS ---
 
-def calcular_pausa(reps):
-    """Calcula la pausa de descanso segun la cantidad de repeticiones."""
-    r = int(reps) if str(reps).isdigit() else 12
-    if r <= 2: return 120
-    if r <= 4: return 105
-    if r <= 6: return 90
-    if r <= 8: return 75
-    if r <= 10: return 60
-    if r <= 12: return 50
-    return 45
+class Particle:
+    def __init__(self, pos, color, life=20):
+        self.pos = list(pos)
+        self.vel = [random.uniform(-1, 1), random.uniform(-1, 1)]
+        self.life = life
+        self.color = color
 
+    def update(self):
+        self.pos[0] += self.vel[0]
+        self.pos[1] += self.vel[1]
+        self.life -= 1
 
-def fmt_pausa(seg):
-    """Formatea segundos a texto legible."""
-    seg = int(seg)
-    if seg < 60:
-        return f"{seg}s"
-    mins, resto = divmod(seg, 60)
-    if resto == 0:
-        return f"{mins} min"
-    return f"{mins} min {resto}s"
+    def draw(self, surface):
+        if self.life > 0:
+            alpha = min(255, self.life * 12)
+            s = pygame.Surface((4, 4), pygame.SRCALPHA)
+            pygame.draw.circle(s, (*self.color[:3], alpha), (2, 2), 2)
+            surface.blit(s, self.pos)
 
+# --- CLASES PRINCIPALES ---
 
-# ──────────────────────────────────────────────────────────────
-#  RUTAS - PAGINAS ESTATICAS
-# ──────────────────────────────────────────────────────────────
+class Circuit:
+    def __init__(self, normalized_points):
+        self.normalized_points = normalized_points
+        self.points = []
+        self.is_closed = True
 
-@app.route("/")
-def index():
-    """Pagina principal - redirige al panel del profesor."""
-    return app.send_static_file("profesor.html")
+    def update_resolution(self, w, h):
+        """Recalcula los puntos físicos según la resolución actual."""
+        self.points = [(p[0] * w, p[1] * h) for p in self.normalized_points]
 
+    def draw(self, surface, num_players):
+        # Rieles técnicos sutiles
+        for i in range(num_players):
+            offset_points = self.get_offset_points(i, num_players)
+            if len(offset_points) > 1:
+                pygame.draw.lines(surface, (30, 30, 30), self.is_closed, offset_points, 1)
+        
+        # Línea de meta
+        if len(self.points) > 1:
+            p1, p2 = self.points[0], self.points[1]
+            pygame.draw.line(surface, WHITE, p1, p2, 4)
 
-@app.route("/alumno")
-def alumno():
-    """Pagina del alumno."""
-    return app.send_static_file("alumno.html")
+    def get_offset_points(self, player_idx, total_players):
+        # El ancho del carril también debería escalar ligeramente con la resolución
+        scale_factor = (pygame.display.get_surface().get_width() / 1200)
+        offset_dist = (player_idx - (total_players - 1) / 2) * (22 * scale_factor)
+        
+        new_points = []
+        for i in range(len(self.points)):
+            p1 = self.points[i]
+            p2 = self.points[(i + 1) % len(self.points)]
+            dx, dy = p2[0] - p1[0], p2[1] - p1[1]
+            mag = math.hypot(dx, dy) or 1
+            nx, ny = -dy / mag, dx / mag
+            new_points.append((p1[0] + nx * offset_dist, p1[1] + ny * offset_dist))
+        return new_points
 
+class Car:
+    def __init__(self, player_idx, controls):
+        self.player_idx = player_idx
+        self.controls = controls
+        self.color = controls['color']
+        self.name = controls['name']
+        self.particles = []
+        self.skidmarks = []
+        self.reset_state()
+        
+    def reset_state(self):
+        self.index, self.sub_pos, self.speed = 0, 0.0, 0.0
+        self.max_speed = 15.0
+        self.acceleration = 0.22
+        self.friction = 0.07
+        self.on_rail = True
+        self.last_pos = [0, 0]
+        self.angle, self.laps = 0, 0
+        self.shake_amount = 0
 
-# ──────────────────────────────────────────────────────────────
-#  API - VIDEOTECA (CRUD en Firebase)
-# ──────────────────────────────────────────────────────────────
+    def update(self, circuit, total_players):
+        keys = pygame.key.get_pressed()
+        player_track = circuit.get_offset_points(self.player_idx, total_players)
 
-@app.route("/api/videoteca", methods=["GET"])
-def obtener_videoteca():
-    """Obtiene toda la videoteca desde Firebase. Si no existe, la inicializa con datos por defecto."""
-    try:
-        ref = get_db_ref("/videoteca")
-        data = ref.get()
-        if not data:
-            # Inicializar con datos por defecto
-            ref.set(VIDEOTECA_DEFAULTS)
-            data = VIDEOTECA_DEFAULTS
-        return jsonify({"ok": True, "videoteca": data})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/api/videoteca/categorias", methods=["GET"])
-def obtener_categorias():
-    """Obtiene la lista de categorias."""
-    try:
-        ref = get_db_ref("/videoteca")
-        data = ref.get()
-        if not data:
-            ref.set(VIDEOTECA_DEFAULTS)
-            data = VIDEOTECA_DEFAULTS
-        return jsonify({"ok": True, "categorias": list(data.keys())})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/api/videoteca/categoria/<categoria>", methods=["GET"])
-def obtener_ejercicios_categoria(categoria):
-    """Obtiene los ejercicios de una categoria especifica."""
-    try:
-        ref = get_db_ref(f"/videoteca/{categoria}")
-        data = ref.get()
-        if data is None:
-            return jsonify({"ok": False, "error": "Categoria no encontrada"}), 404
-        return jsonify({"ok": True, "ejercicios": data})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/api/videoteca/ejercicio", methods=["POST"])
-def guardar_ejercicio():
-    """Agrega o actualiza un ejercicio en una categoria."""
-    try:
-        body = request.json
-        categoria = body.get("categoria", "").strip()
-        nombre = body.get("nombre", "").strip().upper()
-        link = body.get("link", "").strip()
-        musculo1 = body.get("musculo1", "").strip()
-        musculo2 = body.get("musculo2", "").strip()
-        sinergista = body.get("sinergista", "").strip()
-
-        if not categoria or not nombre or not link:
-            return jsonify({"ok": False, "error": "Categoria, nombre y link son obligatorios"}), 400
-
-        # Construir objeto del ejercicio con campos de musculos
-        ej_data = {"nombre": nombre, "link": link}
-        if musculo1:
-            ej_data["musculo1"] = musculo1
-        if musculo2:
-            ej_data["musculo2"] = musculo2
-        if sinergista:
-            ej_data["sinergista"] = sinergista
-
-        ref = get_db_ref(f"/videoteca/{categoria}")
-        ejercicios = ref.get() or []
-
-        # Buscar si ya existe para actualizar
-        encontrado = False
-        for i, ej in enumerate(ejercicios):
-            if isinstance(ej, dict) and ej.get("nombre") == nombre:
-                ejercicios[i] = ej_data
-                encontrado = True
-                break
-
-        if not encontrado:
-            ejercicios.append(ej_data)
-
-        ref.set(ejercicios)
-        accion = "actualizado" if encontrado else "guardado"
-        return jsonify({"ok": True, "mensaje": f"Ejercicio {accion}: {nombre}", "accion": accion})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/api/videoteca/ejercicio", methods=["DELETE"])
-def eliminar_ejercicio():
-    """Elimina un ejercicio de una categoria."""
-    try:
-        body = request.json
-        categoria = body.get("categoria", "").strip()
-        nombre = body.get("nombre", "").strip().upper()
-
-        if not categoria or not nombre:
-            return jsonify({"ok": False, "error": "Categoria y nombre son obligatorios"}), 400
-
-        ref = get_db_ref(f"/videoteca/{categoria}")
-        ejercicios = ref.get() or []
-
-        nuevos = [ej for ej in ejercicios if not (isinstance(ej, dict) and ej.get("nombre") == nombre)]
-
-        if len(nuevos) < len(ejercicios):
-            ref.set(nuevos)
-            return jsonify({"ok": True, "mensaje": f"Eliminado: {nombre}"})
-        else:
-            return jsonify({"ok": False, "error": "Ejercicio no encontrado"}), 404
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/api/videoteca/categoria", methods=["POST"])
-def nueva_categoria():
-    """Crea una nueva categoria vacia en la videoteca."""
-    try:
-        body = request.json
-        nombre = body.get("nombre", "").strip()
-        if not nombre:
-            return jsonify({"ok": False, "error": "Nombre de categoria obligatorio"}), 400
-
-        ref = get_db_ref(f"/videoteca/{nombre}")
-        actual = ref.get()
-        if actual is not None:
-            return jsonify({"ok": False, "error": "La categoria ya existe"}), 409
-
-        ref.set([])
-        return jsonify({"ok": True, "mensaje": f"Categoria creada: {nombre}"})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/api/videoteca/categoria", methods=["DELETE"])
-def eliminar_categoria():
-    """Elimina una categoria completa de la videoteca."""
-    try:
-        body = request.json
-        nombre = body.get("nombre", "").strip()
-        if not nombre:
-            return jsonify({"ok": False, "error": "Nombre de categoria obligatorio"}), 400
-
-        ref = get_db_ref(f"/videoteca/{nombre}")
-        ref.delete()
-        return jsonify({"ok": True, "mensaje": f"Categoria eliminada: {nombre}"})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-# ──────────────────────────────────────────────────────────────
-#  API - GENERACION DE EJERCICIOS ALEATORIOS
-# ──────────────────────────────────────────────────────────────
-
-@app.route("/api/ejercicios/aleatorios", methods=["POST"])
-def ejercicios_aleatorios():
-    """Genera ejercicios aleatorios segun zona muscular.
-    Body: { "zonas": ["Piernas", "Brazos", ...] }
-    """
-    try:
-        body = request.json
-        zonas = body.get("zonas", [])
-
-        ref = get_db_ref("/videoteca")
-        videoteca = ref.get() or VIDEOTECA_DEFAULTS
-
-        resultado = []
-        for zona in zonas:
-            ejercicios = videoteca.get(zona, [])
-            if ejercicios:
-                ej = random.choice(ejercicios)
-                if isinstance(ej, dict):
-                    resultado.append(ej)
-                elif isinstance(ej, list):
-                    resultado.append({"nombre": ej[0], "link": ej[1]})
+        if self.on_rail:
+            if keys[self.controls['acc']]: 
+                self.speed += self.acceleration
+                if self.speed > self.max_speed * 0.7:
+                    self.particles.append(Particle(self.last_pos, (255,255,255), 8))
+            elif keys[self.controls['brk']]: 
+                self.speed -= self.acceleration * 3.5
+                if self.speed > 4:
+                    self.skidmarks.append((list(self.last_pos), self.angle))
             else:
-                resultado.append({"nombre": f"Sin ejercicios en {zona}", "link": ""})
+                self.speed -= self.friction
+            
+            self.speed = max(min(self.speed, self.max_speed), 0)
 
-        return jsonify({"ok": True, "ejercicios": resultado})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+            if len(player_track) > 1:
+                p1 = player_track[self.index]
+                p2 = player_track[(self.index + 1) % len(player_track)]
+                dist = math.hypot(p2[0]-p1[0], p2[1]-p1[1]) or 1
+                self.sub_pos += self.speed / dist
 
+                if self.sub_pos >= 1.0:
+                    self.sub_pos = 0.0
+                    self.index = (self.index + 1) % len(player_track)
+                    if self.index == 0: self.laps += 1
+                
+                self.last_pos = [p1[0] + (p2[0] - p1[0]) * self.sub_pos, p1[1] + (p2[1] - p1[1]) * self.sub_pos]
+                self.angle = math.degrees(math.atan2(p1[1] - p2[1], p2[0] - p1[0]))
 
-@app.route("/api/ejercicios/todos", methods=["GET"])
-def todos_los_ejercicios():
-    """Retorna lista plana de todos los ejercicios de todas las categorias."""
+                # Límite de adherencia
+                if self.speed > 4.0:
+                    p0 = player_track[(self.index - 1) % len(player_track)]
+                    a1 = math.atan2(p2[1]-p1[1], p2[0]-p1[0])
+                    a0 = math.atan2(p1[1]-p0[1], p1[0]-p0[0])
+                    force = abs(self.speed) * abs(math.atan2(math.sin(a1-a0), math.cos(a1-a0)))
+                    if force > 1.95:
+                        self.on_rail = False
+                        self.shake_amount = 12
+        else:
+            self.particles.append(Particle(self.last_pos, (120, 120, 120), 20))
+            if keys[self.controls['rst']]:
+                self.on_rail, self.speed = True, 0
+
+        for p in self.particles[:]:
+            p.update()
+            if p.life <= 0: self.particles.remove(p)
+        
+        if len(self.skidmarks) > 40: self.skidmarks.pop(0)
+        if self.shake_amount > 0: self.shake_amount -= 1
+
+    def draw(self, surface):
+        # Escalar tamaño visual según resolución
+        win_w = surface.get_width()
+        scale = win_w / 1200
+        w, h = 28 * scale, 14 * scale
+
+        for pos, ang in self.skidmarks:
+            s = pygame.Surface((10 * scale, 2 * scale), pygame.SRCALPHA)
+            s.fill((0, 0, 0, 60))
+            surface.blit(pygame.transform.rotate(s, ang), pos)
+
+        for p in self.particles: p.draw(surface)
+
+        if not self.last_pos: return
+        
+        # Sombra
+        shadow_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        pygame.draw.rect(shadow_surf, (0, 0, 0, 80), (0, 0, w, h), border_radius=int(4*scale))
+        rotated_shadow = pygame.transform.rotate(shadow_surf, self.angle)
+        surface.blit(rotated_shadow, rotated_shadow.get_rect(center=(self.last_pos[0]+3*scale, self.last_pos[1]+3*scale)))
+
+        # Coche
+        car_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        pygame.draw.rect(car_surf, self.color, (0, 0, w, h), border_radius=int(4*scale))
+        pygame.draw.rect(car_surf, (255,255,255, 120), (2*scale, 2*scale, w-4*scale, 2*scale)) # Brillo
+        pygame.draw.rect(car_surf, (20, 20, 20), (w//3, h//4, w//3, h//2), border_radius=int(2*scale)) # Cabina
+        
+        if not self.on_rail: car_surf.set_alpha(150)
+        rotated = pygame.transform.rotate(car_surf, self.angle)
+        
+        pos = list(self.last_pos)
+        if self.shake_amount > 0:
+            pos[0] += random.randint(-2, 2)
+            pos[1] += random.randint(-2, 2)
+
+        surface.blit(rotated, rotated.get_rect(center=pos))
+
+# --- BUCLE PRINCIPAL ---
+
+def main():
+    pygame.init()
+    # Inicializamos con modo RESIZABLE
+    screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
+    pygame.display.set_caption("Scalextric Pro Responsive")
+    clock = pygame.time.Clock()
+    
+    # Carga de Imagen
+    bg_raw = None
+    bg_scaled = None
     try:
-        ref = get_db_ref("/videoteca")
-        videoteca = ref.get() or VIDEOTECA_DEFAULTS
+        bg_raw = pygame.image.load("image_8acf7e.jpg").convert()
+    except:
+        pass
 
-        todos = []
-        for categoria, ejercicios in videoteca.items():
-            for ej in ejercicios:
-                if isinstance(ej, dict):
-                    todos.append({**ej, "categoria": categoria})
-                elif isinstance(ej, list):
-                    todos.append({"nombre": ej[0], "link": ej[1], "categoria": categoria})
-        return jsonify({"ok": True, "ejercicios": todos})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+    def scale_background(w, h):
+        if bg_raw:
+            return pygame.transform.scale(bg_raw, (w, h))
+        return None
 
+    circuit = Circuit(TRACK_RAW)
+    circuit.update_resolution(WIDTH, HEIGHT)
+    bg_scaled = scale_background(WIDTH, HEIGHT)
+    
+    players = []
+    mode = "MENU"
+    num_players = 1
 
-# ──────────────────────────────────────────────────────────────
-#  API - COMPARTIR RUTINA (subir a Firebase)
-# ──────────────────────────────────────────────────────────────
+    while True:
+        curr_w, curr_h = screen.get_size()
+        
+        # Gestión de Eventos
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return
+            
+            if event.type == pygame.VIDEORESIZE:
+                # La ventana cambió de tamaño
+                new_w, new_h = event.w, event.h
+                screen = pygame.display.set_mode((new_w, new_h), pygame.RESIZABLE)
+                circuit.update_resolution(new_w, new_h)
+                bg_scaled = scale_background(new_w, new_h)
 
-@app.route("/api/rutina/compartir", methods=["POST"])
-def compartir_rutina():
-    """Sube una rutina a Firebase y genera un codigo unico.
-    Body: {
-        "alumno": "NOMBRE",
-        "tipo": "Circuito|Tabata|EMOM|Series|ENTRENAMIENTO",
-        "datos": { ... payload completo de la rutina ... }
-    }
-    """
-    try:
-        body = request.json
-        nombre_alumno = body.get("alumno", "ALUMNO").strip().upper()
-        tipo_rutina = body.get("tipo", "Rutina")
-        datos_paquete = body.get("datos", {})
+            if event.type == pygame.KEYDOWN:
+                if mode == "MENU":
+                    if event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4]:
+                        num_players = int(event.unicode)
+                        players = [Car(i, PLAYER_CONTROLS[i]) for i in range(num_players)]
+                        mode = "CARRERA"
+                elif mode == "CARRERA":
+                    if event.key == pygame.K_ESCAPE:
+                        mode = "MENU"
 
-        if not nombre_alumno:
-            nombre_alumno = "ALUMNO"
-        nombre_lower = nombre_alumno.lower()
+        # --- DIBUJO ---
+        if mode == "MENU":
+            screen.fill((25, 30, 35))
+            font_size = int(curr_w / 15)
+            font_big = pygame.font.SysFont("Impact", font_size)
+            font_small = pygame.font.SysFont("Verdana", int(curr_w / 50), bold=True)
+            
+            title = font_big.render("GT RACING PRO", True, WHITE)
+            screen.blit(title, (curr_w//2 - title.get_width()//2, curr_h * 0.2))
+            
+            hint = font_small.render("PRESIONE [1-4] PARA EMPEZAR", True, YELLOW)
+            screen.blit(hint, (curr_w//2 - hint.get_width()//2, curr_h * 0.5))
+            
+            controls_info = font_small.render("ESC para salir | R/KP6/D/L para reentrar", True, (150, 150, 150))
+            screen.blit(controls_info, (curr_w//2 - controls_info.get_width()//2, curr_h * 0.8))
 
-        # Obtener y actualizar contador del alumno
-        contador_ref = get_db_ref(f"/alumnos/{nombre_lower}/contador")
-        contador_actual = contador_ref.get() or 0
-        nuevo_contador = contador_actual + 1
-        codigo = f"{nombre_lower}-{nuevo_contador:04d}"
+        elif mode == "CARRERA":
+            if bg_scaled:
+                screen.blit(bg_scaled, (0, 0))
+            else:
+                screen.fill((40, 70, 40))
 
-        # Preparar payload
-        payload = {
-            "app": "ponetefit",
-            "tipo": tipo_rutina,
-            "alumno": nombre_alumno,
-            "timestamp": time.time(),
-            **datos_paquete
-        }
+            circuit.draw(screen, num_players)
+            
+            for p in players:
+                p.update(circuit, num_players)
+                p.draw(screen)
 
-        # Guardar rutina y actualizar contador
-        rutina_ref = get_db_ref(f"/rutinas/{codigo}")
-        rutina_ref.set(payload)
-        contador_ref.set(nuevo_contador)
+            # HUD Responsive
+            hud_font = pygame.font.SysFont("Verdana", int(curr_w / 65), bold=True)
+            for i, p in enumerate(players):
+                # Barra de Velocidad
+                bar_w = int(curr_w * 0.12)
+                bar_h = int(curr_h * 0.012)
+                speed_pct = abs(p.speed / p.max_speed)
+                
+                start_x, start_y = 20, 20 + i * (curr_h * 0.06)
+                pygame.draw.rect(screen, (30, 30, 30, 150), (start_x, start_y, bar_w, bar_h))
+                pygame.draw.rect(screen, p.color, (start_x, start_y, bar_w * speed_pct, bar_h))
+                
+                info = f"{p.name} - LAP {p.laps}"
+                if not p.on_rail: info += " [OFF TRACK]"
+                txt = hud_font.render(info, True, WHITE)
+                screen.blit(txt, (start_x, start_y + bar_h + 5))
 
-        return jsonify({
-            "ok": True,
-            "codigo": codigo,
-            "alumno": nombre_alumno,
-            "tipo": tipo_rutina,
-            "mensaje": f"Rutina compartida con codigo {codigo}"
-        })
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/api/rutina/<codigo>", methods=["GET"])
-def obtener_rutina(codigo):
-    """Obtiene una rutina por su codigo."""
-    try:
-        ref = get_db_ref(f"/rutinas/{codigo}")
-        data = ref.get()
-        if not data:
-            return jsonify({"ok": False, "error": "Codigo no encontrado"}), 404
-        return jsonify({"ok": True, "rutina": data})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/api/rutina/<codigo>", methods=["DELETE"])
-def eliminar_rutina(codigo):
-    """Elimina una rutina por su codigo y ajusta el contador del alumno."""
-    try:
-        codigo = codigo.strip().lower()
-        ref = get_db_ref(f"/rutinas/{codigo}")
-        data = ref.get()
-        if not data:
-            return jsonify({"ok": False, "error": "Rutina no encontrada"}), 404
-
-        # Obtener el alumno antes de eliminar
-        alumno = data.get("alumno", "").strip().lower()
-
-        # Eliminar la rutina
-        ref.delete()
-
-        # Decrementar el contador del alumno
-        if alumno:
-            contador_ref = get_db_ref(f"/alumnos/{alumno}/contador")
-            contador_actual = contador_ref.get() or 0
-            if contador_actual > 0:
-                contador_ref.set(contador_actual - 1)
-
-        return jsonify({"ok": True, "mensaje": f"Rutina {codigo.upper()} eliminada correctamente"})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/api/rutinas/renumerar/<nombre>", methods=["POST"])
-def renumerar_rutinas(nombre):
-    """Renumera todas las rutinas de un alumno para que sean consecutivas.
-    Ejemplo: si se elimina rafa-0002 de [rafa-0001, rafa-0002, rafa-0003],
-    rafa-0003 se renombra a rafa-0002 y el contador se ajusta a 2.
-    """
-    try:
-        nombre_lower = nombre.strip().lower()
-
-        # Obtener todas las rutinas del alumno
-        ref_rutinas = get_db_ref("/rutinas")
-        todas = ref_rutinas.get() or {}
-
-        # Filtrar rutinas del alumno y ordenarlas por codigo
-        rutinas_alumno = {}
-        for cod, data in todas.items():
-            if isinstance(data, dict) and data.get("alumno", "").lower() == nombre_lower:
-                rutinas_alumno[cod] = data
-
-        codigos_ordenados = sorted(rutinas_alumno.keys())
-
-        if not codigos_ordenados:
-            return jsonify({"ok": True, "mensaje": "No hay rutinas para renumerar", "cambios": 0})
-
-        # Extraer el prefijo (ej: "rafa-" de "rafa-0001")
-        primer_codigo = codigos_ordenados[0]
-        match = re.match(r'^(.+?)(\d+)$', primer_codigo)
-        if not match:
-            return jsonify({"ok": False, "error": "No se pudo determinar el formato del codigo"}), 400
-
-        prefijo = match.group(1)
-        cambios = 0
-
-        # Renumerar secuencialmente
-        for i, codigo_viejo in enumerate(codigos_ordenados):
-            num_nuevo = i + 1
-            codigo_nuevo = f"{prefijo}{num_nuevo:04d}"
-
-            if codigo_viejo != codigo_nuevo:
-                # Mover la rutina al nuevo codigo
-                data_rutina = rutinas_alumno[codigo_viejo]
-                ref_nuevo = get_db_ref(f"/rutinas/{codigo_nuevo}")
-                ref_viejo = get_db_ref(f"/rutinas/{codigo_viejo}")
-                ref_nuevo.set(data_rutina)
-                ref_viejo.delete()
-                cambios += 1
-
-        # Actualizar el contador del alumno
-        total = len(codigos_ordenados)
-        contador_ref = get_db_ref(f"/alumnos/{nombre_lower}/contador")
-        contador_ref.set(total)
-
-        return jsonify({
-            "ok": True,
-            "mensaje": f"Renumeracion completada: {cambios} rutina(s) renumerada(s)",
-            "cambios": cambios,
-            "total": total
-        })
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/api/rutina/renombrar", methods=["POST"])
-def renombrar_rutina():
-    """Renombra el codigo de una rutina (usado como fallback para renumeracion manual).
-    Body: { "codigo_viejo": "rafa-0005", "codigo_nuevo": "rafa-0004" }
-    """
-    try:
-        body = request.json
-        codigo_viejo = body.get("codigo_viejo", "").strip().lower()
-        codigo_nuevo = body.get("codigo_nuevo", "").strip().lower()
-
-        if not codigo_viejo or not codigo_nuevo:
-            return jsonify({"ok": False, "error": "codigo_viejo y codigo_nuevo son obligatorios"}), 400
-
-        if codigo_viejo == codigo_nuevo:
-            return jsonify({"ok": True, "mensaje": "Los codigos son iguales, nada que hacer"})
-
-        # Obtener datos de la rutina vieja
-        ref_viejo = get_db_ref(f"/rutinas/{codigo_viejo}")
-        data = ref_viejo.get()
-        if not data:
-            return jsonify({"ok": False, "error": f"Rutina {codigo_viejo} no encontrada"}), 404
-
-        # Verificar que el nuevo codigo no exista ya
-        ref_nuevo = get_db_ref(f"/rutinas/{codigo_nuevo}")
-        if ref_nuevo.get():
-            return jsonify({"ok": False, "error": f"El codigo {codigo_nuevo} ya existe"}), 409
-
-        # Mover: crear nuevo y eliminar viejo
-        ref_nuevo.set(data)
-        ref_viejo.delete()
-
-        return jsonify({"ok": True, "mensaje": f"Rutina renombrada de {codigo_viejo.upper()} a {codigo_nuevo.upper()}"})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/api/rutinas/alumno/<nombre>", methods=["GET"])
-def rutinas_por_alumno(nombre):
-    """Lista las rutinas de un alumno."""
-    try:
-        nombre_lower = nombre.strip().lower()
-        ref = get_db_ref("/rutinas")
-        todas = ref.get() or {}
-
-        rutinas_alumno = {}
-        for cod, data in todas.items():
-            if isinstance(data, dict) and data.get("alumno", "").lower() == nombre_lower:
-                rutinas_alumno[cod] = {
-                    "tipo": data.get("tipo", ""),
-                    "timestamp": data.get("timestamp", 0),
-                    "alumno": data.get("alumno", "")
-                }
-
-        return jsonify({"ok": True, "rutinas": rutinas_alumno})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-# ──────────────────────────────────────────────────────────────
-#  API - ALUMNOS
-# ──────────────────────────────────────────────────────────────
-
-@app.route("/api/alumnos", methods=["GET"])
-def listar_alumnos():
-    """Lista todos los alumnos que tienen rutinas asignadas."""
-    try:
-        ref = get_db_ref("/alumnos")
-        data = ref.get() or {}
-        alumnos = sorted(data.keys())
-        return jsonify({"ok": True, "alumnos": alumnos})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-# ──────────────────────────────────────────────────────────────
-#  API - UTILIDADES
-# ──────────────────────────────────────────────────────────────
-
-@app.route("/api/pausa/calcular", methods=["POST"])
-def calcular_pausa_endpoint():
-    """Calcula la pausa recomendada segun las repeticiones."""
-    body = request.json
-    reps = body.get("reps", 12)
-    pausa = calcular_pausa(reps)
-    return jsonify({"ok": True, "pausa": pausa, "formato": fmt_pausa(pausa)})
-
-
-# ──────────────────────────────────────────────────────────────
-#  INICIO
-# ──────────────────────────────────────────────────────────────
+        pygame.display.flip()
+        clock.tick(FPS)
 
 if __name__ == "__main__":
-    init_firebase()
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    main()
