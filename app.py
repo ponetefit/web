@@ -7,11 +7,11 @@ import random
 import re
 import time
 import os
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from firebase_config import get_db_ref, init_firebase
 
-app = Flask(__name__, static_folder="static", static_url_path="/static", template_folder="templates")
+app = Flask(__name__, static_folder="static", static_url_path="")
 CORS(app)
 
 # ──────────────────────────────────────────────────────────────
@@ -84,13 +84,13 @@ def fmt_pausa(seg):
 @app.route("/")
 def index():
     """Pagina principal - redirige al panel del profesor."""
-    return render_template("profesor.html")
+    return app.send_static_file("profesor.html")
 
 
 @app.route("/alumno")
 def alumno():
     """Pagina del alumno."""
-    return render_template("alumno.html")
+    return app.send_static_file("alumno.html")
 
 
 # ──────────────────────────────────────────────────────────────
