@@ -764,6 +764,7 @@
                         <option value="">-- Seleccionar alumno --</option>
                     </select>
                     <button onclick="cargarListaAlumnos()" class="bg-purpura/20 text-purpura px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition whitespace-nowrap">Actualizar</button>
+                    <button onclick="eliminarAlumno()" id="btn-eliminar-alumno" class="bg-rojo/20 text-rojo px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition whitespace-nowrap hidden">Eliminar Alumno</button>
                 </div>
                 <div id="historial-lista" class="space-y-3">
                     <p class="text-textoSuave text-sm text-center py-8">Selecciona un alumno del desplegable</p>
@@ -1941,10 +1942,13 @@
     async function buscarRutinasAlumno() {
         const nombre = document.getElementById('select-alumno').value;
         const lista  = document.getElementById('historial-lista');
+        const btnEliminar = document.getElementById('btn-eliminar-alumno');
         if (!nombre) {
             lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">Selecciona un alumno del desplegable</p>';
+            btnEliminar.classList.add('hidden');
             return;
         }
+        btnEliminar.classList.remove('hidden');
         lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">Buscando...</p>';
         try {
             const res  = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre));
@@ -2033,7 +2037,34 @@
         }
     }
 
-    async function renumerarRutinas(alumno) {
+    async function eliminarAlumno() {
+        const nombre = document.getElementById('select-alumno').value;
+        if (!nombre) { toast('Selecciona un alumno primero'); return; }
+        const confirmacion = confirm('¿Eliminar al alumno ' + nombre.toUpperCase() + ' y TODAS sus rutinas? Esta accion no se puede deshacer.');
+        if (!confirmacion) return;
+        try {
+            const res = await fetch(API_BASE + '/api/alumnos/' + encodeURIComponent(nombre), {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            if (data.ok) {
+                toast('Alumno ' + nombre.toUpperCase() + ' eliminado correctamente');
+                // Limpiar la vista
+                document.getElementById('historial-lista').innerHTML = '<p class="text-textoSuave text-sm text-center py-8">Selecciona un alumno del desplegable</p>';
+                document.getElementById('btn-eliminar-alumno').classList.add('hidden');
+                historialRutinasCache = {};
+                // Recargar lista de alumnos
+                await cargarListaAlumnos();
+            } else {
+                toast('Error: ' + (data.error || 'No se pudo eliminar'));
+            }
+        } catch (e) {
+            toast('Error de conexion al eliminar alumno');
+        }
+    }
+
+        async function renumerarRutinas(alumno) {
         try {
             const res = await fetch(API_BASE + '/api/rutinas/renumerar/' + encodeURIComponent(alumno), {
                 method: 'POST',
