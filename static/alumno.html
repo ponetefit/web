@@ -2436,6 +2436,8 @@
         // ─── FUNCIONES HELPER DEL COACH ARGENTINO ──────────────────────
         function coachAnunciarEjercicio(nombre) {
             hablarCoach('Arrancamos con ' + nombre + '.');
+            var _tipArr = _obtenerTip(nombre);
+            if (_tipArr) hablarCoach(_tipArr);
         }
 
         function coachCuentaRegresiva() {
@@ -2479,7 +2481,20 @@
             if (proximoEjercicio) hablarCoach('El próximo ejercicio es ' + proximoEjercicio + '.');
         }
 
-        function coachMotivacional() {
+        var _coachMotivTurno = {};  // por nombre de ejercicio: 0=motivacional, 1=tip
+        function coachMotivacional(nombreEj) {
+            if (nombreEj) {
+                var _tm = _coachMotivTurno[nombreEj] || 0;
+                if (_tm === 1) {
+                    var _tipM = _obtenerTip(nombreEj);
+                    if (_tipM) {
+                        hablarCoach(_tipM);
+                        _coachMotivTurno[nombreEj] = 0;
+                        return;
+                    }
+                }
+                _coachMotivTurno[nombreEj] = 1;
+            }
             hablarCoach(_fraseRandom(_frasesMotivacionales));
         }
 
@@ -3381,6 +3396,7 @@
                 }
                 _pantallaFinMostrada = false;
                 _iniciarCronometroSesion();
+                _cargarVideotecaTips();
                 render(data);
                 document.getElementById('rutina-modal').classList.add('visible');
                 mostrarToast('Rutina cargada');
@@ -3456,6 +3472,43 @@
         // ─── TIPO DE ENTRENAMIENTO GLOBAL (para calorias) ───
         var _tipoEntrenamientoGlobal = '';
 
+        // ─── VIDEOTECA TIPS: cache de tips técnicos por ejercicio ───
+        var _videotecaTips = {};      // { "SENTADILLAS": { tip1: "...", tip2: "..." }, ... }
+        var _tipTurno = {};           // { "SENTADILLAS": 0/1 } — alterna entre tip1 y tip2
+
+        async function _cargarVideotecaTips() {
+            try {
+                var res = await fetch("https://ponetefit-app-default-rtdb.firebaseio.com/videoteca.json");
+                var videoteca = await res.json();
+                if (!videoteca) return;
+                _videotecaTips = {};
+                Object.values(videoteca).forEach(function(lista) {
+                    if (!Array.isArray(lista)) return;
+                    lista.forEach(function(ej) {
+                        var nombre = (ej.nombre || '').toUpperCase();
+                        if (nombre && (ej.tip1 || ej.tip2)) {
+                            _videotecaTips[nombre] = { tip1: ej.tip1 || '', tip2: ej.tip2 || '' };
+                        }
+                    });
+                });
+            } catch(e) { /* sin conexión, no pasa nada */ }
+        }
+
+        // Devuelve el tip que corresponde (alternando), o '' si no hay
+        function _obtenerTip(nombreEj) {
+            var key = (nombreEj || '').toUpperCase();
+            var tips = _videotecaTips[key];
+            if (!tips) return '';
+            var turno = _tipTurno[key] || 0;
+            var tip = '';
+            if (turno === 0 && tips.tip1) tip = tips.tip1;
+            else if (turno === 1 && tips.tip2) tip = tips.tip2;
+            else if (tips.tip1) tip = tips.tip1;
+            // Avanzar turno para la próxima vez
+            _tipTurno[key] = (turno + 1) % 2;
+            return tip;
+        }
+
         // ─── CREAR CARDS ───
         function svgPlay() {
             return '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg>';
@@ -3485,17 +3538,29 @@
             }, 400);
         }
 
-        function crearCard(nombre, link, meta) {
+        var _cardCargaIdx = 0;
+        function crearCard(nombre, link, meta, con_carga) {
             const videoBtn = link ? '<button onclick="abrirVideo(\'' + link.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')" class="btn-play-video">' + svgPlay() + '</button>' : '';
             const metaHtml = meta ? '<span class="card-ejercicio-meta">' + meta + '</span>' : '';
-            return '<div class="card-ejercicio"><span class="card-ejercicio-nombre">' + nombre + '</span>' + metaHtml + videoBtn + '</div>';
+            var pesoHtml = '';
+            if (con_carga) {
+                var pid = 'peso-card-' + (_cardCargaIdx++);
+                pesoHtml = crearPesoRow(nombre, pid);
+            }
+            return '<div class="card-ejercicio"><span class="card-ejercicio-nombre">' + nombre + '</span>' + metaHtml + videoBtn + pesoHtml + '</div>';
         }
 
-        function crearCardNumero(idx, total, nombre, link) {
+        function crearCardNumero(idx, total, nombre, link, con_carga) {
             const videoBtn = link ? '<button onclick="abrirVideo(\'' + link.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')" class="btn-play-video">' + svgPlay() + '</button>' : '';
+            var pesoHtml = '';
+            if (con_carga) {
+                var pid = 'peso-card-' + (_cardCargaIdx++);
+                pesoHtml = crearPesoRow(nombre, pid);
+            }
             return '<div class="card-numero">' +
                 '<div class="card-numero-header"><span class="card-numero-idx">EJ ' + idx + ' / ' + total + '</span></div>' +
                 '<div class="card-numero-body"><span class="card-numero-nombre">' + nombre + '</span>' + videoBtn + '</div>' +
+                pesoHtml +
                 '</div>';
         }
 
@@ -3566,7 +3631,8 @@
                 ejsW.forEach(function(ej, i) {
                     const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || "");
                     const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
-                    wLista.innerHTML += crearCardNumero(i + 1, ejsW.length, n, l);
+                    const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
+                    wLista.innerHTML += crearCardNumero(i + 1, ejsW.length, n, l, cc);
                 });
             } else if (tipo === "EMOM") {
                 // Info-block estilo entrenamiento con minutos y ciclo
@@ -3582,7 +3648,8 @@
                     const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
                     const r = Array.isArray(ej) ? ej[2] : (ej.reps || emomRepsDictW[n] || "");
                     const u = Array.isArray(ej) ? (ej[3] || "Reps") : (ej.unit || emomUnitsDictW[n] || "Reps");
-                    wLista.innerHTML += crearCard(n, l, r ? r + " " + u.toUpperCase() : "EMOM");
+                    const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
+                    wLista.innerHTML += crearCard(n, l, r ? r + " " + u.toUpperCase() : "EMOM", cc);
                 });
             } else {
                 ejsW.forEach(function(ej) {
@@ -3590,7 +3657,8 @@
                     const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
                     const r = Array.isArray(ej) ? ej[2] : (ej.reps || "");
                     const u = Array.isArray(ej) ? (ej[3] || "Reps") : (ej.unit || "Reps");
-                    wLista.innerHTML += crearCard(n, l, r ? r + " " + u.toUpperCase() : "");
+                    const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
+                    wLista.innerHTML += crearCard(n, l, r ? r + " " + u.toUpperCase() : "", cc);
                 });
             }
 
@@ -3851,8 +3919,10 @@
                 const nombre = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || "");
                 document.getElementById('warmup-status').innerText = "TRABAJO — Ej " + (ejIdx + 1) + "/" + totalEjs;
                 document.getElementById('warmup-ej').innerText = nombre;
-                // >>> COACH: Arrancamos con ejercicio + vamos dale (warmup)
+                // >>> COACH: Arrancamos con ejercicio + tip técnico (warmup Tabata)
                 hablarCoach('Arrancamos con ' + nombre + '. Vamos, dale!');
+                var _tipWTab = _obtenerTip(nombre);
+                if (_tipWTab) hablarCoach(_tipWTab);
                 let rem = trabajo;
                 var _wkWorkDeadline = Date.now() + trabajo * 1000;
                 document.getElementById('warmup-clock').innerText = rem < 10 ? "0" + rem : rem;
@@ -3860,7 +3930,7 @@
                     if (warmupTabataPausado) return;
                     rem = Math.max(0, Math.round((_wkWorkDeadline - Date.now()) / 1000));
                     document.getElementById('warmup-clock').innerText = rem < 10 ? "0" + rem : rem;
-                    if (rem === Math.floor(trabajo / 2) && rem > 3) coachMotivacional();
+                    if (rem === Math.floor(trabajo / 2) && rem > 3) coachMotivacional(nombre);
                     if (rem <= 3 && rem > 0) beep(400);
                     if (rem <= 0) {
                         bgClearInterval(warmupTabInterval);
@@ -4080,10 +4150,12 @@
                     }
                     document.getElementById('warmup-ej').innerText = ejsMinuto.length > 0 ? ejsMinuto.join(" | ") : (Array.isArray(ejsW[ejsW.length - 1]) ? ejsW[ejsW.length - 1][0] : (ejsW[ejsW.length - 1].nombre || ""));
                 }
-                // >>> COACH: Anunciar ejercicios del minuto
+                // >>> COACH: Anunciar ejercicios del minuto + tip técnico
                 var _wEmomEsUltimo = (minActual + 1 >= mins);
                 if (_wEmomNombresMin) {
                     hablarCoach('Arrancamos con ' + _wEmomNombresMin + '. ' + _fraseRandom(_frasesMotivacionales));
+                    var _wEmomTip = _obtenerTip(_wEmomNombresMin.split(' y ')[0]);
+                    if (_wEmomTip) hablarCoach(_wEmomTip);
                     if (_wEmomEsUltimo) hablarCoach('Es el último ejercicio.');
                 } else {
                     hablarCoach('Arrancamos. ' + _fraseRandom(_frasesMotivacionales));
@@ -4187,6 +4259,13 @@
                     incrementarProgreso(1);
                     if (nextIdx < totalSeries) {
                         document.getElementById('warmup-status').innerText = "LISTA PARA SERIE " + (nextIdx + 1) + "/" + totalSeries;
+                        // >>> COACH: tip técnico al volver del descanso en warmup series
+                        var _ejsW = (dataGlobal && dataGlobal.warmup_ejercicios) || [];
+                        if (_ejsW.length > 0) {
+                            var _primerEj = Array.isArray(_ejsW[0]) ? _ejsW[0][0] : (_ejsW[0].nombre || '');
+                            var _tipWS = _obtenerTip(_primerEj);
+                            if (_tipWS) hablarCoach(_tipWS);
+                        }
                     } else {
                         document.getElementById('warmup-status').innerText = "CALENTAMIENTO LISTO!";
                         liberarWakeLock();
@@ -4197,6 +4276,7 @@
 
         // ─── RENDER PRINCIPAL ───
         function render(data) {
+            _cardCargaIdx = 0;
             renderWarmup(data);
             inicializarProgreso(data);
             document.getElementById('sec-emom-ui').style.display = "none";
@@ -4216,7 +4296,8 @@
                 ejerciciosPrincipales.forEach(function(ej) {
                     const n = Array.isArray(ej) ? ej[0] : (ej.nombre || "");
                     const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
-                    pLista.innerHTML += crearCard(n, l, "");
+                    const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
+                    pLista.innerHTML += crearCard(n, l, "", cc);
                 });
             }
         }
@@ -4272,7 +4353,7 @@
                 pLista.innerHTML += '<div class="circ-bloque-header"><span class="circ-bloque-label">Circuito ' + (bIdx + 1) + ' — ' + vBloque + ' Vueltas</span></div>';
                 b.ejercicios.forEach(function(ej) {
                     var ejU = (ej.unit || "Reps").toUpperCase();
-                    pLista.innerHTML += crearCard(ej.nombre, ej.link, ej.reps + " " + ejU);
+                    pLista.innerHTML += crearCard(ej.nombre, ej.link, ej.reps + " " + ejU, ej.con_carga);
                 });
             });
 
@@ -4325,7 +4406,7 @@
                         const link = ej.link || ej[1] || "";
                         const reps = ej.reps || ej[2] || "";
                         const ejU = (ej.unit || "Reps").toUpperCase();
-                        html += crearCard(nombre, link, reps ? reps + " " + ejU : "");
+                        html += crearCard(nombre, link, reps ? reps + " " + ejU : "", ej.con_carga);
                     });
                     html += '<div id="' + timerId + '" style="font-size:3rem; font-family:Roboto Mono,monospace; font-weight:700; color:var(--amarillo); text-align:center; margin:12px 0; text-shadow:0 0 20px var(--amarillo-glow);">' + tiempoMin + ':00</div>' +
                         '<button id="' + btnId + '" class="btn-rest" onclick="iniciarBloqueTiempoConDescuento(\'' + timerId + '\',\'' + btnId + '\',' + tiempoSeg + ')">Iniciar Bloque</button>' +
@@ -4342,7 +4423,8 @@
                     const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
                     const r = Array.isArray(ej) ? (ej[2] || "") : (ej.reps || "");
                     const ejU = Array.isArray(ej) ? ((ej[3] || "Reps").toUpperCase()) : ((ej.unit || "Reps").toUpperCase());
-                    pLista.innerHTML += crearCard(n, l, r ? r + " " + ejU : "TIEMPO");
+                    const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
+                    pLista.innerHTML += crearCard(n, l, r ? r + " " + ejU : "TIEMPO", cc);
                 });
 
                 if (dataGlobal && (!dataGlobal.config || !dataGlobal.config.trabajo)) {
@@ -4392,7 +4474,8 @@
             ejercicios.forEach(function(ej, i) {
                 const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || "");
                 const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
-                pLista.innerHTML += crearCardNumero(i + 1, ejercicios.length, n, l);
+                const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
+                pLista.innerHTML += crearCardNumero(i + 1, ejercicios.length, n, l, cc);
             });
         }
 
@@ -4428,7 +4511,7 @@
                     if (!esD) {
                         ejs.forEach(function(ej) {
                             var ejU = (ej.unit || "Reps").toUpperCase();
-                            pLista.innerHTML += crearCard(ej.nombre, ej.link || "", ej.reps ? ej.reps + " " + ejU : "EMOM");
+                            pLista.innerHTML += crearCard(ej.nombre, ej.link || "", ej.reps ? ej.reps + " " + ejU : "EMOM", ej.con_carga);
                         });
                     }
                 });
@@ -4439,7 +4522,8 @@
                     const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
                     const reps = repsDict[n] || "";
                     const ejU = (unitsDict[n] || "Reps").toUpperCase();
-                    pLista.innerHTML += crearCard(n, l, reps ? reps + " " + ejU : "EMOM");
+                    const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
+                    pLista.innerHTML += crearCard(n, l, reps ? reps + " " + ejU : "EMOM", cc);
                 });
             }
             document.getElementById('emom-status').innerText = "LISTO";
@@ -4480,7 +4564,7 @@
                     html += '<div class="circ-bloque-header"><span class="circ-bloque-label">Bloque #' + b.id + '</span></div>';
                     b.ejercicios.forEach(function(ej) {
                         var ejU = (ej.unit || "Reps").toUpperCase();
-                        html += crearCard(ej.nombre, ej.link, ej.reps + " " + ejU);
+                        html += crearCard(ej.nombre, ej.link, ej.reps + " " + ejU, ej.con_carga);
                     });
                 });
                 html += '<div id="mix-old-circ-vcount" style="color:var(--amarillo); font-weight:900; text-align:center; margin:12px 0;">Vueltas restantes: ' + vueltas + '</div>';
@@ -4500,7 +4584,7 @@
                         '<div style="color:var(--azul); font-weight:bold; margin-bottom:8px; font-size:0.8rem; letter-spacing:1px;">BLOQUE #' + b.id + ' — ' + tiempo + ' min</div>';
                     b.ejercicios.forEach(function(ej) {
                         var ejU = (ej.unit || "Reps").toUpperCase();
-                        html += crearCard(ej.nombre, ej.link, ej.reps + " " + ejU);
+                        html += crearCard(ej.nombre, ej.link, ej.reps + " " + ejU, ej.con_carga);
                     });
                     html += '<div id="' + timerIdVal + '" style="font-size:2.5rem; font-family:Roboto Mono,monospace; font-weight:700; color:var(--amarillo); text-align:center; margin:8px 0;">' + tiempo + ':00</div>' +
                         '<button id="' + btnIdVal + '" class="btn-rest" onclick="iniciarBloqueTiempoConDescuento(\'' + timerIdVal + '\',\'' + btnIdVal + '\',' + (tiempo * 60) + ')">Iniciar Bloque</button></div>';
@@ -4582,7 +4666,7 @@
                     html += '<div class="circ-bloque-header"><span class="circ-bloque-label">Bloque #' + (b.id || 1) + '</span></div>';
                     (b.ejercicios || []).forEach(function(ej) {
                         var ejU = (ej.unit || "Reps").toUpperCase();
-                        html += crearCard(ej.nombre, ej.link, (ej.reps || "") + " " + ejU);
+                        html += crearCard(ej.nombre, ej.link, (ej.reps || "") + " " + ejU, ej.con_carga);
                     });
                 });
                 html += '<button id="' + uid + '-btn-vuelta" class="btn-rest" style="margin-top:12px;" ' +
@@ -4609,7 +4693,7 @@
                         '<div style="color:var(--azul); font-weight:bold; margin-bottom:8px; font-size:0.8rem; letter-spacing:1px;">BLOQUE #' + b.id + ' — ' + tiempo + ' min</div>';
                     (b.ejercicios || []).forEach(function(ej) {
                         var ejU = (ej.unit || "Reps").toUpperCase();
-                        html += crearCard(ej.nombre || ej[0] || "", ej.link || ej[1] || "", (ej.reps || ej[2] || "") + (ej.reps ? " " + ejU : ""));
+                        html += crearCard(ej.nombre || ej[0] || "", ej.link || ej[1] || "", (ej.reps || ej[2] || "") + (ej.reps ? " " + ejU : ""), ej.con_carga);
                     });
                     var pId = uid + "-ct-pausa-" + bIdx;
                     html += '<div id="' + tId + '" style="font-size:2.5rem; font-family:Roboto Mono,monospace; font-weight:700; color:var(--amarillo); text-align:center; margin:10px 0;">' + tiempo + ':00</div>' +
@@ -4644,7 +4728,8 @@
                 rutinaTab.forEach(function(ej, i) {
                     const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || "");
                     const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
-                    htmlTab += crearCardNumero(i + 1, rutinaTab.length, n, l);
+                    const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
+                    htmlTab += crearCardNumero(i + 1, rutinaTab.length, n, l, cc);
                 });
                 htmlTab += '<button class="btn-principal" id="' + uid + '-tab-start-btn" style="background:linear-gradient(135deg,var(--naranja),#d35400); margin-top:16px; width:100%;" ' +
                     'onclick="iniciarTabataMixEnUI(' + (idx - 1) + ')">INICIAR TABATA</button></div>';
@@ -4679,7 +4764,7 @@
                         if (ejs.length > 0) {
                             ejs.forEach(function(ej) {
                                 var ejU = (ej.unit || "Reps").toUpperCase();
-                                emomHtml += crearCard(ej.nombre, ej.link || "", ej.reps ? ej.reps + " " + ejU : "EMOM");
+                                emomHtml += crearCard(ej.nombre, ej.link || "", ej.reps ? ej.reps + " " + ejU : "EMOM", ej.con_carga);
                             });
                         }
                     });
@@ -4690,7 +4775,8 @@
                         const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
                         const reps = repsDict[n] || "";
                         const ejU = (unitsDict[n] || "Reps").toUpperCase();
-                        emomHtml += crearCard(n, l, reps ? reps + " " + ejU : "EMOM");
+                        const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
+                        emomHtml += crearCard(n, l, reps ? reps + " " + ejU : "EMOM", cc);
                     });
                 }
                 var emomPausaId = emomUid + "-pausa";
@@ -4744,7 +4830,8 @@
             rutina.forEach(function(ej, i) {
                 const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej);
                 const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
-                html += crearCardNumero(i + 1, rutina.length, n, l);
+                const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
+                html += crearCardNumero(i + 1, rutina.length, n, l, cc);
             });
             html += '<div class="emom-inline-box">' +
                 '<div id="' + statusId + '" style="font-size:0.7rem; font-weight:900; letter-spacing:3px; color:var(--naranja);">LISTO PARA TABATA</div>' +
@@ -4771,7 +4858,8 @@
                 const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
                 const reps = repsDict[n] || "";
                 const ejU = (unitsDictInline[n] || "Reps").toUpperCase();
-                html += crearCard(n, l, reps ? reps + " " + ejU : "EMOM");
+                const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
+                html += crearCard(n, l, reps ? reps + " " + ejU : "EMOM", cc);
             });
             html += '<div class="emom-inline-box">' +
                 '<div id="' + statusId + '" style="font-size:0.7rem; font-weight:900; letter-spacing:3px; color:var(--amarillo);">LISTO PARA EMOM</div>' +
@@ -4906,10 +4994,12 @@
                 if (remaining <= 0) {
                     bgClearInterval(restIntervals[i]);
                     beep(800);
-                    // >>> COACH: Anunciar ejercicio al terminar descanso
+                    // >>> COACH: Anunciar ejercicio + tip técnico al terminar descanso
                     var _nombreEj = ejercicioNombres[i] || '';
                     if (_nombreEj) {
                         hablarCoach('Es momento de hacer ' + _nombreEj + '.');
+                        var _tipSeries = _obtenerTip(_nombreEj);
+                        if (_tipSeries) hablarCoach(_tipSeries);
                     }
                     timer.style.display = "none";
                     btn.classList.remove('active');
@@ -5184,7 +5274,11 @@
                         fillEl.style.transition = "none";
                     }
                     if (tSegs <= 3 && tSegs > 0) beep(400);
-                    if (tFase === "trabajo" && tSegs === Math.floor(trabajo / 2) && tSegs > 3) coachMotivacional();
+                    if (tFase === "trabajo" && tSegs === Math.floor(trabajo / 2) && tSegs > 3) {
+                        var _ejMotivTab = rutina.length > 0 ? rutina[tIdx % rutina.length] : null;
+                        var _nomMotivTab = _ejMotivTab ? (Array.isArray(_ejMotivTab) ? _ejMotivTab[0] : (_ejMotivTab.nombre || '')) : '';
+                        coachMotivacional(_nomMotivTab);
+                    }
                 }
 
                 if (tSegs <= 0) {
@@ -5203,6 +5297,8 @@
                             var _ejArr = rutina[tIdx % rutina.length];
                             var _nomArr = Array.isArray(_ejArr) ? _ejArr[0] : (_ejArr.nombre || '');
                             hablarCoach('Arrancamos con ' + _nomArr + '. Vamos, dale!');
+                            var _tipArr2 = _obtenerTip(_nomArr);
+                            if (_tipArr2) hablarCoach(_tipArr2);
                         } else {
                             hablarCoach('Vamos, dale!');
                         }
@@ -5283,6 +5379,8 @@
                                 var _ejDescanso = rutina[tIdx % rutina.length];
                                 var _nomDescanso = Array.isArray(_ejDescanso) ? _ejDescanso[0] : (_ejDescanso.nombre || '');
                                 hablarCoach('Arrancamos con ' + _nomDescanso + '. Vamos, dale!');
+                                var _tipDesc = _obtenerTip(_nomDescanso);
+                                if (_tipDesc) hablarCoach(_tipDesc);
                             } else {
                                 hablarCoach('Vamos, dale!');
                             }
@@ -5530,6 +5628,8 @@
                         var _emEsUltimoMin0 = (emomMinTotal === 1);
                         if (_emNombresMin0) {
                             hablarCoach('Arrancamos con ' + _emNombresMin0 + '. ' + _fraseRandom(_frasesMotivacionales));
+                            var _emTip0 = _obtenerTip(_emNombresMin0.split(' y ')[0]);
+                            if (_emTip0) hablarCoach(_emTip0);
                             if (_emEsUltimoMin0) hablarCoach('Es el último ejercicio.');
                         } else {
                             hablarCoach('Arrancamos. ' + _fraseRandom(_frasesMotivacionales));
@@ -5566,7 +5666,9 @@
                         var _emNombresMinN = _obtenerNombresEmomMinuto(emomMinActual, emomMinutosCiclo);
                         var _emEsUltimoMinN = (emomMinActual + 1 >= emomMinTotal);
                         if (_emNombresMinN) {
-                            hablarCoach('Arrancamos con ' + _emNombresMinN + '. ' + _fraseRandom(_frasesMotivacionales));
+                            hablarCoach('El próximo ejercicio es ' + _emNombresMinN + '.');
+                            var _emTipN = _obtenerTip(_emNombresMinN.split(' y ')[0]);
+                            if (_emTipN) hablarCoach(_emTipN);
                             if (_emEsUltimoMinN) hablarCoach('Es el último ejercicio.');
                         } else {
                             hablarCoach('Arrancamos. ' + _fraseRandom(_frasesMotivacionales));
@@ -5731,8 +5833,10 @@
                     document.getElementById(statusId).innerText = "TRABAJO";
                     document.getElementById(ejId).innerText = nombre;
                     document.getElementById(infoId).innerText = "Serie " + (ejIdx + 1) + "/" + cantidad + " — Ronda " + rondaActual + "/" + rondas;
-                    // >>> COACH: Arrancamos con ejercicio + vamos dale (Tabata Mix)
+                    // >>> COACH: Arrancamos con ejercicio + tip técnico (Tabata Mix)
                     hablarCoach('Arrancamos con ' + nombre + '. Vamos, dale!');
+                    var _tipTabMix = _obtenerTip(nombre);
+                    if (_tipTabMix) hablarCoach(_tipTabMix);
                     let t = trabajo;
                     var _ivTDeadline = Date.now() + trabajo * 1000;
                     document.getElementById(timerId).innerText = t;
@@ -5740,8 +5844,8 @@
                         if (pausado) return;
                         t = Math.max(0, Math.round((_ivTDeadline - Date.now()) / 1000));
                         document.getElementById(timerId).innerText = t;
-                        // >>> COACH: Motivacional a la mitad del trabajo (Tabata Mix)
-                        if (t === Math.floor(trabajo / 2) && t > 3) coachMotivacional();
+                        // >>> COACH: Motivacional/tip a la mitad del trabajo (Tabata Mix)
+                        if (t === Math.floor(trabajo / 2) && t > 3) coachMotivacional(nombre);
                         if (t <= 3 && t > 0) beep(400);
                         if (t <= 0) {
                             bgClearInterval(_ivT);
@@ -5859,6 +5963,7 @@
                 var _emBloqueEsUltimo = (minActual + 1 >= totalMin);
                 hablarCoach('Arrancamos. ' + _fraseRandom(_frasesMotivacionales));
                 if (_emBloqueEsUltimo) hablarCoach('Es el último ejercicio.');
+                // (sin ejercicio específico en este modo, no hay tip)
                 let rem = 60;
                 var _emBloqueDeadline = Date.now() + 60000;
                 document.getElementById(clockId).innerText = rem < 10 ? "0" + rem : rem;
@@ -5974,11 +6079,13 @@
                 document.getElementById(statusId).innerText = "¡TRABAJA!";
                 document.getElementById(roundId).innerText = "Minuto " + (minActual + 1) + " de " + totalMin;
                 mostrarEjercicios(minActual);
-                // >>> COACH: Anunciar ejercicios del minuto
+                // >>> COACH: Anunciar ejercicios del minuto + tip técnico
                 var _emcNombresMin = _obtenerNombresEmomMinuto(minActual, ciclo);
                 var _emcEsUltimoMin = (minActual + 1 >= totalMin);
                 if (_emcNombresMin) {
-                    hablarCoach('Arrancamos con ' + _emcNombresMin + '. ' + _fraseRandom(_frasesMotivacionales));
+                    hablarCoach('El próximo ejercicio es ' + _emcNombresMin + '.');
+                    var _emcTip = _obtenerTip(_emcNombresMin.split(' y ')[0]);
+                    if (_emcTip) hablarCoach(_emcTip);
                     if (_emcEsUltimoMin) hablarCoach('Es el último ejercicio.');
                 } else {
                     hablarCoach('Arrancamos. ' + _fraseRandom(_frasesMotivacionales));
