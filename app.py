@@ -150,6 +150,11 @@ def guardar_ejercicio():
         musculo1 = body.get("musculo1", "").strip()
         musculo2 = body.get("musculo2", "").strip()
         sinergista = body.get("sinergista", "").strip()
+        con_carga = body.get("con_carga", False)
+        if isinstance(con_carga, str):
+            con_carga = con_carga.lower() == "true"
+        tip1 = body.get("tip1", "").strip()
+        tip2 = body.get("tip2", "").strip()
 
         if not categoria or not nombre or not link:
             return jsonify({"ok": False, "error": "Categoria, nombre y link son obligatorios"}), 400
@@ -162,6 +167,11 @@ def guardar_ejercicio():
             ej_data["musculo2"] = musculo2
         if sinergista:
             ej_data["sinergista"] = sinergista
+        ej_data["con_carga"] = bool(con_carga)
+        if tip1:
+            ej_data["tip1"] = tip1
+        if tip2:
+            ej_data["tip2"] = tip2
 
         ref = get_db_ref(f"/videoteca/{categoria}")
         ejercicios = ref.get() or []
