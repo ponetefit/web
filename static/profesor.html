@@ -689,26 +689,6 @@
                 </div>
             </div>
 
-            <!-- Barra de dias (multi-dia) -->
-            <div id="barra-dias" class="bg-tarjeta rounded-2xl border border-borde p-4 mb-6 hidden">
-                <div class="flex items-center justify-between flex-wrap gap-3">
-                    <div class="flex items-center gap-2 flex-wrap" id="tabs-dias">
-                        <!-- Se genera dinámicamente -->
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="guardarDiaActual()" class="bg-verde/20 text-verde px-4 py-2 rounded-lg text-sm font-bold hover:bg-verde/30 transition whitespace-nowrap">Guardar Día</button>
-                        <button onclick="agregarNuevoDia()" class="bg-azul/20 text-azul px-4 py-2 rounded-lg text-sm font-bold hover:bg-azul/30 transition whitespace-nowrap">+ Agregar Día</button>
-                        <button onclick="cancelarMultiDia()" class="bg-rojo/10 text-rojo px-3 py-2 rounded-lg text-xs font-bold hover:bg-rojo/20 transition whitespace-nowrap">Cancelar</button>
-                    </div>
-                </div>
-                <p class="text-xs text-textoSuave mt-2" id="msg-multi-dia">Editando: <span class="text-amarillo font-bold" id="label-dia-activo">Día 1</span> — Guardá cada día antes de agregar el siguiente.</p>
-            </div>
-
-            <!-- Boton inicial Agregar Dia (aparece cuando no hay modo multi-dia) -->
-            <div id="btn-agregar-primer-dia" class="mb-4 flex justify-end">
-                <button onclick="activarModoMultiDia()" class="bg-amarillo/15 text-amarillo border border-amarillo/30 px-5 py-2 rounded-xl text-sm font-bold hover:bg-amarillo/25 transition">📅 Crear rutina multi-día</button>
-            </div>
-
             <!-- Calentamiento -->
             <div class="bg-tarjeta rounded-2xl border border-borde p-6 mb-6">
                 <h2 class="text-lg font-bold text-azul uppercase tracking-wider mb-4">1. Calentamiento</h2>
@@ -903,12 +883,6 @@
     let bloquesRutina = [];
     let bloqueEjsTemp = [];
     let editandoBloqueIdx = null;
-
-    // Multi-dia: array de dias guardados {warmupEjercicios, bloquesRutina, warmupTipo, warmupDetalle}
-    // El dia activo es el que se edita actualmente (warmupEjercicios + bloquesRutina)
-    let diasGuardados = []; // dias completados (dia_1, dia_2, ...) si hay mas de un dia
-    let modoMultiDia = false;
-    let diaActivoNum = 1; // numero del dia que se esta editando actualmente
 
     // Historial global
     let historialRutinasCache = {};
@@ -1221,203 +1195,6 @@
     function inicializarRutina() {
         cargarEjsWarmup();
         actualizarWarmupUI();
-        // Reset multi-dia state on tab open
-        if (!modoMultiDia) {
-            document.getElementById('barra-dias').classList.add('hidden');
-            document.getElementById('btn-agregar-primer-dia').classList.remove('hidden');
-        }
-    }
-
-    // ====================================================================
-    // MULTI-DIA
-    // ====================================================================
-
-    function activarModoMultiDia() {
-        modoMultiDia = true;
-        diasGuardados = [];
-        diaActivoNum = 1;
-        document.getElementById('barra-dias').classList.remove('hidden');
-        document.getElementById('btn-agregar-primer-dia').classList.add('hidden');
-        renderTabsDias();
-        toast('Modo multi-día activado. Armá el Día 1 y luego guardalo.');
-    }
-
-    function cancelarMultiDia() {
-        if (!confirm('¿Cancelar modo multi-día? Se perderán los días guardados.')) return;
-        modoMultiDia = false;
-        diasGuardados = [];
-        diaActivoNum = 1;
-        document.getElementById('barra-dias').classList.add('hidden');
-        document.getElementById('btn-agregar-primer-dia').classList.remove('hidden');
-        toast('Modo multi-día cancelado');
-    }
-
-    function capturarWarmupDetalle() {
-        const warmupTipo = document.getElementById('warmup-tipo').value;
-        const warmupDetalle = { tipo: warmupTipo };
-        if (warmupTipo === 'Circuito (Vueltas)') {
-            warmupDetalle.vueltas = parseInt(document.getElementById('warmup-vueltas')?.value || 2);
-            warmupDetalle.pausa_vuelta = parseInt(document.getElementById('warmup-pausa-vuelta')?.value || 30);
-        } else if (warmupTipo === 'Circuito por Tiempo') {
-            warmupDetalle.duracion_bloque = parseInt(document.getElementById('warmup-duracion')?.value || 3);
-        } else if (warmupTipo === 'Tabata') {
-            warmupDetalle.trabajo = parseInt(document.getElementById('warmup-trabajo')?.value || 20);
-            warmupDetalle.pausa = parseInt(document.getElementById('warmup-pausa')?.value || 10);
-        } else if (warmupTipo === 'EMOM') {
-            warmupDetalle.minutos = parseInt(document.getElementById('warmup-minutos')?.value || 5);
-        } else if (warmupTipo === 'Series/Reps') {
-            warmupDetalle.series = parseInt(document.getElementById('warmup-series')?.value || 3);
-            warmupDetalle.reps = parseInt(document.getElementById('warmup-reps-val')?.value || 10);
-        }
-        return { warmupTipo, warmupDetalle };
-    }
-
-    function guardarDiaActual() {
-        if (warmupEjercicios.length === 0 && bloquesRutina.length === 0) {
-            toast('Agreg ejercicios al calentamiento o bloques antes de guardar el día');
-            return;
-        }
-        const { warmupTipo, warmupDetalle } = capturarWarmupDetalle();
-        const diaData = {
-            warmupEjercicios: [...warmupEjercicios],
-            bloquesRutina: JSON.parse(JSON.stringify(bloquesRutina)),
-            warmupTipo,
-            warmupDetalle
-        };
-        // Si el dia ya existe (editando), reemplazarlo
-        if (diaActivoNum <= diasGuardados.length) {
-            diasGuardados[diaActivoNum - 1] = diaData;
-        } else {
-            diasGuardados.push(diaData);
-        }
-        renderTabsDias();
-        toast('Día ' + diaActivoNum + ' guardado ✓');
-    }
-
-    function agregarNuevoDia() {
-        // Primero asegurarse de que el dia actual tenga datos guardados
-        const numGuardados = diasGuardados.length;
-        if (numGuardados < diaActivoNum) {
-            toast('Guardá el Día ' + diaActivoNum + ' antes de agregar otro');
-            return;
-        }
-        // Limpiar editor para el nuevo dia
-        diaActivoNum = numGuardados + 1;
-        warmupEjercicios = [];
-        bloquesRutina = [];
-        renderWarmupEjs();
-        renderBloques();
-        // Reset warmup UI
-        document.getElementById('warmup-tipo').value = 'Circuito (Vueltas)';
-        actualizarWarmupUI();
-        renderTabsDias();
-        toast('Editando Día ' + diaActivoNum + '. Armá la rutina y guardala.');
-    }
-
-    function editarDia(num) {
-        // Guardar dia actual si tiene datos sin guardar
-        if (warmupEjercicios.length > 0 || bloquesRutina.length > 0) {
-            if (!confirm('¿Cambiar de día? El progreso actual no guardado se perderá.')) return;
-        }
-        diaActivoNum = num;
-        const diaData = diasGuardados[num - 1];
-        if (diaData) {
-            warmupEjercicios = [...diaData.warmupEjercicios];
-            bloquesRutina = JSON.parse(JSON.stringify(diaData.bloquesRutina));
-            // Restaurar warmup tipo
-            const wTipoEl = document.getElementById('warmup-tipo');
-            if (wTipoEl && diaData.warmupTipo) {
-                wTipoEl.value = diaData.warmupTipo;
-                actualizarWarmupUI();
-                setTimeout(() => {
-                    const wd = diaData.warmupDetalle || {};
-                    if (diaData.warmupTipo === 'Circuito (Vueltas)') {
-                        const v = document.getElementById('warmup-vueltas'); if (v) v.value = wd.vueltas || 2;
-                        const p = document.getElementById('warmup-pausa-vuelta'); if (p) p.value = wd.pausa_vuelta || 30;
-                    } else if (diaData.warmupTipo === 'Circuito por Tiempo') {
-                        const d = document.getElementById('warmup-duracion'); if (d) d.value = wd.duracion_bloque || 3;
-                    } else if (diaData.warmupTipo === 'Tabata') {
-                        const t = document.getElementById('warmup-trabajo'); if (t) t.value = wd.trabajo || 20;
-                        const p = document.getElementById('warmup-pausa'); if (p) p.value = wd.pausa || 10;
-                    } else if (diaData.warmupTipo === 'EMOM') {
-                        const m = document.getElementById('warmup-minutos'); if (m) m.value = wd.minutos || 5;
-                    }
-                }, 50);
-            }
-            renderWarmupEjs();
-            renderBloques();
-        } else {
-            warmupEjercicios = [];
-            bloquesRutina = [];
-            renderWarmupEjs();
-            renderBloques();
-        }
-        renderTabsDias();
-    }
-
-    function renderTabsDias() {
-        const container = document.getElementById('tabs-dias');
-        const labelActivo = document.getElementById('label-dia-activo');
-        if (labelActivo) labelActivo.textContent = 'Día ' + diaActivoNum;
-        let html = '';
-        // Mostrar tabs de dias guardados
-        const totalDias = Math.max(diasGuardados.length, diaActivoNum);
-        for (let i = 1; i <= totalDias; i++) {
-            const guardado = i <= diasGuardados.length;
-            const activo = i === diaActivoNum;
-            const clsBase = activo
-                ? 'bg-naranja text-white border-naranja'
-                : (guardado ? 'bg-verde/20 text-verde border-verde/40' : 'bg-fondoAlt text-textoSuave border-borde');
-            html += `<button onclick="editarDia(${i})" class="px-4 py-1.5 rounded-lg text-xs font-bold border transition ${clsBase}">
-                Día ${i}${guardado && !activo ? ' ✓' : ''}
-            </button>`;
-        }
-        container.innerHTML = html;
-    }
-
-    // Construye el payload de un dia (warmupEjs, bloquesData) a partir de datos guardados
-    function construirPayloadDia(diaData) {
-        const warmupEjsExport = diaData.warmupEjercicios.map(e => [e.nombre, e.link, e.reps || '', e.unit || 'Reps']);
-        const wd = diaData.warmupDetalle || {};
-        const wt = diaData.warmupTipo || 'Circuito (Vueltas)';
-        let tipo = 'ENTRENAMIENTO';
-        let datos = {};
-        const bs = diaData.bloquesRutina;
-        if (bs.length === 1) {
-            tipo = bs[0].tipo;
-            const b = bs[0];
-            if (tipo === 'Circuito') {
-                datos = { datos: [{ id: 1, ejercicios: b.ejercicios }], vueltas_bloque: b.vueltas, pausa_vuelta: b.pausa_vuelta, descripcion: b.descripcion || '' };
-            } else if (tipo === 'Circuito por Tiempo') {
-                datos = { datos: [{ id: 1, ejercicios: b.ejercicios, tiempo_min: b.duracion_min }], descripcion: b.descripcion || '' };
-            } else if (tipo === 'Tabata') {
-                datos = { rutina: b.ejercicios.map(e => [e.nombre, e.link]), trabajo: b.trabajo, pausa: b.pausa, rondas: b.rondas, cantidad: b.ejercicios.length, pausa_entre_rondas: b.pausa_entre_rondas || 0, descripcion: b.descripcion || '' };
-            } else if (tipo === 'EMOM') {
-                const repsDict = {}; const unitsDict = {};
-                b.ejercicios.forEach(e => { repsDict[e.nombre] = e.reps; unitsDict[e.nombre] = e.unit; });
-                const ciclo = [];
-                for (let m = 0; m < b.minutos_totales; m++) {
-                    const ejsMin = [];
-                    for (let j = 0; j < b.ejercicios_por_minuto; j++) {
-                        const idx = (m * b.ejercicios_por_minuto + j) % b.ejercicios.length;
-                        const e = b.ejercicios[idx];
-                        ejsMin.push({ nombre: e.nombre, link: e.link, reps: e.reps, unit: e.unit });
-                    }
-                    ciclo.push({ ejercicios: ejsMin, es_descanso: false });
-                }
-                datos = { rutina: b.ejercicios.map(e => [e.nombre, e.link]), minutos_totales: b.minutos_totales, ejercicios_por_minuto: b.ejercicios_por_minuto, reps_por_ejercicio: repsDict, units_por_ejercicio: unitsDict, minutos_ciclo: ciclo, descripcion: b.descripcion || '' };
-            } else if (tipo === 'Series') {
-                datos = { datos: b.ejercicios, descripcion: b.descripcion || '' };
-            }
-        } else {
-            tipo = 'ENTRENAMIENTO';
-            datos = { bloques: bs, descripcion: '' };
-        }
-        datos.warmup_ejercicios = warmupEjsExport;
-        datos.warmup_tipo = wt;
-        datos.warmup_vueltas = wd.vueltas || 2;
-        datos.warmup_config_detalle = wd;
-        return { tipo, datos };
     }
 
     // --- Warmup ---
@@ -1955,153 +1732,113 @@
         const alumno = document.getElementById('alumno-nombre').value.trim() || 'ALUMNO';
         const descGlobal = document.getElementById('rutina-desc').value.trim();
 
+        if (warmupEjercicios.length === 0 && bloquesRutina.length === 0) {
+            toast('Agrega ejercicios al calentamiento o bloques');
+            return;
+        }
+
+        // Determinar tipo
+        let tipo = 'ENTRENAMIENTO';
+        if (bloquesRutina.length === 1) {
+            tipo = bloquesRutina[0].tipo;
+        }
+
+        // Construir warmup config detalle
+        const warmupTipo = document.getElementById('warmup-tipo').value;
+        const warmupDetalle = { tipo: warmupTipo };
+        if (warmupTipo === 'Circuito (Vueltas)') {
+            warmupDetalle.vueltas = parseInt(document.getElementById('warmup-vueltas')?.value || 2);
+            warmupDetalle.pausa_vuelta = parseInt(document.getElementById('warmup-pausa-vuelta')?.value || 30);
+        } else if (warmupTipo === 'Circuito por Tiempo') {
+            warmupDetalle.duracion_bloque = parseInt(document.getElementById('warmup-duracion')?.value || 3);
+        } else if (warmupTipo === 'Tabata') {
+            warmupDetalle.trabajo = parseInt(document.getElementById('warmup-trabajo')?.value || 20);
+            warmupDetalle.pausa = parseInt(document.getElementById('warmup-pausa')?.value || 10);
+        } else if (warmupTipo === 'EMOM') {
+            warmupDetalle.minutos = parseInt(document.getElementById('warmup-minutos')?.value || 5);
+        } else if (warmupTipo === 'Series/Reps') {
+            warmupDetalle.series = parseInt(document.getElementById('warmup-series')?.value || 3);
+            warmupDetalle.reps = parseInt(document.getElementById('warmup-reps-val')?.value || 10);
+        }
+
+        // Construir warmup ejercicios como arrays [nombre, link, reps, unit]
+        const warmupEjsExport = warmupEjercicios.map(e => [e.nombre, e.link, e.reps || '', e.unit || 'Reps']);
+
+        // Construir datos del bloque principal
+        let datos = {};
+        if (bloquesRutina.length === 1 && tipo !== 'ENTRENAMIENTO') {
+            const b = bloquesRutina[0];
+            if (tipo === 'Circuito') {
+                datos = {
+                    datos: [{ id: 1, ejercicios: b.ejercicios }],
+                    vueltas_bloque: b.vueltas,
+                    pausa_vuelta: b.pausa_vuelta,
+                    descripcion: b.descripcion || descGlobal
+                };
+            } else if (tipo === 'Circuito por Tiempo') {
+                datos = {
+                    datos: [{ id: 1, ejercicios: b.ejercicios, tiempo_min: b.duracion_min }],
+                    descripcion: b.descripcion || descGlobal
+                };
+            } else if (tipo === 'Tabata') {
+                datos = {
+                    rutina: b.ejercicios.map(e => [e.nombre, e.link]),
+                    trabajo: b.trabajo, pausa: b.pausa,
+                    rondas: b.rondas, cantidad: b.ejercicios.length,
+                    pausa_entre_rondas: b.pausa_entre_rondas,
+                    descripcion: b.descripcion || descGlobal
+                };
+            } else if (tipo === 'EMOM') {
+                const repsDict = {};
+                const unitsDict = {};
+                b.ejercicios.forEach(e => { repsDict[e.nombre] = e.reps; unitsDict[e.nombre] = e.unit; });
+                // Crear ciclo minuto a minuto
+                const ciclo = [];
+                for (let m = 0; m < b.minutos_totales; m++) {
+                    const ejsMin = [];
+                    for (let j = 0; j < b.ejercicios_por_minuto; j++) {
+                        const idx = (m * b.ejercicios_por_minuto + j) % b.ejercicios.length;
+                        const e = b.ejercicios[idx];
+                        ejsMin.push({ nombre: e.nombre, link: e.link, reps: e.reps, unit: e.unit });
+                    }
+                    ciclo.push({ ejercicios: ejsMin, es_descanso: false });
+                }
+                datos = {
+                    rutina: b.ejercicios.map(e => [e.nombre, e.link]),
+                    minutos_totales: b.minutos_totales,
+                    ejercicios_por_minuto: b.ejercicios_por_minuto,
+                    reps_por_ejercicio: repsDict,
+                    units_por_ejercicio: unitsDict,
+                    minutos_ciclo: ciclo,
+                    descripcion: b.descripcion || descGlobal
+                };
+            } else if (tipo === 'Series') {
+                tipo = 'Series';
+                datos = {
+                    datos: b.ejercicios,
+                    descripcion: b.descripcion || descGlobal
+                };
+            }
+        } else {
+            // Mix / ENTRENAMIENTO
+            tipo = 'ENTRENAMIENTO';
+            datos = {
+                bloques: bloquesRutina,
+                descripcion: descGlobal
+            };
+        }
+
+        // Agregar warmup al payload
+        datos.warmup_ejercicios = warmupEjsExport;
+        datos.warmup_tipo = warmupTipo;
+        datos.warmup_vueltas = warmupDetalle.vueltas || 2;
+        datos.warmup_config_detalle = warmupDetalle;
+
         const btn = document.querySelector('[onclick="compartirRutina()"]');
         btn.innerText = 'SUBIENDO...';
         btn.disabled = true;
 
         try {
-            let tipo, datos;
-
-            if (modoMultiDia && diasGuardados.length > 0) {
-                // ── MODO MULTI-DIA ────────────────────────────────────────
-                // Guardar el dia activo si tiene contenido no guardado
-                if (warmupEjercicios.length > 0 || bloquesRutina.length > 0) {
-                    const diasTemp = [...diasGuardados];
-                    const { warmupTipo: wt, warmupDetalle: wd } = capturarWarmupDetalle();
-                    const diaActualData = {
-                        warmupEjercicios: [...warmupEjercicios],
-                        bloquesRutina: JSON.parse(JSON.stringify(bloquesRutina)),
-                        warmupTipo: wt,
-                        warmupDetalle: wd
-                    };
-                    if (diaActivoNum <= diasTemp.length) {
-                        diasTemp[diaActivoNum - 1] = diaActualData;
-                    } else {
-                        diasTemp.push(diaActualData);
-                    }
-                    diasGuardados = diasTemp;
-                }
-
-                if (diasGuardados.length === 0) {
-                    toast('Agrega y guarda al menos un día');
-                    btn.innerText = 'COMPARTIR RUTINA'; btn.disabled = false;
-                    return;
-                }
-
-                // Construir payload multi-dia
-                tipo = 'MULTI-DIA';
-                const diasPayload = {};
-                diasGuardados.forEach((diaData, idx) => {
-                    const { tipo: dTipo, datos: dDatos } = construirPayloadDia(diaData);
-                    diasPayload['dia_' + (idx + 1)] = { tipo: dTipo, ...dDatos };
-                });
-                datos = {
-                    dias: diasPayload,
-                    total_dias: diasGuardados.length,
-                    descripcion: descGlobal
-                };
-
-            } else {
-                // ── MODO UN SOLO DIA (original) ────────────────────────────
-                if (warmupEjercicios.length === 0 && bloquesRutina.length === 0) {
-                    toast('Agrega ejercicios al calentamiento o bloques');
-                    btn.innerText = 'COMPARTIR RUTINA'; btn.disabled = false;
-                    return;
-                }
-
-                // Determinar tipo
-                tipo = 'ENTRENAMIENTO';
-                if (bloquesRutina.length === 1) {
-                    tipo = bloquesRutina[0].tipo;
-                }
-
-                // Construir warmup config detalle
-                const warmupTipo = document.getElementById('warmup-tipo').value;
-                const warmupDetalle = { tipo: warmupTipo };
-                if (warmupTipo === 'Circuito (Vueltas)') {
-                    warmupDetalle.vueltas = parseInt(document.getElementById('warmup-vueltas')?.value || 2);
-                    warmupDetalle.pausa_vuelta = parseInt(document.getElementById('warmup-pausa-vuelta')?.value || 30);
-                } else if (warmupTipo === 'Circuito por Tiempo') {
-                    warmupDetalle.duracion_bloque = parseInt(document.getElementById('warmup-duracion')?.value || 3);
-                } else if (warmupTipo === 'Tabata') {
-                    warmupDetalle.trabajo = parseInt(document.getElementById('warmup-trabajo')?.value || 20);
-                    warmupDetalle.pausa = parseInt(document.getElementById('warmup-pausa')?.value || 10);
-                } else if (warmupTipo === 'EMOM') {
-                    warmupDetalle.minutos = parseInt(document.getElementById('warmup-minutos')?.value || 5);
-                } else if (warmupTipo === 'Series/Reps') {
-                    warmupDetalle.series = parseInt(document.getElementById('warmup-series')?.value || 3);
-                    warmupDetalle.reps = parseInt(document.getElementById('warmup-reps-val')?.value || 10);
-                }
-
-                const warmupEjsExport = warmupEjercicios.map(e => [e.nombre, e.link, e.reps || '', e.unit || 'Reps']);
-
-                datos = {};
-                if (bloquesRutina.length === 1 && tipo !== 'ENTRENAMIENTO') {
-                    const b = bloquesRutina[0];
-                    if (tipo === 'Circuito') {
-                        datos = {
-                            datos: [{ id: 1, ejercicios: b.ejercicios }],
-                            vueltas_bloque: b.vueltas,
-                            pausa_vuelta: b.pausa_vuelta,
-                            descripcion: b.descripcion || descGlobal
-                        };
-                    } else if (tipo === 'Circuito por Tiempo') {
-                        datos = {
-                            datos: [{ id: 1, ejercicios: b.ejercicios, tiempo_min: b.duracion_min }],
-                            descripcion: b.descripcion || descGlobal
-                        };
-                    } else if (tipo === 'Tabata') {
-                        datos = {
-                            rutina: b.ejercicios.map(e => [e.nombre, e.link]),
-                            trabajo: b.trabajo, pausa: b.pausa,
-                            rondas: b.rondas, cantidad: b.ejercicios.length,
-                            pausa_entre_rondas: b.pausa_entre_rondas,
-                            descripcion: b.descripcion || descGlobal
-                        };
-                    } else if (tipo === 'EMOM') {
-                        const repsDict = {};
-                        const unitsDict = {};
-                        b.ejercicios.forEach(e => { repsDict[e.nombre] = e.reps; unitsDict[e.nombre] = e.unit; });
-                        const ciclo = [];
-                        for (let m = 0; m < b.minutos_totales; m++) {
-                            const ejsMin = [];
-                            for (let j = 0; j < b.ejercicios_por_minuto; j++) {
-                                const idx = (m * b.ejercicios_por_minuto + j) % b.ejercicios.length;
-                                const e = b.ejercicios[idx];
-                                ejsMin.push({ nombre: e.nombre, link: e.link, reps: e.reps, unit: e.unit });
-                            }
-                            ciclo.push({ ejercicios: ejsMin, es_descanso: false });
-                        }
-                        datos = {
-                            rutina: b.ejercicios.map(e => [e.nombre, e.link]),
-                            minutos_totales: b.minutos_totales,
-                            ejercicios_por_minuto: b.ejercicios_por_minuto,
-                            reps_por_ejercicio: repsDict,
-                            units_por_ejercicio: unitsDict,
-                            minutos_ciclo: ciclo,
-                            descripcion: b.descripcion || descGlobal
-                        };
-                    } else if (tipo === 'Series') {
-                        tipo = 'Series';
-                        datos = {
-                            datos: b.ejercicios,
-                            descripcion: b.descripcion || descGlobal
-                        };
-                    }
-                } else {
-                    tipo = 'ENTRENAMIENTO';
-                    datos = {
-                        bloques: bloquesRutina,
-                        descripcion: descGlobal
-                    };
-                }
-
-                datos.warmup_ejercicios = warmupEjsExport;
-                datos.warmup_tipo = warmupTipo;
-                datos.warmup_vueltas = warmupDetalle.vueltas || 2;
-                datos.warmup_config_detalle = warmupDetalle;
-            }
-
             const res = await fetch(API_BASE + '/api/rutina/compartir', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -2110,20 +1847,9 @@
             const data = await res.json();
             if (data.ok) {
                 document.getElementById('modal-codigo-text').innerText = data.codigo.toUpperCase();
-                const infoTxt = modoMultiDia
-                    ? `Rutina multi-día (${diasGuardados.length} días) asignada a ${data.alumno}`
-                    : `Rutina tipo ${data.tipo} asignada a ${data.alumno}`;
-                document.getElementById('modal-info').innerText = infoTxt;
+                document.getElementById('modal-info').innerText = `Rutina tipo ${data.tipo} asignada a ${data.alumno}`;
                 document.getElementById('modal-codigo').classList.remove('hidden');
                 toast('Rutina compartida!');
-                // Reset multi-dia state
-                if (modoMultiDia) {
-                    modoMultiDia = false;
-                    diasGuardados = [];
-                    diaActivoNum = 1;
-                    document.getElementById('barra-dias').classList.add('hidden');
-                    document.getElementById('btn-agregar-primer-dia').classList.remove('hidden');
-                }
             } else {
                 toast('Error: ' + data.error);
             }
