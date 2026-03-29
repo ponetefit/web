@@ -1212,15 +1212,27 @@
         const colorBorde = idx === 0 ? 'azul' : (idx === 1 ? 'verde' : (idx === 2 ? 'purpura' : 'naranja'));
         return `<div class="dia-card bg-tarjeta rounded-2xl border border-borde overflow-hidden" id="dia-card-${idx}">
             <!-- Cabecera del dia -->
-            <div class="flex items-center justify-between px-6 py-4 cursor-pointer border-b border-borde/50" onclick="toggleDia(${idx})">
-                <div class="flex items-center gap-3">
-                    <span class="w-8 h-8 rounded-full bg-${colorBorde}/20 text-${colorBorde} flex items-center justify-center text-sm font-black">${idx + 1}</span>
-                    <h2 class="text-base font-black text-texto uppercase tracking-wider">${dia.titulo}</h2>
-                    <span class="text-xs text-textoSuave">${dia.warmupEjercicios.length} cal · ${dia.bloquesRutina.length} bloque(s)</span>
+            <div class="flex items-center justify-between px-4 py-3 border-b border-borde/50">
+                <div class="flex items-center gap-3 flex-1 min-w-0" onclick="toggleDia(${idx})" style="cursor:pointer;">
+                    <span class="w-8 h-8 rounded-full bg-${colorBorde}/20 text-${colorBorde} flex items-center justify-center text-sm font-black flex-shrink-0">${idx + 1}</span>
+                    <input
+                        id="dia-titulo-${idx}"
+                        type="text"
+                        value="${dia.titulo}"
+                        onclick="event.stopPropagation()"
+                        onchange="renameDia(${idx}, this.value)"
+                        onkeydown="if(event.key==='Enter')this.blur()"
+                        title="Clic para editar el nombre del día"
+                        class="bg-transparent border-0 border-b border-transparent hover:border-borde focus:border-naranja focus:outline-none text-base font-black text-texto uppercase tracking-wider w-full min-w-0 transition-colors duration-150 cursor-text px-1 py-0.5"
+                        style="max-width:220px;"
+                    >
+                    <span class="text-xs text-textoSuave whitespace-nowrap flex-shrink-0 dia-badge-count">${dia.warmupEjercicios.length} cal · ${dia.bloquesRutina.length} bloque(s)</span>
                 </div>
-                <div class="flex items-center gap-2">
-                    ${diasData.length > 1 ? '<button onclick="event.stopPropagation();eliminarDia(' + idx + ')" class="text-rojo/60 hover:text-rojo text-sm font-bold px-2 py-1 rounded transition">✕ Eliminar</button>' : ''}
-                    <svg id="dia-chevron-${idx}" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-textoSuave transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                    ${diasData.length > 1 ? '<button onclick="eliminarDia(' + idx + ')" class="text-rojo/50 hover:text-rojo text-xs font-bold px-2 py-1 rounded transition">✕</button>' : ''}
+                    <div onclick="toggleDia(${idx})" style="cursor:pointer;">
+                        <svg id="dia-chevron-${idx}" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-textoSuave transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </div>
                 </div>
             </div>
             <!-- Contenido del dia (colapsable) -->
@@ -1379,18 +1391,24 @@
         if (!lista || !diasData[idx]) return;
         const ejs = diasData[idx].warmupEjercicios;
         if (ejs.length === 0) { lista.innerHTML = ''; return; }
+        const svgHandle = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.8"/><circle cx="15" cy="5" r="1.8"/><circle cx="9" cy="12" r="1.8"/><circle cx="15" cy="12" r="1.8"/><circle cx="9" cy="19" r="1.8"/><circle cx="15" cy="19" r="1.8"/></svg>';
         lista.innerHTML = ejs.map((ej, i) => {
             const linkEsc = (ej.link || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
             const nombreEsc = (ej.nombre || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
-            return '<div class="exercise-chip flex items-center justify-between bg-fondoAlt rounded-xl px-4 py-2.5 border border-borde/50">' +
-                '<div class="flex items-center gap-3">' +
-                '<span class="text-xs text-textoSuave font-mono">' + (i+1) + '</span>' +
-                '<span class="text-sm font-bold ej-hover-preview" data-video-url="' + linkEsc + '" data-ej-nombre="' + nombreEsc + '" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()">' + ej.nombre + '</span>' +
-                (ej.reps ? '<span class="text-xs text-amarillo font-bold">' + ej.reps + ' ' + ej.unit + '</span>' : '') +
+            return '<div class="exercise-chip flex items-center justify-between bg-fondoAlt rounded-xl px-3 py-2.5 border border-borde/50"' +
+                ' draggable="true" data-idx="' + i + '" data-list="warmup-dia-' + idx + '"' +
+                ' ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)">' +
+                '<div class="flex items-center gap-2 flex-1 min-w-0">' +
+                '<span class="drag-handle flex-shrink-0" title="Arrastrar">' + svgHandle + '</span>' +
+                '<span class="text-xs text-textoSuave font-mono flex-shrink-0">' + (i+1) + '</span>' +
+                '<span class="text-sm font-bold ej-hover-preview truncate" data-video-url="' + linkEsc + '" data-ej-nombre="' + nombreEsc + '" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">' + ej.nombre + '</span>' +
+                (ej.reps ? '<span class="text-xs text-amarillo font-bold flex-shrink-0">' + ej.reps + ' ' + ej.unit + '</span>' : '') +
                 '</div>' +
-                '<button onclick="quitarEjWarmupDia(' + idx + ',' + i + ')" class="text-rojo hover:text-red-400 text-lg font-bold leading-none">&times;</button>' +
+                '<button onclick="quitarEjWarmupDia(' + idx + ',' + i + ')" class="text-rojo hover:text-red-400 text-lg font-bold leading-none flex-shrink-0 ml-2">&times;</button>' +
                 '</div>';
         }).join('');
+        // Activar touch drag para esta lista
+        initTouchDragForListDia(lista, 'warmup-dia-' + idx, idx);
     }
 
     // ── Bloques por dia ───────────────────────────────────────────────────
@@ -1421,20 +1439,39 @@
         }
         if (sinBloques) sinBloques.style.display = 'none';
         const colores = { 'Circuito': 'naranja', 'Circuito por Tiempo': 'azul', 'Tabata': 'rojo', 'EMOM': 'amarillo', 'Series': 'verde' };
+        const svgHandle = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><circle cx="9" cy="5" r="1.8"/><circle cx="15" cy="5" r="1.8"/><circle cx="9" cy="12" r="1.8"/><circle cx="15" cy="12" r="1.8"/><circle cx="9" cy="19" r="1.8"/><circle cx="15" cy="19" r="1.8"/></svg>';
         lista.innerHTML = bloques.map((b, i) => {
             const color = colores[b.tipo] || 'purpura';
-            const ejCount = (b.ejercicios || []).length;
-            return '<div class="bg-fondoAlt rounded-2xl border border-' + color + '/30 p-4 flex items-center justify-between">' +
-                '<div>' +
-                '<span class="inline-block px-2 py-0.5 rounded text-xs font-bold bg-' + color + '/20 text-' + color + ' uppercase tracking-wider mb-1">' + b.tipo + '</span>' +
-                '<p class="text-sm font-bold text-texto">' + ejCount + ' ejercicio(s)' + (b.descripcion ? ' · ' + b.descripcion : '') + '</p>' +
+            const ejs = b.ejercicios || [];
+            // Preview pills de ejercicios
+            const ejPills = ejs.slice(0, 6).map(e => {
+                const n = typeof e === 'object' ? (e.nombre || '') : (Array.isArray(e) ? e[0] : '');
+                return n ? '<span style="display:inline-block;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;font-size:0.65rem;color:#8a8a9a;white-space:nowrap;">' + n + '</span>' : '';
+            }).filter(Boolean).join('');
+            const masEjs = ejs.length > 6 ? '<span style="font-size:0.65rem;color:#8a8a9a;padding:2px 4px;">+' + (ejs.length - 6) + '</span>' : '';
+            return '<div class="exercise-chip bg-fondoAlt rounded-2xl border border-' + color + '/30 p-3"' +
+                ' draggable="true" data-idx="' + i + '" data-list="bloques-dia-' + idx + '"' +
+                ' ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)">' +
+                '<div class="flex items-start justify-between gap-2">' +
+                '<div class="flex items-start gap-2 flex-1 min-w-0">' +
+                '<span class="drag-handle mt-1 text-textoSuave flex-shrink-0">' + svgHandle + '</span>' +
+                '<div class="flex-1 min-w-0">' +
+                '<div class="flex items-center gap-2 mb-1.5">' +
+                '<span class="px-2 py-0.5 rounded text-xs font-bold bg-' + color + '/20 text-' + color + ' uppercase tracking-wider">' + b.tipo + '</span>' +
+                (b.descripcion ? '<span class="text-xs text-textoSuave truncate">' + b.descripcion + '</span>' : '') +
                 '</div>' +
-                '<div class="flex gap-2">' +
-                '<button onclick="editarBloqueDia(' + idx + ',' + i + ')" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">Editar</button>' +
-                '<button onclick="eliminarBloqueDia(' + idx + ',' + i + ')" class="bg-rojo/20 text-rojo px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition">Eliminar</button>' +
+                (ejPills || masEjs ? '<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">' + ejPills + masEjs + '</div>' : '<p class="text-xs text-textoSuave">' + ejs.length + ' ejercicio(s)</p>') +
+                '</div>' +
+                '</div>' +
+                '<div class="flex gap-1.5 flex-shrink-0">' +
+                '<button onclick="editarBloqueDia(' + idx + ',' + i + ')" class="bg-azul/20 text-azul px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">Editar</button>' +
+                '<button onclick="eliminarBloqueDia(' + idx + ',' + i + ')" class="bg-rojo/20 text-rojo px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition">✕</button>' +
+                '</div>' +
                 '</div>' +
                 '</div>';
         }).join('');
+        // Activar drag & drop de bloques
+        initTouchDragForListDia(lista, 'bloques-dia-' + idx, idx);
     }
 
     function editarBloqueDia(diaIdx, bloqueIdx) {
@@ -1452,7 +1489,8 @@
     function actualizarBadgeDia(idx) {
         const card = document.getElementById('dia-card-' + idx);
         if (!card || !diasData[idx]) return;
-        const badge = card.querySelector('span.text-xs.text-textoSuave');
+        // Use the specific class we set in crearHTMLDia
+        const badge = card.querySelector('.dia-badge-count');
         if (badge) {
             badge.textContent = diasData[idx].warmupEjercicios.length + ' cal · ' + diasData[idx].bloquesRutina.length + ' bloque(s)';
         }
@@ -1842,6 +1880,11 @@
         if (listType === 'warmup') return warmupEjercicios;
         if (listType === 'bloque') return bloqueEjsTemp;
         if (listType === 'bloques') return bloquesRutina;
+        // Per-day list types: "warmup-dia-N" and "bloques-dia-N"
+        const wmMatch = listType.match(/^warmup-dia-(\d+)$/);
+        if (wmMatch) { const i = parseInt(wmMatch[1]); return diasData[i] ? diasData[i].warmupEjercicios : null; }
+        const blMatch = listType.match(/^bloques-dia-(\d+)$/);
+        if (blMatch) { const i = parseInt(blMatch[1]); return diasData[i] ? diasData[i].bloquesRutina : null; }
         return null;
     }
 
@@ -1849,6 +1892,10 @@
         if (listType === 'warmup') renderWarmupEjs();
         if (listType === 'bloque') renderBloqueEjsTemp();
         if (listType === 'bloques') renderBloques();
+        const wmMatch = listType.match(/^warmup-dia-(\d+)$/);
+        if (wmMatch) { const i = parseInt(wmMatch[1]); renderWarmupEjsDia(i); actualizarBadgeDia(i); return; }
+        const blMatch = listType.match(/^bloques-dia-(\d+)$/);
+        if (blMatch) { const i = parseInt(blMatch[1]); renderBloquesDia(i); actualizarBadgeDia(i); return; }
     }
 
     function getDraggableParent(el) {
@@ -1993,6 +2040,29 @@
         });
     }
 
+    // Touch drag wrapper for per-day lists (reuses initTouchDragForList logic)
+    function initTouchDragForListDia(container, listType, diaIdx) {
+        // Reuse the generic initTouchDragForList but with per-day list type
+        // We monkey-patch by temporarily passing the correct listType via dataset
+        const items = container.querySelectorAll('[draggable="true"]');
+        items.forEach(item => {
+            item.dataset.list = listType; // ensure correct type is set
+        });
+        initTouchDragForList(container, listType);
+    }
+
+    // Renombrar un dia (llamado desde el input editable)
+    function renameDia(idx, nuevoTitulo) {
+        const titulo = nuevoTitulo.trim();
+        if (!titulo || !diasData[idx]) return;
+        diasData[idx].titulo = titulo;
+        // Actualizar el placeholder del sin-bloques si existe
+        const sinBloques = document.getElementById('sin-bloques-' + idx);
+        if (sinBloques) sinBloques.innerHTML = 'Hacé clic en "+ Agregar Bloque" para armar el ' + titulo;
+        // Re-sync badge
+        actualizarBadgeDia(idx);
+    }
+
     // --- Compartir ---
     async function compartirRutina() {
         const alumno = document.getElementById('alumno-nombre').value.trim() || 'ALUMNO';
@@ -2080,7 +2150,12 @@
                 payload = { alumno, tipo, datos };
             } else {
                 // ── Rutina multi-dia ───────────────────────────────────────
-                const dias = diasData.map((dia, i) => {
+                // Sincronizar títulos desde los inputs antes de enviar
+            diasData.forEach((dia, i) => {
+                const inp = document.getElementById('dia-titulo-' + i);
+                if (inp && inp.value.trim()) dia.titulo = inp.value.trim();
+            });
+            const dias = diasData.map((dia, i) => {
                     const { tipo, datos } = buildDatosDia(dia, i);
                     return { titulo: dia.titulo, tipo, datos };
                 });
