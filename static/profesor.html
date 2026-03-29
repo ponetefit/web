@@ -795,15 +795,13 @@
     <!-- Modal Nueva Categoria -->
     <div id="modal-nueva-cat" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-6">
         <div class="bg-tarjeta rounded-2xl border border-borde p-6 max-w-sm w-full">
-            <h3 class="text-sm font-bold text-verde uppercase tracking-wider mb-4">Agregar Categoría</h3>
-            <p class="text-xs text-textoSuave mb-4">Seleccioná la zona del cuerpo a agregar:</p>
-            <div class="grid grid-cols-2 gap-3 mb-4">
-                <button onclick="crearCategoria('Brazos')" class="py-3 rounded-xl bg-naranja/10 border border-naranja/30 text-naranja font-bold text-sm hover:bg-naranja/20 transition">💪 Brazos</button>
-                <button onclick="crearCategoria('Piernas')" class="py-3 rounded-xl bg-azul/10 border border-azul/30 text-azul font-bold text-sm hover:bg-azul/20 transition">🦵 Piernas</button>
-                <button onclick="crearCategoria('Zona Media')" class="py-3 rounded-xl bg-amarillo/10 border border-amarillo/30 text-amarillo font-bold text-sm hover:bg-amarillo/20 transition">🎯 Zona Media</button>
-                <button onclick="crearCategoria('Cuerpo Completo')" class="py-3 rounded-xl bg-verde/10 border border-verde/30 text-verde font-bold text-sm hover:bg-verde/20 transition">🏃 Cuerpo Completo</button>
+            <h3 class="text-sm font-bold text-verde uppercase tracking-wider mb-2">Nueva Categoría</h3>
+            <p class="text-xs text-textoSuave mb-4">Ej: Bíceps, Cuádriceps, Espalda Alta...</p>
+            <input id="nueva-cat-nombre" type="text" placeholder="Nombre de la categoría" onkeydown="if(event.key==='Enter')crearCategoria(document.getElementById('nueva-cat-nombre').value.trim())" class="w-full rounded-lg px-3 py-2.5 text-sm mb-4">
+            <div class="flex gap-3">
+                <button onclick="crearCategoria(document.getElementById('nueva-cat-nombre').value.trim())" class="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold text-sm">Crear</button>
+                <button onclick="document.getElementById('modal-nueva-cat').classList.add('hidden')" class="flex-1 py-2.5 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
             </div>
-            <button onclick="document.getElementById('modal-nueva-cat').classList.add('hidden')" class="w-full py-2.5 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
         </div>
     </div>
 
@@ -1275,6 +1273,8 @@
 
     function modalNuevaCategoria() {
         document.getElementById('modal-nueva-cat').classList.remove('hidden');
+        const inp = document.getElementById('nueva-cat-nombre');
+        if (inp) { inp.value = ''; inp.focus(); }
     }
 
     async function crearCategoria(nombre) {
