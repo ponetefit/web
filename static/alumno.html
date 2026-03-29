@@ -3765,7 +3765,10 @@
                     // Mostrar reps por vuelta si existen (Circuito Vueltas)
                     if (!Array.isArray(ej) && ej.reps_por_vuelta && ej.reps_por_vuelta.length > 0) {
                         var vLabels = ej.reps_por_vuelta.map(function(rv, vi) {
-                            return '<span style="color:var(--naranja);font-weight:700;font-size:0.7rem;">V' + (vi+1) + ':</span> <span style="font-weight:700;">' + rv + ' ' + u.toUpperCase() + '</span>';
+                            var upV = obtenerUltimoPesoSerie(n, vi);
+                            return '<span style="color:var(--naranja);font-weight:700;font-size:0.7rem;">V' + (vi+1) + ':</span>' +
+                                ' <span style="font-weight:700;">' + rv + ' ' + u.toUpperCase() + '</span>' +
+                                (upV ? ' <span style="background:rgba(255,255,255,0.08);border-radius:4px;padding:1px 4px;font-size:0.6rem;color:#ccc;font-weight:700;">' + upV + 'kg</span>' : '');
                         }).join(' &nbsp; ');
                         var metaExtra = desc && parseInt(desc) > 0 ? ' <span style="color:var(--texto-suave);font-size:0.7rem;">| Pausa: ' + desc + 's</span>' : '';
                         var vPesoHtml = crearPesoRowsPorSerie(n, ej.reps_por_vuelta.length, wupBaseId);
@@ -3774,9 +3777,11 @@
                     } else if (!Array.isArray(ej) && ej.reps_por_serie && ej.reps_por_serie.length > 0) {
                         var sRepsLabels = ej.reps_por_serie.map(function(rs, si) {
                             var pausaS = (ej.pausa_por_serie && ej.pausa_por_serie[si] !== undefined) ? ej.pausa_por_serie[si] : desc;
+                            var upS = obtenerUltimoPesoSerie(n, si);
                             return '<span style="background:rgba(105,240,174,0.08);border-radius:6px;padding:2px 6px;">' +
                                 '<span style="color:var(--verde);font-weight:700;font-size:0.65rem;">S' + (si+1) + '</span> ' +
                                 '<span style="font-weight:700;">' + rs + ' ' + u.toUpperCase() + '</span>' +
+                                (upS ? ' <span style="background:rgba(255,255,255,0.08);border-radius:4px;padding:1px 4px;font-size:0.6rem;color:#ccc;font-weight:700;">' + upS + 'kg</span>' : '') +
                                 (pausaS && parseInt(pausaS) > 0 ? ' <span style="color:var(--naranja);font-size:0.65rem;">| ' + pausaS + 's</span>' : '') +
                                 '</span>';
                         }).join(' ');
@@ -5333,16 +5338,30 @@
                     ej.reps_por_serie.forEach(function(rs, si) {
                         var pSerie = (ej.pausa_por_serie && ej.pausa_por_serie[si] !== undefined && ej.pausa_por_serie[si] !== '') ? parseInt(ej.pausa_por_serie[si]) : pausaN;
                         if (si === 0) pausaPrimeraSerie = (pSerie > 0 ? pSerie : pausaN);
-                        // S1 arranca resaltada (es la primera en hacerse)
                         var bgActivo = si === 0 ? 'rgba(105,240,174,0.25)' : 'rgba(105,240,174,0.06)';
                         var borderActivo = si === 0 ? '1px solid rgba(105,240,174,0.6)' : '1px solid rgba(105,240,174,0.15)';
+                        var ultimoPeso = obtenerUltimoPesoSerie(nombre, si);
                         serieDetalle += '<span data-si="' + si + '" style="background:' + bgActivo + ';border:' + borderActivo + ';border-radius:8px;padding:4px 8px;white-space:nowrap;transition:background 0.3s,border 0.3s;">' +
                             '<span style="color:var(--verde);font-weight:900;font-size:0.65rem;">S' + (si+1) + '</span> ' +
                             '<span style="font-weight:700;">' + rs + ' ' + (ej.unit || 'Reps') + '</span>' +
+                            (ultimoPeso ? ' <span style="background:rgba(255,255,255,0.08);border-radius:4px;padding:1px 5px;font-size:0.6rem;color:#ccc;font-weight:700;">' + ultimoPeso + 'kg</span>' : '') +
                             (pSerie > 0 ? ' <span style="color:var(--naranja);font-size:0.65rem;">· ' + formatearTiempo(pSerie) + '</span>' : '') +
                             '</span>';
                     });
                     serieDetalle += '</div>';
+                } else {
+                    // Para ejercicios estándar (sin detalle por serie): mostrar cargas de última sesión
+                    var cargasUltima = [];
+                    for (var su = 0; su < parseInt(seriesN); su++) {
+                        var upU = obtenerUltimoPesoSerie(nombre, su);
+                        if (upU) cargasUltima.push('<span style="color:var(--verde);font-weight:900;font-size:0.65rem;">S' + (su+1) + '</span> <span style="font-size:0.7rem;">' + upU + 'kg</span>');
+                    }
+                    if (cargasUltima.length > 0) {
+                        serieDetalle = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px;align-items:center;">' +
+                            '<span style="font-size:0.6rem;color:var(--texto-suave);text-transform:uppercase;letter-spacing:1px;">Última sesión:</span>' +
+                            cargasUltima.map(function(c) { return '<span style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:2px 7px;">' + c + '</span>'; }).join('') +
+                            '</div>';
+                    }
                 }
 
                 // Pausa a usar para el timer y el botón
