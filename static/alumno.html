@@ -187,11 +187,7 @@
         #multidia-container {
             width: 100%;
         }
-        #btn-volver-dias {
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-        }
-        #btn-volver-dias:hover { color: var(--texto); border-color: var(--naranja); }
+        #btn-volver-dias-header:hover { color: var(--texto); border-color: var(--naranja); }
         
         .header-rutina {
             display: flex;
@@ -1654,7 +1650,10 @@
                     <span id="id-display">---</span>
                 </div>
             </div>
-            <button class="btn-header" onclick="cerrar()">Salir</button>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button id="btn-volver-dias-header" onclick="volverADias()" style="display:none;background:var(--tarjeta-alt);border:1px solid var(--borde);border-radius:10px;padding:10px 14px;color:var(--texto-suave);font-size:0.75rem;font-weight:700;cursor:pointer;letter-spacing:1px;white-space:nowrap;">&#8592; Días</button>
+                <button class="btn-header" onclick="cerrar()">Salir</button>
+            </div>
         </div>
 
         <!-- Barra de progreso general de la rutina (fija, fuera del scroll) -->
@@ -4345,8 +4344,32 @@
 
         function renderMultidia(data, cod) {
             var total = data.total_dias || 1;
-            document.getElementById('tipo-tag').innerText = 'MULTI-DIA';
-            document.getElementById('id-display').innerText = total + ' DIAS';
+
+            // Calcular todos los métodos únicos en todos los días para mostrar en header
+            var _todosMetodos = [];
+            for (var _di = 1; _di <= total; _di++) {
+                var _diaD = data['dia_' + _di];
+                if (!_diaD) continue;
+                var _ddatos = _diaD.datos || {};
+                if (_ddatos.bloques && _ddatos.bloques.length > 0) {
+                    _ddatos.bloques.forEach(function(b) {
+                        var t = (b.tipo || '').toUpperCase();
+                        if (t && _todosMetodos.indexOf(t) === -1) _todosMetodos.push(t);
+                    });
+                } else if (_diaD.tipo && _diaD.tipo !== 'ENTRENAMIENTO' && _diaD.tipo !== 'MULTIDIA') {
+                    var _t = _diaD.tipo.toUpperCase();
+                    if (_todosMetodos.indexOf(_t) === -1) _todosMetodos.push(_t);
+                }
+            }
+
+            document.getElementById('tipo-tag').innerText = 'MULTI-DÍA';
+            document.getElementById('id-display').innerText = _todosMetodos.length > 0 ? _todosMetodos.join(' + ') : (total + ' DÍAS');
+            // El nombre del alumno ya está seteado desde consultarRutina — no lo tocamos
+
+            // Asegurarse de que el botón "Días" del header esté oculto en esta pantalla
+            var btnVolverHeader = document.getElementById('btn-volver-dias-header');
+            if (btnVolverHeader) btnVolverHeader.style.display = 'none';
+
             var secWarmup = document.getElementById('sec-warmup');
             var secPrincipal = document.getElementById('sec-principal');
             if (secWarmup) secWarmup.style.display = 'none';
@@ -4476,21 +4499,27 @@
             if (secWarmup) secWarmup.style.display = '';
             if (secPrincipal) secPrincipal.style.display = '';
 
-            // Boton volver
-            var btnVolver = document.getElementById('btn-volver-dias');
-            if (!btnVolver) {
-                btnVolver = document.createElement('button');
-                btnVolver.id = 'btn-volver-dias';
-                btnVolver.onclick = function() { volverADias(); };
-                btnVolver.style.cssText = 'position:fixed;top:16px;left:16px;z-index:9999;background:var(--tarjeta-alt);border:1px solid var(--borde);border-radius:12px;padding:9px 15px;color:var(--texto-suave);font-size:0.75rem;font-weight:700;cursor:pointer;letter-spacing:1px;';
-                btnVolver.innerHTML = '&#8592; DIAS';
-                document.body.appendChild(btnVolver);
-            }
-            btnVolver.style.display = 'block';
+            // Mostrar botón "Días" en el header (en lugar del botón flotante)
+            var btnVolverHeader = document.getElementById('btn-volver-dias-header');
+            if (btnVolverHeader) btnVolverHeader.style.display = 'block';
 
             var titulo = diaData.titulo || ('Dia ' + (diaIdx + 1));
+            document.getElementById('alumno-nombre-display').innerText = nombreUsuario ? nombreUsuario.toUpperCase() : 'ENTRENAMIENTO';
             document.getElementById('tipo-tag').innerText = titulo.toUpperCase();
-            document.getElementById('id-display').innerText = (diaData.tipo || 'ENTRENAMIENTO').toUpperCase();
+
+            // Construir lista de métodos del día para el id-display
+            var _dd2 = diaData.datos || {};
+            var _metodosStr = '';
+            if (_dd2.bloques && _dd2.bloques.length > 0) {
+                var _tipos = [];
+                (_dd2.bloques || []).forEach(function(b) { if (b.tipo && _tipos.indexOf(b.tipo.toUpperCase()) === -1) _tipos.push(b.tipo.toUpperCase()); });
+                _metodosStr = _tipos.join(' + ');
+            } else if (diaData.tipo && diaData.tipo !== 'ENTRENAMIENTO') {
+                _metodosStr = diaData.tipo.toUpperCase();
+            } else {
+                _metodosStr = 'ENTRENAMIENTO';
+            }
+            document.getElementById('id-display').innerText = _metodosStr;
 
             // Construir objeto para render, normalizando datos de Firebase
             var _dd = diaData.datos || {};
@@ -4515,8 +4544,13 @@
             if (progContainer) progContainer.style.display = 'none';
             var mdContainer = document.getElementById('multidia-container');
             if (mdContainer) mdContainer.style.display = 'flex';
+            // Ocultar botón "Días" del header
+            var btnVolverHeader = document.getElementById('btn-volver-dias-header');
+            if (btnVolverHeader) btnVolverHeader.style.display = 'none';
+            // Ocultar botón flotante viejo si existe
             var btnVolver = document.getElementById('btn-volver-dias');
             if (btnVolver) btnVolver.style.display = 'none';
+            document.getElementById('alumno-nombre-display').innerText = nombreUsuario ? nombreUsuario.toUpperCase() : 'ENTRENAMIENTO';
             document.getElementById('tipo-tag').innerText = 'MULTI-DIA';
             document.getElementById('id-display').innerText = (dataGlobal.total_dias || '') + ' DIAS';
             _onEntrenamientoCompletadoMultidia = null;
