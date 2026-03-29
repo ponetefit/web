@@ -185,13 +185,8 @@
 
         /* ── MULTI-DIA ─────────────────────────────────────────────── */
         #multidia-container {
-            flex: 1;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
+            width: 100%;
         }
-        #multidia-container::-webkit-scrollbar { width: 4px; }
-        #multidia-container::-webkit-scrollbar-track { background: transparent; }
-        #multidia-container::-webkit-scrollbar-thumb { background: var(--borde); border-radius: 2px; }
         #btn-volver-dias {
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
@@ -3428,7 +3423,7 @@
                 _cargarVideotecaTips();
 
                 // ── DETECCIÓN MULTI-DIA ──────────────────────────────────
-                esMultidia = data.es_multidia === true && data.total_dias > 1;
+                esMultidia = data.es_multidia === true && (data.total_dias || 1) > 1;
                 if (esMultidia) {
                     cargarProgresoLocal(cod);
                     renderMultidia(data, cod);
@@ -4356,14 +4351,18 @@
             var secPrincipal = document.getElementById('sec-principal');
             if (secWarmup) secWarmup.style.display = 'none';
             if (secPrincipal) secPrincipal.style.display = 'none';
+            // Ocultar barra de progreso en la pantalla de selección de días
+            var progContainer = document.getElementById('rutina-progress-container');
+            if (progContainer) progContainer.style.display = 'none';
 
             var mdContainer = document.getElementById('multidia-container');
             if (!mdContainer) {
                 mdContainer = document.createElement('div');
                 mdContainer.id = 'multidia-container';
-                mdContainer.style.cssText = 'padding:16px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;max-height:calc(100dvh - 120px);';
-                var footer = document.getElementById('footer-entrenamiento');
-                if (footer) footer.parentNode.insertBefore(mdContainer, footer);
+                mdContainer.style.cssText = 'padding:0;display:flex;flex-direction:column;gap:14px;';
+                // Insertar DENTRO del container-scroll para que sea visible
+                var modalScroll = document.getElementById('modal-scroll');
+                if (modalScroll) modalScroll.appendChild(mdContainer);
                 else document.getElementById('rutina-modal').appendChild(mdContainer);
             }
             mdContainer.innerHTML = '';
@@ -4512,6 +4511,8 @@
             var secPrincipal = document.getElementById('sec-principal');
             if (secWarmup) secWarmup.style.display = 'none';
             if (secPrincipal) secPrincipal.style.display = 'none';
+            var progContainer = document.getElementById('rutina-progress-container');
+            if (progContainer) progContainer.style.display = 'none';
             var mdContainer = document.getElementById('multidia-container');
             if (mdContainer) mdContainer.style.display = 'flex';
             var btnVolver = document.getElementById('btn-volver-dias');
