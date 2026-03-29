@@ -1424,6 +1424,8 @@
         actualizarBloqueParams();
         renderBloqueEjsTemp();
         cargarEjsBloque();
+        const btnConfirmar = document.querySelector('#modal-bloque button[onclick="confirmarBloque()"]');
+        if (btnConfirmar) btnConfirmar.textContent = 'Agregar Bloque';
         document.getElementById('modal-bloque').classList.remove('hidden');
     }
 
@@ -1619,6 +1621,8 @@
         actualizarBloqueParams();
         renderBloqueEjsTemp();
         cargarEjsBloque();
+        const btnConfirmar = document.querySelector('#modal-bloque button[onclick="confirmarBloque()"]');
+        if (btnConfirmar) btnConfirmar.textContent = 'Agregar Bloque';
         document.getElementById('modal-bloque').classList.remove('hidden');
     }
 
@@ -1785,6 +1789,8 @@
         renderBloquesDia(diaActivoIdx);
         actualizarBadgeDia(diaActivoIdx);
         document.getElementById('modal-bloque').classList.add('hidden');
+        const btnConfirmar = document.querySelector('#modal-bloque button[onclick="confirmarBloque()"]');
+        if (btnConfirmar) btnConfirmar.textContent = 'Agregar Bloque';
         bloqueEjsTemp = [];
         editandoBloqueIdx = null;
     }
@@ -1812,9 +1818,12 @@
             const e = document.getElementById('bp-ej-por-min'); if(e) e.value = b.ejercicios_por_minuto || 1;
         }
 
-        bloqueEjsTemp = JSON.parse(JSON.stringify(b.ejercicios));
+        bloqueEjsTemp = JSON.parse(JSON.stringify(b.ejercicios || []));
         renderBloqueEjsTemp();
         cargarEjsBloque();
+        // Actualizar texto del botón de confirmar para indicar que se está editando
+        const btnConfirmar = document.querySelector('#modal-bloque button[onclick="confirmarBloque()"]');
+        if (btnConfirmar) btnConfirmar.textContent = 'Guardar Cambios';
         document.getElementById('modal-bloque').classList.remove('hidden');
     }
 
@@ -2498,9 +2507,11 @@
     async function editarRutinaDesdeHistorial(codigo) {
         toast('Cargando rutina para editar...');
         try {
-            // Obtener datos completos
+            // Obtener datos completos — siempre refetch si es MULTIDIA o si los datos están incompletos
             let r = historialRutinasCache[codigo];
-            if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia)) {
+            const esMultidiaCache = r && r.tipo === 'MULTIDIA';
+            const datosInsuficientes = !r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia || r.dia_1);
+            if (datosInsuficientes || esMultidiaCache) {
                 const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
                 const data = await res.json();
                 if (!data.ok) { toast('Error: ' + (data.error || 'No encontrada')); return; }
@@ -2564,7 +2575,9 @@
             if (bloques.length > 0) {
                 // Formato ENTRENAMIENTO con multiples bloques
                 bloques.forEach(b => {
-                    const ejsB = toArray(b.ejercicios || []).map(ej => {
+                    // Los bloques pueden tener ejercicios en 'ejercicios' o en 'rutina'
+                    const ejsSrc = toArray(b.ejercicios || b.rutina || []);
+                    const ejsB = ejsSrc.map(ej => {
                         const e = normalizeEj(ej);
                         return { nombre: e.nombre, link: e.link, reps: e.reps || '12', unit: e.unit || 'Reps', series: parseInt(e.series) || 4, nota_tecnica: e.nota_tecnica || '' };
                     });
@@ -2644,7 +2657,8 @@
                     const bloquesNorm = [];
                     if (dBloques.length > 0) {
                         dBloques.forEach(b => {
-                            const ejsB = toArray(b.ejercicios || []).map(ej => {
+                            const ejsSrcD = toArray(b.ejercicios || b.rutina || []);
+                            const ejsB = ejsSrcD.map(ej => {
                                 const e = normalizeEj(ej);
                                 return { nombre: e.nombre, link: e.link, reps: e.reps || '12', unit: e.unit || 'Reps', series: parseInt(e.series) || 4, nota_tecnica: e.nota_tecnica || '' };
                             });
