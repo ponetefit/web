@@ -5279,12 +5279,19 @@
                 var serieDetalle = '';
                 // Pausa de la primera serie (para el botón marcarSerie)
                 var pausaPrimeraSerie = pausaN;
+                // Guardar pausas por serie en diccionario global (evita pasar JSON con comillas en onclick)
+                if (haPerSerie && ej.pausa_por_serie && ej.pausa_por_serie.length > 0) {
+                    _pausasPorSerieData[idxS] = ej.pausa_por_serie.map(function(p) { return parseInt(p) || 0; });
+                } else {
+                    _pausasPorSerieData[idxS] = [];
+                }
+
                 if (haPerSerie) {
                     serieDetalle = '<div style="margin:8px 0 4px; font-size:0.7rem; font-weight:700; color:var(--texto-suave); text-transform:uppercase; letter-spacing:1px;">Detalle por serie:</div>' +
                         '<div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">';
                     ej.reps_por_serie.forEach(function(rs, si) {
                         var pSerie = (ej.pausa_por_serie && ej.pausa_por_serie[si] !== undefined && ej.pausa_por_serie[si] !== '') ? parseInt(ej.pausa_por_serie[si]) : pausaN;
-                        if (si === 0) pausaPrimeraSerie = pSerie || pausaN;
+                        if (si === 0) pausaPrimeraSerie = (pSerie > 0 ? pSerie : pausaN);
                         serieDetalle += '<span style="background:rgba(105,240,174,0.1);border:1px solid rgba(105,240,174,0.2);border-radius:8px;padding:4px 8px;white-space:nowrap;">' +
                             '<span style="color:var(--verde);font-weight:900;font-size:0.65rem;">S' + (si+1) + '</span> ' +
                             '<span style="font-weight:700;">' + rs + ' ' + (ej.unit || 'Reps') + '</span>' +
@@ -5294,6 +5301,9 @@
                     serieDetalle += '</div>';
                 }
 
+                // Pausa a usar para el timer y el botón
+                var pausaBoton = haPerSerie ? pausaPrimeraSerie : pausaN;
+
                 html += '<div class="serie-card">' +
                     '<div class="serie-header"><span class="serie-nombre">' + nombre + '</span>' +
                     (link ? '<button onclick="abrirVideo(\'' + link.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')" class="btn-play-video">' + svgPlay() + '</button>' : '') + '</div>' +
@@ -5301,13 +5311,13 @@
                     '<div class="serie-meta">' +
                     '<div class="serie-meta-item"><span class="serie-meta-label">Series</span><span class="serie-meta-value" id="s-val-' + idxS + '">' + seriesN + '</span></div>' +
                     '<div class="serie-meta-item"><span class="serie-meta-label">' + (ej.unit || 'Reps') + '</span><span class="serie-meta-value">' + (haPerSerie ? ej.reps_por_serie[0] : repsN) + '</span></div>' +
-                    '<div class="serie-meta-item"><span class="serie-meta-label">Descanso</span><span class="serie-meta-value" style="color:var(--naranja)">' + formatearTiempo(pausaPrimeraSerie) + '</span></div>' +
+                    '<div class="serie-meta-item"><span class="serie-meta-label">Descanso</span><span class="serie-meta-value" style="color:var(--naranja)">' + formatearTiempo(pausaBoton) + '</span></div>' +
                     '</div>' +
                     serieDetalle +
                     crearPesoRow(nombre, pesoInputId) +
                     notaHtml +
-                    '<div style="text-align:center;"><div class="timer-display" id="timer-' + idxS + '">' + formatearTiempo(pausaN) + '</div>' +
-                    '<button class="btn-rest" id="btn-' + idxS + '" onclick="marcarSerieConPausa(' + idxS + ',' + JSON.stringify(ej.pausa_por_serie || []) + ',' + pausaN + ')">Marcar Serie</button></div></div>';
+                    '<div style="text-align:center;"><div class="timer-display" id="timer-' + idxS + '">' + formatearTiempo(pausaBoton) + '</div>' +
+                    '<button class="btn-rest" id="btn-' + idxS + '" onclick="marcarSerieConPausa(' + idxS + ',' + pausaBoton + ')">Marcar Serie</button></div></div>';
             });
             html += '</div>';
             pLista.innerHTML += html;
@@ -5416,21 +5426,22 @@
             }, 1000);
         }
 
+        // Diccionario global: índice de ejercicio → array de pausas por serie (números)
+        var _pausasPorSerieData = {};
+
         // ─── MARCAR SERIE CON PAUSA POR SERIE ───
-        function marcarSerieConPausa(i, pausasPorSerie, pausaDefault) {
-            // seriesRestantes[i] = cuántas quedan ANTES de decrementar
-            // índice de la serie que se está marcando ahora (0-based):
-            // si quedan N, el índice de la que se marca es (total - N)
-            // pero no tenemos el total fácilmente; lo leemos del DOM
-            var remaining = seriesRestantes[i];
+        function marcarSerieConPausa(i, pausaDefault) {
+            // Leer cuántas series quedan desde el DOM (antes de decrementar)
             var valEl = document.getElementById('s-val-' + i);
-            var displayedRemaining = valEl ? parseInt(valEl.innerText) : remaining;
-            // El índice (0-based) de la serie que se está marcando:
+            var displayedRemaining = valEl ? parseInt(valEl.innerText) : seriesRestantes[i];
+            var pausasPorSerie = _pausasPorSerieData[i] || [];
             var pSerie = pausaDefault;
-            if (pausasPorSerie && pausasPorSerie.length > 0 && displayedRemaining > 0) {
+            if (pausasPorSerie.length > 0 && displayedRemaining > 0) {
+                // El índice 0-based de la serie que se está marcando = total - remaining
                 var serieIdx = pausasPorSerie.length - displayedRemaining;
-                if (serieIdx >= 0 && serieIdx < pausasPorSerie.length && pausasPorSerie[serieIdx] !== '' && pausasPorSerie[serieIdx] !== undefined) {
-                    pSerie = parseInt(pausasPorSerie[serieIdx]) || pausaDefault;
+                if (serieIdx >= 0 && serieIdx < pausasPorSerie.length) {
+                    var p = parseInt(pausasPorSerie[serieIdx]);
+                    if (!isNaN(p) && p > 0) pSerie = p;
                 }
             }
             marcarSerie(i, pSerie || pausaDefault);
