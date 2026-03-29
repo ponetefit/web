@@ -1159,7 +1159,10 @@
     // ====================================================================
     // CREAR RUTINA
     // ====================================================================
+    let _editandoRutina = false; // flag para evitar que inicializarRutina resetee al editar
+
     function inicializarRutina() {
+        if (_editandoRutina) return; // no resetear si estamos cargando una rutina para editar
         if (diasData.length === 0) {
             initMultiDia();
         }
@@ -2519,6 +2522,12 @@
                 historialRutinasCache[codigo] = r;
             }
 
+            // Activar flag para que inicializarRutina no resetee diasData
+            _editandoRutina = true;
+
+            // Navegar a la pestaña rutina ANTES de cargar datos (así el DOM está listo)
+            showTab('rutina');
+
             const datos = resolverDatos(r);
             const alumno = r.alumno || datos.alumno || '';
             const tipo = r.tipo || 'ENTRENAMIENTO';
@@ -2707,19 +2716,21 @@
                     });
                 }, 150);
 
-                showTab('rutina');
+                showTab('rutina');  // ya fue llamado al inicio
                 toast('Rutina multi-día cargada para editar');
+                _editandoRutina = false;
                 return;
             }
 
             renderBloques();
 
-            // 5. Cambiar a la pestana Crear Rutina
-            showTab('rutina');
+            // 5. Flag desactivado — datos ya cargados
+            _editandoRutina = false;
             toast('Rutina cargada para editar');
 
         } catch (e) {
             console.error('Error editando rutina:', e);
+            _editandoRutina = false;
             toast('Error al cargar rutina para editar');
         }
     }
