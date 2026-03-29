@@ -1016,70 +1016,27 @@
         if (ejCatSel) {
             ejCatSel.innerHTML = cats.map(c => '<option value="' + c + '">' + c + '</option>').join('');
         }
-        // Agregar categorías dinámicas al select de zona en videoteca (vt-zona-select)
+        // Reconstruir el select de zona en videoteca (vt-zona-select) desde cero
         const vtZona = document.getElementById('vt-zona-select');
         if (vtZona) {
-            // Recopilar valores de opciones fijas (las que no tienen data-cat)
-            const vtValoresFijos = new Set(
-                Array.from(vtZona.options)
-                    .filter(opt => !opt.dataset.cat)
-                    .map(opt => (opt.value || opt.textContent || '').toLowerCase())
-            );
-            // Quitar opciones de categorías anteriores (data-cat="true")
-            Array.from(vtZona.options).forEach(opt => { if (opt.dataset.cat) opt.remove(); });
-            // Filtrar categorías que no dupliquen opciones fijas
-            const vtCatsNuevas = cats.filter(c => {
-                const cLow = c.toLowerCase().replace(/\s+/g, '_');
-                return !vtValoresFijos.has(c.toLowerCase()) && !vtValoresFijos.has(cLow);
+            const zonasFijas = new Set(['piernas', 'brazos', 'zona_media', 'todo_cuerpo']);
+            const catPersonalizadas = cats.filter(c => {
+                const cNorm = c.toLowerCase().replace(/\s+/g, '_');
+                return !zonasFijas.has(cNorm) && !zonasFijas.has(c.toLowerCase());
             });
-            if (vtCatsNuevas.length > 0) {
-                const sep = document.createElement('option');
-                sep.disabled = true;
-                sep.textContent = '── Categorías ──';
-                sep.dataset.cat = 'sep';
-                vtZona.appendChild(sep);
-                vtCatsNuevas.forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = 'cat:' + c;
-                    opt.textContent = c;
-                    opt.dataset.cat = 'true';
-                    vtZona.appendChild(opt);
+            let html = '<option value="">Todo el cuerpo</option>' +
+                '<option value="piernas">Piernas</option>' +
+                '<option value="brazos">Brazos</option>' +
+                '<option value="zona_media">Zona Media</option>';
+            if (catPersonalizadas.length > 0) {
+                html += '<option disabled>── Mis categorías ──</option>';
+                catPersonalizadas.forEach(c => {
+                    html += '<option value="cat:' + c + '">' + c + '</option>';
                 });
             }
+            vtZona.innerHTML = html;
         }
 
-        // Agrega categorías dinámicas a un select de zona (evitando duplicados con opciones fijas)
-        // Las opciones fijas tienen valores: '', 'piernas', 'brazos', 'zona_media', 'todo_cuerpo'
-        function actualizarZonaSelectConCats(sel) {
-            if (!sel) return;
-            // Recopilar valores de opciones fijas existentes (las que NO tienen data-cat)
-            const valoresFijos = new Set(
-                Array.from(sel.options)
-                    .filter(opt => !opt.dataset.cat)
-                    .map(opt => (opt.value || opt.textContent || '').toLowerCase())
-            );
-            // Quitar opciones de categorías anteriores (data-cat="true")
-            Array.from(sel.options).forEach(opt => { if (opt.dataset.cat) opt.remove(); });
-            // Filtrar categorías que no se dupliquen con opciones fijas (comparación insensible a mayúsculas y sin espacios)
-            const catsNuevas = cats.filter(c => {
-                const cLow = c.toLowerCase().replace(/\s+/g, '_');
-                return !valoresFijos.has(c.toLowerCase()) && !valoresFijos.has(cLow);
-            });
-            if (catsNuevas.length > 0) {
-                const sep = document.createElement('option');
-                sep.disabled = true;
-                sep.textContent = '── Categorías ──';
-                sep.dataset.cat = 'sep';
-                sel.appendChild(sep);
-                catsNuevas.forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = 'cat:' + c;
-                    opt.textContent = c;
-                    opt.dataset.cat = 'true';
-                    sel.appendChild(opt);
-                });
-            }
-        }
         // Poblar select de elemento en el bloque modal
         poblarElementoSelect('bloque-elemento-select');
         cargarEjsBloque();
@@ -1550,36 +1507,8 @@
         const cats = Object.keys(videotecaCache);
         const catSel = document.getElementById('warmup-cat-select-' + idx);
         if (catSel) {
-            catSel.innerHTML = cats.map(c => '<option value="' + c + '">' + c + '</option>').join('');
-        }
-        // Agregar categorías dinámicas al select de zona de warmup (sin duplicar opciones fijas)
-        const warmupZonaSel = document.getElementById('warmup-zona-select-' + idx);
-        if (warmupZonaSel) {
-            const wValoresFijos = new Set(
-                Array.from(warmupZonaSel.options)
-                    .filter(opt => !opt.dataset.cat)
-                    .map(opt => (opt.value || opt.textContent || '').toLowerCase())
-            );
-            // Quitar opciones de categorías anteriores (data-cat="true")
-            Array.from(warmupZonaSel.options).forEach(opt => { if (opt.dataset.cat) opt.remove(); });
-            const wCatsNuevas = cats.filter(c => {
-                const cLow = c.toLowerCase().replace(/\s+/g, '_');
-                return !wValoresFijos.has(c.toLowerCase()) && !wValoresFijos.has(cLow);
-            });
-            if (wCatsNuevas.length > 0) {
-                const sep = document.createElement('option');
-                sep.disabled = true;
-                sep.textContent = '── Categorías ──';
-                sep.dataset.cat = 'sep';
-                warmupZonaSel.appendChild(sep);
-                wCatsNuevas.forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = 'cat:' + c;
-                    opt.textContent = c;
-                    opt.dataset.cat = 'true';
-                    warmupZonaSel.appendChild(opt);
-                });
-            }
+            catSel.innerHTML = '<option value="">Todas las categorías</option>' +
+                cats.map(c => '<option value="' + c + '">' + c + '</option>').join('');
         }
         // Poblar select de elemento para warmup de este dia
         poblarElementoSelect('warmup-elemento-select-' + idx);
