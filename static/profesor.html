@@ -604,10 +604,11 @@
                     <div class="bg-tarjeta rounded-2xl border border-borde p-5">
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-lg font-bold text-azul uppercase tracking-wider">Ejercicios</h2>
-                            <div class="flex items-center gap-3">
+                            <div class="flex items-center gap-2">
                                 <select id="cat-select" onchange="renderizarVideoteca()" class="rounded-lg px-3 py-2 text-sm">
                                 </select>
-                                <button onclick="modalNuevaCategoria()" class="bg-verde/20 text-verde px-3 py-2 rounded-lg text-xs font-bold hover:bg-verde/30 transition">+ Categoria</button>
+                                <button onclick="modalNuevaCategoria()" class="bg-verde/20 text-verde px-3 py-2 rounded-lg text-xs font-bold hover:bg-verde/30 transition whitespace-nowrap">+ Categoría</button>
+                                <button onclick="eliminarCategoriaActual()" class="bg-rojo/20 text-rojo px-3 py-2 rounded-lg text-xs font-bold hover:bg-rojo/30 transition whitespace-nowrap">🗑 Eliminar</button>
                             </div>
                         </div>
                         <!-- Filtros: Elemento y Zona del cuerpo -->
@@ -1227,6 +1228,29 @@
                 await cargarVideoteca();
             } else {
                 toast('Error: ' + data.error);
+            }
+        } catch (e) {
+            toast('Error de conexion');
+        }
+    }
+
+    async function eliminarCategoriaActual() {
+        const catSel = document.getElementById('cat-select');
+        const nombre = catSel ? catSel.value : '';
+        if (!nombre) { toast('Seleccioná una categoría primero'); return; }
+        if (!confirm('¿Eliminar la categoría "' + nombre + '" y todos sus ejercicios? Esta acción no se puede deshacer.')) return;
+        try {
+            const res = await fetch(API_BASE + '/api/videoteca/categoria', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ nombre })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                toast(data.mensaje || 'Categoría eliminada');
+                await cargarVideoteca();
+            } else {
+                toast('Error: ' + (data.error || 'No se pudo eliminar'));
             }
         } catch (e) {
             toast('Error de conexion');
