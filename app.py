@@ -316,15 +316,23 @@ def compartir_rutina():
     """Sube una rutina a Firebase y genera un codigo unico.
     Body: {
         "alumno": "NOMBRE",
-        "tipo": "Circuito|Tabata|EMOM|Series|ENTRENAMIENTO",
-        "datos": { ... payload completo de la rutina ... }
+        "tipo": "Circuito|Tabata|EMOM|Series|ENTRENAMIENTO|MULTIDIA",
+        "datos": { ... payload completo de la rutina ... },
+        "dias": [  <-- opcional, para rutinas multi-dia
+            { "titulo": "Dia 1", "tipo": "...", "datos": { ... } },
+            { "titulo": "Dia 2", "tipo": "...", "datos": { ... } },
+            ...
+        ]
     }
+    Si se envian "dias", se guarda como rutina multi-dia.
+    Si no hay "dias", se guarda como rutina clasica (retrocompatible).
     """
     try:
         body = request.json
         nombre_alumno = body.get("alumno", "ALUMNO").strip().upper()
         tipo_rutina = body.get("tipo", "Rutina")
         datos_paquete = body.get("datos", {})
+        dias = body.get("dias", None)  # Lista de dias para rutinas multi-dia
 
         if not nombre_alumno:
             nombre_alumno = "ALUMNO"
@@ -336,14 +344,36 @@ def compartir_rutina():
         nuevo_contador = contador_actual + 1
         codigo = f"{nombre_lower}-{nuevo_contador:04d}"
 
-        # Preparar payload
+        # Preparar payload base
         payload = {
             "app": "ponetefit",
             "tipo": tipo_rutina,
             "alumno": nombre_alumno,
             "timestamp": time.time(),
-            **datos_paquete
         }
+
+        if dias and isinstance(dias, list) and len(dias) > 1:
+            # ── RUTINA MULTI-DIA ──────────────────────────────────────────
+            # Estructura: dias = [ {titulo, tipo, datos: {...warmup, bloques...}}, ... ]
+            payload["es_multidia"] = True
+            payload["total_dias"] = len(dias)
+            payload["tipo"] = "MULTIDIA"
+            # Serializar cada dia como dia_1, dia_2, ...
+            for i, dia in enumerate(dias):
+                key = f"dia_{i + 1}"
+                payload[key] = {
+                    "titulo": dia.get("titulo", f"Dia {i + 1}"),
+                    "tipo": dia.get("tipo", "ENTRENAMIENTO"),
+                    "datos": dia.get("datos", {})
+                }
+            # Descripcion global opcional
+            if datos_paquete.get("descripcion"):
+                payload["descripcion"] = datos_paquete["descripcion"]
+        else:
+            # ── RUTINA CLASICA (un solo dia) ──────────────────────────────
+            # Retrocompatible: mismo formato de siempre
+            payload["es_multidia"] = False
+            payload.update(datos_paquete)
 
         # Guardar rutina y actualizar contador
         rutina_ref = get_db_ref(f"/rutinas/{codigo}")
@@ -354,7 +384,9 @@ def compartir_rutina():
             "ok": True,
             "codigo": codigo,
             "alumno": nombre_alumno,
-            "tipo": tipo_rutina,
+            "tipo": payload["tipo"],
+            "es_multidia": payload.get("es_multidia", False),
+            "total_dias": payload.get("total_dias", 1),
             "mensaje": f"Rutina compartida con codigo {codigo}"
         })
     except Exception as e:
@@ -363,12 +395,21 @@ def compartir_rutina():
 
 @app.route("/api/rutina/<codigo>", methods=["GET"])
 def obtener_rutina(codigo):
-    """Obtiene una rutina por su codigo."""
+    """Obtiene una rutina por su codigo.
+    Retrocompatibilidad: si la rutina no tiene 'es_multidia', se trata como un solo dia.
+    """
     try:
         ref = get_db_ref(f"/rutinas/{codigo}")
         data = ref.get()
         if not data:
             return jsonify({"ok": False, "error": "Codigo no encontrado"}), 404
+
+        # ── RETROCOMPATIBILIDAD ──────────────────────────────────────────
+        # Si la rutina no tiene el campo es_multidia, es una rutina clasica.
+        # La marcamos explicitamente para que el frontend la trate bien.
+        if "es_multidia" not in data:
+            data["es_multidia"] = False
+
         return jsonify({"ok": True, "rutina": data})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
