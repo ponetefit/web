@@ -3771,6 +3771,9 @@
                     wLista.innerHTML += crearCard(n, l, r ? r + " " + u.toUpperCase() : "EMOM", cc);
                 });
             } else {
+                // Número de vueltas del calentamiento (para generar inputs de carga por vuelta)
+                var _wVueltas = data.warmup_vueltas || det.vueltas || 2;
+
                 ejsW.forEach(function(ej, ejIdx) {
                     const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio);
                     const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
@@ -3780,7 +3783,7 @@
                     const desc = Array.isArray(ej) ? '' : (ej.descanso || '');
                     var wupBaseId = 'wup-peso-' + ejIdx;
 
-                    // Mostrar reps por vuelta si existen (Circuito Vueltas)
+                    // Mostrar reps por vuelta si existen (Circuito Vueltas con reps distintas por vuelta)
                     if (!Array.isArray(ej) && ej.reps_por_vuelta && ej.reps_por_vuelta.length > 0) {
                         var vLabels = ej.reps_por_vuelta.map(function(rv, vi) {
                             var upV = obtenerUltimoPesoSerie(n, vi);
@@ -3792,6 +3795,14 @@
                         var vPesoHtml = cc ? crearPesoRowsPorVuelta(n, ej.reps_por_vuelta.length, wupBaseId) : '';
                         // con_carga=false para evitar peso genérico duplicado (la carga por vuelta ya está en vPesoHtml)
                         wLista.innerHTML += crearCard(n, l, '', false, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:6px; align-items:center;">' + vLabels + metaExtra + '</div>' + vPesoHtml);
+
+                    // Circuito (Vueltas) con carga: mostrar reps única + inputs de carga por vuelta
+                    } else if (tipo === "Circuito (Vueltas)" && cc) {
+                        var metaStr = r ? r + " " + u.toUpperCase() : "";
+                        if (desc && parseInt(desc) > 0) metaStr += (metaStr ? ' | ' : '') + 'Pausa: ' + desc + 's';
+                        var vPesoHtmlSimple = crearPesoRowsPorVuelta(n, _wVueltas, wupBaseId);
+                        wLista.innerHTML += crearCard(n, l, metaStr, false, '', vPesoHtmlSimple);
+
                     // Mostrar reps y pausa por serie si existen (Series/Reps)
                     } else if (!Array.isArray(ej) && ej.reps_por_serie && ej.reps_por_serie.length > 0) {
                         var sRepsLabels = ej.reps_por_serie.map(function(rs, si) {
