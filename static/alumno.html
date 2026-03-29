@@ -182,6 +182,21 @@
         #rutina-modal.visible {
             display: flex;
         }
+
+        /* ── MULTI-DIA ─────────────────────────────────────────────── */
+        #multidia-container {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        #multidia-container::-webkit-scrollbar { width: 4px; }
+        #multidia-container::-webkit-scrollbar-track { background: transparent; }
+        #multidia-container::-webkit-scrollbar-thumb { background: var(--borde); border-radius: 2px; }
+        #btn-volver-dias {
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        #btn-volver-dias:hover { color: var(--texto); border-color: var(--naranja); }
         
         .header-rutina {
             display: flex;
@@ -2766,6 +2781,10 @@
         // ─── ESTADO GLOBAL ───
         let nombreUsuario = "";
         let dataGlobal = null;
+        // ── MULTI-DIA ────────────────────────────────────────────────────
+        let esMultidia = false;
+        let diaActivo = 0; // indice del dia actualmente visible (0-based)
+        let diasCompletados = {}; // { "cod_dia_0": true, ... } → desde localStorage
         let restIntervals = {};
         let seriesRestantes = {};
         let tInterval = null,
@@ -3178,12 +3197,22 @@
                 var msgCals = cals > 0 ? ' Quemaste aproximadamente ' + cals + ' calorías.' : '';
                 hablarCoach('Felicitaciones ' + (nombreUsuario || '') + '! Completaste el entrenamiento.' + msgCals + ' Sos un crack!');
             } catch (e) {}
+
+            // ── HOOK MULTI-DIA: marcar dia completado ──────────────────
+            if (esMultidia && typeof _onEntrenamientoCompletadoMultidia === 'function') {
+                _onEntrenamientoCompletadoMultidia();
+            }
         }
 
         function cerrarPantallaFin() {
             document.getElementById('pantalla-fin').classList.remove('visible');
             _pantallaFinMostrada = false;
-            cerrar();
+            if (esMultidia) {
+                // Volver al acordeon de dias en lugar de cerrar la app
+                volverADias();
+            } else {
+                cerrar();
+            }
         }
 
         // ─── CONFETTI (Canvas puro, sin librerías) ───
@@ -3397,7 +3426,15 @@
                 _pantallaFinMostrada = false;
                 _iniciarCronometroSesion();
                 _cargarVideotecaTips();
-                render(data);
+
+                // ── DETECCIÓN MULTI-DIA ──────────────────────────────────
+                esMultidia = data.es_multidia === true && data.total_dias > 1;
+                if (esMultidia) {
+                    cargarProgresoLocal(cod);
+                    renderMultidia(data, cod);
+                } else {
+                    render(data);
+                }
                 document.getElementById('rutina-modal').classList.add('visible');
                 mostrarToast('Rutina cargada');
             } catch (e) {
@@ -4273,6 +4310,208 @@
                 }
             }, 1000);
         }
+
+        // ═══════════════════════════════════════════════════════════════
+        // SISTEMA MULTI-DIA
+        // ═══════════════════════════════════════════════════════════════
+
+        function lsKey(cod, diaIdx) { return 'pf_dia_' + cod + '_' + diaIdx; }
+
+        function cargarProgresoLocal(cod) {
+            diasCompletados = {};
+            if (!cod) return;
+            for (var i = 0; i < 30; i++) {
+                try {
+                    if (localStorage.getItem(lsKey(cod, i)) === 'completado') diasCompletados[i] = true;
+                } catch(e) {}
+            }
+        }
+
+        function marcarDiaCompletado(cod, diaIdx) {
+            try { localStorage.setItem(lsKey(cod, diaIdx), 'completado'); } catch(e) {}
+            diasCompletados[diaIdx] = true;
+            actualizarEstadoDia(diaIdx);
+        }
+
+        function actualizarEstadoDia(diaIdx) {
+            var badge = document.querySelector('#dia-card-' + diaIdx + ' .dia-badge-estado');
+            var card = document.getElementById('dia-card-' + diaIdx);
+            if (!badge || !card) return;
+            if (diasCompletados[diaIdx]) {
+                badge.innerHTML = '<span style="color:var(--verde);font-weight:900;font-size:0.8rem;">&#10003; COMPLETO</span>';
+                card.style.borderColor = 'var(--verde)';
+                card.style.background = 'linear-gradient(135deg,rgba(105,240,174,0.06),var(--tarjeta))';
+            } else {
+                badge.innerHTML = '<span style="color:var(--texto-suave);font-size:0.75rem;">pendiente</span>';
+                card.style.borderColor = 'var(--borde)';
+                card.style.background = 'var(--tarjeta)';
+            }
+        }
+
+        function renderMultidia(data, cod) {
+            var total = data.total_dias || 1;
+            document.getElementById('tipo-tag').innerText = 'MULTI-DIA';
+            document.getElementById('id-display').innerText = total + ' DIAS';
+            var secWarmup = document.getElementById('sec-warmup');
+            var secPrincipal = document.getElementById('sec-principal');
+            if (secWarmup) secWarmup.style.display = 'none';
+            if (secPrincipal) secPrincipal.style.display = 'none';
+
+            var mdContainer = document.getElementById('multidia-container');
+            if (!mdContainer) {
+                mdContainer = document.createElement('div');
+                mdContainer.id = 'multidia-container';
+                mdContainer.style.cssText = 'padding:16px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;max-height:calc(100dvh - 120px);';
+                var footer = document.getElementById('footer-entrenamiento');
+                if (footer) footer.parentNode.insertBefore(mdContainer, footer);
+                else document.getElementById('rutina-modal').appendChild(mdContainer);
+            }
+            mdContainer.innerHTML = '';
+            mdContainer.style.display = 'flex';
+
+            // Titulo del panel
+            var titleEl = document.createElement('div');
+            titleEl.style.cssText = 'text-align:center;padding:8px 0 4px;';
+            titleEl.innerHTML = '<p style="font-size:0.7rem;color:var(--texto-suave);text-transform:uppercase;letter-spacing:2px;margin:0;">Elegí tu entrenamiento del dia</p>';
+            mdContainer.appendChild(titleEl);
+
+            for (var i = 0; i < total; i++) {
+                (function(idx) {
+                    var diaKey = 'dia_' + (idx + 1);
+                    var diaData = data[diaKey];
+                    if (!diaData) return;
+                    var titulo = diaData.titulo || ('Dia ' + (idx + 1));
+                    var tipo = diaData.tipo || 'ENTRENAMIENTO';
+
+                    // Extraer ejercicios para preview
+                    var ejsPreview = [];
+                    var dd = diaData.datos || {};
+                    if (dd.warmup_ejercicios) {
+                        var wu = Array.isArray(dd.warmup_ejercicios) ? dd.warmup_ejercicios : Object.values(dd.warmup_ejercicios);
+                        wu.slice(0, 3).forEach(function(e) { var n = Array.isArray(e) ? e[0] : (e.nombre || ''); if (n) ejsPreview.push(n); });
+                    }
+                    var mainEjs = [];
+                    if (dd.datos) {
+                        var darr = Array.isArray(dd.datos) ? dd.datos : Object.values(dd.datos);
+                        darr.forEach(function(b) { var eb = Array.isArray(b.ejercicios) ? b.ejercicios : Object.values(b.ejercicios || {}); eb.forEach(function(e) { mainEjs.push(e.nombre || ''); }); });
+                    } else if (dd.bloques) {
+                        var bl = Array.isArray(dd.bloques) ? dd.bloques : Object.values(dd.bloques);
+                        bl.forEach(function(b) { var eb = Array.isArray(b.ejercicios) ? b.ejercicios : Object.values(b.ejercicios || {}); eb.forEach(function(e) { mainEjs.push(e.nombre || ''); }); });
+                    } else if (dd.rutina) {
+                        var rt = Array.isArray(dd.rutina) ? dd.rutina : Object.values(dd.rutina);
+                        rt.forEach(function(e) { mainEjs.push(Array.isArray(e) ? e[0] : (e.nombre || '')); });
+                    }
+                    mainEjs.slice(0, 5).forEach(function(n) { if (n) ejsPreview.push(n); });
+
+                    var colorAccent = ['var(--naranja)', 'var(--azul)', 'var(--verde)', 'var(--purpura)', 'var(--amarillo)'][idx % 5];
+
+                    var card = document.createElement('div');
+                    card.id = 'dia-card-' + idx;
+                    card.style.cssText = 'background:var(--tarjeta);border-radius:20px;border:2px solid var(--borde);overflow:hidden;transition:border-color 0.3s,background 0.3s;';
+
+                    // Header
+                    var headerDiv = document.createElement('div');
+                    headerDiv.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:16px 18px;cursor:pointer;';
+                    headerDiv.onclick = function() { toggleDiaAlumno(idx); };
+                    headerDiv.innerHTML =
+                        '<div style="display:flex;align-items:center;gap:12px;">' +
+                        '<span style="width:38px;height:38px;border-radius:50%;background:' + colorAccent + ';color:#000;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1rem;flex-shrink:0;">' + (idx+1) + '</span>' +
+                        '<div>' +
+                        '<div style="font-weight:900;font-size:1rem;text-transform:uppercase;letter-spacing:1px;color:var(--texto);">' + titulo + '</div>' +
+                        '<div class="dia-badge-estado" style="margin-top:2px;"></div>' +
+                        '</div></div>' +
+                        '<div style="display:flex;align-items:center;gap:8px;">' +
+                        '<svg id="dia-chevron-' + idx + '" style="width:20px;height:20px;color:var(--texto-suave);transition:transform 0.25s;transform:' + (idx===0?'rotate(180deg)':'rotate(0deg)') + ';" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>' +
+                        '</div>';
+                    card.appendChild(headerDiv);
+
+                    // Preview body (colapsable)
+                    var previewDiv = document.createElement('div');
+                    previewDiv.id = 'dia-preview-' + idx;
+                    previewDiv.style.cssText = 'display:' + (idx===0?'block':'none') + ';padding:0 18px 18px;border-top:1px solid var(--borde-sutil);';
+                    var tagHtml = '<span style="display:inline-block;margin:10px 0 8px;background:rgba(255,107,53,0.15);color:var(--naranja);border-radius:8px;padding:3px 10px;font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;">' + tipo + '</span>';
+                    var chipsHtml = '';
+                    if (ejsPreview.length > 0) {
+                        chipsHtml = '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px;">';
+                        ejsPreview.slice(0, 7).forEach(function(n) {
+                            chipsHtml += '<span style="background:var(--fondo-alt);border:1px solid var(--borde);border-radius:8px;padding:3px 9px;font-size:0.65rem;color:var(--texto-suave);">' + n + '</span>';
+                        });
+                        if (ejsPreview.length > 7) chipsHtml += '<span style="font-size:0.65rem;color:var(--texto-suave);padding:3px 4px;">+' + (ejsPreview.length - 7) + ' mas</span>';
+                        chipsHtml += '</div>';
+                    }
+                    var btnHtml = '<button onclick="iniciarDia(' + idx + ')" style="width:100%;background:' + colorAccent + ';color:#000;border:none;border-radius:14px;padding:12px;font-weight:900;font-size:0.85rem;text-transform:uppercase;letter-spacing:2px;cursor:pointer;transition:opacity 0.2s;">&#9654; EMPEZAR ' + titulo.toUpperCase() + '</button>';
+                    previewDiv.innerHTML = tagHtml + chipsHtml + btnHtml;
+                    card.appendChild(previewDiv);
+                    mdContainer.appendChild(card);
+
+                    setTimeout(function() { actualizarEstadoDia(idx); }, 30);
+                })(i);
+            }
+        }
+
+        function toggleDiaAlumno(idx) {
+            var preview = document.getElementById('dia-preview-' + idx);
+            var chevron = document.getElementById('dia-chevron-' + idx);
+            if (!preview) return;
+            var isOpen = preview.style.display !== 'none';
+            preview.style.display = isOpen ? 'none' : 'block';
+            if (chevron) chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+        }
+
+        function iniciarDia(diaIdx) {
+            diaActivo = diaIdx;
+            var diaKey = 'dia_' + (diaIdx + 1);
+            var diaData = dataGlobal[diaKey];
+            if (!diaData || !diaData.datos) { mostrarToast('No hay datos para este dia'); return; }
+
+            var mdContainer = document.getElementById('multidia-container');
+            if (mdContainer) mdContainer.style.display = 'none';
+            var secWarmup = document.getElementById('sec-warmup');
+            var secPrincipal = document.getElementById('sec-principal');
+            if (secWarmup) secWarmup.style.display = '';
+            if (secPrincipal) secPrincipal.style.display = '';
+
+            // Boton volver
+            var btnVolver = document.getElementById('btn-volver-dias');
+            if (!btnVolver) {
+                btnVolver = document.createElement('button');
+                btnVolver.id = 'btn-volver-dias';
+                btnVolver.onclick = function() { volverADias(); };
+                btnVolver.style.cssText = 'position:fixed;top:16px;left:16px;z-index:9999;background:var(--tarjeta-alt);border:1px solid var(--borde);border-radius:12px;padding:9px 15px;color:var(--texto-suave);font-size:0.75rem;font-weight:700;cursor:pointer;letter-spacing:1px;';
+                btnVolver.innerHTML = '&#8592; DIAS';
+                document.body.appendChild(btnVolver);
+            }
+            btnVolver.style.display = 'block';
+
+            var titulo = diaData.titulo || ('Dia ' + (diaIdx + 1));
+            document.getElementById('tipo-tag').innerText = titulo.toUpperCase();
+            document.getElementById('id-display').innerText = (diaData.tipo || 'ENTRENAMIENTO').toUpperCase();
+
+            var datosParaRender = Object.assign({}, diaData.datos, { tipo: diaData.tipo });
+            _pantallaFinMostrada = false;
+            render(datosParaRender);
+
+            _onEntrenamientoCompletadoMultidia = function() {
+                marcarDiaCompletado(currentCode, diaIdx);
+                mostrarToast('!' + titulo + ' completado! Excelente trabajo!');
+            };
+        }
+
+        function volverADias() {
+            var secWarmup = document.getElementById('sec-warmup');
+            var secPrincipal = document.getElementById('sec-principal');
+            if (secWarmup) secWarmup.style.display = 'none';
+            if (secPrincipal) secPrincipal.style.display = 'none';
+            var mdContainer = document.getElementById('multidia-container');
+            if (mdContainer) mdContainer.style.display = 'flex';
+            var btnVolver = document.getElementById('btn-volver-dias');
+            if (btnVolver) btnVolver.style.display = 'none';
+            document.getElementById('tipo-tag').innerText = 'MULTI-DIA';
+            document.getElementById('id-display').innerText = (dataGlobal.total_dias || '') + ' DIAS';
+            _onEntrenamientoCompletadoMultidia = null;
+        }
+
+        var _onEntrenamientoCompletadoMultidia = null;
 
         // ─── RENDER PRINCIPAL ───
         function render(data) {
