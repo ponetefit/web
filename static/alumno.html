@@ -2856,6 +2856,7 @@
                 }
                 return Math.ceil(((bloque.config || {}).trabajo || 300) / 60);
             }
+            if (tipo === 'Mix') return bloque.series_globales || 3;
             return 1;
         }
 
@@ -2883,6 +2884,7 @@
                 }
                 return Math.ceil(((bloque.config || {}).trabajo || 300) / 60);
             }
+            if (tipo === 'Mix') return bloque.series_globales || 3;
             return 1;
         }
 
@@ -4931,7 +4933,8 @@
                 "Circuito por Tiempo": "#4fc3f7",
                 "Tabata": "var(--naranja)",
                 "EMOM": "var(--amarillo)",
-                "Series": "var(--verde)"
+                "Series": "var(--verde)",
+                "Mix": "var(--purpura)"
             };
             const color = colorMap[tipo] || "var(--purpura)";
             const uid = "blq-" + idx;
@@ -5123,10 +5126,67 @@
             } else if (tipo === "Series") {
                 const serialOffset = idx * 100;
                 renderSeriesMixInline(pLista, bloque.rutina || bloque.ejercicios || [], serialOffset, bloque.descripcion || "");
+
+            } else if (tipo === "Mix") {
+                // Bloque Mix: series globales + reps individuales por ejercicio
+                const seriesGlobales = bloque.series_globales || 3;
+                const pausaEntreSeries = bloque.pausa_entre_series || 60;
+                const ejerciciosMix = bloque.ejercicios || bloque.rutina || [];
+                let htmlMix = '<div class="bloque-mix" style="border-color:' + color + ';">' +
+                    '<div class="bloque-mix-titulo" style="color:' + color + ';">BLOQUE ' + idx + ' — MIX (' + seriesGlobales + ' SERIES)</div>' +
+                    '<div style="color:var(--naranja); font-size:0.8rem; margin-bottom:6px;">Pausa entre series: ' + pausaEntreSeries + 's</div>';
+                if (bloque.descripcion) {
+                    htmlMix += '<div class="bloque-descripcion">' + bloque.descripcion + '</div>';
+                }
+                ejerciciosMix.forEach(function(ej) {
+                    const nombre = ej.nombre || ej[0] || '';
+                    const link = ej.link || ej[1] || '';
+                    const reps = ej.reps || ej[2] || '';
+                    const unit = (ej.unit || 'Reps').toUpperCase();
+                    const pausaEj = ej.pausa_ej !== undefined ? ej.pausa_ej : null;
+                    const notaTec = ej.nota_tecnica || '';
+                    const conCarga = ej.con_carga || false;
+                    const pausaHtml = pausaEj !== null && pausaEj > 0 ?
+                        '<div style="font-size:0.68rem;color:var(--naranja);margin-top:2px;">⏱ Pausa: ' + pausaEj + 's</div>' : '';
+                    const notaHtml = notaTec ?
+                        '<div style="font-size:0.68rem;color:var(--azul);margin-top:2px;">💡 ' + notaTec + '</div>' : '';
+                    htmlMix += '<div style="background:var(--fondo);border-radius:10px;padding:10px 12px;margin-bottom:8px;border:1px solid rgba(255,255,255,0.07);">' +
+                        '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+                        '<span style="font-weight:700;font-size:0.9rem;">' + nombre + '</span>' +
+                        (link ? '<button onclick="abrirVideo('' + link.replace(/'/g,"\'") + '','' + nombre.replace(/'/g,"\'") + '')" style="background:none;border:none;cursor:pointer;color:var(--rojo);font-size:0.75rem;font-weight:700;padding:2px 6px;">▶ VIDEO</button>' : '') +
+                        '</div>' +
+                        (reps ? '<div style="font-size:0.85rem;color:var(--amarillo);font-weight:700;margin-top:3px;">' + reps + ' ' + unit + (conCarga ? ' 🏋️' : '') + '</div>' : '') +
+                        pausaHtml + notaHtml + '</div>';
+                });
+                // Serie counter + botón de pausa
+                const mixSerieId = uid + '-mix-serie';
+                htmlMix += '<div id="' + mixSerieId + '" style="color:var(--amarillo); font-weight:900; text-align:center; margin:10px 0; font-size:1rem;">Serie actual: 1 / ' + seriesGlobales + '</div>' +
+                    '<button class="btn-rest" onclick="marcarSerieMix('' + mixSerieId + '',' + seriesGlobales + ',' + pausaEntreSeries + ')">ACTIVAR PAUSA ENTRE SERIES</button>' +
+                    '</div>';
+                pLista.innerHTML += htmlMix;
             }
         }
 
         const mixBloqueVueltas = {};
+        const mixSeriesCounter = {};
+
+        function marcarSerieMix(serieId, totalSeries, pausaEntreSeries) {
+            if (!mixSeriesCounter[serieId]) mixSeriesCounter[serieId] = 1;
+            mixSeriesCounter[serieId]++;
+            const el = document.getElementById(serieId);
+            if (!el) return;
+            if (mixSeriesCounter[serieId] > totalSeries) {
+                el.innerText = '✓ BLOQUE MIX COMPLETADO';
+                el.style.color = 'var(--verde)';
+                el.nextElementSibling && (el.nextElementSibling.disabled = true);
+                incrementarProgreso(1);
+                return;
+            }
+            el.innerText = 'Serie actual: ' + mixSeriesCounter[serieId] + ' / ' + totalSeries;
+            incrementarProgreso(1);
+            coachPausaVueltas(totalSeries - mixSeriesCounter[serieId] + 1);
+            if (pausaEntreSeries > 0) iniciarDescansoCircuito(pausaEntreSeries);
+        }
 
         function marcarVueltaMixBloque(uid, contId, pausaVuelta, totalVueltas, vActualId) {
             if (!mixBloqueVueltas[uid]) mixBloqueVueltas[uid] = totalVueltas;
