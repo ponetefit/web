@@ -253,7 +253,7 @@
             .dash-table th, .dash-table td { padding: 0.4rem 0.25rem; font-size: 0.7rem; }
             /* Warmup exercise selectors - stack on mobile */
             #sec-rutina .flex.gap-2.mb-3 { flex-wrap: wrap; }
-            #sec-rutina .flex.gap-2.mb-3 select { width: 100%; flex: 1 1 100%; }
+            #sec-rutina .flex.gap-2.mb-3 select { width: 100%; flex: 1 1 45%; }
             #sec-rutina .flex.gap-2.mb-3 input { flex: 1 1 40%; }
             #sec-rutina .flex.gap-2.mb-3 button { width: 100%; flex: 1 1 100%; }
             /* Warmup exercise chips - prevent overflow */
@@ -605,8 +605,6 @@
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-lg font-bold text-azul uppercase tracking-wider">Ejercicios</h2>
                             <div class="flex items-center gap-2">
-                                <select id="cat-select" onchange="renderizarVideoteca()" class="rounded-lg px-3 py-2 text-sm">
-                                </select>
                                 <button onclick="modalNuevaCategoria()" class="bg-verde/20 text-verde px-3 py-2 rounded-lg text-xs font-bold hover:bg-verde/30 transition whitespace-nowrap">+ Categoría</button>
                                 <button onclick="eliminarCategoriaActual()" class="bg-rojo/20 text-rojo px-3 py-2 rounded-lg text-xs font-bold hover:bg-rojo/30 transition whitespace-nowrap">🗑 Eliminar</button>
                             </div>
@@ -639,8 +637,19 @@
                                 <input id="ej-nombre" type="text" placeholder="Ej: SENTADILLAS BULGARA" class="w-full rounded-lg px-3 py-2.5 text-sm">
                             </div>
                             <div>
+                                <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Categoría</label>
+                                <select id="ej-categoria" class="w-full rounded-lg px-3 py-2.5 text-sm">
+                                </select>
+                            </div>
+                            <div>
                                 <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Link de YouTube</label>
                                 <input id="ej-link" type="url" placeholder="https://www.youtube.com/watch?v=..." class="w-full rounded-lg px-3 py-2.5 text-sm">
+                            </div>
+                            <div>
+                                <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Equipamiento</label>
+                                <select id="ej-elemento" class="w-full rounded-lg px-3 py-2.5 text-sm">
+                                    <option value="">-- Seleccionar --</option>
+                                </select>
                             </div>
                             <!-- Musculos -->
                             <div>
@@ -659,12 +668,6 @@
                                 <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Sinergista <span class="text-textoSuave/60">(opcional)</span></label>
                                 <select id="ej-sinergista" class="w-full rounded-lg px-3 py-2.5 text-sm">
                                     <option value="">-- Ninguno --</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Elemento <span class="text-textoSuave/60">(equipamiento)</span></label>
-                                <select id="ej-elemento" class="w-full rounded-lg px-3 py-2.5 text-sm">
-                                    <option value="">-- Seleccionar --</option>
                                 </select>
                             </div>
                             <div class="flex items-center gap-3 py-1">
@@ -792,12 +795,15 @@
     <!-- Modal Nueva Categoria -->
     <div id="modal-nueva-cat" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-6">
         <div class="bg-tarjeta rounded-2xl border border-borde p-6 max-w-sm w-full">
-            <h3 class="text-sm font-bold text-verde uppercase tracking-wider mb-4">Nueva Categoria</h3>
-            <input id="nueva-cat-nombre" type="text" placeholder="Nombre de la categoria" onkeydown="if(event.key==='Enter')crearCategoria()" class="w-full rounded-lg px-3 py-2.5 text-sm mb-4">
-            <div class="flex gap-3">
-                <button onclick="crearCategoria()" class="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold text-sm">Crear</button>
-                <button onclick="document.getElementById('modal-nueva-cat').classList.add('hidden')" class="flex-1 py-2.5 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
+            <h3 class="text-sm font-bold text-verde uppercase tracking-wider mb-4">Agregar Categoría</h3>
+            <p class="text-xs text-textoSuave mb-4">Seleccioná la zona del cuerpo a agregar:</p>
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <button onclick="crearCategoria('Brazos')" class="py-3 rounded-xl bg-naranja/10 border border-naranja/30 text-naranja font-bold text-sm hover:bg-naranja/20 transition">💪 Brazos</button>
+                <button onclick="crearCategoria('Piernas')" class="py-3 rounded-xl bg-azul/10 border border-azul/30 text-azul font-bold text-sm hover:bg-azul/20 transition">🦵 Piernas</button>
+                <button onclick="crearCategoria('Zona Media')" class="py-3 rounded-xl bg-amarillo/10 border border-amarillo/30 text-amarillo font-bold text-sm hover:bg-amarillo/20 transition">🎯 Zona Media</button>
+                <button onclick="crearCategoria('Cuerpo Completo')" class="py-3 rounded-xl bg-verde/10 border border-verde/30 text-verde font-bold text-sm hover:bg-verde/20 transition">🏃 Cuerpo Completo</button>
             </div>
+            <button onclick="document.getElementById('modal-nueva-cat').classList.add('hidden')" class="w-full py-2.5 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
         </div>
     </div>
 
@@ -835,6 +841,13 @@
                         </select>
                         <select id="bloque-elemento-select" onchange="cargarEjsBloque()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
                             <option value="">Todo elemento</option>
+                        </select>
+                        <select id="bloque-zona-select" onchange="cargarEjsBloque()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
+                            <option value="">Toda zona</option>
+                            <option value="piernas">Piernas</option>
+                            <option value="brazos">Brazos</option>
+                            <option value="zona_media">Zona Media</option>
+                            <option value="todo_cuerpo">Todo el cuerpo</option>
                         </select>
                         <select id="bloque-ej-select" class="rounded-lg px-3 py-2 text-sm flex-1">
                         </select>
@@ -1000,18 +1013,46 @@
 
     function poblarCategorias() {
         const cats = Object.keys(VIDEOTECA_DATA);
-        // Poblar selects estaticos (videoteca + bloque modal)
-        ['cat-select', 'bloque-cat-select'].forEach(id => {
+        // Poblar selects de bloque modal
+        ['bloque-cat-select'].forEach(id => {
             const sel = document.getElementById(id);
             if (!sel) return;
             sel.innerHTML = cats.map(c => '<option>' + c + '</option>').join('');
         });
+        // Poblar el select de categoria en el formulario de ejercicio
+        const ejCatSel = document.getElementById('ej-categoria');
+        if (ejCatSel) {
+            ejCatSel.innerHTML = cats.map(c => '<option value="' + c + '">' + c + '</option>').join('');
+        }
+        // Agregar categorías dinámicas al select de zona en videoteca (vt-zona-select)
+        const vtZona = document.getElementById('vt-zona-select');
+        if (vtZona) {
+            // Conservar las opciones fijas (Todo el cuerpo, Piernas, Brazos, Zona Media)
+            const opsFijas = ['', 'piernas', 'brazos', 'zona_media'];
+            // Quitar opciones de categorías anteriores (data-cat="true")
+            Array.from(vtZona.options).forEach(opt => { if (opt.dataset.cat) opt.remove(); });
+            // Agregar separador + categorías si hay alguna
+            if (cats.length > 0) {
+                const sep = document.createElement('option');
+                sep.disabled = true;
+                sep.textContent = '── Categorías ──';
+                sep.dataset.cat = 'sep';
+                vtZona.appendChild(sep);
+                cats.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = 'cat:' + c;
+                    opt.textContent = c;
+                    opt.dataset.cat = 'true';
+                    vtZona.appendChild(opt);
+                });
+            }
+        }
         // Poblar select de elemento en el bloque modal
         poblarElementoSelect('bloque-elemento-select');
         cargarEjsBloque();
         // Poblar los selects de cada dia ya renderizado
         diasData.forEach((_, idx) => poblarCategoriasDia(idx));
-        // Poblar filtros de elemento en videoteca (zona es estática, no necesita poblar)
+        // Poblar filtros de elemento en videoteca
         poblarElementoSelect('vt-elemento-select');
     }
 
@@ -1039,13 +1080,13 @@
     // Si se pasa dataOverride se usa eso, sino se usa la categoria seleccionada de VIDEOTECA_DATA
     function renderizarVideoteca(dataOverride) {
         const lista = document.getElementById('lista-ejercicios');
-        const catSelect = document.getElementById('cat-select');
         const query = (document.getElementById('buscar-ejercicio')?.value || '').trim().toLowerCase();
         const elemFiltro = (document.getElementById('vt-elemento-select')?.value || '');
-        const zonaFiltro = (document.getElementById('vt-zona-select')?.value || '');
+        const zonaRaw = (document.getElementById('vt-zona-select')?.value || '');
+        const catZonaFiltro = zonaRaw.startsWith('cat:') ? zonaRaw.slice(4) : '';
+        const zonaFiltro = !catZonaFiltro ? zonaRaw : '';
         const zonaMuscs = zonaFiltro ? (ZONA_MUSCULOS[zonaFiltro] || []).map(m => m.toLowerCase()) : [];
 
-        // Función para filtrar un array de ejercicios
         function aplicarFiltros(ejercicios) {
             return (ejercicios || []).filter(ej => {
                 const nombre = (ej.nombre || ej[0] || '').toLowerCase();
@@ -1055,49 +1096,33 @@
                     const m1 = (ej.musculo1 || '').toLowerCase();
                     const m2 = (ej.musculo2 || '').toLowerCase();
                     const sin = (ej.sinergista || '').toLowerCase();
-                    const matchZona = zonaMuscs.some(zm => m1 === zm || m2 === zm || sin === zm);
-                    if (!matchZona) return false;
+                    if (!zonaMuscs.some(zm => m1 === zm || m2 === zm || sin === zm)) return false;
                 }
                 return true;
             });
         }
 
-        // Modo con query o filtros activos: mostrar resultados agrupados por categoria
-        if (dataOverride || query || elemFiltro || zonaFiltro) {
-            const sourceData = dataOverride || VIDEOTECA_DATA;
-            const cats = Object.keys(sourceData);
-            let html = '';
-            let total = 0;
-            cats.forEach(cat => {
-                const ejsFiltrados = aplicarFiltros(sourceData[cat]);
-                if (ejsFiltrados.length > 0) {
-                    html += `<div class="mb-1"><span class="text-xs font-bold text-naranja uppercase tracking-wider">${cat}</span></div>`;
-                    html += renderEjerciciosList(ejsFiltrados);
-                    total += ejsFiltrados.length;
-                }
-            });
-            if (total === 0) {
-                lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">No se encontraron ejercicios</p>';
-            } else {
-                lista.innerHTML = html;
+        const sourceData = dataOverride || VIDEOTECA_DATA;
+        const cats = catZonaFiltro ? [catZonaFiltro] : Object.keys(sourceData);
+        let html = '';
+        let total = 0;
+        cats.forEach(cat => {
+            const ejsFiltrados = aplicarFiltros(sourceData[cat]);
+            if (ejsFiltrados.length > 0) {
+                html += `<div class="mb-1 mt-2"><span class="text-xs font-bold text-naranja uppercase tracking-wider">${cat}</span></div>`;
+                html += renderEjerciciosList(ejsFiltrados, cat);
+                total += ejsFiltrados.length;
             }
-            return;
+        });
+        if (total === 0) {
+            lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">No se encontraron ejercicios</p>';
+        } else {
+            lista.innerHTML = html;
         }
-
-        // Modo normal: mostrar la categoria seleccionada
-        const cat = catSelect?.value;
-        const ejercicios = VIDEOTECA_DATA[cat] || [];
-
-        if (ejercicios.length === 0) {
-            lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">(Sin ejercicios en esta categoria)</p>';
-            return;
-        }
-
-        lista.innerHTML = renderEjerciciosList(ejercicios);
     }
 
     // Renderiza una lista de ejercicios como tarjetas (reutilizable)
-    function renderEjerciciosList(ejercicios) {
+    function renderEjerciciosList(ejercicios, cat) {
         return ejercicios.map((ej, i) => {
             const nombre = ej.nombre || ej[0] || '';
             const link = ej.link || ej[1] || '';
@@ -1108,12 +1133,13 @@
             const con_carga = ej.con_carga === true || ej.con_carga === 'true';
             const tip1 = ej.tip1 || '';
             const tip2 = ej.tip2 || '';
+            const catActual = cat || '';
             const muscBadges = [m1, m2].filter(Boolean).map(m => '<span class="text-[10px] bg-naranja/20 text-naranja px-1.5 py-0.5 rounded font-bold">' + m + '</span>').join(' ') +
                 (sin ? ' <span class="text-[10px] bg-azul/20 text-azul px-1.5 py-0.5 rounded font-bold">S: ' + sin + '</span>' : '') +
                 (elemento ? ' <span class="text-[10px] bg-amarillo/20 text-amarillo px-1.5 py-0.5 rounded font-bold">🔧 ' + elemento + '</span>' : '') +
                 (con_carga ? ' <span class="text-[10px] bg-verde/20 text-verde px-1.5 py-0.5 rounded font-bold">🏋️ CARGA</span>' : '') +
                 (tip1 ? ' <span class="text-[10px] bg-purpura/20 text-purpura px-1.5 py-0.5 rounded font-bold">🎙️ TIP</span>' : '');
-            const ejJSON = JSON.stringify({nombre, link, m1, m2, sin, elemento, con_carga, tip1, tip2}).replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+            const ejJSON = JSON.stringify({nombre, link, m1, m2, sin, elemento, con_carga, tip1, tip2, cat: catActual}).replace(/'/g, "&#39;").replace(/"/g, '&quot;');
             const linkEsc = link.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
             const nombreEsc = nombre.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
             return `<div class="bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50 hover:border-borde transition group">
@@ -1149,10 +1175,16 @@
         document.getElementById('ej-tip1').value = data.tip1 || '';
         document.getElementById('ej-tip2').value = data.tip2 || '';
         document.getElementById('status-ej').innerText = 'Editando: ' + (data.nombre || '');
+        const ejCat = document.getElementById('ej-categoria');
+        if (ejCat) {
+            const catActual = data.cat || '';
+            if (catActual) ejCat.value = catActual;
+        }
+        document.getElementById('ej-nombre').scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     async function guardarEjercicio() {
-        const categoria = document.getElementById('cat-select').value;
+        const categoria = document.getElementById('ej-categoria')?.value || '';
         const nombre = document.getElementById('ej-nombre').value.trim();
         const link = document.getElementById('ej-link').value.trim();
         const musculo1 = document.getElementById('ej-musculo1').value;
@@ -1214,7 +1246,7 @@
     }
 
     async function eliminarEjercicio() {
-        const categoria = document.getElementById('cat-select').value;
+        const categoria = document.getElementById('ej-categoria')?.value || '';
         const nombre = document.getElementById('ej-nombre').value.trim();
         if (!nombre) { toast('Escribe el nombre a eliminar'); return; }
 
@@ -1243,20 +1275,25 @@
 
     function modalNuevaCategoria() {
         document.getElementById('modal-nueva-cat').classList.remove('hidden');
-        document.getElementById('nueva-cat-nombre').value = '';
-        document.getElementById('nueva-cat-nombre').focus();
     }
 
-    async function crearCategoria() {
-        const nombre = document.getElementById('nueva-cat-nombre').value.trim();
+    async function crearCategoria(nombre) {
         if (!nombre) return;
         // Verificar que no exista ya
         if (VIDEOTECA_DATA[nombre]) {
-            toast('Ya existe una categoría con ese nombre');
+            toast('La categoría "' + nombre + '" ya existe');
+            document.getElementById('modal-nueva-cat').classList.add('hidden');
+            // Seleccionar esa categoría en el filtro
+            const vtZona = document.getElementById('vt-zona-select');
+            if (vtZona) {
+                for (let i = 0; i < vtZona.options.length; i++) {
+                    if (vtZona.options[i].value === 'cat:' + nombre) { vtZona.selectedIndex = i; break; }
+                }
+                renderizarVideoteca();
+            }
             return;
         }
         try {
-            // Intentar backend primero
             let ok = false;
             try {
                 const res = await fetch(API_BASE + '/api/videoteca/categoria', {
@@ -1268,7 +1305,6 @@
                 if (data.ok) ok = true;
             } catch (e) { /* fallback */ }
 
-            // Fallback: escribir directamente en Firebase
             if (!ok) {
                 const res = await fetch(FIREBASE_BASE + '/videoteca/' + encodeURIComponent(nombre) + '.json', {
                     method: 'PUT',
@@ -1281,11 +1317,11 @@
             toast('Categoría "' + nombre + '" creada');
             document.getElementById('modal-nueva-cat').classList.add('hidden');
             await cargarVideoteca();
-            // Seleccionar la nueva categoría
-            const catSel = document.getElementById('cat-select');
-            if (catSel) {
-                for (let i = 0; i < catSel.options.length; i++) {
-                    if (catSel.options[i].value === nombre) { catSel.selectedIndex = i; break; }
+            // Seleccionar la nueva categoría en vt-zona-select
+            const vtZona = document.getElementById('vt-zona-select');
+            if (vtZona) {
+                for (let i = 0; i < vtZona.options.length; i++) {
+                    if (vtZona.options[i].value === 'cat:' + nombre) { vtZona.selectedIndex = i; break; }
                 }
                 renderizarVideoteca();
             }
@@ -1296,12 +1332,13 @@
     }
 
     async function eliminarCategoriaActual() {
-        const catSel = document.getElementById('cat-select');
-        const nombre = catSel ? catSel.value : '';
-        if (!nombre) { toast('Seleccioná una categoría primero'); return; }
+        // Obtener la categoría activa desde vt-zona-select (solo si es una categoría dinámica cat:X)
+        const vtZona = document.getElementById('vt-zona-select');
+        const zonaVal = vtZona ? vtZona.value : '';
+        const nombre = zonaVal.startsWith('cat:') ? zonaVal.slice(4) : '';
+        if (!nombre) { toast('Seleccioná una categoría del filtro para eliminar'); return; }
         if (!confirm('¿Eliminar la categoría "' + nombre + '" y todos sus ejercicios? Esta acción no se puede deshacer.')) return;
         try {
-            // Intentar backend primero
             let ok = false;
             try {
                 const res = await fetch(API_BASE + '/api/videoteca/categoria', {
@@ -1313,7 +1350,6 @@
                 if (data.ok) ok = true;
             } catch (e) { /* fallback */ }
 
-            // Fallback: borrar directamente en Firebase
             if (!ok) {
                 const res = await fetch(FIREBASE_BASE + '/videoteca/' + encodeURIComponent(nombre) + '.json', {
                     method: 'DELETE'
@@ -1438,6 +1474,13 @@
                             <select id="warmup-elemento-select-${idx}" onchange="cargarEjsWarmupDia(${idx})" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
                                 <option value="">Todo elemento</option>
                             </select>
+                            <select id="warmup-zona-select-${idx}" onchange="cargarEjsWarmupDia(${idx})" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
+                                <option value="">Toda zona</option>
+                                <option value="piernas">Piernas</option>
+                                <option value="brazos">Brazos</option>
+                                <option value="zona_media">Zona Media</option>
+                                <option value="todo_cuerpo">Todo el cuerpo</option>
+                            </select>
                             <select id="warmup-ej-select-${idx}" class="rounded-lg px-3 py-2 text-sm flex-1"></select>
                             <input id="warmup-ej-reps-${idx}" type="text" placeholder="Reps" class="rounded-lg px-3 py-2 text-sm w-20">
                             <select id="warmup-ej-unit-${idx}" class="rounded-lg px-3 py-2 text-sm w-20">
@@ -1515,12 +1558,23 @@
         const catSel = document.getElementById('warmup-cat-select-' + idx);
         const ejSel = document.getElementById('warmup-ej-select-' + idx);
         const elemSel = document.getElementById('warmup-elemento-select-' + idx);
+        const zonaSel = document.getElementById('warmup-zona-select-' + idx);
         if (!catSel || !ejSel) return;
         const cat = catSel.value;
         const elemFiltro = elemSel ? elemSel.value : '';
+        const zonaFiltro = zonaSel ? zonaSel.value : '';
         let ejs = videotecaCache[cat] || [];
         if (elemFiltro) {
             ejs = ejs.filter(e => (e.elemento || '') === elemFiltro);
+        }
+        if (zonaFiltro && zonaFiltro !== 'todo_cuerpo' && ZONA_MUSCULOS[zonaFiltro]) {
+            const zonaMuscs = ZONA_MUSCULOS[zonaFiltro].map(m => m.toLowerCase());
+            ejs = ejs.filter(e => {
+                const m1 = (e.musculo1 || '').toLowerCase();
+                const m2 = (e.musculo2 || '').toLowerCase();
+                const sin = (e.sinergista || '').toLowerCase();
+                return zonaMuscs.some(zm => m1 === zm || m2 === zm || sin === zm);
+            });
         }
         ejSel.innerHTML = ejs.length
             ? ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + (e.nombre||e[0]) + '</option>').join('')
@@ -1900,10 +1954,21 @@
         if (!cat) return;
         const sel = document.getElementById('bloque-ej-select');
         const elemSel = document.getElementById('bloque-elemento-select');
+        const zonaSel = document.getElementById('bloque-zona-select');
         const elemFiltro = elemSel ? elemSel.value : '';
+        const zonaFiltro = zonaSel ? zonaSel.value : '';
         let ejs = videotecaCache[cat] || [];
         if (elemFiltro) {
             ejs = ejs.filter(e => (e.elemento || '') === elemFiltro);
+        }
+        if (zonaFiltro && zonaFiltro !== 'todo_cuerpo' && ZONA_MUSCULOS[zonaFiltro]) {
+            const zonaMuscs = ZONA_MUSCULOS[zonaFiltro].map(m => m.toLowerCase());
+            ejs = ejs.filter(e => {
+                const m1 = (e.musculo1 || '').toLowerCase();
+                const m2 = (e.musculo2 || '').toLowerCase();
+                const sin = (e.sinergista || '').toLowerCase();
+                return zonaMuscs.some(zm => m1 === zm || m2 === zm || sin === zm);
+            });
         }
         sel.innerHTML = ejs.length
             ? ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + (e.nombre||e[0]) + '</option>').join('')
