@@ -155,6 +155,7 @@ def guardar_ejercicio():
             con_carga = con_carga.lower() == "true"
         tip1 = body.get("tip1", "").strip()
         tip2 = body.get("tip2", "").strip()
+        elemento = body.get("elemento", "").strip()
 
         if not categoria or not nombre or not link:
             return jsonify({"ok": False, "error": "Categoria, nombre y link son obligatorios"}), 400
@@ -172,6 +173,8 @@ def guardar_ejercicio():
             ej_data["tip1"] = tip1
         if tip2:
             ej_data["tip2"] = tip2
+        if elemento:
+            ej_data["elemento"] = elemento
 
         ref = get_db_ref(f"/videoteca/{categoria}")
         ejercicios = ref.get() or []
