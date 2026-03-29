@@ -689,64 +689,23 @@
                 </div>
             </div>
 
-            <!-- Calentamiento -->
-            <div class="bg-tarjeta rounded-2xl border border-borde p-6 mb-6">
-                <h2 class="text-lg font-bold text-azul uppercase tracking-wider mb-4">1. Calentamiento</h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div>
-                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Tipo</label>
-                        <select id="warmup-tipo" onchange="actualizarWarmupUI()" class="w-full rounded-lg px-3 py-2.5 text-sm">
-                            <option>Circuito (Vueltas)</option>
-                            <option>Circuito por Tiempo</option>
-                            <option>Tabata</option>
-                            <option>EMOM</option>
-                            <option>Series/Reps</option>
-                        </select>
-                    </div>
-                    <div id="warmup-params-container">
-                        <!-- Se llena dinamicamente -->
-                    </div>
-                </div>
-                <div class="mb-4">
-                    <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Ejercicios del Calentamiento</label>
-                    <div class="mb-2">
-                        <input id="warmup-buscar-ej" type="text" placeholder="Buscar ejercicio..." onkeyup="filtrarEjsWarmup()" class="w-full rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-azul focus:ring-2 focus:ring-azul/30 transition">
-                    </div>
-                    <div class="flex gap-2 mb-3">
-                        <select id="warmup-cat-select" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
-                        </select>
-                        <select id="warmup-ej-select" class="rounded-lg px-3 py-2 text-sm flex-1">
-                        </select>
-                        <input id="warmup-ej-reps" type="text" placeholder="Reps" class="rounded-lg px-3 py-2 text-sm w-20">
-                        <select id="warmup-ej-unit" class="rounded-lg px-3 py-2 text-sm w-20">
-                            <option>Reps</option>
-                            <option>Segs</option>
-                        </select>
-                        <button onclick="agregarEjWarmup()" class="bg-azul/20 text-azul px-4 py-2 rounded-lg text-sm font-bold hover:bg-azul/30 transition whitespace-nowrap">+ Agregar</button>
-                    </div>
-                    <div id="warmup-ejercicios-lista" class="space-y-2">
-                    </div>
-                </div>
+            <!-- ══════════════════════════════════════════ -->
+            <!-- DIAS CONTAINER (multi-dia) -->
+            <!-- ══════════════════════════════════════════ -->
+            <div id="dias-container" class="space-y-6 mb-4">
+                <!-- Dia 1 se genera dinamicamente en initMultiDia() -->
             </div>
 
-            <!-- Bloque Principal -->
-            <div class="bg-tarjeta rounded-2xl border border-borde p-6 mb-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-lg font-bold text-verde uppercase tracking-wider">2. Bloque Principal</h2>
-                    <button onclick="agregarBloque()" class="bg-purpura/20 text-purpura px-4 py-2 rounded-lg text-sm font-bold hover:bg-purpura/30 transition">+ Agregar Bloque</button>
-                </div>
-                <div id="bloques-lista" class="space-y-4">
-                    <!-- Bloques se agregan dinamicamente -->
-                </div>
-                <div id="sin-bloques" class="text-textoSuave text-sm text-center py-8">
-                    Haz clic en "+ Agregar Bloque" para comenzar a armar la rutina
-                </div>
+            <!-- Botones Agregar Dia + Compartir -->
+            <div class="flex flex-col sm:flex-row gap-3 mb-6">
+                <button onclick="agregarDia()" class="flex-1 py-3 rounded-2xl border-2 border-dashed border-verde/40 text-verde font-bold text-sm uppercase tracking-wider hover:border-verde hover:bg-verde/5 transition flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    Agregar Día
+                </button>
+                <button onclick="compartirRutina()" id="btn-compartir-rutina" class="btn-primary flex-1 py-3 rounded-2xl text-white font-black text-lg uppercase tracking-wider">
+                    Compartir Rutina
+                </button>
             </div>
-
-            <!-- Boton Compartir -->
-            <button onclick="compartirRutina()" class="btn-primary w-full py-4 rounded-2xl text-white font-black text-lg uppercase tracking-wider mb-6">
-                Compartir Rutina
-            </button>
 
             <!-- Modal de resultado -->
             <div id="modal-codigo" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
@@ -758,7 +717,7 @@
                         <p class="text-xs text-textoSuave uppercase tracking-wider mb-2">Codigo de Acceso</p>
                         <p id="modal-codigo-text" class="text-3xl font-black text-amarillo font-mono tracking-wider"></p>
                     </div>
-                    <p class="text-xs text-textoSuave mb-4">Incluye Calentamiento + Bloque Principal</p>
+                    <p class="text-xs text-textoSuave mb-4" id="modal-dias-info">Incluye Calentamiento + Bloque Principal</p>
                     <button onclick="copiarCodigo()" class="bg-azul/20 text-azul px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-azul/30 transition mb-3 w-full">Copiar Codigo</button>
                     <button onclick="document.getElementById('modal-codigo').classList.add('hidden')" class="text-textoSuave text-sm hover:text-texto transition w-full py-2">Cerrar</button>
                 </div>
@@ -879,6 +838,13 @@
 
     // Estado global
     let videotecaCache = {};
+    // ── MULTI-DIA ─────────────────────────────────────────────────────────
+    // diasData[i] = { titulo, warmupEjercicios:[], bloquesRutina:[] }
+    let diasData = [];
+    let diaActivoIdx = 0; // indice del dia cuyo modal de bloque esta abierto
+
+    // Los alias de abajo apuntan siempre al dia activo (diaActivoIdx)
+    // para que las funciones existentes de warmup/bloques sigan funcionando.
     let warmupEjercicios = [];
     let bloquesRutina = [];
     let bloqueEjsTemp = [];
@@ -974,14 +940,15 @@
 
     function poblarCategorias() {
         const cats = Object.keys(VIDEOTECA_DATA);
-        ['cat-select', 'warmup-cat-select', 'bloque-cat-select'].forEach(id => {
+        // Poblar selects estaticos (videoteca + bloque modal)
+        ['cat-select', 'bloque-cat-select'].forEach(id => {
             const sel = document.getElementById(id);
             if (!sel) return;
             sel.innerHTML = cats.map(c => '<option>' + c + '</option>').join('');
         });
-        // Cargar ejercicios para warmup y bloque selects
-        cargarEjsWarmup();
         cargarEjsBloque();
+        // Poblar los selects de cada dia ya renderizado
+        diasData.forEach((_, idx) => poblarCategoriasDia(idx));
     }
 
     // Filtra la videoteca segun el texto del buscador
@@ -1193,8 +1160,302 @@
     // CREAR RUTINA
     // ====================================================================
     function inicializarRutina() {
-        cargarEjsWarmup();
-        actualizarWarmupUI();
+        if (diasData.length === 0) {
+            initMultiDia();
+        }
+    }
+
+    // ===================================================================
+    // SISTEMA MULTI-DIA
+    // ===================================================================
+
+    // Crea la estructura inicial con Dia 1
+    function initMultiDia() {
+        diasData = [];
+        agregarDia();
+    }
+
+    // Agrega un nuevo dia al contenedor
+    function agregarDia() {
+        const idx = diasData.length;
+        diasData.push({ titulo: 'Dia ' + (idx + 1), warmupEjercicios: [], bloquesRutina: [] });
+        renderDias();
+        // Expandir el nuevo dia
+        setTimeout(() => toggleDia(idx, true), 50);
+    }
+
+    // Elimina un dia (solo si hay mas de 1)
+    function eliminarDia(idx) {
+        if (diasData.length <= 1) { toast('Debe haber al menos 1 dia'); return; }
+        diasData.splice(idx, 1);
+        // Re-titular dias
+        diasData.forEach((d, i) => { d.titulo = 'Dia ' + (i + 1); });
+        renderDias();
+    }
+
+    // Renderiza todos los dias en #dias-container
+    function renderDias() {
+        const container = document.getElementById('dias-container');
+        if (!container) return;
+        container.innerHTML = diasData.map((dia, idx) => crearHTMLDia(dia, idx)).join('');
+        // Repoblar los selects de categoria en cada dia
+        diasData.forEach((_, idx) => {
+            poblarCategoriasDia(idx);
+            actualizarWarmupUIDia(idx);
+            renderWarmupEjsDia(idx);
+            renderBloquesDia(idx);
+        });
+    }
+
+    // Genera el HTML para un dia completo
+    function crearHTMLDia(dia, idx) {
+        const colorBorde = idx === 0 ? 'azul' : (idx === 1 ? 'verde' : (idx === 2 ? 'purpura' : 'naranja'));
+        return `<div class="dia-card bg-tarjeta rounded-2xl border border-borde overflow-hidden" id="dia-card-${idx}">
+            <!-- Cabecera del dia -->
+            <div class="flex items-center justify-between px-6 py-4 cursor-pointer border-b border-borde/50" onclick="toggleDia(${idx})">
+                <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-full bg-${colorBorde}/20 text-${colorBorde} flex items-center justify-center text-sm font-black">${idx + 1}</span>
+                    <h2 class="text-base font-black text-texto uppercase tracking-wider">${dia.titulo}</h2>
+                    <span class="text-xs text-textoSuave">${dia.warmupEjercicios.length} cal · ${dia.bloquesRutina.length} bloque(s)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    ${diasData.length > 1 ? '<button onclick="event.stopPropagation();eliminarDia(' + idx + ')" class="text-rojo/60 hover:text-rojo text-sm font-bold px-2 py-1 rounded transition">✕ Eliminar</button>' : ''}
+                    <svg id="dia-chevron-${idx}" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-textoSuave transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </div>
+            </div>
+            <!-- Contenido del dia (colapsable) -->
+            <div id="dia-body-${idx}" class="hidden">
+                <div class="p-6 space-y-6">
+                    <!-- Calentamiento del dia -->
+                    <div>
+                        <h3 class="text-sm font-bold text-azul uppercase tracking-wider mb-3">1. Calentamiento</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                            <div>
+                                <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Tipo</label>
+                                <select id="warmup-tipo-${idx}" onchange="actualizarWarmupUIDia(${idx})" class="w-full rounded-lg px-3 py-2.5 text-sm">
+                                    <option>Circuito (Vueltas)</option>
+                                    <option>Circuito por Tiempo</option>
+                                    <option>Tabata</option>
+                                    <option>EMOM</option>
+                                    <option>Series/Reps</option>
+                                </select>
+                            </div>
+                            <div id="warmup-params-container-${idx}" class="md:col-span-2"></div>
+                        </div>
+                        <div class="mb-2">
+                            <input id="warmup-buscar-ej-${idx}" type="text" placeholder="Buscar ejercicio..." onkeyup="filtrarEjsWarmupDia(${idx})" class="w-full rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-azul focus:ring-2 focus:ring-azul/30 transition">
+                        </div>
+                        <div class="flex gap-2 mb-3">
+                            <select id="warmup-cat-select-${idx}" onchange="cargarEjsWarmupDia(${idx})" class="rounded-lg px-3 py-2 text-sm flex-shrink-0"></select>
+                            <select id="warmup-ej-select-${idx}" class="rounded-lg px-3 py-2 text-sm flex-1"></select>
+                            <input id="warmup-ej-reps-${idx}" type="text" placeholder="Reps" class="rounded-lg px-3 py-2 text-sm w-20">
+                            <select id="warmup-ej-unit-${idx}" class="rounded-lg px-3 py-2 text-sm w-20">
+                                <option>Reps</option><option>Segs</option>
+                            </select>
+                            <button onclick="agregarEjWarmupDia(${idx})" class="bg-azul/20 text-azul px-3 py-2 rounded-lg text-sm font-bold hover:bg-azul/30 transition whitespace-nowrap">+ Agregar</button>
+                        </div>
+                        <div id="warmup-ejercicios-lista-${idx}" class="space-y-2"></div>
+                    </div>
+                    <!-- Bloque Principal del dia -->
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-sm font-bold text-verde uppercase tracking-wider">2. Bloque Principal</h3>
+                            <button onclick="agregarBloqueDia(${idx})" class="bg-purpura/20 text-purpura px-3 py-2 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">+ Agregar Bloque</button>
+                        </div>
+                        <div id="bloques-lista-${idx}" class="space-y-3"></div>
+                        <div id="sin-bloques-${idx}" class="text-textoSuave text-xs text-center py-6">
+                            Haz clic en "+ Agregar Bloque" para armar el ${dia.titulo}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // Expande/colapsa el cuerpo de un dia
+    function toggleDia(idx, forceOpen) {
+        const body = document.getElementById('dia-body-' + idx);
+        const chevron = document.getElementById('dia-chevron-' + idx);
+        if (!body) return;
+        const isHidden = body.classList.contains('hidden');
+        const open = forceOpen !== undefined ? forceOpen : isHidden;
+        body.classList.toggle('hidden', !open);
+        if (chevron) chevron.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+
+    // Pobla los selects de categoria para un dia especifico
+    function poblarCategoriasDia(idx) {
+        const cats = Object.keys(videotecaCache);
+        const catSel = document.getElementById('warmup-cat-select-' + idx);
+        const blCatSel = document.getElementById('bloque-cat-select'); // unico, del modal
+        if (catSel) {
+            catSel.innerHTML = cats.map(c => '<option value="' + c + '">' + c + '</option>').join('');
+            cargarEjsWarmupDia(idx);
+        }
+    }
+
+    // ── Warmup por dia ────────────────────────────────────────────────────
+
+    function actualizarWarmupUIDia(idx) {
+        const sel = document.getElementById('warmup-tipo-' + idx);
+        if (!sel) return;
+        const tipo = sel.value;
+        const container = document.getElementById('warmup-params-container-' + idx);
+        if (!container) return;
+        let html = '';
+        if (tipo === 'Circuito (Vueltas)') {
+            html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Vueltas</label><input id="warmup-vueltas-' + idx + '" type="number" value="2" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre vueltas (seg)</label><input id="warmup-pausa-vuelta-' + idx + '" type="number" value="30" min="0" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
+        } else if (tipo === 'Circuito por Tiempo') {
+            html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Duracion (minutos)</label><input id="warmup-duracion-' + idx + '" type="number" value="3" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>';
+        } else if (tipo === 'Tabata') {
+            html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Trabajo (seg)</label><input id="warmup-trabajo-' + idx + '" type="number" value="20" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label><input id="warmup-pausa-' + idx + '" type="number" value="10" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
+        } else if (tipo === 'EMOM') {
+            html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Minutos</label><input id="warmup-minutos-' + idx + '" type="number" value="5" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>';
+        } else if (tipo === 'Series/Reps') {
+            html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Series</label><input id="warmup-series-' + idx + '" type="number" value="3" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones</label><input id="warmup-reps-val-' + idx + '" type="number" value="10" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
+        }
+        container.innerHTML = html;
+    }
+
+    function cargarEjsWarmupDia(idx) {
+        const catSel = document.getElementById('warmup-cat-select-' + idx);
+        const ejSel = document.getElementById('warmup-ej-select-' + idx);
+        if (!catSel || !ejSel) return;
+        const cat = catSel.value;
+        const ejs = videotecaCache[cat] || [];
+        ejSel.innerHTML = ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + (e.nombre||e[0]) + '</option>').join('');
+    }
+
+    function filtrarEjsWarmupDia(idx) {
+        const query = (document.getElementById('warmup-buscar-ej-' + idx)?.value || '').trim().toLowerCase();
+        const sel = document.getElementById('warmup-ej-select-' + idx);
+        if (!query) { cargarEjsWarmupDia(idx); return; }
+        let resultados = [];
+        for (const [cat, ejercicios] of Object.entries(videotecaCache)) {
+            (ejercicios || []).forEach(e => {
+                const nombre = (e.nombre || e[0] || '').toLowerCase();
+                if (nombre.includes(query)) resultados.push({ nombre: e.nombre || e[0], link: e.link || e[1] || '', cat });
+            });
+        }
+        sel.innerHTML = resultados.length
+            ? resultados.map(r => '<option value="' + r.nombre + '" data-cat="' + r.cat + '">' + r.nombre + ' (' + r.cat + ')</option>').join('')
+            : '<option value="">Sin resultados</option>';
+    }
+
+    function agregarEjWarmupDia(idx) {
+        const selEj = document.getElementById('warmup-ej-select-' + idx);
+        const nombre = selEj ? selEj.value : '';
+        const reps = document.getElementById('warmup-ej-reps-' + idx)?.value.trim() || '';
+        const unit = document.getElementById('warmup-ej-unit-' + idx)?.value || 'Reps';
+        if (!nombre) return;
+        const selectedOption = selEj.options[selEj.selectedIndex];
+        const cat = (selectedOption && selectedOption.dataset.cat) || document.getElementById('warmup-cat-select-' + idx)?.value;
+        const ejs = videotecaCache[cat] || [];
+        const ejData = ejs.find(e => (e.nombre||e[0]) === nombre);
+        const link = ejData ? (ejData.link||ejData[1]||'') : '';
+        const con_carga = ejData ? (ejData.con_carga === true || ejData.con_carga === 'true') : false;
+        const tip1 = ejData ? (ejData.tip1 || '') : '';
+        const tip2 = ejData ? (ejData.tip2 || '') : '';
+        const buscador = document.getElementById('warmup-buscar-ej-' + idx);
+        if (buscador) buscador.value = '';
+        if (!diasData[idx]) return;
+        diasData[idx].warmupEjercicios.push({ nombre, link, reps, unit, con_carga, tip1, tip2 });
+        renderWarmupEjsDia(idx);
+        const repsInput = document.getElementById('warmup-ej-reps-' + idx);
+        if (repsInput) repsInput.value = '';
+        // Actualizar badge
+        actualizarBadgeDia(idx);
+    }
+
+    function quitarEjWarmupDia(idx, ejIdx) {
+        if (!diasData[idx]) return;
+        diasData[idx].warmupEjercicios.splice(ejIdx, 1);
+        renderWarmupEjsDia(idx);
+        actualizarBadgeDia(idx);
+    }
+
+    function renderWarmupEjsDia(idx) {
+        const lista = document.getElementById('warmup-ejercicios-lista-' + idx);
+        if (!lista || !diasData[idx]) return;
+        const ejs = diasData[idx].warmupEjercicios;
+        if (ejs.length === 0) { lista.innerHTML = ''; return; }
+        lista.innerHTML = ejs.map((ej, i) => {
+            const linkEsc = (ej.link || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+            const nombreEsc = (ej.nombre || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+            return '<div class="exercise-chip flex items-center justify-between bg-fondoAlt rounded-xl px-4 py-2.5 border border-borde/50">' +
+                '<div class="flex items-center gap-3">' +
+                '<span class="text-xs text-textoSuave font-mono">' + (i+1) + '</span>' +
+                '<span class="text-sm font-bold ej-hover-preview" data-video-url="' + linkEsc + '" data-ej-nombre="' + nombreEsc + '" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()">' + ej.nombre + '</span>' +
+                (ej.reps ? '<span class="text-xs text-amarillo font-bold">' + ej.reps + ' ' + ej.unit + '</span>' : '') +
+                '</div>' +
+                '<button onclick="quitarEjWarmupDia(' + idx + ',' + i + ')" class="text-rojo hover:text-red-400 text-lg font-bold leading-none">&times;</button>' +
+                '</div>';
+        }).join('');
+    }
+
+    // ── Bloques por dia ───────────────────────────────────────────────────
+
+    function agregarBloqueDia(idx) {
+        diaActivoIdx = idx;
+        // Sincronizar la variable global bloquesRutina al dia activo
+        bloquesRutina = diasData[idx].bloquesRutina;
+        editandoBloqueIdx = null;
+        bloqueEjsTemp = [];
+        document.getElementById('bloque-tipo').value = 'Circuito';
+        document.getElementById('bloque-desc').value = '';
+        actualizarBloqueParams();
+        renderBloqueEjsTemp();
+        cargarEjsBloque();
+        document.getElementById('modal-bloque').classList.remove('hidden');
+    }
+
+    function renderBloquesDia(idx) {
+        const lista = document.getElementById('bloques-lista-' + idx);
+        const sinBloques = document.getElementById('sin-bloques-' + idx);
+        if (!lista || !diasData[idx]) return;
+        const bloques = diasData[idx].bloquesRutina;
+        if (bloques.length === 0) {
+            lista.innerHTML = '';
+            if (sinBloques) sinBloques.style.display = '';
+            return;
+        }
+        if (sinBloques) sinBloques.style.display = 'none';
+        const colores = { 'Circuito': 'naranja', 'Circuito por Tiempo': 'azul', 'Tabata': 'rojo', 'EMOM': 'amarillo', 'Series': 'verde' };
+        lista.innerHTML = bloques.map((b, i) => {
+            const color = colores[b.tipo] || 'purpura';
+            const ejCount = (b.ejercicios || []).length;
+            return '<div class="bg-fondoAlt rounded-2xl border border-' + color + '/30 p-4 flex items-center justify-between">' +
+                '<div>' +
+                '<span class="inline-block px-2 py-0.5 rounded text-xs font-bold bg-' + color + '/20 text-' + color + ' uppercase tracking-wider mb-1">' + b.tipo + '</span>' +
+                '<p class="text-sm font-bold text-texto">' + ejCount + ' ejercicio(s)' + (b.descripcion ? ' · ' + b.descripcion : '') + '</p>' +
+                '</div>' +
+                '<div class="flex gap-2">' +
+                '<button onclick="editarBloqueDia(' + idx + ',' + i + ')" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">Editar</button>' +
+                '<button onclick="eliminarBloqueDia(' + idx + ',' + i + ')" class="bg-rojo/20 text-rojo px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition">Eliminar</button>' +
+                '</div>' +
+                '</div>';
+        }).join('');
+    }
+
+    function editarBloqueDia(diaIdx, bloqueIdx) {
+        diaActivoIdx = diaIdx;
+        bloquesRutina = diasData[diaIdx].bloquesRutina;
+        editarBloque(bloqueIdx);
+    }
+
+    function eliminarBloqueDia(diaIdx, bloqueIdx) {
+        diasData[diaIdx].bloquesRutina.splice(bloqueIdx, 1);
+        renderBloquesDia(diaIdx);
+        actualizarBadgeDia(diaIdx);
+    }
+
+    function actualizarBadgeDia(idx) {
+        const card = document.getElementById('dia-card-' + idx);
+        if (!card || !diasData[idx]) return;
+        const badge = card.querySelector('span.text-xs.text-textoSuave');
+        if (badge) {
+            badge.textContent = diasData[idx].warmupEjercicios.length + ' cal · ' + diasData[idx].bloquesRutina.length + ' bloque(s)';
+        }
     }
 
     // --- Warmup ---
@@ -1481,8 +1742,13 @@
             bloquesRutina.push(bloque);
         }
 
+        // Sincronizar de vuelta al dia activo
+        diasData[diaActivoIdx].bloquesRutina = bloquesRutina;
+        renderBloquesDia(diaActivoIdx);
+        actualizarBadgeDia(diaActivoIdx);
         document.getElementById('modal-bloque').classList.add('hidden');
-        renderBloques();
+        bloqueEjsTemp = [];
+        editandoBloqueIdx = null;
     }
 
     function editarBloque(idx) {
@@ -1732,122 +1998,108 @@
         const alumno = document.getElementById('alumno-nombre').value.trim() || 'ALUMNO';
         const descGlobal = document.getElementById('rutina-desc').value.trim();
 
-        if (warmupEjercicios.length === 0 && bloquesRutina.length === 0) {
-            toast('Agrega ejercicios al calentamiento o bloques');
+        // Verificar que haya al menos algo en algun dia
+        const hayContenido = diasData.some(d => d.warmupEjercicios.length > 0 || d.bloquesRutina.length > 0);
+        if (!hayContenido) {
+            toast('Agrega ejercicios a al menos un dia');
             return;
         }
 
-        // Determinar tipo
-        let tipo = 'ENTRENAMIENTO';
-        if (bloquesRutina.length === 1) {
-            tipo = bloquesRutina[0].tipo;
-        }
-
-        // Construir warmup config detalle
-        const warmupTipo = document.getElementById('warmup-tipo').value;
-        const warmupDetalle = { tipo: warmupTipo };
-        if (warmupTipo === 'Circuito (Vueltas)') {
-            warmupDetalle.vueltas = parseInt(document.getElementById('warmup-vueltas')?.value || 2);
-            warmupDetalle.pausa_vuelta = parseInt(document.getElementById('warmup-pausa-vuelta')?.value || 30);
-        } else if (warmupTipo === 'Circuito por Tiempo') {
-            warmupDetalle.duracion_bloque = parseInt(document.getElementById('warmup-duracion')?.value || 3);
-        } else if (warmupTipo === 'Tabata') {
-            warmupDetalle.trabajo = parseInt(document.getElementById('warmup-trabajo')?.value || 20);
-            warmupDetalle.pausa = parseInt(document.getElementById('warmup-pausa')?.value || 10);
-        } else if (warmupTipo === 'EMOM') {
-            warmupDetalle.minutos = parseInt(document.getElementById('warmup-minutos')?.value || 5);
-        } else if (warmupTipo === 'Series/Reps') {
-            warmupDetalle.series = parseInt(document.getElementById('warmup-series')?.value || 3);
-            warmupDetalle.reps = parseInt(document.getElementById('warmup-reps-val')?.value || 10);
-        }
-
-        // Construir warmup ejercicios como arrays [nombre, link, reps, unit]
-        const warmupEjsExport = warmupEjercicios.map(e => [e.nombre, e.link, e.reps || '', e.unit || 'Reps']);
-
-        // Construir datos del bloque principal
-        let datos = {};
-        if (bloquesRutina.length === 1 && tipo !== 'ENTRENAMIENTO') {
-            const b = bloquesRutina[0];
-            if (tipo === 'Circuito') {
-                datos = {
-                    datos: [{ id: 1, ejercicios: b.ejercicios }],
-                    vueltas_bloque: b.vueltas,
-                    pausa_vuelta: b.pausa_vuelta,
-                    descripcion: b.descripcion || descGlobal
-                };
-            } else if (tipo === 'Circuito por Tiempo') {
-                datos = {
-                    datos: [{ id: 1, ejercicios: b.ejercicios, tiempo_min: b.duracion_min }],
-                    descripcion: b.descripcion || descGlobal
-                };
-            } else if (tipo === 'Tabata') {
-                datos = {
-                    rutina: b.ejercicios.map(e => [e.nombre, e.link]),
-                    trabajo: b.trabajo, pausa: b.pausa,
-                    rondas: b.rondas, cantidad: b.ejercicios.length,
-                    pausa_entre_rondas: b.pausa_entre_rondas,
-                    descripcion: b.descripcion || descGlobal
-                };
-            } else if (tipo === 'EMOM') {
-                const repsDict = {};
-                const unitsDict = {};
-                b.ejercicios.forEach(e => { repsDict[e.nombre] = e.reps; unitsDict[e.nombre] = e.unit; });
-                // Crear ciclo minuto a minuto
-                const ciclo = [];
-                for (let m = 0; m < b.minutos_totales; m++) {
-                    const ejsMin = [];
-                    for (let j = 0; j < b.ejercicios_por_minuto; j++) {
-                        const idx = (m * b.ejercicios_por_minuto + j) % b.ejercicios.length;
-                        const e = b.ejercicios[idx];
-                        ejsMin.push({ nombre: e.nombre, link: e.link, reps: e.reps, unit: e.unit });
-                    }
-                    ciclo.push({ ejercicios: ejsMin, es_descanso: false });
-                }
-                datos = {
-                    rutina: b.ejercicios.map(e => [e.nombre, e.link]),
-                    minutos_totales: b.minutos_totales,
-                    ejercicios_por_minuto: b.ejercicios_por_minuto,
-                    reps_por_ejercicio: repsDict,
-                    units_por_ejercicio: unitsDict,
-                    minutos_ciclo: ciclo,
-                    descripcion: b.descripcion || descGlobal
-                };
-            } else if (tipo === 'Series') {
-                tipo = 'Series';
-                datos = {
-                    datos: b.ejercicios,
-                    descripcion: b.descripcion || descGlobal
-                };
-            }
-        } else {
-            // Mix / ENTRENAMIENTO
-            tipo = 'ENTRENAMIENTO';
-            datos = {
-                bloques: bloquesRutina,
-                descripcion: descGlobal
-            };
-        }
-
-        // Agregar warmup al payload
-        datos.warmup_ejercicios = warmupEjsExport;
-        datos.warmup_tipo = warmupTipo;
-        datos.warmup_vueltas = warmupDetalle.vueltas || 2;
-        datos.warmup_config_detalle = warmupDetalle;
-
-        const btn = document.querySelector('[onclick="compartirRutina()"]');
+        const btn = document.getElementById('btn-compartir-rutina');
         btn.innerText = 'SUBIENDO...';
         btn.disabled = true;
 
         try {
+            // ── Construir datos de cada dia ──────────────────────────────────
+            function buildDatosDia(dia, diaIdx) {
+                const warmupTipo = (document.getElementById('warmup-tipo-' + diaIdx) || {}).value || 'Circuito (Vueltas)';
+                const warmupDetalle = { tipo: warmupTipo };
+                if (warmupTipo === 'Circuito (Vueltas)') {
+                    warmupDetalle.vueltas = parseInt(document.getElementById('warmup-vueltas-' + diaIdx)?.value || 2);
+                    warmupDetalle.pausa_vuelta = parseInt(document.getElementById('warmup-pausa-vuelta-' + diaIdx)?.value || 30);
+                } else if (warmupTipo === 'Circuito por Tiempo') {
+                    warmupDetalle.duracion_bloque = parseInt(document.getElementById('warmup-duracion-' + diaIdx)?.value || 3);
+                } else if (warmupTipo === 'Tabata') {
+                    warmupDetalle.trabajo = parseInt(document.getElementById('warmup-trabajo-' + diaIdx)?.value || 20);
+                    warmupDetalle.pausa = parseInt(document.getElementById('warmup-pausa-' + diaIdx)?.value || 10);
+                } else if (warmupTipo === 'EMOM') {
+                    warmupDetalle.minutos = parseInt(document.getElementById('warmup-minutos-' + diaIdx)?.value || 5);
+                } else if (warmupTipo === 'Series/Reps') {
+                    warmupDetalle.series = parseInt(document.getElementById('warmup-series-' + diaIdx)?.value || 3);
+                    warmupDetalle.reps = parseInt(document.getElementById('warmup-reps-val-' + diaIdx)?.value || 10);
+                }
+                const warmupEjsExport = dia.warmupEjercicios.map(e => [e.nombre, e.link, e.reps || '', e.unit || 'Reps']);
+                const bloques = dia.bloquesRutina;
+
+                let tipo = 'ENTRENAMIENTO';
+                let datos = {};
+
+                if (bloques.length === 1) {
+                    const b = bloques[0];
+                    tipo = b.tipo;
+                    if (tipo === 'Circuito') {
+                        datos = { datos: [{ id: 1, ejercicios: b.ejercicios }], vueltas_bloque: b.vueltas, pausa_vuelta: b.pausa_vuelta, descripcion: b.descripcion || descGlobal };
+                    } else if (tipo === 'Circuito por Tiempo') {
+                        datos = { datos: [{ id: 1, ejercicios: b.ejercicios, tiempo_min: b.duracion_min }], descripcion: b.descripcion || descGlobal };
+                    } else if (tipo === 'Tabata') {
+                        datos = { rutina: b.ejercicios.map(e => [e.nombre, e.link]), trabajo: b.trabajo, pausa: b.pausa, rondas: b.rondas, cantidad: b.ejercicios.length, pausa_entre_rondas: b.pausa_entre_rondas, descripcion: b.descripcion || descGlobal };
+                    } else if (tipo === 'EMOM') {
+                        const repsDict = {}; const unitsDict = {};
+                        b.ejercicios.forEach(e => { repsDict[e.nombre] = e.reps; unitsDict[e.nombre] = e.unit; });
+                        const ciclo = [];
+                        for (let m = 0; m < b.minutos_totales; m++) {
+                            const ejsMin = [];
+                            for (let j = 0; j < b.ejercicios_por_minuto; j++) {
+                                const idx = (m * b.ejercicios_por_minuto + j) % b.ejercicios.length;
+                                const e = b.ejercicios[idx];
+                                ejsMin.push({ nombre: e.nombre, link: e.link, reps: e.reps, unit: e.unit });
+                            }
+                            ciclo.push({ ejercicios: ejsMin, es_descanso: false });
+                        }
+                        datos = { rutina: b.ejercicios.map(e => [e.nombre, e.link]), minutos_totales: b.minutos_totales, ejercicios_por_minuto: b.ejercicios_por_minuto, reps_por_ejercicio: repsDict, units_por_ejercicio: unitsDict, minutos_ciclo: ciclo, descripcion: b.descripcion || descGlobal };
+                    } else if (tipo === 'Series') {
+                        datos = { datos: b.ejercicios, descripcion: b.descripcion || descGlobal };
+                    }
+                } else {
+                    tipo = 'ENTRENAMIENTO';
+                    datos = { bloques: bloques, descripcion: descGlobal };
+                }
+
+                datos.warmup_ejercicios = warmupEjsExport;
+                datos.warmup_tipo = warmupTipo;
+                datos.warmup_vueltas = warmupDetalle.vueltas || 2;
+                datos.warmup_config_detalle = warmupDetalle;
+
+                return { tipo, datos };
+            }
+
+            let payload;
+            if (diasData.length === 1) {
+                // ── Rutina de un solo dia: formato clasico ─────────────────
+                const { tipo, datos } = buildDatosDia(diasData[0], 0);
+                payload = { alumno, tipo, datos };
+            } else {
+                // ── Rutina multi-dia ───────────────────────────────────────
+                const dias = diasData.map((dia, i) => {
+                    const { tipo, datos } = buildDatosDia(dia, i);
+                    return { titulo: dia.titulo, tipo, datos };
+                });
+                payload = { alumno, tipo: 'MULTIDIA', datos: { descripcion: descGlobal }, dias };
+            }
+
             const res = await fetch(API_BASE + '/api/rutina/compartir', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ alumno, tipo, datos })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             });
             const data = await res.json();
             if (data.ok) {
                 document.getElementById('modal-codigo-text').innerText = data.codigo.toUpperCase();
-                document.getElementById('modal-info').innerText = `Rutina tipo ${data.tipo} asignada a ${data.alumno}`;
+                document.getElementById('modal-info').innerText = 'Rutina asignada a ' + data.alumno;
+                const diasInfo = data.es_multidia
+                    ? 'Incluye ' + data.total_dias + ' dias de entrenamiento'
+                    : 'Incluye Calentamiento + Bloque Principal';
+                document.getElementById('modal-dias-info').innerText = diasInfo;
                 document.getElementById('modal-codigo').classList.remove('hidden');
                 toast('Rutina compartida!');
             } else {
@@ -1860,7 +2112,6 @@
             btn.disabled = false;
         }
     }
-
     function copiarCodigo() {
         const codigo = document.getElementById('modal-codigo-text').innerText;
         navigator.clipboard.writeText(codigo).then(() => toast('Codigo copiado!')).catch(() => {});
@@ -3585,9 +3836,10 @@
     document.addEventListener('DOMContentLoaded', () => {
         poblarSelectsMusculos();
         cargarVideoteca();
-        actualizarWarmupUI();
         cargarListaAlumnos();
         cargarAlumnosDash();
+        // Inicializar el sistema multi-dia con Dia 1 por defecto
+        initMultiDia();
     });
 
 
