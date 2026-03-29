@@ -3790,7 +3790,8 @@
                         }).join(' &nbsp; ');
                         var metaExtra = desc && parseInt(desc) > 0 ? ' <span style="color:var(--texto-suave);font-size:0.7rem;">| Pausa: ' + desc + 's</span>' : '';
                         var vPesoHtml = cc ? crearPesoRowsPorVuelta(n, ej.reps_por_vuelta.length, wupBaseId) : '';
-                        wLista.innerHTML += crearCard(n, l, '', cc, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:6px; align-items:center;">' + vLabels + metaExtra + '</div>' + vPesoHtml);
+                        // con_carga=false para evitar peso genérico duplicado (la carga por vuelta ya está en vPesoHtml)
+                        wLista.innerHTML += crearCard(n, l, '', false, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:6px; align-items:center;">' + vLabels + metaExtra + '</div>' + vPesoHtml);
                     // Mostrar reps y pausa por serie si existen (Series/Reps)
                     } else if (!Array.isArray(ej) && ej.reps_por_serie && ej.reps_por_serie.length > 0) {
                         var sRepsLabels = ej.reps_por_serie.map(function(rs, si) {
@@ -5097,7 +5098,8 @@
                             }).join(' &nbsp; ');
                             var descExtra = ej.descanso && parseInt(ej.descanso) > 0 ? ' <span style="color:var(--texto-suave);font-size:0.7rem;">| Pausa: ' + ej.descanso + 's</span>' : '';
                             var vCargaHtml = ej.con_carga ? crearPesoRowsPorVuelta(ej.nombre, ej.reps_por_vuelta.length, uid + '-circ-v-' + (b.id||1) + '-' + (ej.nombre||'').replace(/\s/g,'')) : '';
-                            html += crearCard(ej.nombre, ej.link, '', ej.con_carga, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:6px; align-items:center;">' + vLabels + descExtra + '</div>' + vCargaHtml);
+                            // con_carga=false para evitar peso genérico duplicado (la carga por vuelta ya está arriba)
+                            html += crearCard(ej.nombre, ej.link, '', false, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:6px; align-items:center;">' + vLabels + descExtra + '</div>' + vCargaHtml);
                         } else {
                             var metaStr = (ej.reps || "") + " " + ejU;
                             if (ej.descanso && parseInt(ej.descanso) > 0) metaStr += ' | Pausa: ' + ej.descanso + 's';
