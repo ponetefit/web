@@ -610,13 +610,16 @@
                                 <button onclick="modalNuevaCategoria()" class="bg-verde/20 text-verde px-3 py-2 rounded-lg text-xs font-bold hover:bg-verde/30 transition">+ Categoria</button>
                             </div>
                         </div>
-                        <!-- Filtros: Elemento y Grupo Muscular -->
+                        <!-- Filtros: Elemento y Zona del cuerpo -->
                         <div class="flex flex-wrap gap-2 mb-3">
                             <select id="vt-elemento-select" onchange="renderizarVideoteca()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
                                 <option value="">Todo elemento</option>
                             </select>
-                            <select id="vt-musculo-select" onchange="renderizarVideoteca()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
-                                <option value="">Todo músculo</option>
+                            <select id="vt-zona-select" onchange="renderizarVideoteca()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
+                                <option value="">Todo el cuerpo</option>
+                                <option value="piernas">Piernas</option>
+                                <option value="brazos">Brazos</option>
+                                <option value="zona_media">Zona Media</option>
                             </select>
                         </div>
                         <div id="lista-ejercicios" class="space-y-2 max-h-[500px] overflow-y-auto pr-2">
@@ -993,13 +996,8 @@
         cargarEjsBloque();
         // Poblar los selects de cada dia ya renderizado
         diasData.forEach((_, idx) => poblarCategoriasDia(idx));
-        // Poblar filtros de elemento y musculo en videoteca
+        // Poblar filtros de elemento en videoteca (zona es estática, no necesita poblar)
         poblarElementoSelect('vt-elemento-select');
-        const vtMuscSel = document.getElementById('vt-musculo-select');
-        if (vtMuscSel) {
-            vtMuscSel.innerHTML = '<option value="">Todo músculo</option>' +
-                GRUPOS_MUSCULARES.map(m => '<option value="' + m + '">' + m + '</option>').join('');
-        }
     }
 
     // Pobla un select de elemento con las opciones de ELEMENTOS
@@ -1009,6 +1007,13 @@
         sel.innerHTML = '<option value="">Todo elemento</option>' +
             ELEMENTOS.map(e => '<option value="' + e + '">' + e + '</option>').join('');
     }
+
+    // Grupos musculares por zona
+    const ZONA_MUSCULOS = {
+        piernas:    ['Cuadriceps', 'Isquiotibiales', 'Gluteos', 'Aductores', 'Pantorrillas'],
+        brazos:     ['Biceps', 'Triceps', 'Antebrazo', 'Hombros', 'Pecho', 'Espalda', 'Trapecio'],
+        zona_media: ['Abdominales', 'Oblicuos', 'Lumbar']
+    };
 
     // Filtra la videoteca segun el texto del buscador
     function filtrarVideoteca() {
@@ -1022,7 +1027,8 @@
         const catSelect = document.getElementById('cat-select');
         const query = (document.getElementById('buscar-ejercicio')?.value || '').trim().toLowerCase();
         const elemFiltro = (document.getElementById('vt-elemento-select')?.value || '');
-        const muscFiltro = (document.getElementById('vt-musculo-select')?.value || '').toLowerCase();
+        const zonaFiltro = (document.getElementById('vt-zona-select')?.value || '');
+        const zonaMuscs = zonaFiltro ? (ZONA_MUSCULOS[zonaFiltro] || []).map(m => m.toLowerCase()) : [];
 
         // Función para filtrar un array de ejercicios
         function aplicarFiltros(ejercicios) {
@@ -1030,18 +1036,19 @@
                 const nombre = (ej.nombre || ej[0] || '').toLowerCase();
                 if (query && !nombre.includes(query)) return false;
                 if (elemFiltro && (ej.elemento || '') !== elemFiltro) return false;
-                if (muscFiltro) {
+                if (zonaMuscs.length > 0) {
                     const m1 = (ej.musculo1 || '').toLowerCase();
                     const m2 = (ej.musculo2 || '').toLowerCase();
                     const sin = (ej.sinergista || '').toLowerCase();
-                    if (!m1.includes(muscFiltro) && !m2.includes(muscFiltro) && !sin.includes(muscFiltro)) return false;
+                    const matchZona = zonaMuscs.some(zm => m1 === zm || m2 === zm || sin === zm);
+                    if (!matchZona) return false;
                 }
                 return true;
             });
         }
 
-        // Modo con query o filtro elemento/musculo: mostrar resultados agrupados por categoria
-        if (dataOverride || query || elemFiltro || muscFiltro) {
+        // Modo con query o filtros activos: mostrar resultados agrupados por categoria
+        if (dataOverride || query || elemFiltro || zonaFiltro) {
             const sourceData = dataOverride || VIDEOTECA_DATA;
             const cats = Object.keys(sourceData);
             let html = '';
