@@ -2510,192 +2510,139 @@
     async function editarRutinaDesdeHistorial(codigo) {
         toast('Cargando rutina para editar...');
         try {
-            // Obtener datos completos — siempre refetch si es MULTIDIA o si los datos están incompletos
-            let r = historialRutinasCache[codigo];
-            const esMultidiaCache = r && r.tipo === 'MULTIDIA';
-            const datosInsuficientes = !r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia || r.dia_1);
-            if (datosInsuficientes || esMultidiaCache) {
-                const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
-                const data = await res.json();
-                if (!data.ok) { toast('Error: ' + (data.error || 'No encontrada')); return; }
-                r = data.rutina;
-                historialRutinasCache[codigo] = r;
-            }
-
-            // Activar flag para que inicializarRutina no resetee diasData
-            _editandoRutina = true;
-
-            // Navegar a la pestaña rutina ANTES de cargar datos (así el DOM está listo)
-            showTab('rutina');
+            // Siempre hacer fetch completo para tener todos los datos
+            const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+            const data = await res.json();
+            if (!data.ok) { toast('Error: ' + (data.error || 'No encontrada')); return; }
+            const r = data.rutina;
+            historialRutinasCache[codigo] = r;
 
             const datos = resolverDatos(r);
             const alumno = r.alumno || datos.alumno || '';
             const tipo = r.tipo || 'ENTRENAMIENTO';
 
-            // 1. Limpiar estado actual
+            // Limpiar estado global
+            diasData = [];
             warmupEjercicios = [];
             bloquesRutina = [];
 
-            // 2. Poblar datos del alumno
-            document.getElementById('alumno-nombre').value = alumno;
-            document.getElementById('rutina-desc').value = datos.descripcion || '';
-
-            // 3. Poblar calentamiento
-            const wEjs = toArray(datos.warmup_ejercicios);
-            const wTipo = datos.warmup_tipo || 'Circuito (Vueltas)';
-            const wConfig = datos.warmup_config_detalle || {};
-
-            // Setear tipo de warmup
-            const warmupTipoSel = document.getElementById('warmup-tipo');
-            if (warmupTipoSel) {
-                warmupTipoSel.value = wTipo;
-                actualizarWarmupUI();
+            // ── Helper: normaliza lista de ejercicios de un bloque ──────────
+            function normEjs(src) {
+                return toArray(src).map(ej => {
+                    const e = normalizeEj(ej);
+                    return { nombre: e.nombre, link: e.link, reps: e.reps || '12', unit: e.unit || 'Reps', series: parseInt(e.series) || 4, nota_tecnica: e.nota_tecnica || '' };
+                }).filter(e => e.nombre);
             }
 
-            // Setear parametros del warmup segun tipo
-            setTimeout(() => {
-                if (wTipo === 'Circuito (Vueltas)') {
-                    const v = document.getElementById('warmup-vueltas'); if (v) v.value = wConfig.vueltas || 2;
-                    const p = document.getElementById('warmup-pausa-vuelta'); if (p) p.value = wConfig.pausa_vuelta || 30;
-                } else if (wTipo === 'Circuito por Tiempo') {
-                    const d = document.getElementById('warmup-duracion'); if (d) d.value = wConfig.duracion_bloque || 3;
-                } else if (wTipo === 'Tabata') {
-                    const t = document.getElementById('warmup-trabajo'); if (t) t.value = wConfig.trabajo || 20;
-                    const p = document.getElementById('warmup-pausa'); if (p) p.value = wConfig.pausa || 10;
-                } else if (wTipo === 'EMOM') {
-                    const m = document.getElementById('warmup-minutos'); if (m) m.value = wConfig.minutos || 5;
-                } else if (wTipo === 'Series/Reps') {
-                    const s = document.getElementById('warmup-series'); if (s) s.value = wConfig.series || 3;
-                    const rv = document.getElementById('warmup-reps-val'); if (rv) rv.value = wConfig.reps || 10;
-                }
-            }, 50);
-
-            // Cargar ejercicios del warmup
-            wEjs.forEach(ej => {
-                const e = normalizeEj(ej);
-                if (e.nombre) {
-                    warmupEjercicios.push({ nombre: e.nombre, link: e.link, reps: e.reps, unit: e.unit || 'Reps', con_carga: ej.con_carga || false, tip1: ej.tip1 || '', tip2: ej.tip2 || '' });
-                }
-            });
-            renderWarmupEjs();
-
-            // 4. Poblar bloques principales
-            const bloques = toArray(datos.bloques);
-            if (bloques.length > 0) {
-                // Formato ENTRENAMIENTO con multiples bloques
-                bloques.forEach(b => {
-                    // Los bloques pueden tener ejercicios en 'ejercicios' o en 'rutina'
-                    const ejsSrc = toArray(b.ejercicios || b.rutina || []);
-                    const ejsB = ejsSrc.map(ej => {
-                        const e = normalizeEj(ej);
-                        return { nombre: e.nombre, link: e.link, reps: e.reps || '12', unit: e.unit || 'Reps', series: parseInt(e.series) || 4, nota_tecnica: e.nota_tecnica || '' };
-                    });
-                    const bloque = {
+            // ── Helper: convierte bloques de Firebase al formato interno ────
+            function normBloques(bSrc) {
+                return toArray(bSrc).map(b => {
+                    const bl = {
                         tipo: b.tipo || 'Circuito',
                         descripcion: b.descripcion || '',
-                        ejercicios: ejsB
+                        ejercicios: normEjs(b.ejercicios || b.rutina || [])
                     };
-                    if (b.tipo === 'Circuito') { bloque.vueltas = b.vueltas || 3; bloque.pausa_vuelta = b.pausa_vuelta || 60; }
-                    else if (b.tipo === 'Circuito por Tiempo') { bloque.duracion_min = b.duracion_min || b.tiempo_min || 5; }
-                    else if (b.tipo === 'Tabata') { bloque.trabajo = b.trabajo || 20; bloque.pausa = b.pausa || 10; bloque.rondas = b.rondas || 1; bloque.pausa_entre_rondas = b.pausa_entre_rondas || 0; }
-                    else if (b.tipo === 'EMOM') { bloque.minutos_totales = b.minutos_totales || 10; bloque.ejercicios_por_minuto = b.ejercicios_por_minuto || 1; }
-                    bloquesRutina.push(bloque);
+                    if (b.tipo === 'Circuito')            { bl.vueltas = b.vueltas || 3; bl.pausa_vuelta = b.pausa_vuelta || 60; }
+                    else if (b.tipo === 'Circuito por Tiempo') { bl.duracion_min = b.duracion_min || b.tiempo_min || 5; }
+                    else if (b.tipo === 'Tabata')          { bl.trabajo = b.trabajo || 20; bl.pausa = b.pausa || 10; bl.rondas = b.rondas || 1; bl.pausa_entre_rondas = b.pausa_entre_rondas || 0; bl.cantidad = b.cantidad || bl.ejercicios.length || 8; }
+                    else if (b.tipo === 'EMOM')             { bl.minutos_totales = b.minutos_totales || 10; bl.ejercicios_por_minuto = b.ejercicios_por_minuto || 1; }
+                    else if (b.tipo === 'Series')           { /* series por ejercicio */ }
+                    return bl;
                 });
-            } else {
-                // Formato simple (un solo bloque): Tabata, EMOM, Circuito, Series
-                let ejsFlat = [];
-                let bloqTipo = tipo;
-
-                if (tipo === 'Tabata' || tipo === 'EMOM') {
-                    ejsFlat = toArray(datos.rutina || datos.datos || []);
-                } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo') {
-                    const gruposC = toArray(datos.datos || datos.rutina || []);
-                    if (gruposC.length && gruposC[0] && gruposC[0].ejercicios !== undefined) {
-                        ejsFlat = toArray(gruposC[0].ejercicios);
-                    } else {
-                        ejsFlat = gruposC;
-                    }
-                } else if (tipo === 'Series') {
-                    ejsFlat = toArray(datos.datos || datos.rutina || []);
-                } else {
-                    ejsFlat = toArray(datos.datos || datos.rutina || []);
-                }
-
-                if (ejsFlat.length > 0) {
-                    const ejsNorm = ejsFlat.map(ej => {
-                        const e = normalizeEj(ej);
-                        return { nombre: e.nombre, link: e.link, reps: e.reps || '12', unit: e.unit || 'Reps', series: parseInt(e.series) || 4, nota_tecnica: e.nota_tecnica || '' };
-                    });
-
-                    const bloque = {
-                        tipo: bloqTipo === 'ENTRENAMIENTO' ? 'Circuito' : bloqTipo,
-                        descripcion: datos.descripcion || '',
-                        ejercicios: ejsNorm
-                    };
-
-                    if (bloqTipo === 'Circuito') { bloque.vueltas = datos.vueltas_bloque || 3; bloque.pausa_vuelta = datos.pausa_vuelta || 60; }
-                    else if (bloqTipo === 'Circuito por Tiempo') { bloque.duracion_min = datos.duracion_min || 5; }
-                    else if (bloqTipo === 'Tabata') { bloque.trabajo = datos.trabajo || 20; bloque.pausa = datos.pausa || 10; bloque.rondas = datos.rondas || 1; bloque.pausa_entre_rondas = datos.pausa_entre_rondas || 0; }
-                    else if (bloqTipo === 'EMOM') { bloque.minutos_totales = datos.minutos_totales || 10; bloque.ejercicios_por_minuto = datos.ejercicios_por_minuto || 1; }
-
-                    bloquesRutina.push(bloque);
-                }
             }
 
-            // MULTIDIA: cargar cada día
+            // ── Helper: construye bloques desde formato plano (tipo único) ──
+            function bloquesDesdePlano(tipoR, datosR) {
+                let ejsFlat = [];
+                if (tipoR === 'Tabata' || tipoR === 'EMOM' || tipoR === 'Series') {
+                    ejsFlat = toArray(datosR.rutina || datosR.datos || []);
+                } else if (tipoR === 'Circuito' || tipoR === 'Circuito por Tiempo') {
+                    const gruposC = toArray(datosR.datos || datosR.rutina || []);
+                    ejsFlat = (gruposC.length && gruposC[0] && gruposC[0].ejercicios !== undefined)
+                        ? toArray(gruposC[0].ejercicios)
+                        : gruposC;
+                } else {
+                    ejsFlat = toArray(datosR.datos || datosR.rutina || []);
+                }
+                if (!ejsFlat.length) return [];
+                const bl = {
+                    tipo: (tipoR === 'ENTRENAMIENTO') ? 'Circuito' : tipoR,
+                    descripcion: datosR.descripcion || '',
+                    ejercicios: normEjs(ejsFlat)
+                };
+                if (bl.tipo === 'Circuito')            { bl.vueltas = datosR.vueltas_bloque || 3; bl.pausa_vuelta = datosR.pausa_vuelta || 60; }
+                else if (bl.tipo === 'Circuito por Tiempo') { bl.duracion_min = datosR.duracion_min || 5; }
+                else if (bl.tipo === 'Tabata')          { bl.trabajo = datosR.trabajo || 20; bl.pausa = datosR.pausa || 10; bl.rondas = datosR.rondas || 1; bl.pausa_entre_rondas = datosR.pausa_entre_rondas || 0; bl.cantidad = datosR.cantidad || bl.ejercicios.length || 8; }
+                else if (bl.tipo === 'EMOM')             { bl.minutos_totales = datosR.minutos_totales || 10; bl.ejercicios_por_minuto = datosR.ejercicios_por_minuto || 1; }
+                return [bl];
+            }
+
+            // ── Helper: normaliza ejercicios de warmup ───────────────────────
+            function normWarmupEjs(src) {
+                return toArray(src).map(ej => {
+                    const e = normalizeEj(ej);
+                    return { nombre: e.nombre, link: e.link, reps: e.reps, unit: e.unit || 'Reps', con_carga: ej.con_carga || false, tip1: ej.tip1 || '', tip2: ej.tip2 || '' };
+                }).filter(e => e.nombre);
+            }
+
+            // ════════════════════════════════════════════════════════════════
+            // CASO A: MULTIDIA
+            // ════════════════════════════════════════════════════════════════
             if (tipo === 'MULTIDIA') {
                 const totalDM = r.total_dias || 0;
-                diasData = [];
                 for (let di = 1; di <= totalDM; di++) {
-                    const diaDataR = r['dia_' + di];
-                    if (!diaDataR || !diaDataR.datos) continue;
-                    const diaDatos = diaDataR.datos;
-                    const diaTipo  = diaDataR.tipo || 'ENTRENAMIENTO';
-
-                    // Warmup del día
-                    const dWEjs = toArray(diaDatos.warmup_ejercicios);
-                    const dWTipo = diaDatos.warmup_tipo || 'Circuito (Vueltas)';
-                    const dWCfg  = diaDatos.warmup_config_detalle || {};
-                    const wEjsNorm = dWEjs.map(ej => {
-                        const e = normalizeEj(ej);
-                        return { nombre: e.nombre, link: e.link, reps: e.reps, unit: e.unit || 'Reps', con_carga: ej.con_carga || false, tip1: ej.tip1 || '', tip2: ej.tip2 || '' };
-                    }).filter(e => e.nombre);
-
-                    // Bloques del día
-                    const dBloques = toArray(diaDatos.bloques);
-                    const bloquesNorm = [];
-                    if (dBloques.length > 0) {
-                        dBloques.forEach(b => {
-                            const ejsSrcD = toArray(b.ejercicios || b.rutina || []);
-                            const ejsB = ejsSrcD.map(ej => {
-                                const e = normalizeEj(ej);
-                                return { nombre: e.nombre, link: e.link, reps: e.reps || '12', unit: e.unit || 'Reps', series: parseInt(e.series) || 4, nota_tecnica: e.nota_tecnica || '' };
-                            });
-                            const bl = { tipo: b.tipo || 'Circuito', descripcion: b.descripcion || '', ejercicios: ejsB };
-                            if (b.tipo === 'Circuito') { bl.vueltas = b.vueltas || 3; bl.pausa_vuelta = b.pausa_vuelta || 60; }
-                            else if (b.tipo === 'Circuito por Tiempo') { bl.duracion_min = b.duracion_min || b.tiempo_min || 5; }
-                            else if (b.tipo === 'Tabata') { bl.trabajo = b.trabajo || 20; bl.pausa = b.pausa || 10; bl.rondas = b.rondas || 1; bl.pausa_entre_rondas = b.pausa_entre_rondas || 0; }
-                            else if (b.tipo === 'EMOM') { bl.minutos_totales = b.minutos_totales || 10; bl.ejercicios_por_minuto = b.ejercicios_por_minuto || 1; }
-                            bloquesNorm.push(bl);
-                        });
-                    }
-
+                    const diaR = r['dia_' + di];
+                    if (!diaR || !diaR.datos) continue;
+                    const dd = diaR.datos;
+                    const dWTipo = dd.warmup_tipo || 'Circuito (Vueltas)';
+                    const dWCfg  = dd.warmup_config_detalle || {};
+                    const dBloques = toArray(dd.bloques).length > 0
+                        ? normBloques(dd.bloques)
+                        : bloquesDesdePlano(diaR.tipo || 'ENTRENAMIENTO', dd);
                     diasData.push({
-                        titulo: diaDataR.titulo || ('Dia ' + di),
-                        warmupEjercicios: wEjsNorm,
-                        bloquesRutina: bloquesNorm,
+                        titulo: diaR.titulo || ('Dia ' + di),
+                        warmupEjercicios: normWarmupEjs(dd.warmup_ejercicios),
+                        bloquesRutina: dBloques,
                         _wTipo: dWTipo,
                         _wCfg: dWCfg
                     });
                 }
 
-                renderDias();
-                // Restaurar config de warmup por día (con delay para el DOM)
-                setTimeout(() => {
-                    diasData.forEach((dia, i) => {
-                        const wts = document.getElementById('warmup-tipo-' + i);
-                        if (wts) { wts.value = dia._wTipo || 'Circuito (Vueltas)'; }
-                        const cfg = dia._wCfg || {};
+            // ════════════════════════════════════════════════════════════════
+            // CASO B: Rutina de un solo día (cualquier tipo)
+            // ════════════════════════════════════════════════════════════════
+            } else {
+                const bloquesDelDia = toArray(datos.bloques).length > 0
+                    ? normBloques(datos.bloques)
+                    : bloquesDesdePlano(tipo, datos);
+                diasData.push({
+                    titulo: 'Dia 1',
+                    warmupEjercicios: normWarmupEjs(datos.warmup_ejercicios),
+                    bloquesRutina: bloquesDelDia,
+                    _wTipo: datos.warmup_tipo || 'Circuito (Vueltas)',
+                    _wCfg:  datos.warmup_config_detalle || {}
+                });
+            }
+
+            // ── Poblar nombre y descripción ─────────────────────────────────
+            document.getElementById('alumno-nombre').value = alumno;
+            document.getElementById('rutina-desc').value = datos.descripcion || '';
+
+            // ── Navegar a la pestaña rutina con flag activo ─────────────────
+            _editandoRutina = true;
+            showTab('rutina');
+            _editandoRutina = false;
+
+            // ── Renderizar todos los días ────────────────────────────────────
+            renderDias();
+
+            // ── Restaurar config de warmup por día (con delay para el DOM) ──
+            setTimeout(() => {
+                diasData.forEach((dia, i) => {
+                    const wts = document.getElementById('warmup-tipo-' + i);
+                    if (wts) { wts.value = dia._wTipo || 'Circuito (Vueltas)'; actualizarWarmupUIDia(i); }
+                    const cfg = dia._wCfg || {};
+                    setTimeout(() => {
                         if (dia._wTipo === 'Circuito (Vueltas)') {
                             const v = document.getElementById('warmup-vueltas-' + i); if (v) v.value = cfg.vueltas || 2;
                             const p = document.getElementById('warmup-pausa-vuelta-' + i); if (p) p.value = cfg.pausa_vuelta || 30;
@@ -2710,27 +2657,18 @@
                             const s = document.getElementById('warmup-series-' + i); if (s) s.value = cfg.series || 3;
                             const rv = document.getElementById('warmup-reps-val-' + i); if (rv) rv.value = cfg.reps || 10;
                         }
-                        // Renderizar warmup y bloques del día
                         renderWarmupEjsDia(i);
                         renderBloquesDia(i);
-                    });
-                }, 150);
+                    }, 50);
+                });
+                // Expandir el primer día
+                toggleDia(0, true);
+            }, 100);
 
-                showTab('rutina');  // ya fue llamado al inicio
-                toast('Rutina multi-día cargada para editar');
-                _editandoRutina = false;
-                return;
-            }
-
-            renderBloques();
-
-            // 5. Flag desactivado — datos ya cargados
-            _editandoRutina = false;
-            toast('Rutina cargada para editar');
+            toast(tipo === 'MULTIDIA' ? 'Rutina multi-día cargada para editar' : 'Rutina cargada para editar');
 
         } catch (e) {
             console.error('Error editando rutina:', e);
-            _editandoRutina = false;
             toast('Error al cargar rutina para editar');
         }
     }
