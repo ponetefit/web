@@ -648,6 +648,12 @@
                                     <option value="">-- Ninguno --</option>
                                 </select>
                             </div>
+                            <div>
+                                <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Elemento <span class="text-textoSuave/60">(equipamiento)</span></label>
+                                <select id="ej-elemento" class="w-full rounded-lg px-3 py-2.5 text-sm">
+                                    <option value="">-- Seleccionar --</option>
+                                </select>
+                            </div>
                             <div class="flex items-center gap-3 py-1">
                                 <input type="checkbox" id="ej-con-carga" class="w-4 h-4 accent-naranja cursor-pointer">
                                 <label for="ej-con-carga" class="text-xs text-textoSuave uppercase tracking-wider cursor-pointer">Lleva carga (peso/kg)</label>
@@ -814,6 +820,9 @@
                     <div class="flex gap-2 mb-3">
                         <select id="bloque-cat-select" onchange="cargarEjsBloque()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
                         </select>
+                        <select id="bloque-elemento-select" onchange="cargarEjsBloque()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
+                            <option value="">Todo elemento</option>
+                        </select>
                         <select id="bloque-ej-select" class="rounded-lg px-3 py-2 text-sm flex-1">
                         </select>
                         <button onclick="agregarEjBloque()" class="bg-verde/20 text-verde px-3 py-2 rounded-lg text-sm font-bold hover:bg-verde/30 transition whitespace-nowrap">+</button>
@@ -856,6 +865,15 @@
     let currentData = null; // Rutina actualmente visible en el modal
 
     // ====================================================================
+    // ELEMENTOS (EQUIPAMIENTO)
+    // ====================================================================
+    const ELEMENTOS = [
+        'Sin elemento', 'Mancuerna', 'Barra', 'Kettlebell', 'TRX',
+        'Banda elastica', 'Polea', 'Maquina', 'Pelota', 'Disco',
+        'Step', 'Soga', 'Rodillo', 'Bosu', 'Otro'
+    ];
+
+    // ====================================================================
     // GRUPOS MUSCULARES
     // ====================================================================
     const GRUPOS_MUSCULARES = [
@@ -892,6 +910,12 @@
             sel.innerHTML = '<option value="">' + (isOptional ? '-- Ninguno --' : '-- Seleccionar --') + '</option>' +
                 GRUPOS_MUSCULARES.map(m => '<option value="' + m + '">' + m + '</option>').join('');
         });
+        // Poblar select de elemento
+        const elSel = document.getElementById('ej-elemento');
+        if (elSel) {
+            elSel.innerHTML = '<option value="">-- Seleccionar --</option>' +
+                ELEMENTOS.map(e => '<option value="' + e + '">' + e + '</option>').join('');
+        }
     }
 
     // ====================================================================
@@ -946,9 +970,19 @@
             if (!sel) return;
             sel.innerHTML = cats.map(c => '<option>' + c + '</option>').join('');
         });
+        // Poblar select de elemento en el bloque modal
+        poblarElementoSelect('bloque-elemento-select');
         cargarEjsBloque();
         // Poblar los selects de cada dia ya renderizado
         diasData.forEach((_, idx) => poblarCategoriasDia(idx));
+    }
+
+    // Pobla un select de elemento con las opciones de ELEMENTOS
+    function poblarElementoSelect(selectId) {
+        const sel = document.getElementById(selectId);
+        if (!sel) return;
+        sel.innerHTML = '<option value="">Todo elemento</option>' +
+            ELEMENTOS.map(e => '<option value="' + e + '">' + e + '</option>').join('');
     }
 
     // Filtra la videoteca segun el texto del buscador
@@ -1017,14 +1051,16 @@
             const m1 = ej.musculo1 || '';
             const m2 = ej.musculo2 || '';
             const sin = ej.sinergista || '';
+            const elemento = ej.elemento || '';
             const con_carga = ej.con_carga === true || ej.con_carga === 'true';
             const tip1 = ej.tip1 || '';
             const tip2 = ej.tip2 || '';
             const muscBadges = [m1, m2].filter(Boolean).map(m => '<span class="text-[10px] bg-naranja/20 text-naranja px-1.5 py-0.5 rounded font-bold">' + m + '</span>').join(' ') +
                 (sin ? ' <span class="text-[10px] bg-azul/20 text-azul px-1.5 py-0.5 rounded font-bold">S: ' + sin + '</span>' : '') +
+                (elemento ? ' <span class="text-[10px] bg-amarillo/20 text-amarillo px-1.5 py-0.5 rounded font-bold">🔧 ' + elemento + '</span>' : '') +
                 (con_carga ? ' <span class="text-[10px] bg-verde/20 text-verde px-1.5 py-0.5 rounded font-bold">🏋️ CARGA</span>' : '') +
                 (tip1 ? ' <span class="text-[10px] bg-purpura/20 text-purpura px-1.5 py-0.5 rounded font-bold">🎙️ TIP</span>' : '');
-            const ejJSON = JSON.stringify({nombre, link, m1, m2, sin, con_carga, tip1, tip2}).replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+            const ejJSON = JSON.stringify({nombre, link, m1, m2, sin, elemento, con_carga, tip1, tip2}).replace(/'/g, "&#39;").replace(/"/g, '&quot;');
             const linkEsc = link.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
             const nombreEsc = nombre.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
             return `<div class="bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50 hover:border-borde transition group">
@@ -1055,6 +1091,7 @@
         document.getElementById('ej-musculo1').value = data.m1 || '';
         document.getElementById('ej-musculo2').value = data.m2 || '';
         document.getElementById('ej-sinergista').value = data.sin || '';
+        document.getElementById('ej-elemento').value = data.elemento || '';
         document.getElementById('ej-con-carga').checked = data.con_carga === true || data.con_carga === 'true';
         document.getElementById('ej-tip1').value = data.tip1 || '';
         document.getElementById('ej-tip2').value = data.tip2 || '';
@@ -1068,6 +1105,7 @@
         const musculo1 = document.getElementById('ej-musculo1').value;
         const musculo2 = document.getElementById('ej-musculo2').value;
         const sinergista = document.getElementById('ej-sinergista').value;
+        const elemento = document.getElementById('ej-elemento').value;
         const con_carga = document.getElementById('ej-con-carga').checked;
         const tip1 = document.getElementById('ej-tip1').value.trim();
         const tip2 = document.getElementById('ej-tip2').value.trim();
@@ -1077,7 +1115,7 @@
             const res = await fetch(API_BASE + '/api/videoteca/ejercicio', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ categoria, nombre, link, musculo1, musculo2, sinergista, con_carga, tip1, tip2 })
+                body: JSON.stringify({ categoria, nombre, link, musculo1, musculo2, sinergista, elemento, con_carga, tip1, tip2 })
             });
             const data = await res.json();
             if (data.ok) {
@@ -1087,6 +1125,7 @@
                 document.getElementById('ej-musculo1').value = '';
                 document.getElementById('ej-musculo2').value = '';
                 document.getElementById('ej-sinergista').value = '';
+                document.getElementById('ej-elemento').value = '';
                 document.getElementById('ej-con-carga').checked = false;
                 document.getElementById('ej-tip1').value = '';
                 document.getElementById('ej-tip2').value = '';
@@ -1262,6 +1301,9 @@
                         </div>
                         <div class="flex gap-2 mb-3">
                             <select id="warmup-cat-select-${idx}" onchange="cargarEjsWarmupDia(${idx})" class="rounded-lg px-3 py-2 text-sm flex-shrink-0"></select>
+                            <select id="warmup-elemento-select-${idx}" onchange="cargarEjsWarmupDia(${idx})" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
+                                <option value="">Todo elemento</option>
+                            </select>
                             <select id="warmup-ej-select-${idx}" class="rounded-lg px-3 py-2 text-sm flex-1"></select>
                             <input id="warmup-ej-reps-${idx}" type="text" placeholder="Reps" class="rounded-lg px-3 py-2 text-sm w-20">
                             <select id="warmup-ej-unit-${idx}" class="rounded-lg px-3 py-2 text-sm w-20">
@@ -1302,11 +1344,12 @@
     function poblarCategoriasDia(idx) {
         const cats = Object.keys(videotecaCache);
         const catSel = document.getElementById('warmup-cat-select-' + idx);
-        const blCatSel = document.getElementById('bloque-cat-select'); // unico, del modal
         if (catSel) {
             catSel.innerHTML = cats.map(c => '<option value="' + c + '">' + c + '</option>').join('');
-            cargarEjsWarmupDia(idx);
         }
+        // Poblar select de elemento para warmup de este dia
+        poblarElementoSelect('warmup-elemento-select-' + idx);
+        cargarEjsWarmupDia(idx);
     }
 
     // ── Warmup por dia ────────────────────────────────────────────────────
@@ -1335,21 +1378,33 @@
     function cargarEjsWarmupDia(idx) {
         const catSel = document.getElementById('warmup-cat-select-' + idx);
         const ejSel = document.getElementById('warmup-ej-select-' + idx);
+        const elemSel = document.getElementById('warmup-elemento-select-' + idx);
         if (!catSel || !ejSel) return;
         const cat = catSel.value;
-        const ejs = videotecaCache[cat] || [];
-        ejSel.innerHTML = ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + (e.nombre||e[0]) + '</option>').join('');
+        const elemFiltro = elemSel ? elemSel.value : '';
+        let ejs = videotecaCache[cat] || [];
+        if (elemFiltro) {
+            ejs = ejs.filter(e => (e.elemento || '') === elemFiltro);
+        }
+        ejSel.innerHTML = ejs.length
+            ? ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + (e.nombre||e[0]) + '</option>').join('')
+            : '<option value="">Sin ejercicios</option>';
     }
 
     function filtrarEjsWarmupDia(idx) {
         const query = (document.getElementById('warmup-buscar-ej-' + idx)?.value || '').trim().toLowerCase();
         const sel = document.getElementById('warmup-ej-select-' + idx);
+        const elemSel = document.getElementById('warmup-elemento-select-' + idx);
+        const elemFiltro = elemSel ? elemSel.value : '';
         if (!query) { cargarEjsWarmupDia(idx); return; }
         let resultados = [];
         for (const [cat, ejercicios] of Object.entries(videotecaCache)) {
             (ejercicios || []).forEach(e => {
                 const nombre = (e.nombre || e[0] || '').toLowerCase();
-                if (nombre.includes(query)) resultados.push({ nombre: e.nombre || e[0], link: e.link || e[1] || '', cat });
+                if (nombre.includes(query)) {
+                    if (elemFiltro && (e.elemento || '') !== elemFiltro) return;
+                    resultados.push({ nombre: e.nombre || e[0], link: e.link || e[1] || '', cat });
+                }
             });
         }
         sel.innerHTML = resultados.length
@@ -1398,16 +1453,25 @@
         lista.innerHTML = ejs.map((ej, i) => {
             const linkEsc = (ej.link || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
             const nombreEsc = (ej.nombre || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
-            return '<div class="exercise-chip flex items-center justify-between bg-fondoAlt rounded-xl px-3 py-2.5 border border-borde/50"' +
+            return '<div class="exercise-chip bg-fondoAlt rounded-xl px-3 py-2.5 border border-borde/50"' +
                 ' draggable="true" data-idx="' + i + '" data-list="warmup-dia-' + idx + '"' +
                 ' ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)">' +
+                '<div class="flex items-center justify-between">' +
                 '<div class="flex items-center gap-2 flex-1 min-w-0">' +
                 '<span class="drag-handle flex-shrink-0" title="Arrastrar">' + svgHandle + '</span>' +
                 '<span class="text-xs text-textoSuave font-mono flex-shrink-0">' + (i+1) + '</span>' +
                 '<span class="text-sm font-bold ej-hover-preview truncate" data-video-url="' + linkEsc + '" data-ej-nombre="' + nombreEsc + '" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">' + ej.nombre + '</span>' +
-                (ej.reps ? '<span class="text-xs text-amarillo font-bold flex-shrink-0">' + ej.reps + ' ' + ej.unit + '</span>' : '') +
                 '</div>' +
                 '<button onclick="quitarEjWarmupDia(' + idx + ',' + i + ')" class="text-rojo hover:text-red-400 text-lg font-bold leading-none flex-shrink-0 ml-2">&times;</button>' +
+                '</div>' +
+                '<div class="flex gap-2 items-center mt-1.5 flex-wrap">' +
+                '<input type="text" value="' + (ej.reps || '') + '" onchange="diasData[' + idx + '].warmupEjercicios[' + i + '].reps=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Reps">' +
+                '<select onchange="diasData[' + idx + '].warmupEjercicios[' + i + '].unit=this.value" class="rounded-lg px-2 py-1 text-xs">' +
+                '<option ' + ((ej.unit||'Reps')==='Reps'?'selected':'') + '>Reps</option><option ' + ((ej.unit||'Reps')==='Segs'?'selected':'') + '>Segs</option></select>' +
+                '<span class="text-xs text-textoSuave ml-1">Pausa:</span>' +
+                '<input type="number" value="' + (ej.descanso || '') + '" min="0" onchange="diasData[' + idx + '].warmupEjercicios[' + i + '].descanso=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Seg">' +
+                '<span class="text-xs text-textoSuave">seg</span>' +
+                '</div>' +
                 '</div>';
         }).join('');
         // Activar touch drag para esta lista
@@ -1633,13 +1697,22 @@
         const cat = document.getElementById('bloque-cat-select')?.value;
         if (!cat) return;
         const sel = document.getElementById('bloque-ej-select');
-        const ejs = videotecaCache[cat] || [];
-        sel.innerHTML = ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + (e.nombre||e[0]) + '</option>').join('');
+        const elemSel = document.getElementById('bloque-elemento-select');
+        const elemFiltro = elemSel ? elemSel.value : '';
+        let ejs = videotecaCache[cat] || [];
+        if (elemFiltro) {
+            ejs = ejs.filter(e => (e.elemento || '') === elemFiltro);
+        }
+        sel.innerHTML = ejs.length
+            ? ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + (e.nombre||e[0]) + '</option>').join('')
+            : '<option value="">Sin ejercicios</option>';
     }
 
     function filtrarEjsBloque() {
         const query = (document.getElementById('bloque-buscar-ej')?.value || '').trim().toLowerCase();
         const sel = document.getElementById('bloque-ej-select');
+        const elemSel = document.getElementById('bloque-elemento-select');
+        const elemFiltro = elemSel ? elemSel.value : '';
         if (!query) { cargarEjsBloque(); return; }
         // Buscar en TODAS las categorias
         let resultados = [];
@@ -1647,6 +1720,7 @@
             (ejercicios || []).forEach(e => {
                 const nombre = (e.nombre || e[0] || '').toLowerCase();
                 if (nombre.includes(query)) {
+                    if (elemFiltro && (e.elemento || '') !== elemFiltro) return;
                     resultados.push({ nombre: e.nombre || e[0], link: e.link || e[1] || '', cat });
                 }
             });
@@ -1666,7 +1740,8 @@
                 <input id="bp-vueltas" type="number" value="3" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre vueltas (seg)</label>
                 <input id="bp-pausa-vuelta" type="number" value="60" min="0" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
-            </div>`;
+            </div>
+            <p class="text-xs text-textoSuave mt-2">Podes editar reps y pausa por ejercicio abajo</p>`;
         } else if (tipo === 'Circuito por Tiempo') {
             html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Duracion (minutos)</label>
                 <input id="bp-duracion" type="number" value="5" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>`;
@@ -1689,7 +1764,7 @@
                 <input id="bp-ej-por-min" type="number" value="1" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
             </div>`;
         } else if (tipo === 'Series') {
-            html = `<p class="text-xs text-textoSuave">Define series y repeticiones para cada ejercicio</p>`;
+            html = `<p class="text-xs text-textoSuave">Define series, repeticiones y pausa por ejercicio abajo</p>`;
         }
         container.innerHTML = html;
     }
@@ -1710,7 +1785,7 @@
         // Limpiar buscador despues de agregar
         const buscador = document.getElementById('bloque-buscar-ej');
         if (buscador) buscador.value = '';
-        bloqueEjsTemp.push({ nombre, link, reps: '12', unit: 'Reps', series: 4, nota_tecnica: '', con_carga, tip1, tip2 });
+        bloqueEjsTemp.push({ nombre, link, reps: '12', unit: 'Reps', series: 4, descanso: '60', nota_tecnica: '', con_carga, tip1, tip2 });
         renderBloqueEjsTemp();
     }
 
@@ -1724,6 +1799,7 @@
         const tipo = document.getElementById('bloque-tipo').value;
         const mostrarSeries = (tipo === 'Series');
         const mostrarReps = (tipo !== 'Tabata');
+        const mostrarDescanso = (tipo === 'Circuito' || tipo === 'Series');
 
         if (bloqueEjsTemp.length === 0) {
             lista.innerHTML = '<p class="text-textoSuave text-xs text-center py-4">Agrega ejercicios al bloque</p>';
@@ -1740,11 +1816,12 @@
                     </div>
                     <button onclick="quitarEjBloque(${i})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none">&times;</button>
                 </div>
-                <div class="flex gap-2 items-center">
+                <div class="flex gap-2 items-center flex-wrap">
                     ${mostrarSeries ? '<input type="number" value="' + ej.series + '" min="1" onchange="bloqueEjsTemp['+i+'].series=parseInt(this.value)" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Series">' +
                     '<span class="text-xs text-textoSuave">series x</span>' : ''}
                     ${mostrarReps ? '<input type="text" value="' + ej.reps + '" onchange="bloqueEjsTemp['+i+'].reps=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Reps">' +
                     '<select onchange="bloqueEjsTemp['+i+'].unit=this.value" class="rounded-lg px-2 py-1 text-xs"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' : ''}
+                    ${mostrarDescanso ? '<span class="text-xs text-textoSuave ml-1">Pausa:</span><input type="number" value="' + (ej.descanso || '60') + '" min="0" onchange="bloqueEjsTemp['+i+'].descanso=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Seg"><span class="text-xs text-textoSuave">seg</span>' : ''}
                     ${mostrarSeries ? '<input type="text" value="' + (ej.nota_tecnica||'') + '" onchange="bloqueEjsTemp['+i+'].nota_tecnica=this.value" class="rounded-lg px-2 py-1 text-xs flex-1" placeholder="Nota tecnica...">' : ''}
                 </div>
             </div>`;
@@ -2110,7 +2187,9 @@
                     warmupDetalle.series = parseInt(document.getElementById('warmup-series-' + diaIdx)?.value || 3);
                     warmupDetalle.reps = parseInt(document.getElementById('warmup-reps-val-' + diaIdx)?.value || 10);
                 }
-                const warmupEjsExport = dia.warmupEjercicios.map(e => [e.nombre, e.link, e.reps || '', e.unit || 'Reps']);
+                const warmupEjsExport = dia.warmupEjercicios.map(e => ({
+                    nombre: e.nombre, link: e.link, reps: e.reps || '', unit: e.unit || 'Reps', descanso: e.descanso || ''
+                }));
                 const bloques = dia.bloquesRutina;
 
                 let tipo = 'ENTRENAMIENTO';
