@@ -2500,7 +2500,7 @@
         try {
             // Obtener datos completos
             let r = historialRutinasCache[codigo];
-            if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios)) {
+            if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia)) {
                 const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
                 const data = await res.json();
                 if (!data.ok) { toast('Error: ' + (data.error || 'No encontrada')); return; }
@@ -2620,6 +2620,84 @@
                 }
             }
 
+            // MULTIDIA: cargar cada día
+            if (tipo === 'MULTIDIA') {
+                const totalDM = r.total_dias || 0;
+                diasData = [];
+                for (let di = 1; di <= totalDM; di++) {
+                    const diaDataR = r['dia_' + di];
+                    if (!diaDataR || !diaDataR.datos) continue;
+                    const diaDatos = diaDataR.datos;
+                    const diaTipo  = diaDataR.tipo || 'ENTRENAMIENTO';
+
+                    // Warmup del día
+                    const dWEjs = toArray(diaDatos.warmup_ejercicios);
+                    const dWTipo = diaDatos.warmup_tipo || 'Circuito (Vueltas)';
+                    const dWCfg  = diaDatos.warmup_config_detalle || {};
+                    const wEjsNorm = dWEjs.map(ej => {
+                        const e = normalizeEj(ej);
+                        return { nombre: e.nombre, link: e.link, reps: e.reps, unit: e.unit || 'Reps', con_carga: ej.con_carga || false, tip1: ej.tip1 || '', tip2: ej.tip2 || '' };
+                    }).filter(e => e.nombre);
+
+                    // Bloques del día
+                    const dBloques = toArray(diaDatos.bloques);
+                    const bloquesNorm = [];
+                    if (dBloques.length > 0) {
+                        dBloques.forEach(b => {
+                            const ejsB = toArray(b.ejercicios || []).map(ej => {
+                                const e = normalizeEj(ej);
+                                return { nombre: e.nombre, link: e.link, reps: e.reps || '12', unit: e.unit || 'Reps', series: parseInt(e.series) || 4, nota_tecnica: e.nota_tecnica || '' };
+                            });
+                            const bl = { tipo: b.tipo || 'Circuito', descripcion: b.descripcion || '', ejercicios: ejsB };
+                            if (b.tipo === 'Circuito') { bl.vueltas = b.vueltas || 3; bl.pausa_vuelta = b.pausa_vuelta || 60; }
+                            else if (b.tipo === 'Circuito por Tiempo') { bl.duracion_min = b.duracion_min || b.tiempo_min || 5; }
+                            else if (b.tipo === 'Tabata') { bl.trabajo = b.trabajo || 20; bl.pausa = b.pausa || 10; bl.rondas = b.rondas || 1; bl.pausa_entre_rondas = b.pausa_entre_rondas || 0; }
+                            else if (b.tipo === 'EMOM') { bl.minutos_totales = b.minutos_totales || 10; bl.ejercicios_por_minuto = b.ejercicios_por_minuto || 1; }
+                            bloquesNorm.push(bl);
+                        });
+                    }
+
+                    diasData.push({
+                        titulo: diaDataR.titulo || ('Dia ' + di),
+                        warmupEjercicios: wEjsNorm,
+                        bloquesRutina: bloquesNorm,
+                        _wTipo: dWTipo,
+                        _wCfg: dWCfg
+                    });
+                }
+
+                renderDias();
+                // Restaurar config de warmup por día (con delay para el DOM)
+                setTimeout(() => {
+                    diasData.forEach((dia, i) => {
+                        const wts = document.getElementById('warmup-tipo-' + i);
+                        if (wts) { wts.value = dia._wTipo || 'Circuito (Vueltas)'; }
+                        const cfg = dia._wCfg || {};
+                        if (dia._wTipo === 'Circuito (Vueltas)') {
+                            const v = document.getElementById('warmup-vueltas-' + i); if (v) v.value = cfg.vueltas || 2;
+                            const p = document.getElementById('warmup-pausa-vuelta-' + i); if (p) p.value = cfg.pausa_vuelta || 30;
+                        } else if (dia._wTipo === 'Circuito por Tiempo') {
+                            const d = document.getElementById('warmup-duracion-' + i); if (d) d.value = cfg.duracion_bloque || 3;
+                        } else if (dia._wTipo === 'Tabata') {
+                            const t = document.getElementById('warmup-trabajo-' + i); if (t) t.value = cfg.trabajo || 20;
+                            const p = document.getElementById('warmup-pausa-' + i); if (p) p.value = cfg.pausa || 10;
+                        } else if (dia._wTipo === 'EMOM') {
+                            const m = document.getElementById('warmup-minutos-' + i); if (m) m.value = cfg.minutos || 5;
+                        } else if (dia._wTipo === 'Series/Reps') {
+                            const s = document.getElementById('warmup-series-' + i); if (s) s.value = cfg.series || 3;
+                            const rv = document.getElementById('warmup-reps-val-' + i); if (rv) rv.value = cfg.reps || 10;
+                        }
+                        // Renderizar warmup y bloques del día
+                        renderWarmupEjsDia(i);
+                        renderBloquesDia(i);
+                    });
+                }, 150);
+
+                showTab('rutina');
+                toast('Rutina multi-día cargada para editar');
+                return;
+            }
+
             renderBloques();
 
             // 5. Cambiar a la pestana Crear Rutina
@@ -2644,7 +2722,7 @@
         try {
             // Primero verificar si ya lo tenemos en cache (con datos completos)
             let r = historialRutinasCache[codigo];
-            if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios)) {
+            if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia)) {
                 const res  = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
                 const data = await res.json();
                 if (!data.ok) {
@@ -2715,6 +2793,79 @@
                 ${fecha ? '&nbsp;|&nbsp; Fecha: <strong>' + fecha + '</strong>' : ''}
             </p>
         </div>`;
+
+        // --- MULTIDIA: renderizar cada día ---
+        if (tipo === 'MULTIDIA') {
+            const totalDias = r.total_dias || 0;
+            for (let di = 1; di <= totalDias; di++) {
+                const diaData = r['dia_' + di];
+                if (!diaData) continue;
+                const diaTitulo = diaData.titulo || ('Día ' + di);
+                const diaTipo   = diaData.tipo   || 'ENTRENAMIENTO';
+                const diaDatos  = diaData.datos   || {};
+                // Cabecera del día
+                html += `<div style="${ff}background:#FF6B35;color:#fff;font-weight:900;font-size:15px;padding:10px 16px;border-radius:8px;margin:${di > 1 ? '24px' : '0'} 0 12px;">` +
+                        `${diaTitulo.toUpperCase()} — ${diaTipo}</div>`;
+                // Calentamiento del día
+                const dWEjs  = toArray(diaDatos.warmup_ejercicios);
+                const dWTipo = diaDatos.warmup_tipo || '';
+                const dWCfg  = diaDatos.warmup_config_detalle || {};
+                if (dWEjs.length > 0) {
+                    html += `<div style="${sSecHeader}background:#4FC3F7;">Calentamiento${dWTipo ? ' — ' + dWTipo.toUpperCase() : ''}</div>`;
+                    const wP = [];
+                    if (dWCfg.vueltas)         wP.push('Vueltas: ' + dWCfg.vueltas);
+                    if (dWCfg.pausa_vuelta)    wP.push('Pausa: ' + dWCfg.pausa_vuelta + 's');
+                    if (dWCfg.duracion_bloque) wP.push('Duración: ' + dWCfg.duracion_bloque + ' min');
+                    if (dWCfg.trabajo)         wP.push('Trabajo: ' + dWCfg.trabajo + 's / Pausa: ' + (dWCfg.pausa||10) + 's');
+                    if (dWCfg.minutos)         wP.push('Minutos: ' + dWCfg.minutos);
+                    if (wP.length) html += `<p style="${ff}color:#555;font-style:italic;font-size:12px;margin:0 0 10px 2px;">${wP.join(' | ')}</p>`;
+                    dWEjs.forEach(ej => { html += ejBox(ej); });
+                    html += '<hr style="border:none;border-top:1px solid #eee;margin:12px 0;">';
+                }
+                // Bloque principal del día
+                const dBloques = toArray(diaDatos.bloques);
+                if (dBloques.length > 0) {
+                    html += `<div style="${sSecHeader}background:#CE93D8;">Bloque Principal — ${diaTipo}</div>`;
+                    renderBloquesList(dBloques, diaTipo);
+                } else {
+                    // Formatos simples por tipo
+                    const ejsFlat = toArray(diaDatos.rutina || diaDatos.datos || []);
+                    if (ejsFlat.length > 0) {
+                        html += `<div style="${sSecHeader}background:#CE93D8;">Bloque Principal — ${diaTipo}</div>`;
+                        if (diaTipo === 'Tabata') {
+                            const mI = ' — ' + (diaDatos.trabajo||20) + 's / ' + (diaDatos.pausa||10) + 's | ' + (diaDatos.rondas||1) + ' ronda(s)';
+                            html += `<div style="${sSubHeader}">Tabata${mI}</div>`;
+                        } else if (diaTipo === 'EMOM') {
+                            const mI = ' — ' + (diaDatos.minutos_totales||10) + ' min';
+                            html += `<div style="${sSubHeader}">EMOM${mI}</div>`;
+                        }
+                        // Grupos anidados
+                        if (ejsFlat[0] && ejsFlat[0].ejercicios !== undefined) {
+                            ejsFlat.forEach((g, gi) => {
+                                const ejsG = toArray(g.ejercicios);
+                                html += `<div style="${sSubHeader}">Bloque ${gi+1}: ${g.tipo || diaTipo}</div>`;
+                                ejsG.forEach(ej => { html += ejBox(ej); });
+                            });
+                        } else {
+                            ejsFlat.forEach(ej => { html += ejBox(ej); });
+                        }
+                    }
+                }
+                // Mini mapa de calor del día
+                try {
+                    const diaRutina = Object.assign({}, diaData, { tipo: diaTipo, datos: diaDatos });
+                    const muscDia = calcularMusculosDeRutina(diaRutina);
+                    const miniHM = generarMiniHeatMapHTML(muscDia);
+                    if (miniHM) html += miniHM;
+                } catch(e) {}
+            }
+            // Footer
+            html += `<hr style="border:none;border-top:1px solid #ddd;margin:24px 0 8px;">
+            <p style="${ff}color:#aaa;font-size:11px;text-align:center;margin:0;">
+                Generado por PONETE FIT &nbsp;|&nbsp; ${fecha} &nbsp;|&nbsp; Codigo: ${codigo.toUpperCase()}
+            </p>`;
+            return html;
+        }
 
         // --- 1. Calentamiento ---
         const wEjs    = toArray(datos.warmup_ejercicios);
@@ -2827,7 +2978,7 @@
 
         // Obtener datos (cache o API) - verificar que tenga datos completos
         let r = historialRutinasCache[codigo];
-        if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios)) {
+        if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia)) {
             toast('Cargando rutina para PDF...');
             try {
                 const res  = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
@@ -2927,6 +3078,27 @@
                 y += boxH + 3;
             }
 
+            // ── HELPER SVG → PNG ─────────────────────────────────────────
+            function svgToDataURL(svgMarkup, width, height) {
+                return new Promise((resolve, reject) => {
+                    const svgBlob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
+                    const url = URL.createObjectURL(svgBlob);
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width * 2; canvas.height = height * 2;
+                        const ctx2 = canvas.getContext('2d');
+                        ctx2.scale(2, 2);
+                        ctx2.drawImage(img, 0, 0, width, height);
+                        URL.revokeObjectURL(url);
+                        resolve(canvas.toDataURL('image/png'));
+                    };
+                    img.onerror = function() { URL.revokeObjectURL(url); reject(new Error('SVG render failed')); };
+                    img.src = url;
+                });
+            }
+            function wrapSVG(svgStr) { return svgStr.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" '); }
+
             // ── ENCABEZADO ───────────────────────────────────────────────
 
             // Titulo PONETE FIT
@@ -2949,6 +3121,108 @@
             const infoLine = 'Alumno: ' + alumno.toUpperCase() + '   |   Tipo: ' + tipo + '   |   Codigo: ' + codigo.toUpperCase();
             doc.text(infoLine, pw / 2, y, { align: 'center' });
             y += 10;
+
+            // ── MULTIDIA ─────────────────────────────────────────────────
+            if (tipo === 'MULTIDIA') {
+                const totalDias = r.total_dias || 0;
+                for (let di = 1; di <= totalDias; di++) {
+                    const diaData = r['dia_' + di];
+                    if (!diaData) continue;
+                    const diaTitulo = diaData.titulo || ('Día ' + di);
+                    const diaTipo   = diaData.tipo   || 'ENTRENAMIENTO';
+                    const diaDatos  = diaData.datos   || {};
+
+                    // Cabecera del día (naranja oscuro)
+                    chk(12);
+                    doc.setFillColor(200, 80, 0);
+                    doc.roundedRect(mL, y, cW, 10, 2, 2, 'F');
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(12);
+                    doc.setTextColor(255, 255, 255);
+                    doc.text(diaTitulo.toUpperCase() + '  —  ' + diaTipo, mL + 4, y + 7);
+                    y += 14;
+
+                    // Calentamiento del día
+                    const dWEjs  = toArray(diaDatos.warmup_ejercicios);
+                    const dWTipo = diaDatos.warmup_tipo || '';
+                    const dWCfg  = diaDatos.warmup_config_detalle || {};
+                    if (dWEjs.length > 0) {
+                        colorBar('Calentamiento' + (dWTipo ? '  —  ' + dWTipo.toUpperCase() : ''), 79, 195, 247);
+                        const wP2 = [];
+                        if (dWCfg.vueltas)         wP2.push('Vueltas: ' + dWCfg.vueltas);
+                        if (dWCfg.pausa_vuelta)    wP2.push('Pausa: ' + dWCfg.pausa_vuelta + 's');
+                        if (dWCfg.duracion_bloque) wP2.push('Duración: ' + dWCfg.duracion_bloque + ' min');
+                        if (dWCfg.trabajo)         wP2.push('Trabajo: ' + dWCfg.trabajo + 's / Pausa: ' + (dWCfg.pausa||10) + 's');
+                        if (dWCfg.minutos)         wP2.push('Minutos: ' + dWCfg.minutos);
+                        if (wP2.length) { chk(6); doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(110,110,110); doc.text(wP2.join('   |   '), mL+2, y); y+=6; }
+                        dWEjs.forEach(ej => ejGris(ej));
+                        chk(6); doc.setDrawColor(210,210,210); doc.setLineWidth(0.4); doc.line(mL, y+2, pw-mR, y+2); y+=8;
+                    }
+
+                    // Bloque principal del día
+                    const dBloques = toArray(diaDatos.bloques);
+                    colorBar('Bloque Principal  —  ' + diaTipo, 206, 147, 216);
+                    if (dBloques.length > 0) {
+                        renderBloquePDFList(dBloques, diaTipo);
+                    } else {
+                        const ejsF = toArray(diaDatos.rutina || diaDatos.datos || []);
+                        if (ejsF.length > 0) {
+                            if (diaTipo === 'Tabata') {
+                                subBar('Tabata  —  ' + (diaDatos.trabajo||20) + 's / ' + (diaDatos.pausa||10) + 's | ' + (diaDatos.rondas||1) + ' ronda(s)');
+                            } else if (diaTipo === 'EMOM') {
+                                subBar('EMOM  —  ' + (diaDatos.minutos_totales||10) + ' min');
+                            }
+                            if (ejsF[0] && ejsF[0].ejercicios !== undefined) {
+                                ejsF.forEach((g, gi) => {
+                                    subBar('Bloque ' + (gi+1) + ': ' + (g.tipo || diaTipo));
+                                    toArray(g.ejercicios).forEach(ej => ejGris(ej));
+                                });
+                            } else {
+                                ejsF.forEach(ej => ejGris(ej));
+                            }
+                        }
+                    }
+
+                    // Mapa de calor muscular del día
+                    try {
+                        const diaRutina = Object.assign({}, diaData, { tipo: diaTipo, datos: diaDatos });
+                        const muscDia = calcularMusculosDeRutina(diaRutina);
+                        const mcVals = Object.values(muscDia);
+                        if (mcVals.length > 0 && Math.max(...mcVals) > 0) {
+                            const maxVD = Math.max(...mcVals);
+                            const svgFD = generarBodyMapSVG(muscDia, 'pdf-fd'+di, 'frontal');
+                            const svgBD = generarBodyMapSVG(muscDia, 'pdf-bd'+di, 'posterior');
+                            function wrapSVG2(s) { return s.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" '); }
+                            const [dfD, dbD] = await Promise.all([
+                                svgToDataURL(wrapSVG2(svgFD), 140, 290),
+                                svgToDataURL(wrapSVG2(svgBD), 140, 290)
+                            ]);
+                            const hmH2 = 8 + 6 + 70 + 10;
+                            chk(hmH2);
+                            colorBar('Músculos — ' + diaTitulo, 255, 107, 53);
+                            const iW2 = 32, iH2 = 66, gap2 = 10;
+                            const totW2 = iW2 * 2 + gap2;
+                            const stX2 = (pw - totW2) / 2;
+                            doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(130,130,130);
+                            doc.text('FRONTAL', stX2 + iW2/2, y, {align:'center'});
+                            doc.text('POSTERIOR', stX2 + iW2 + gap2 + iW2/2, y, {align:'center'});
+                            y += 3;
+                            doc.addImage(dfD, 'PNG', stX2, y, iW2, iH2);
+                            doc.addImage(dbD, 'PNG', stX2 + iW2 + gap2, y, iW2, iH2);
+                            y += iH2 + 6;
+                        }
+                    } catch(e) {}
+
+                    // Separador entre días
+                    if (di < totalDias) { chk(10); doc.setDrawColor(255,107,53); doc.setLineWidth(0.6); doc.line(mL,y,pw-mR,y); y+=12; }
+                }
+                // Footer MULTIDIA
+                chk(10);
+                doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(160,160,160);
+                doc.text('Generado por PONETE FIT  |  ' + (fecha||'') + '  |  ' + codigo.toUpperCase(), pw/2, y, {align:'center'});
+                doc.save(alumno.toUpperCase() + '_MULTIDIA_' + codigo.toUpperCase() + '.pdf');
+                return;
+            }
 
             // ── CALENTAMIENTO ────────────────────────────────────────────
 
@@ -3057,37 +3331,12 @@
                 if (mcValues.length > 0 && Math.max(...mcValues) > 0) {
                     const maxValPDF = Math.max(...mcValues);
 
-                    // Helper to convert SVG string to image data URL via canvas
-                    function svgToDataURL(svgMarkup, width, height) {
-                        return new Promise((resolve, reject) => {
-                            const svgBlob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
-                            const url = URL.createObjectURL(svgBlob);
-                            const img = new Image();
-                            img.onload = function() {
-                                const canvas = document.createElement('canvas');
-                                canvas.width = width * 2;
-                                canvas.height = height * 2;
-                                const ctx2 = canvas.getContext('2d');
-                                ctx2.scale(2, 2);
-                                ctx2.drawImage(img, 0, 0, width, height);
-                                URL.revokeObjectURL(url);
-                                resolve(canvas.toDataURL('image/png'));
-                            };
-                            img.onerror = function() {
-                                URL.revokeObjectURL(url);
-                                reject(new Error('SVG render failed'));
-                            };
-                            img.src = url;
-                        });
-                    }
+                    // svgToDataURL defined above
 
                     const svgFront = generarBodyMapSVG(muscleCountPDF, 'pdf-f', 'frontal');
                     const svgBack  = generarBodyMapSVG(muscleCountPDF, 'pdf-b', 'posterior');
 
-                    // Wrap SVGs with proper XML namespace
-                    function wrapSVG(svgStr) {
-                        return svgStr.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
-                    }
+                    // wrapSVG defined above
 
                     const imgW = 140, imgH = 290;
                     const [dataFront, dataBack] = await Promise.all([
@@ -3288,34 +3537,50 @@
                 ejercicioCount[n] = (ejercicioCount[n] || 0) + 1;
             });
 
-            // Contar metodos: SIEMPRE buscar tipos internos de cada bloque
-            const bloques = toArray(datos.bloques);
-            let metodosContados = false;
-            if (bloques.length > 0) {
-                bloques.forEach(b => {
-                    const bTipo = b.tipo || '';
-                    if (bTipo && bTipo !== 'ENTRENAMIENTO') {
-                        metodoCount[bTipo] = (metodoCount[bTipo] || 0) + 1;
-                        metodosContados = true;
+            // Contar metodos
+            const _tipoR = r.tipo || 'ENTRENAMIENTO';
+            if (_tipoR === 'MULTIDIA') {
+                // Para MULTIDIA, contar los métodos de cada día
+                const totalDM = r.total_dias || 0;
+                for (let di2 = 1; di2 <= totalDM; di2++) {
+                    const dd2 = r['dia_' + di2];
+                    if (!dd2 || !dd2.datos) continue;
+                    const dBloques2 = toArray(dd2.datos.bloques);
+                    let contado2 = false;
+                    dBloques2.forEach(b => {
+                        const bT = b.tipo || '';
+                        if (bT && bT !== 'ENTRENAMIENTO') { metodoCount[bT] = (metodoCount[bT] || 0) + 1; contado2 = true; }
+                    });
+                    if (!contado2 && dd2.tipo && dd2.tipo !== 'ENTRENAMIENTO') {
+                        metodoCount[dd2.tipo] = (metodoCount[dd2.tipo] || 0) + 1;
                     }
-                });
-            }
-            // Si no se encontraron metodos en bloques, usar tipo top-level
-            // Pero si es ENTRENAMIENTO, intentar inferir del formato de datos
-            if (!metodosContados) {
-                const tipo = r.tipo || 'ENTRENAMIENTO';
-                if (tipo !== 'ENTRENAMIENTO') {
-                    metodoCount[tipo] = (metodoCount[tipo] || 0) + 1;
-                } else {
-                    // Intentar inferir metodo de los datos
-                    if (datos.trabajo && datos.pausa && datos.rutina) {
-                        metodoCount['Tabata'] = (metodoCount['Tabata'] || 0) + 1;
-                    } else if (datos.minutos_totales && datos.ejercicios_por_minuto) {
-                        metodoCount['EMOM'] = (metodoCount['EMOM'] || 0) + 1;
-                    } else if (datos.vueltas_bloque || (datos.datos && datos.datos[0] && datos.datos[0].ejercicios)) {
-                        metodoCount['Circuito'] = (metodoCount['Circuito'] || 0) + 1;
+                }
+            } else {
+                const bloques = toArray(datos.bloques);
+                let metodosContados = false;
+                if (bloques.length > 0) {
+                    bloques.forEach(b => {
+                        const bTipo = b.tipo || '';
+                        if (bTipo && bTipo !== 'ENTRENAMIENTO') {
+                            metodoCount[bTipo] = (metodoCount[bTipo] || 0) + 1;
+                            metodosContados = true;
+                        }
+                    });
+                }
+                if (!metodosContados) {
+                    const tipo = _tipoR;
+                    if (tipo !== 'ENTRENAMIENTO') {
+                        metodoCount[tipo] = (metodoCount[tipo] || 0) + 1;
                     } else {
-                        metodoCount['ENTRENAMIENTO'] = (metodoCount['ENTRENAMIENTO'] || 0) + 1;
+                        if (datos.trabajo && datos.pausa && datos.rutina) {
+                            metodoCount['Tabata'] = (metodoCount['Tabata'] || 0) + 1;
+                        } else if (datos.minutos_totales && datos.ejercicios_por_minuto) {
+                            metodoCount['EMOM'] = (metodoCount['EMOM'] || 0) + 1;
+                        } else if (datos.vueltas_bloque || (datos.datos && datos.datos[0] && datos.datos[0].ejercicios)) {
+                            metodoCount['Circuito'] = (metodoCount['Circuito'] || 0) + 1;
+                        } else {
+                            metodoCount['ENTRENAMIENTO'] = (metodoCount['ENTRENAMIENTO'] || 0) + 1;
+                        }
                     }
                 }
             }
@@ -3586,6 +3851,29 @@
     function extraerEjerciciosDeRutina(r, datos) {
         const nombres = [];
 
+        // MULTIDIA: recorrer todos los días
+        if (r.tipo === 'MULTIDIA') {
+            const total = r.total_dias || 0;
+            for (let di = 1; di <= total; di++) {
+                const diaData = r['dia_' + di];
+                if (!diaData || !diaData.datos) continue;
+                const diaDatos = diaData.datos;
+                const dWEjs = toArray(diaDatos.warmup_ejercicios);
+                dWEjs.forEach(ej => { const e = normalizeEj(ej); if (e.nombre) nombres.push(e.nombre.toUpperCase()); });
+                const dBloques = toArray(diaDatos.bloques);
+                if (dBloques.length > 0) {
+                    dBloques.forEach(b => { toArray(b.ejercicios || []).forEach(ej => { const e = normalizeEj(ej); if (e.nombre) nombres.push(e.nombre.toUpperCase()); }); });
+                } else {
+                    const ejsFlat = toArray(diaDatos.rutina || diaDatos.datos || []);
+                    ejsFlat.forEach(item => {
+                        if (item && item.ejercicios) { toArray(item.ejercicios).forEach(ej => { const e = normalizeEj(ej); if (e.nombre) nombres.push(e.nombre.toUpperCase()); }); }
+                        else { const e = normalizeEj(item); if (e.nombre) nombres.push(e.nombre.toUpperCase()); }
+                    });
+                }
+            }
+            return nombres;
+        }
+
         // Warmup
         const wEjs = toArray(datos.warmup_ejercicios);
         wEjs.forEach(ej => {
@@ -3712,6 +4000,30 @@
 
     // Obtiene los metodos reales de una rutina (bloque-level o inferido)
     function obtenerMetodosRutina(r) {
+        // MULTIDIA: devolver métodos por día
+        if (r.tipo === 'MULTIDIA') {
+            const total = r.total_dias || 0;
+            const partes = [];
+            for (let di = 1; di <= total; di++) {
+                const diaData = r['dia_' + di];
+                if (!diaData) continue;
+                const diaTitulo = diaData.titulo || ('Día ' + di);
+                const diaTipo   = diaData.tipo   || 'ENTRENAMIENTO';
+                const diaDatos  = diaData.datos   || {};
+                // Extraer métodos del día
+                const msDia = [];
+                const dBloques = toArray(diaDatos.bloques);
+                if (dBloques.length > 0) {
+                    dBloques.forEach(b => {
+                        const bT = b.tipo || '';
+                        if (bT && !msDia.includes(bT)) msDia.push(bT);
+                    });
+                }
+                if (msDia.length === 0 && diaTipo !== 'ENTRENAMIENTO') msDia.push(diaTipo);
+                partes.push(diaTitulo + ': ' + (msDia.length > 0 ? msDia.join(' + ') : diaTipo));
+            }
+            return partes.length > 0 ? partes : ['MULTIDIA'];
+        }
         const datos = resolverDatos(r);
         const metodos = [];
         const bloques = toArray(datos.bloques);
@@ -3776,7 +4088,7 @@
 
         try {
             let r = dashRutinasData[codigo];
-            if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios)) {
+            if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia)) {
                 const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
                 const data = await res.json();
                 if (!data.ok) {
