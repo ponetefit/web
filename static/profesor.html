@@ -840,13 +840,6 @@
                         <select id="bloque-elemento-select" onchange="cargarEjsBloque()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
                             <option value="">Todo elemento</option>
                         </select>
-                        <select id="bloque-zona-select" onchange="cargarEjsBloque()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
-                            <option value="">Toda zona</option>
-                            <option value="piernas">Piernas</option>
-                            <option value="brazos">Brazos</option>
-                            <option value="zona_media">Zona Media</option>
-                            <option value="todo_cuerpo">Todo el cuerpo</option>
-                        </select>
                         <select id="bloque-ej-select" class="rounded-lg px-3 py-2 text-sm flex-1">
                         </select>
                         <button onclick="agregarEjBloque()" class="bg-verde/20 text-verde px-3 py-2 rounded-lg text-sm font-bold hover:bg-verde/30 transition whitespace-nowrap">+</button>
@@ -1015,7 +1008,8 @@
         ['bloque-cat-select'].forEach(id => {
             const sel = document.getElementById(id);
             if (!sel) return;
-            sel.innerHTML = cats.map(c => '<option>' + c + '</option>').join('');
+            sel.innerHTML = '<option value="">Todas las categorías</option>' +
+                cats.map(c => '<option value="' + c + '">' + c + '</option>').join('');
         });
         // Poblar el select de categoria en el formulario de ejercicio
         const ejCatSel = document.getElementById('ej-categoria');
@@ -1086,7 +1080,6 @@
                 });
             }
         }
-        actualizarZonaSelectConCats(document.getElementById('bloque-zona-select'));
         // Poblar select de elemento en el bloque modal
         poblarElementoSelect('bloque-elemento-select');
         cargarEjsBloque();
@@ -1516,13 +1509,6 @@
                             <select id="warmup-elemento-select-${idx}" onchange="cargarEjsWarmupDia(${idx})" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
                                 <option value="">Todo elemento</option>
                             </select>
-                            <select id="warmup-zona-select-${idx}" onchange="cargarEjsWarmupDia(${idx})" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
-                                <option value="">Toda zona</option>
-                                <option value="piernas">Piernas</option>
-                                <option value="brazos">Brazos</option>
-                                <option value="zona_media">Zona Media</option>
-                                <option value="todo_cuerpo">Todo el cuerpo</option>
-                            </select>
                             <select id="warmup-ej-select-${idx}" class="rounded-lg px-3 py-2 text-sm flex-1"></select>
                             <input id="warmup-ej-reps-${idx}" type="text" placeholder="Reps" class="rounded-lg px-3 py-2 text-sm w-20">
                             <select id="warmup-ej-unit-${idx}" class="rounded-lg px-3 py-2 text-sm w-20">
@@ -1629,33 +1615,14 @@
         const catSel = document.getElementById('warmup-cat-select-' + idx);
         const ejSel = document.getElementById('warmup-ej-select-' + idx);
         const elemSel = document.getElementById('warmup-elemento-select-' + idx);
-        const zonaSel = document.getElementById('warmup-zona-select-' + idx);
         if (!catSel || !ejSel) return;
         const cat = catSel.value;
         const elemFiltro = elemSel ? elemSel.value : '';
-        const zonaRaw = zonaSel ? zonaSel.value : '';
-        const catZonaFiltro = zonaRaw.startsWith('cat:') ? zonaRaw.slice(4) : '';
-        const zonaFiltro = catZonaFiltro ? '' : zonaRaw;
 
-        // Si se seleccionó una categoría como filtro de zona, mostrar ejercicios de esa categoría
-        let ejs;
-        if (catZonaFiltro) {
-            ejs = videotecaCache[catZonaFiltro] || [];
-        } else {
-            ejs = videotecaCache[cat] || [];
-        }
+        let ejs = cat ? (videotecaCache[cat] || []) : Object.values(videotecaCache).flat();
 
         if (elemFiltro) {
             ejs = ejs.filter(e => (e.elemento || '') === elemFiltro);
-        }
-        if (zonaFiltro && zonaFiltro !== 'todo_cuerpo' && ZONA_MUSCULOS[zonaFiltro]) {
-            const zonaMuscs = ZONA_MUSCULOS[zonaFiltro].map(m => m.toLowerCase());
-            ejs = ejs.filter(e => {
-                const m1 = (e.musculo1 || '').toLowerCase();
-                const m2 = (e.musculo2 || '').toLowerCase();
-                const sin = (e.sinergista || '').toLowerCase();
-                return zonaMuscs.some(zm => m1 === zm || m2 === zm || sin === zm);
-            });
         }
         ejSel.innerHTML = ejs.length
             ? ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + (e.nombre||e[0]) + '</option>').join('')
@@ -2032,34 +1999,14 @@
 
     function cargarEjsBloque() {
         const cat = document.getElementById('bloque-cat-select')?.value;
-        if (!cat) return;
         const sel = document.getElementById('bloque-ej-select');
         const elemSel = document.getElementById('bloque-elemento-select');
-        const zonaSel = document.getElementById('bloque-zona-select');
         const elemFiltro = elemSel ? elemSel.value : '';
-        const zonaRaw = zonaSel ? zonaSel.value : '';
-        const catZonaFiltro = zonaRaw.startsWith('cat:') ? zonaRaw.slice(4) : '';
-        const zonaFiltro = catZonaFiltro ? '' : zonaRaw;
 
-        // Si se seleccionó una categoría como filtro de zona, mostrar ejercicios de esa categoría
-        let ejs;
-        if (catZonaFiltro) {
-            ejs = videotecaCache[catZonaFiltro] || [];
-        } else {
-            ejs = videotecaCache[cat] || [];
-        }
+        let ejs = cat ? (videotecaCache[cat] || []) : Object.values(videotecaCache).flat();
 
         if (elemFiltro) {
             ejs = ejs.filter(e => (e.elemento || '') === elemFiltro);
-        }
-        if (zonaFiltro && zonaFiltro !== 'todo_cuerpo' && ZONA_MUSCULOS[zonaFiltro]) {
-            const zonaMuscs = ZONA_MUSCULOS[zonaFiltro].map(m => m.toLowerCase());
-            ejs = ejs.filter(e => {
-                const m1 = (e.musculo1 || '').toLowerCase();
-                const m2 = (e.musculo2 || '').toLowerCase();
-                const sin = (e.sinergista || '').toLowerCase();
-                return zonaMuscs.some(zm => m1 === zm || m2 === zm || sin === zm);
-            });
         }
         sel.innerHTML = ejs.length
             ? ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + (e.nombre||e[0]) + '</option>').join('')
