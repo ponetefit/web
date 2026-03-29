@@ -1105,7 +1105,10 @@
             }
         });
         if (total === 0) {
-            lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">No se encontraron ejercicios</p>';
+            const mensajeVacio = catZonaFiltro
+                ? '<div class="text-center py-8"><p class="text-naranja font-bold uppercase text-xs tracking-wider mb-2">' + catZonaFiltro + '</p><p class="text-textoSuave text-sm">Esta categoría está vacía.<br>Agregá ejercicios desde el formulario de la derecha.</p></div>'
+                : '<p class="text-textoSuave text-sm text-center py-8">No se encontraron ejercicios</p>';
+            lista.innerHTML = mensajeVacio;
         } else {
             lista.innerHTML = html;
         }
@@ -1275,7 +1278,8 @@
         if (VIDEOTECA_DATA[nombre]) {
             toast('La categoría "' + nombre + '" ya existe');
             document.getElementById('modal-nueva-cat').classList.add('hidden');
-            // Seleccionar esa categoría en el filtro
+            // Seleccionar esa categoría en el filtro y mostrar sus ejercicios
+            poblarCategorias();
             const vtZona = document.getElementById('vt-zona-select');
             if (vtZona) {
                 for (let i = 0; i < vtZona.options.length; i++) {
@@ -1285,6 +1289,24 @@
             }
             return;
         }
+
+        // 1. Actualizar el estado local INMEDIATAMENTE para que aparezca en la UI
+        VIDEOTECA_DATA[nombre] = [];
+        videotecaCache = VIDEOTECA_DATA;
+        poblarCategorias();
+        // Seleccionar la nueva categoría en vt-zona-select
+        const vtZona = document.getElementById('vt-zona-select');
+        if (vtZona) {
+            for (let i = 0; i < vtZona.options.length; i++) {
+                if (vtZona.options[i].value === 'cat:' + nombre) { vtZona.selectedIndex = i; break; }
+            }
+            renderizarVideoteca();
+        }
+        toast('Categoría "' + nombre + '" creada');
+        document.getElementById('modal-nueva-cat').classList.add('hidden');
+        document.getElementById('nueva-cat-nombre').value = '';
+
+        // 2. Guardar en el backend en segundo plano
         try {
             let ok = false;
             try {
@@ -1305,20 +1327,8 @@
                 });
                 if (!res.ok) throw new Error('Firebase error ' + res.status);
             }
-
-            toast('Categoría "' + nombre + '" creada');
-            document.getElementById('modal-nueva-cat').classList.add('hidden');
-            await cargarVideoteca();
-            // Seleccionar la nueva categoría en vt-zona-select
-            const vtZona = document.getElementById('vt-zona-select');
-            if (vtZona) {
-                for (let i = 0; i < vtZona.options.length; i++) {
-                    if (vtZona.options[i].value === 'cat:' + nombre) { vtZona.selectedIndex = i; break; }
-                }
-                renderizarVideoteca();
-            }
         } catch (e) {
-            toast('Error al crear la categoría');
+            toast('Advertencia: la categoría se creó localmente pero no se pudo guardar en el servidor');
             console.error(e);
         }
     }
