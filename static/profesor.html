@@ -859,6 +859,15 @@
     let bloqueEjsTemp = [];
     let editandoBloqueIdx = null;
 
+    // Helper para asegurar longitud de arrays por vuelta/serie
+    function ensureArrayLen(arr, len, defaultVal) {
+        if (!arr) arr = [];
+        const result = arr.slice();
+        while (result.length < len) result.push(result.length > 0 ? result[result.length - 1] : (defaultVal || ''));
+        if (result.length > len) result.length = len;
+        return result;
+    }
+
     // Historial global
     let historialRutinasCache = {};
     let rutinaModalActual = null;
@@ -1362,7 +1371,7 @@
         if (!container) return;
         let html = '';
         if (tipo === 'Circuito (Vueltas)') {
-            html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Vueltas</label><input id="warmup-vueltas-' + idx + '" type="number" value="2" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre vueltas (seg)</label><input id="warmup-pausa-vuelta-' + idx + '" type="number" value="30" min="0" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
+            html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Vueltas</label><input id="warmup-vueltas-' + idx + '" type="number" value="2" min="1" oninput="renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre vueltas (seg)</label><input id="warmup-pausa-vuelta-' + idx + '" type="number" value="30" min="0" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
         } else if (tipo === 'Circuito por Tiempo') {
             html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Duracion (minutos)</label><input id="warmup-duracion-' + idx + '" type="number" value="3" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>';
         } else if (tipo === 'Tabata') {
@@ -1370,9 +1379,11 @@
         } else if (tipo === 'EMOM') {
             html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Minutos</label><input id="warmup-minutos-' + idx + '" type="number" value="5" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>';
         } else if (tipo === 'Series/Reps') {
-            html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Series</label><input id="warmup-series-' + idx + '" type="number" value="3" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones</label><input id="warmup-reps-val-' + idx + '" type="number" value="10" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
+            html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Series</label><input id="warmup-series-' + idx + '" type="number" value="3" min="1" oninput="renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones (default)</label><input id="warmup-reps-val-' + idx + '" type="number" value="10" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
         }
         container.innerHTML = html;
+        // Re-render exercise chips when warmup type changes
+        renderWarmupEjsDia(idx);
     }
 
     function cargarEjsWarmupDia(idx) {
@@ -1449,10 +1460,83 @@
         if (!lista || !diasData[idx]) return;
         const ejs = diasData[idx].warmupEjercicios;
         if (ejs.length === 0) { lista.innerHTML = ''; return; }
+
+        // Detectar tipo de warmup para este dia
+        const tipoSel = document.getElementById('warmup-tipo-' + idx);
+        const warmupTipo = tipoSel ? tipoSel.value : '';
+        const esCircuitoVueltas = (warmupTipo === 'Circuito (Vueltas)');
+        const esSeriesReps = (warmupTipo === 'Series/Reps');
+        let numVueltas = 1;
+        if (esCircuitoVueltas) {
+            numVueltas = parseInt(document.getElementById('warmup-vueltas-' + idx)?.value) || 2;
+        }
+        let numSeries = 1;
+        if (esSeriesReps) {
+            numSeries = parseInt(document.getElementById('warmup-series-' + idx)?.value) || 3;
+        }
+
         const svgHandle = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.8"/><circle cx="15" cy="5" r="1.8"/><circle cx="9" cy="12" r="1.8"/><circle cx="15" cy="12" r="1.8"/><circle cx="9" cy="19" r="1.8"/><circle cx="15" cy="19" r="1.8"/></svg>';
         lista.innerHTML = ejs.map((ej, i) => {
             const linkEsc = (ej.link || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
             const nombreEsc = (ej.nombre || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+
+            let controlsHtml = '';
+
+            if (esCircuitoVueltas && numVueltas > 1) {
+                // Per-vuelta reps
+                ej.reps_por_vuelta = ensureArrayLen(ej.reps_por_vuelta, numVueltas, ej.reps || '');
+                let vueltaInputs = '';
+                for (let v = 0; v < numVueltas; v++) {
+                    vueltaInputs += '<span class="text-xs text-naranja font-bold">V' + (v+1) + ':</span>' +
+                        '<input type="text" value="' + (ej.reps_por_vuelta[v] || '') + '" ' +
+                        'onchange="diasData[' + idx + '].warmupEjercicios[' + i + '].reps_por_vuelta[' + v + ']=this.value" ' +
+                        'class="rounded-lg px-1 py-1 text-xs w-12" placeholder="Reps">';
+                }
+                controlsHtml = '<div class="flex gap-1 items-center mt-1.5 flex-wrap">' +
+                    '<span class="text-xs text-textoSuave font-bold mr-1">Reps:</span>' +
+                    vueltaInputs +
+                    '<select onchange="diasData[' + idx + '].warmupEjercicios[' + i + '].unit=this.value" class="rounded-lg px-1 py-1 text-xs ml-1">' +
+                    '<option ' + ((ej.unit||'Reps')==='Reps'?'selected':'') + '>Reps</option><option ' + ((ej.unit||'Reps')==='Segs'?'selected':'') + '>Segs</option></select>' +
+                    '</div>';
+            } else if (esSeriesReps && numSeries > 1) {
+                // Per-serie reps AND pausa
+                ej.reps_por_serie = ensureArrayLen(ej.reps_por_serie, numSeries, ej.reps || '');
+                ej.pausa_por_serie = ensureArrayLen(ej.pausa_por_serie, numSeries, ej.descanso || '');
+                let serieRepsInputs = '';
+                let seriePausaInputs = '';
+                for (let s = 0; s < numSeries; s++) {
+                    serieRepsInputs += '<span class="text-xs text-verde font-bold">S' + (s+1) + ':</span>' +
+                        '<input type="text" value="' + (ej.reps_por_serie[s] || '') + '" ' +
+                        'onchange="diasData[' + idx + '].warmupEjercicios[' + i + '].reps_por_serie[' + s + ']=this.value" ' +
+                        'class="rounded-lg px-1 py-1 text-xs w-12" placeholder="Reps">';
+                    seriePausaInputs += '<span class="text-xs text-verde font-bold">S' + (s+1) + ':</span>' +
+                        '<input type="number" value="' + (ej.pausa_por_serie[s] || '') + '" min="0" ' +
+                        'onchange="diasData[' + idx + '].warmupEjercicios[' + i + '].pausa_por_serie[' + s + ']=this.value" ' +
+                        'class="rounded-lg px-1 py-1 text-xs w-12" placeholder="Seg">';
+                }
+                controlsHtml = '<div class="flex gap-1 items-center mt-1.5 flex-wrap">' +
+                    '<span class="text-xs text-textoSuave font-bold mr-1">Reps:</span>' +
+                    serieRepsInputs +
+                    '<select onchange="diasData[' + idx + '].warmupEjercicios[' + i + '].unit=this.value" class="rounded-lg px-1 py-1 text-xs ml-1">' +
+                    '<option ' + ((ej.unit||'Reps')==='Reps'?'selected':'') + '>Reps</option><option ' + ((ej.unit||'Reps')==='Segs'?'selected':'') + '>Segs</option></select>' +
+                    '</div>' +
+                    '<div class="flex gap-1 items-center mt-1 flex-wrap">' +
+                    '<span class="text-xs text-textoSuave font-bold mr-1">Pausa:</span>' +
+                    seriePausaInputs +
+                    '<span class="text-xs text-textoSuave">seg</span>' +
+                    '</div>';
+            } else {
+                // Default behavior
+                controlsHtml = '<div class="flex gap-2 items-center mt-1.5 flex-wrap">' +
+                    '<input type="text" value="' + (ej.reps || '') + '" onchange="diasData[' + idx + '].warmupEjercicios[' + i + '].reps=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Reps">' +
+                    '<select onchange="diasData[' + idx + '].warmupEjercicios[' + i + '].unit=this.value" class="rounded-lg px-2 py-1 text-xs">' +
+                    '<option ' + ((ej.unit||'Reps')==='Reps'?'selected':'') + '>Reps</option><option ' + ((ej.unit||'Reps')==='Segs'?'selected':'') + '>Segs</option></select>' +
+                    '<span class="text-xs text-textoSuave ml-1">Pausa:</span>' +
+                    '<input type="number" value="' + (ej.descanso || '') + '" min="0" onchange="diasData[' + idx + '].warmupEjercicios[' + i + '].descanso=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Seg">' +
+                    '<span class="text-xs text-textoSuave">seg</span>' +
+                    '</div>';
+            }
+
             return '<div class="exercise-chip bg-fondoAlt rounded-xl px-3 py-2.5 border border-borde/50"' +
                 ' draggable="true" data-idx="' + i + '" data-list="warmup-dia-' + idx + '"' +
                 ' ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)">' +
@@ -1464,14 +1548,7 @@
                 '</div>' +
                 '<button onclick="quitarEjWarmupDia(' + idx + ',' + i + ')" class="text-rojo hover:text-red-400 text-lg font-bold leading-none flex-shrink-0 ml-2">&times;</button>' +
                 '</div>' +
-                '<div class="flex gap-2 items-center mt-1.5 flex-wrap">' +
-                '<input type="text" value="' + (ej.reps || '') + '" onchange="diasData[' + idx + '].warmupEjercicios[' + i + '].reps=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Reps">' +
-                '<select onchange="diasData[' + idx + '].warmupEjercicios[' + i + '].unit=this.value" class="rounded-lg px-2 py-1 text-xs">' +
-                '<option ' + ((ej.unit||'Reps')==='Reps'?'selected':'') + '>Reps</option><option ' + ((ej.unit||'Reps')==='Segs'?'selected':'') + '>Segs</option></select>' +
-                '<span class="text-xs text-textoSuave ml-1">Pausa:</span>' +
-                '<input type="number" value="' + (ej.descanso || '') + '" min="0" onchange="diasData[' + idx + '].warmupEjercicios[' + i + '].descanso=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Seg">' +
-                '<span class="text-xs text-textoSuave">seg</span>' +
-                '</div>' +
+                controlsHtml +
                 '</div>';
         }).join('');
         // Activar touch drag para esta lista
@@ -1737,11 +1814,11 @@
         if (tipo === 'Circuito') {
             html = `<div class="grid grid-cols-2 gap-3">
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Vueltas</label>
-                <input id="bp-vueltas" type="number" value="3" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+                <input id="bp-vueltas" type="number" value="3" min="1" oninput="renderBloqueEjsTemp()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre vueltas (seg)</label>
                 <input id="bp-pausa-vuelta" type="number" value="60" min="0" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
             </div>
-            <p class="text-xs text-textoSuave mt-2">Podes editar reps y pausa por ejercicio abajo</p>`;
+            <p class="text-xs text-textoSuave mt-2">Podes editar reps por vuelta en cada ejercicio abajo</p>`;
         } else if (tipo === 'Circuito por Tiempo') {
             html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Duracion (minutos)</label>
                 <input id="bp-duracion" type="number" value="5" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>`;
@@ -1797,9 +1874,16 @@
     function renderBloqueEjsTemp() {
         const lista = document.getElementById('bloque-ejercicios-lista');
         const tipo = document.getElementById('bloque-tipo').value;
-        const mostrarSeries = (tipo === 'Series');
+        const esCircuito = (tipo === 'Circuito');
+        const esSeries = (tipo === 'Series');
         const mostrarReps = (tipo !== 'Tabata');
-        const mostrarDescanso = (tipo === 'Circuito' || tipo === 'Series');
+        const mostrarDescanso = (esCircuito || esSeries);
+
+        // Get vueltas count for Circuito mode
+        let numVueltas = 1;
+        if (esCircuito) {
+            numVueltas = parseInt(document.getElementById('bp-vueltas')?.value) || 3;
+        }
 
         if (bloqueEjsTemp.length === 0) {
             lista.innerHTML = '<p class="text-textoSuave text-xs text-center py-4">Agrega ejercicios al bloque</p>';
@@ -1808,6 +1892,72 @@
         lista.innerHTML = bloqueEjsTemp.map((ej, i) => {
             const linkEsc = (ej.link || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
             const nombreEsc = (ej.nombre || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+
+            let controlsHtml = '';
+
+            if (esCircuito && numVueltas > 1) {
+                // Circuito: per-vuelta reps
+                ej.reps_por_vuelta = ensureArrayLen(ej.reps_por_vuelta, numVueltas, ej.reps || '12');
+                let vueltaInputs = '';
+                for (let v = 0; v < numVueltas; v++) {
+                    vueltaInputs += '<span class="text-xs text-naranja font-bold">V' + (v+1) + ':</span>' +
+                        '<input type="text" value="' + (ej.reps_por_vuelta[v] || '') + '" ' +
+                        'onchange="bloqueEjsTemp[' + i + '].reps_por_vuelta[' + v + ']=this.value" ' +
+                        'class="rounded-lg px-1 py-1 text-xs w-12" placeholder="Reps">';
+                }
+                controlsHtml = '<div class="flex gap-1 items-center flex-wrap">' +
+                    '<span class="text-xs text-textoSuave font-bold mr-1">Reps:</span>' +
+                    vueltaInputs +
+                    '<select onchange="bloqueEjsTemp[' + i + '].unit=this.value" class="rounded-lg px-1 py-1 text-xs ml-1"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' +
+                    '</div>' +
+                    '<div class="flex gap-2 items-center flex-wrap mt-1">' +
+                    '<span class="text-xs text-textoSuave ml-1">Pausa:</span>' +
+                    '<input type="number" value="' + (ej.descanso || '60') + '" min="0" onchange="bloqueEjsTemp[' + i + '].descanso=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Seg">' +
+                    '<span class="text-xs text-textoSuave">seg</span>' +
+                    '</div>';
+            } else if (esSeries) {
+                // Series: per-serie reps AND per-serie pausa
+                const numS = parseInt(ej.series) || 4;
+                ej.reps_por_serie = ensureArrayLen(ej.reps_por_serie, numS, ej.reps || '12');
+                ej.pausa_por_serie = ensureArrayLen(ej.pausa_por_serie, numS, ej.descanso || '60');
+                let serieRepsInputs = '';
+                let seriePausaInputs = '';
+                for (let s = 0; s < numS; s++) {
+                    serieRepsInputs += '<span class="text-xs text-verde font-bold">S' + (s+1) + ':</span>' +
+                        '<input type="text" value="' + (ej.reps_por_serie[s] || '') + '" ' +
+                        'onchange="bloqueEjsTemp[' + i + '].reps_por_serie[' + s + ']=this.value" ' +
+                        'class="rounded-lg px-1 py-1 text-xs w-12" placeholder="Reps">';
+                    seriePausaInputs += '<span class="text-xs text-verde font-bold">S' + (s+1) + ':</span>' +
+                        '<input type="number" value="' + (ej.pausa_por_serie[s] || '') + '" min="0" ' +
+                        'onchange="bloqueEjsTemp[' + i + '].pausa_por_serie[' + s + ']=this.value" ' +
+                        'class="rounded-lg px-1 py-1 text-xs w-12" placeholder="Seg">';
+                }
+                controlsHtml = '<div class="flex gap-2 items-center flex-wrap">' +
+                    '<input type="number" value="' + ej.series + '" min="1" onchange="bloqueEjsTemp[' + i + '].series=parseInt(this.value);renderBloqueEjsTemp()" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Series">' +
+                    '<span class="text-xs text-textoSuave">series</span>' +
+                    '<select onchange="bloqueEjsTemp[' + i + '].unit=this.value" class="rounded-lg px-1 py-1 text-xs ml-1"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' +
+                    '</div>' +
+                    '<div class="flex gap-1 items-center flex-wrap mt-1">' +
+                    '<span class="text-xs text-textoSuave font-bold mr-1">Reps:</span>' +
+                    serieRepsInputs +
+                    '</div>' +
+                    '<div class="flex gap-1 items-center flex-wrap mt-1">' +
+                    '<span class="text-xs text-textoSuave font-bold mr-1">Pausa:</span>' +
+                    seriePausaInputs +
+                    '<span class="text-xs text-textoSuave">seg</span>' +
+                    '</div>' +
+                    '<div class="flex gap-2 items-center flex-wrap mt-1">' +
+                    '<input type="text" value="' + (ej.nota_tecnica||'') + '" onchange="bloqueEjsTemp[' + i + '].nota_tecnica=this.value" class="rounded-lg px-2 py-1 text-xs flex-1" placeholder="Nota tecnica...">' +
+                    '</div>';
+            } else {
+                // Default (Circuito por Tiempo, Tabata, EMOM, Circuito con 1 vuelta)
+                controlsHtml = '<div class="flex gap-2 items-center flex-wrap">' +
+                    (mostrarReps ? '<input type="text" value="' + ej.reps + '" onchange="bloqueEjsTemp[' + i + '].reps=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Reps">' +
+                    '<select onchange="bloqueEjsTemp[' + i + '].unit=this.value" class="rounded-lg px-2 py-1 text-xs"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' : '') +
+                    (mostrarDescanso ? '<span class="text-xs text-textoSuave ml-1">Pausa:</span><input type="number" value="' + (ej.descanso || '60') + '" min="0" onchange="bloqueEjsTemp[' + i + '].descanso=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Seg"><span class="text-xs text-textoSuave">seg</span>' : '') +
+                    '</div>';
+            }
+
             return `<div class="exercise-chip bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50" draggable="true" data-idx="${i}" data-list="bloque" ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)">
                 <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center gap-2">
@@ -1816,14 +1966,7 @@
                     </div>
                     <button onclick="quitarEjBloque(${i})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none">&times;</button>
                 </div>
-                <div class="flex gap-2 items-center flex-wrap">
-                    ${mostrarSeries ? '<input type="number" value="' + ej.series + '" min="1" onchange="bloqueEjsTemp['+i+'].series=parseInt(this.value)" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Series">' +
-                    '<span class="text-xs text-textoSuave">series x</span>' : ''}
-                    ${mostrarReps ? '<input type="text" value="' + ej.reps + '" onchange="bloqueEjsTemp['+i+'].reps=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Reps">' +
-                    '<select onchange="bloqueEjsTemp['+i+'].unit=this.value" class="rounded-lg px-2 py-1 text-xs"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' : ''}
-                    ${mostrarDescanso ? '<span class="text-xs text-textoSuave ml-1">Pausa:</span><input type="number" value="' + (ej.descanso || '60') + '" min="0" onchange="bloqueEjsTemp['+i+'].descanso=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Seg"><span class="text-xs text-textoSuave">seg</span>' : ''}
-                    ${mostrarSeries ? '<input type="text" value="' + (ej.nota_tecnica||'') + '" onchange="bloqueEjsTemp['+i+'].nota_tecnica=this.value" class="rounded-lg px-2 py-1 text-xs flex-1" placeholder="Nota tecnica...">' : ''}
-                </div>
+                ${controlsHtml}
             </div>`;
         }).join('');
         initTouchDragForList(lista, 'bloque');
@@ -2187,9 +2330,13 @@
                     warmupDetalle.series = parseInt(document.getElementById('warmup-series-' + diaIdx)?.value || 3);
                     warmupDetalle.reps = parseInt(document.getElementById('warmup-reps-val-' + diaIdx)?.value || 10);
                 }
-                const warmupEjsExport = dia.warmupEjercicios.map(e => ({
-                    nombre: e.nombre, link: e.link, reps: e.reps || '', unit: e.unit || 'Reps', descanso: e.descanso || ''
-                }));
+                const warmupEjsExport = dia.warmupEjercicios.map(e => {
+                    const exp = { nombre: e.nombre, link: e.link, reps: e.reps || '', unit: e.unit || 'Reps', descanso: e.descanso || '' };
+                    if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) exp.reps_por_vuelta = e.reps_por_vuelta;
+                    if (e.reps_por_serie && e.reps_por_serie.length > 0) exp.reps_por_serie = e.reps_por_serie;
+                    if (e.pausa_por_serie && e.pausa_por_serie.length > 0) exp.pausa_por_serie = e.pausa_por_serie;
+                    return exp;
+                });
                 const bloques = dia.bloquesRutina;
 
                 let tipo = 'ENTRENAMIENTO';
@@ -2358,7 +2505,7 @@
             };
         }
         // Objetos con propiedades nombradas
-        return {
+        const result = {
             nombre:       ej.nombre || '',
             link:         ej.video  || ej.link  || '',
             reps:         String(ej.reps    || ''),
@@ -2367,6 +2514,10 @@
             descanso:     String(ej.descanso || ej.pausa || ''),
             nota_tecnica: ej.nota_tecnica || ''
         };
+        if (ej.reps_por_vuelta) result.reps_por_vuelta = ej.reps_por_vuelta;
+        if (ej.reps_por_serie) result.reps_por_serie = ej.reps_por_serie;
+        if (ej.pausa_por_serie) result.pausa_por_serie = ej.pausa_por_serie;
+        return result;
     }
 
     // ====================================================================
@@ -2811,8 +2962,24 @@
             if (!e.nombre) return '';
             const metaParts = [];
             if (e.series)   metaParts.push('Series: ' + e.series);
-            if (e.reps)     metaParts.push(e.reps + (e.unit ? ' ' + e.unit : ''));
-            if (e.descanso) metaParts.push('Pausa: ' + e.descanso + 's');
+            // Per-vuelta reps
+            if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
+                const vLabels = e.reps_por_vuelta.map((r, vi) => 'V' + (vi+1) + ': ' + r).join(', ');
+                metaParts.push(vLabels + (e.unit ? ' ' + e.unit : ''));
+            // Per-serie reps
+            } else if (e.reps_por_serie && e.reps_por_serie.length > 0) {
+                const sLabels = e.reps_por_serie.map((r, si) => 'S' + (si+1) + ': ' + r).join(', ');
+                metaParts.push(sLabels + (e.unit ? ' ' + e.unit : ''));
+            } else if (e.reps) {
+                metaParts.push(e.reps + (e.unit ? ' ' + e.unit : ''));
+            }
+            // Per-serie pausa
+            if (e.pausa_por_serie && e.pausa_por_serie.length > 0) {
+                const pLabels = e.pausa_por_serie.map((p, si) => 'S' + (si+1) + ': ' + p + 's').join(', ');
+                metaParts.push('Pausa: ' + pLabels);
+            } else if (e.descanso) {
+                metaParts.push('Pausa: ' + e.descanso + 's');
+            }
             if (e.nota_tecnica) metaParts.push(e.nota_tecnica);
             const metaStr = metaParts.join(' &nbsp;|&nbsp; ');
             return `<div style="${sEjBox}">
