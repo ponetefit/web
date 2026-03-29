@@ -3526,6 +3526,37 @@
                 '</div>';
         }
 
+        // ─── PESO POR SERIE ───
+        function _pesoSerieKey(nombreEj, serieIdx) {
+            return 'peso_serie__' + (nombreEj || '').toUpperCase().trim() + '__' + serieIdx;
+        }
+        function guardarPesoSerie(nombreEj, serieIdx, peso) {
+            try {
+                if (peso && !isNaN(peso) && peso > 0) {
+                    localStorage.setItem(_pesoSerieKey(nombreEj, serieIdx), peso);
+                }
+            } catch(e) {}
+        }
+        function obtenerUltimoPesoSerie(nombreEj, serieIdx) {
+            try { return parseFloat(localStorage.getItem(_pesoSerieKey(nombreEj, serieIdx))) || null; } catch(e) { return null; }
+        }
+        function crearPesoRowsPorSerie(nombreEj, seriesN, baseId) {
+            var html = '<div style="margin:8px 0 4px;">' +
+                '<div style="font-size:0.65rem;font-weight:700;color:var(--texto-suave);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">\u{1F3CB}\uFE0F Carga por serie:</div>' +
+                '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+            for (var s = 0; s < seriesN; s++) {
+                var ultimo = obtenerUltimoPesoSerie(nombreEj, s);
+                html += '<div style="display:flex;align-items:center;gap:3px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:5px 8px;">' +
+                    '<span style="color:var(--verde);font-weight:900;font-size:0.65rem;min-width:18px;">S' + (s+1) + '</span>' +
+                    '<input type="number" class="peso-input" id="' + baseId + '-s' + s + '" placeholder="0" min="0" step="0.5" style="width:52px;"' +
+                    (ultimo ? ' value="' + ultimo + '"' : '') + '>' +
+                    '<span style="font-size:0.65rem;color:var(--texto-suave);">kg</span>' +
+                    '</div>';
+            }
+            html += '</div></div>';
+            return html;
+        }
+
         // ─── TIPO DE ENTRENAMIENTO GLOBAL (para calorias) ───
         var _tipoEntrenamientoGlobal = '';
 
@@ -3722,13 +3753,14 @@
                     wLista.innerHTML += crearCard(n, l, r ? r + " " + u.toUpperCase() : "EMOM", cc);
                 });
             } else {
-                ejsW.forEach(function(ej) {
+                ejsW.forEach(function(ej, ejIdx) {
                     const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio);
                     const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
                     const r = Array.isArray(ej) ? ej[2] : (ej.reps || "");
                     const u = Array.isArray(ej) ? (ej[3] || "Reps") : (ej.unit || "Reps");
                     const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
                     const desc = Array.isArray(ej) ? '' : (ej.descanso || '');
+                    var wupBaseId = 'wup-peso-' + ejIdx;
 
                     // Mostrar reps por vuelta si existen (Circuito Vueltas)
                     if (!Array.isArray(ej) && ej.reps_por_vuelta && ej.reps_por_vuelta.length > 0) {
@@ -3736,7 +3768,8 @@
                             return '<span style="color:var(--naranja);font-weight:700;font-size:0.7rem;">V' + (vi+1) + ':</span> <span style="font-weight:700;">' + rv + ' ' + u.toUpperCase() + '</span>';
                         }).join(' &nbsp; ');
                         var metaExtra = desc && parseInt(desc) > 0 ? ' <span style="color:var(--texto-suave);font-size:0.7rem;">| Pausa: ' + desc + 's</span>' : '';
-                        wLista.innerHTML += crearCard(n, l, '', cc, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:6px; align-items:center;">' + vLabels + metaExtra + '</div>');
+                        var vPesoHtml = crearPesoRowsPorSerie(n, ej.reps_por_vuelta.length, wupBaseId);
+                        wLista.innerHTML += crearCard(n, l, '', cc, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:6px; align-items:center;">' + vLabels + metaExtra + '</div>' + vPesoHtml);
                     // Mostrar reps y pausa por serie si existen (Series/Reps)
                     } else if (!Array.isArray(ej) && ej.reps_por_serie && ej.reps_por_serie.length > 0) {
                         var sRepsLabels = ej.reps_por_serie.map(function(rs, si) {
@@ -3747,7 +3780,8 @@
                                 (pausaS && parseInt(pausaS) > 0 ? ' <span style="color:var(--naranja);font-size:0.65rem;">| ' + pausaS + 's</span>' : '') +
                                 '</span>';
                         }).join(' ');
-                        wLista.innerHTML += crearCard(n, l, '', cc, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:4px;">' + sRepsLabels + '</div>');
+                        var sPesoHtml = crearPesoRowsPorSerie(n, ej.reps_por_serie.length, wupBaseId);
+                        wLista.innerHTML += crearCard(n, l, '', cc, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:4px;">' + sRepsLabels + '</div>' + sPesoHtml);
                     } else {
                         var metaStr = r ? r + " " + u.toUpperCase() : "";
                         if (desc && parseInt(desc) > 0) metaStr += (metaStr ? ' | ' : '') + 'Pausa: ' + desc + 's';
@@ -5279,7 +5313,9 @@
                 var serieDetalle = '';
                 // Pausa de la primera serie (para el botón marcarSerie)
                 var pausaPrimeraSerie = pausaN;
-                // Guardar pausas y reps por serie en diccionarios globales
+                // Guardar datos por serie en diccionarios globales
+                _seriesNData[idxS]   = parseInt(seriesN);
+                _nombreEjData[idxS]  = nombre;
                 if (haPerSerie && ej.pausa_por_serie && ej.pausa_por_serie.length > 0) {
                     _pausasPorSerieData[idxS] = ej.pausa_por_serie.map(function(p) { return parseInt(p) || 0; });
                 } else {
@@ -5322,7 +5358,7 @@
                     '<div class="serie-meta-item"><span class="serie-meta-label">Descanso</span><span class="serie-meta-value" style="color:var(--naranja)" id="d-val-' + idxS + '">' + formatearTiempo(pausaBoton) + '</span></div>' +
                     '</div>' +
                     serieDetalle +
-                    crearPesoRow(nombre, pesoInputId) +
+                    crearPesoRowsPorSerie(nombre, parseInt(seriesN), pesoInputId) +
                     notaHtml +
                     '<div style="text-align:center;"><div class="timer-display" id="timer-' + idxS + '">' + formatearTiempo(pausaBoton) + '</div>' +
                     '<button class="btn-rest" id="btn-' + idxS + '" onclick="marcarSerieConPausa(' + idxS + ',' + pausaBoton + ')">Marcar Serie</button></div></div>';
@@ -5437,6 +5473,8 @@
         // Diccionarios globales: índice de ejercicio → arrays de pausas/reps por serie
         var _pausasPorSerieData = {};
         var _repsPorSerieData = {};
+        var _seriesNData = {};          // índice → total series
+        var _nombreEjData = {};         // índice → nombre ejercicio (para guardarPesoSerie)
 
         // ─── MARCAR SERIE CON PAUSA POR SERIE ───
         function marcarSerieConPausa(i, pausaDefault) {
@@ -5445,20 +5483,25 @@
             var displayedRemaining = valEl ? parseInt(valEl.innerText) : seriesRestantes[i];
             var pausasPorSerie = _pausasPorSerieData[i] || [];
             var repsPorSerie   = _repsPorSerieData[i]   || [];
+            var totalSeries    = _seriesNData[i] || displayedRemaining;
             var pSerie = pausaDefault;
-            if (pausasPorSerie.length > 0 && displayedRemaining > 0) {
-                // Índice 0-based de la serie que se marca = total - quedan
-                var serieIdx = pausasPorSerie.length - displayedRemaining;
-                if (serieIdx >= 0 && serieIdx < pausasPorSerie.length) {
-                    var p = parseInt(pausasPorSerie[serieIdx]);
-                    if (!isNaN(p) && p > 0) pSerie = p;
-                }
+            // Índice 0-based de la serie que se marca
+            var serieIdx = totalSeries - displayedRemaining;
+            if (pausasPorSerie.length > 0 && serieIdx >= 0 && serieIdx < pausasPorSerie.length) {
+                var p = parseInt(pausasPorSerie[serieIdx]);
+                if (!isNaN(p) && p > 0) pSerie = p;
+            }
+            // Guardar peso de la serie que se está marcando
+            var pesoSerieInput = document.getElementById('peso-' + i + '-s' + serieIdx);
+            if (pesoSerieInput && pesoSerieInput.value) {
+                var pesoVal = parseFloat(pesoSerieInput.value);
+                guardarPesoSerie(_nombreEjData[i] || ejercicioNombres[i] || '', serieIdx, pesoVal);
             }
             marcarSerie(i, pSerie || pausaDefault);
             // Después de decrementar, actualizar labels a los valores de la PRÓXIMA serie
             var remaining = seriesRestantes[i]; // ya decrementado por marcarSerie
             if (remaining > 0 && (pausasPorSerie.length > 0 || repsPorSerie.length > 0)) {
-                var nextIdx = (pausasPorSerie.length || repsPorSerie.length) - remaining;
+                var nextIdx = totalSeries - remaining;
                 // Actualizar reps
                 var rEl = document.getElementById('r-val-' + i);
                 if (rEl && repsPorSerie.length > 0 && nextIdx >= 0 && nextIdx < repsPorSerie.length) {
