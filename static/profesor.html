@@ -1025,18 +1025,26 @@
         // Agregar categorías dinámicas al select de zona en videoteca (vt-zona-select)
         const vtZona = document.getElementById('vt-zona-select');
         if (vtZona) {
-            // Conservar las opciones fijas (Todo el cuerpo, Piernas, Brazos, Zona Media)
-            const opsFijas = ['', 'piernas', 'brazos', 'zona_media'];
+            // Recopilar valores de opciones fijas (las que no tienen data-cat)
+            const vtValoresFijos = new Set(
+                Array.from(vtZona.options)
+                    .filter(opt => !opt.dataset.cat)
+                    .map(opt => (opt.value || opt.textContent || '').toLowerCase())
+            );
             // Quitar opciones de categorías anteriores (data-cat="true")
             Array.from(vtZona.options).forEach(opt => { if (opt.dataset.cat) opt.remove(); });
-            // Agregar separador + categorías si hay alguna
-            if (cats.length > 0) {
+            // Filtrar categorías que no dupliquen opciones fijas
+            const vtCatsNuevas = cats.filter(c => {
+                const cLow = c.toLowerCase().replace(/\s+/g, '_');
+                return !vtValoresFijos.has(c.toLowerCase()) && !vtValoresFijos.has(cLow);
+            });
+            if (vtCatsNuevas.length > 0) {
                 const sep = document.createElement('option');
                 sep.disabled = true;
                 sep.textContent = '── Categorías ──';
                 sep.dataset.cat = 'sep';
                 vtZona.appendChild(sep);
-                cats.forEach(c => {
+                vtCatsNuevas.forEach(c => {
                     const opt = document.createElement('option');
                     opt.value = 'cat:' + c;
                     opt.textContent = c;
@@ -1045,6 +1053,40 @@
                 });
             }
         }
+
+        // Agrega categorías dinámicas a un select de zona (evitando duplicados con opciones fijas)
+        // Las opciones fijas tienen valores: '', 'piernas', 'brazos', 'zona_media', 'todo_cuerpo'
+        function actualizarZonaSelectConCats(sel) {
+            if (!sel) return;
+            // Recopilar valores de opciones fijas existentes (las que NO tienen data-cat)
+            const valoresFijos = new Set(
+                Array.from(sel.options)
+                    .filter(opt => !opt.dataset.cat)
+                    .map(opt => (opt.value || opt.textContent || '').toLowerCase())
+            );
+            // Quitar opciones de categorías anteriores (data-cat="true")
+            Array.from(sel.options).forEach(opt => { if (opt.dataset.cat) opt.remove(); });
+            // Filtrar categorías que no se dupliquen con opciones fijas (comparación insensible a mayúsculas y sin espacios)
+            const catsNuevas = cats.filter(c => {
+                const cLow = c.toLowerCase().replace(/\s+/g, '_');
+                return !valoresFijos.has(c.toLowerCase()) && !valoresFijos.has(cLow);
+            });
+            if (catsNuevas.length > 0) {
+                const sep = document.createElement('option');
+                sep.disabled = true;
+                sep.textContent = '── Categorías ──';
+                sep.dataset.cat = 'sep';
+                sel.appendChild(sep);
+                catsNuevas.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = 'cat:' + c;
+                    opt.textContent = c;
+                    opt.dataset.cat = 'true';
+                    sel.appendChild(opt);
+                });
+            }
+        }
+        actualizarZonaSelectConCats(document.getElementById('bloque-zona-select'));
         // Poblar select de elemento en el bloque modal
         poblarElementoSelect('bloque-elemento-select');
         cargarEjsBloque();
@@ -1524,6 +1566,35 @@
         if (catSel) {
             catSel.innerHTML = cats.map(c => '<option value="' + c + '">' + c + '</option>').join('');
         }
+        // Agregar categorías dinámicas al select de zona de warmup (sin duplicar opciones fijas)
+        const warmupZonaSel = document.getElementById('warmup-zona-select-' + idx);
+        if (warmupZonaSel) {
+            const wValoresFijos = new Set(
+                Array.from(warmupZonaSel.options)
+                    .filter(opt => !opt.dataset.cat)
+                    .map(opt => (opt.value || opt.textContent || '').toLowerCase())
+            );
+            // Quitar opciones de categorías anteriores (data-cat="true")
+            Array.from(warmupZonaSel.options).forEach(opt => { if (opt.dataset.cat) opt.remove(); });
+            const wCatsNuevas = cats.filter(c => {
+                const cLow = c.toLowerCase().replace(/\s+/g, '_');
+                return !wValoresFijos.has(c.toLowerCase()) && !wValoresFijos.has(cLow);
+            });
+            if (wCatsNuevas.length > 0) {
+                const sep = document.createElement('option');
+                sep.disabled = true;
+                sep.textContent = '── Categorías ──';
+                sep.dataset.cat = 'sep';
+                warmupZonaSel.appendChild(sep);
+                wCatsNuevas.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = 'cat:' + c;
+                    opt.textContent = c;
+                    opt.dataset.cat = 'true';
+                    warmupZonaSel.appendChild(opt);
+                });
+            }
+        }
         // Poblar select de elemento para warmup de este dia
         poblarElementoSelect('warmup-elemento-select-' + idx);
         cargarEjsWarmupDia(idx);
@@ -1562,8 +1633,18 @@
         if (!catSel || !ejSel) return;
         const cat = catSel.value;
         const elemFiltro = elemSel ? elemSel.value : '';
-        const zonaFiltro = zonaSel ? zonaSel.value : '';
-        let ejs = videotecaCache[cat] || [];
+        const zonaRaw = zonaSel ? zonaSel.value : '';
+        const catZonaFiltro = zonaRaw.startsWith('cat:') ? zonaRaw.slice(4) : '';
+        const zonaFiltro = catZonaFiltro ? '' : zonaRaw;
+
+        // Si se seleccionó una categoría como filtro de zona, mostrar ejercicios de esa categoría
+        let ejs;
+        if (catZonaFiltro) {
+            ejs = videotecaCache[catZonaFiltro] || [];
+        } else {
+            ejs = videotecaCache[cat] || [];
+        }
+
         if (elemFiltro) {
             ejs = ejs.filter(e => (e.elemento || '') === elemFiltro);
         }
@@ -1956,8 +2037,18 @@
         const elemSel = document.getElementById('bloque-elemento-select');
         const zonaSel = document.getElementById('bloque-zona-select');
         const elemFiltro = elemSel ? elemSel.value : '';
-        const zonaFiltro = zonaSel ? zonaSel.value : '';
-        let ejs = videotecaCache[cat] || [];
+        const zonaRaw = zonaSel ? zonaSel.value : '';
+        const catZonaFiltro = zonaRaw.startsWith('cat:') ? zonaRaw.slice(4) : '';
+        const zonaFiltro = catZonaFiltro ? '' : zonaRaw;
+
+        // Si se seleccionó una categoría como filtro de zona, mostrar ejercicios de esa categoría
+        let ejs;
+        if (catZonaFiltro) {
+            ejs = videotecaCache[catZonaFiltro] || [];
+        } else {
+            ejs = videotecaCache[cat] || [];
+        }
+
         if (elemFiltro) {
             ejs = ejs.filter(e => (e.elemento || '') === elemFiltro);
         }
