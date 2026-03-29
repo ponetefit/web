@@ -3604,7 +3604,7 @@
         // ─── RENDER CALENTAMIENTO ───
         function renderWarmup(data) {
             const tipo = data.warmup_tipo || "Circuito (Vueltas)";
-            const ejsW = data.warmup_ejercicios || [];
+            const ejsW = toArray(data.warmup_ejercicios || []);
             const det = data.warmup_config_detalle || {};
 
             const colorMap = {
@@ -4387,19 +4387,20 @@
                     var ejsPreview = [];
                     var dd = diaData.datos || {};
                     if (dd.warmup_ejercicios) {
-                        var wu = Array.isArray(dd.warmup_ejercicios) ? dd.warmup_ejercicios : Object.values(dd.warmup_ejercicios);
-                        wu.slice(0, 3).forEach(function(e) { var n = Array.isArray(e) ? e[0] : (e.nombre || ''); if (n) ejsPreview.push(n); });
+                        toArray(dd.warmup_ejercicios).slice(0, 3).forEach(function(e) { var n = Array.isArray(e) ? e[0] : (e.nombre || ''); if (n) ejsPreview.push(n); });
                     }
                     var mainEjs = [];
-                    if (dd.datos) {
-                        var darr = Array.isArray(dd.datos) ? dd.datos : Object.values(dd.datos);
-                        darr.forEach(function(b) { var eb = Array.isArray(b.ejercicios) ? b.ejercicios : Object.values(b.ejercicios || {}); eb.forEach(function(e) { mainEjs.push(e.nombre || ''); }); });
-                    } else if (dd.bloques) {
-                        var bl = Array.isArray(dd.bloques) ? dd.bloques : Object.values(dd.bloques);
-                        bl.forEach(function(b) { var eb = Array.isArray(b.ejercicios) ? b.ejercicios : Object.values(b.ejercicios || {}); eb.forEach(function(e) { mainEjs.push(e.nombre || ''); }); });
+                    var _bloqSrc = dd.bloques || dd.datos;
+                    if (_bloqSrc) {
+                        toArray(_bloqSrc).forEach(function(b) {
+                            if (b && b.ejercicios) {
+                                toArray(b.ejercicios).forEach(function(e) { mainEjs.push(Array.isArray(e) ? e[0] : (e.nombre || '')); });
+                            } else if (b && (b.nombre || Array.isArray(b))) {
+                                mainEjs.push(Array.isArray(b) ? b[0] : (b.nombre || ''));
+                            }
+                        });
                     } else if (dd.rutina) {
-                        var rt = Array.isArray(dd.rutina) ? dd.rutina : Object.values(dd.rutina);
-                        rt.forEach(function(e) { mainEjs.push(Array.isArray(e) ? e[0] : (e.nombre || '')); });
+                        toArray(dd.rutina).forEach(function(e) { mainEjs.push(Array.isArray(e) ? e[0] : (e.nombre || '')); });
                     }
                     mainEjs.slice(0, 5).forEach(function(n) { if (n) ejsPreview.push(n); });
 
@@ -4462,7 +4463,12 @@
             diaActivo = diaIdx;
             var diaKey = 'dia_' + (diaIdx + 1);
             var diaData = dataGlobal[diaKey];
-            if (!diaData || !diaData.datos) { mostrarToast('No hay datos para este dia'); return; }
+            if (!diaData) { mostrarToast('No hay datos para este dia'); return; }
+            // Normalizar: si diaData tiene datos directamente sin clave "datos", usar diaData como datos
+            if (!diaData.datos && (diaData.warmup_ejercicios || diaData.bloques || diaData.rutina || diaData.datos_raw)) {
+                diaData = { titulo: diaData.titulo || ('Dia ' + (diaIdx + 1)), tipo: diaData.tipo || 'ENTRENAMIENTO', datos: diaData };
+            }
+            if (!diaData.datos) { mostrarToast('No hay datos para este dia'); return; }
 
             var mdContainer = document.getElementById('multidia-container');
             if (mdContainer) mdContainer.style.display = 'none';
@@ -4487,7 +4493,11 @@
             document.getElementById('tipo-tag').innerText = titulo.toUpperCase();
             document.getElementById('id-display').innerText = (diaData.tipo || 'ENTRENAMIENTO').toUpperCase();
 
-            var datosParaRender = Object.assign({}, diaData.datos, { tipo: diaData.tipo });
+            // Construir objeto para render, normalizando datos de Firebase
+            var _dd = diaData.datos || {};
+            var datosParaRender = {};
+            Object.keys(_dd).forEach(function(k) { datosParaRender[k] = _dd[k]; });
+            datosParaRender.tipo = diaData.tipo || 'ENTRENAMIENTO';
             _pantallaFinMostrada = false;
             render(datosParaRender);
 
@@ -4513,6 +4523,14 @@
 
         var _onEntrenamientoCompletadoMultidia = null;
 
+        // ─── UTILIDAD: convierte objeto Firebase (keys numéricas) o array a array JS ───
+        function toArray(val) {
+            if (!val) return [];
+            if (Array.isArray(val)) return val;
+            if (typeof val === 'object') return Object.values(val);
+            return [];
+        }
+
         // ─── RENDER PRINCIPAL ───
         function render(data) {
             _cardCargaIdx = 0;
@@ -4523,7 +4541,7 @@
             const pLista = document.getElementById('principal-lista');
             const pTitulo = document.getElementById('principal-titulo');
             pLista.innerHTML = '';
-            const ejerciciosPrincipales = data.rutina || data.datos || [];
+            const ejerciciosPrincipales = toArray(data.rutina || data.datos || []);
             if (data.tipo === "Series") renderSeries(data, pTitulo, pLista, ejerciciosPrincipales);
             else if (data.tipo === "Circuito") renderCircuito(data, pTitulo, pLista, ejerciciosPrincipales);
             else if (data.tipo === "Tabata") renderTabata(data, pTitulo, pLista, ejerciciosPrincipales);
@@ -4780,7 +4798,7 @@
         function renderMix(data, pTitulo, pLista) {
             pTitulo.innerText = "BLOQUE PRINCIPAL";
             _tipoEntrenamientoGlobal = 'ENTRENAMIENTO';
-            const bloques = data.bloques || [];
+            const bloques = toArray(data.bloques || []);
             bloquesMix = bloques;
 
             if (bloques.length > 0) {
