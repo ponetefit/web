@@ -793,7 +793,7 @@
     <div id="modal-nueva-cat" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-6">
         <div class="bg-tarjeta rounded-2xl border border-borde p-6 max-w-sm w-full">
             <h3 class="text-sm font-bold text-verde uppercase tracking-wider mb-4">Nueva Categoria</h3>
-            <input id="nueva-cat-nombre" type="text" placeholder="Nombre de la categoria" class="w-full rounded-lg px-3 py-2.5 text-sm mb-4">
+            <input id="nueva-cat-nombre" type="text" placeholder="Nombre de la categoria" onkeydown="if(event.key==='Enter')crearCategoria()" class="w-full rounded-lg px-3 py-2.5 text-sm mb-4">
             <div class="flex gap-3">
                 <button onclick="crearCategoria()" class="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold text-sm">Crear</button>
                 <button onclick="document.getElementById('modal-nueva-cat').classList.add('hidden')" class="flex-1 py-2.5 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
@@ -967,14 +967,28 @@
     // ====================================================================
     // VIDEOTECA
     // ====================================================================
+    const FIREBASE_BASE = 'https://ponetefit-app-default-rtdb.firebaseio.com';
     let VIDEOTECA_DATA = {}; // Datos completos de la videoteca
 
     async function cargarVideoteca() {
         try {
+            // Intentar backend primero
             const res = await fetch(API_BASE + '/api/videoteca');
             const data = await res.json();
             if (data.ok) {
                 VIDEOTECA_DATA = data.videoteca;
+                videotecaCache = VIDEOTECA_DATA;
+                poblarCategorias();
+                renderizarVideoteca();
+                return;
+            }
+        } catch (e) { /* fallback a Firebase */ }
+        // Fallback directo a Firebase
+        try {
+            const res = await fetch(FIREBASE_BASE + '/videoteca.json');
+            const data = await res.json();
+            if (data) {
+                VIDEOTECA_DATA = data;
                 videotecaCache = VIDEOTECA_DATA;
                 poblarCategorias();
                 renderizarVideoteca();
@@ -1151,30 +1165,51 @@
         if (!nombre || !link) { toast('Completa nombre y link'); return; }
 
         try {
-            const res = await fetch(API_BASE + '/api/videoteca/ejercicio', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ categoria, nombre, link, musculo1, musculo2, sinergista, elemento, con_carga, tip1, tip2 })
-            });
-            const data = await res.json();
-            if (data.ok) {
-                toast(data.mensaje);
-                document.getElementById('ej-nombre').value = '';
-                document.getElementById('ej-link').value = '';
-                document.getElementById('ej-musculo1').value = '';
-                document.getElementById('ej-musculo2').value = '';
-                document.getElementById('ej-sinergista').value = '';
-                document.getElementById('ej-elemento').value = '';
-                document.getElementById('ej-con-carga').checked = false;
-                document.getElementById('ej-tip1').value = '';
-                document.getElementById('ej-tip2').value = '';
-                document.getElementById('status-ej').innerText = data.mensaje;
-                await cargarVideoteca();
-            } else {
-                toast('Error: ' + data.error);
+            let ok = false;
+            try {
+                const res = await fetch(API_BASE + '/api/videoteca/ejercicio', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ categoria, nombre, link, musculo1, musculo2, sinergista, elemento, con_carga, tip1, tip2 })
+                });
+                const data = await res.json();
+                if (data.ok) { toast(data.mensaje); ok = true; }
+            } catch (e) { /* fallback */ }
+
+            // Fallback: escribir directamente en Firebase
+            if (!ok) {
+                // Leer ejercicios actuales de esa categoría
+                const resGet = await fetch(FIREBASE_BASE + '/videoteca/' + encodeURIComponent(categoria) + '.json');
+                let ejsActuales = await resGet.json();
+                if (!ejsActuales || !Array.isArray(ejsActuales)) ejsActuales = [];
+                // Agregar o actualizar ejercicio
+                const idx = ejsActuales.findIndex(e => (e.nombre || '').toUpperCase() === nombre.toUpperCase());
+                const ejObj = { nombre: nombre.toUpperCase(), link, musculo1, musculo2, sinergista, elemento, con_carga, tip1, tip2 };
+                if (idx >= 0) ejsActuales[idx] = ejObj;
+                else ejsActuales.push(ejObj);
+                const resPut = await fetch(FIREBASE_BASE + '/videoteca/' + encodeURIComponent(categoria) + '.json', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(ejsActuales)
+                });
+                if (!resPut.ok) throw new Error('Firebase error ' + resPut.status);
+                toast('Ejercicio guardado');
             }
+
+            document.getElementById('ej-nombre').value = '';
+            document.getElementById('ej-link').value = '';
+            document.getElementById('ej-musculo1').value = '';
+            document.getElementById('ej-musculo2').value = '';
+            document.getElementById('ej-sinergista').value = '';
+            document.getElementById('ej-elemento').value = '';
+            document.getElementById('ej-con-carga').checked = false;
+            document.getElementById('ej-tip1').value = '';
+            document.getElementById('ej-tip2').value = '';
+            document.getElementById('status-ej').innerText = '';
+            await cargarVideoteca();
         } catch (e) {
-            toast('Error de conexion');
+            toast('Error al guardar el ejercicio');
+            console.error(e);
         }
     }
 
@@ -1215,22 +1250,48 @@
     async function crearCategoria() {
         const nombre = document.getElementById('nueva-cat-nombre').value.trim();
         if (!nombre) return;
+        // Verificar que no exista ya
+        if (VIDEOTECA_DATA[nombre]) {
+            toast('Ya existe una categoría con ese nombre');
+            return;
+        }
         try {
-            const res = await fetch(API_BASE + '/api/videoteca/categoria', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ nombre })
-            });
-            const data = await res.json();
-            if (data.ok) {
-                toast(data.mensaje);
-                document.getElementById('modal-nueva-cat').classList.add('hidden');
-                await cargarVideoteca();
-            } else {
-                toast('Error: ' + data.error);
+            // Intentar backend primero
+            let ok = false;
+            try {
+                const res = await fetch(API_BASE + '/api/videoteca/categoria', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ nombre })
+                });
+                const data = await res.json();
+                if (data.ok) ok = true;
+            } catch (e) { /* fallback */ }
+
+            // Fallback: escribir directamente en Firebase
+            if (!ok) {
+                const res = await fetch(FIREBASE_BASE + '/videoteca/' + encodeURIComponent(nombre) + '.json', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify([])
+                });
+                if (!res.ok) throw new Error('Firebase error ' + res.status);
+            }
+
+            toast('Categoría "' + nombre + '" creada');
+            document.getElementById('modal-nueva-cat').classList.add('hidden');
+            await cargarVideoteca();
+            // Seleccionar la nueva categoría
+            const catSel = document.getElementById('cat-select');
+            if (catSel) {
+                for (let i = 0; i < catSel.options.length; i++) {
+                    if (catSel.options[i].value === nombre) { catSel.selectedIndex = i; break; }
+                }
+                renderizarVideoteca();
             }
         } catch (e) {
-            toast('Error de conexion');
+            toast('Error al crear la categoría');
+            console.error(e);
         }
     }
 
@@ -1240,20 +1301,31 @@
         if (!nombre) { toast('Seleccioná una categoría primero'); return; }
         if (!confirm('¿Eliminar la categoría "' + nombre + '" y todos sus ejercicios? Esta acción no se puede deshacer.')) return;
         try {
-            const res = await fetch(API_BASE + '/api/videoteca/categoria', {
-                method: 'DELETE',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ nombre })
-            });
-            const data = await res.json();
-            if (data.ok) {
-                toast(data.mensaje || 'Categoría eliminada');
-                await cargarVideoteca();
-            } else {
-                toast('Error: ' + (data.error || 'No se pudo eliminar'));
+            // Intentar backend primero
+            let ok = false;
+            try {
+                const res = await fetch(API_BASE + '/api/videoteca/categoria', {
+                    method: 'DELETE',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ nombre })
+                });
+                const data = await res.json();
+                if (data.ok) ok = true;
+            } catch (e) { /* fallback */ }
+
+            // Fallback: borrar directamente en Firebase
+            if (!ok) {
+                const res = await fetch(FIREBASE_BASE + '/videoteca/' + encodeURIComponent(nombre) + '.json', {
+                    method: 'DELETE'
+                });
+                if (!res.ok) throw new Error('Firebase error ' + res.status);
             }
+
+            toast('Categoría "' + nombre + '" eliminada');
+            await cargarVideoteca();
         } catch (e) {
-            toast('Error de conexion');
+            toast('Error al eliminar la categoría');
+            console.error(e);
         }
     }
 
