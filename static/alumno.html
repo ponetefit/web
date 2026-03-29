@@ -3603,7 +3603,7 @@
         }
 
         var _cardCargaIdx = 0;
-        function crearCard(nombre, link, meta, con_carga, elemento) {
+        function crearCard(nombre, link, meta, con_carga, elemento, extraHtml) {
             const videoBtn = link ? '<button onclick="abrirVideo(\'' + link.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')" class="btn-play-video">' + svgPlay() + '</button>' : '';
             const metaHtml = meta ? '<span class="card-ejercicio-meta">' + meta + '</span>' : '';
             // Resolver elemento: parámetro directo o desde videoteca cache
@@ -3614,7 +3614,7 @@
                 var pid = 'peso-card-' + (_cardCargaIdx++);
                 pesoHtml = crearPesoRow(nombre, pid);
             }
-            return '<div class="card-ejercicio"><div class="card-ej-top"><span class="card-ejercicio-nombre">' + nombre + '</span>' + metaHtml + videoBtn + '</div>' + elemHtml + pesoHtml + '</div>';
+            return '<div class="card-ejercicio"><div class="card-ej-top"><span class="card-ejercicio-nombre">' + nombre + '</span>' + metaHtml + videoBtn + '</div>' + elemHtml + (extraHtml || '') + pesoHtml + '</div>';
         }
 
         function crearCardNumero(idx, total, nombre, link, con_carga, elemento) {
@@ -3729,9 +3729,30 @@
                     const u = Array.isArray(ej) ? (ej[3] || "Reps") : (ej.unit || "Reps");
                     const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
                     const desc = Array.isArray(ej) ? '' : (ej.descanso || '');
-                    var metaStr = r ? r + " " + u.toUpperCase() : "";
-                    if (desc && parseInt(desc) > 0) metaStr += (metaStr ? ' | ' : '') + 'Pausa: ' + desc + 's';
-                    wLista.innerHTML += crearCard(n, l, metaStr, cc);
+
+                    // Mostrar reps por vuelta si existen (Circuito Vueltas)
+                    if (!Array.isArray(ej) && ej.reps_por_vuelta && ej.reps_por_vuelta.length > 0) {
+                        var vLabels = ej.reps_por_vuelta.map(function(rv, vi) {
+                            return '<span style="color:var(--naranja);font-weight:700;font-size:0.7rem;">V' + (vi+1) + ':</span> <span style="font-weight:700;">' + rv + ' ' + u.toUpperCase() + '</span>';
+                        }).join(' &nbsp; ');
+                        var metaExtra = desc && parseInt(desc) > 0 ? ' <span style="color:var(--texto-suave);font-size:0.7rem;">| Pausa: ' + desc + 's</span>' : '';
+                        wLista.innerHTML += crearCard(n, l, '', cc, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:6px; align-items:center;">' + vLabels + metaExtra + '</div>');
+                    // Mostrar reps y pausa por serie si existen (Series/Reps)
+                    } else if (!Array.isArray(ej) && ej.reps_por_serie && ej.reps_por_serie.length > 0) {
+                        var sRepsLabels = ej.reps_por_serie.map(function(rs, si) {
+                            var pausaS = (ej.pausa_por_serie && ej.pausa_por_serie[si] !== undefined) ? ej.pausa_por_serie[si] : desc;
+                            return '<span style="background:rgba(105,240,174,0.08);border-radius:6px;padding:2px 6px;">' +
+                                '<span style="color:var(--verde);font-weight:700;font-size:0.65rem;">S' + (si+1) + '</span> ' +
+                                '<span style="font-weight:700;">' + rs + ' ' + u.toUpperCase() + '</span>' +
+                                (pausaS && parseInt(pausaS) > 0 ? ' <span style="color:var(--naranja);font-size:0.65rem;">| ' + pausaS + 's</span>' : '') +
+                                '</span>';
+                        }).join(' ');
+                        wLista.innerHTML += crearCard(n, l, '', cc, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:4px;">' + sRepsLabels + '</div>');
+                    } else {
+                        var metaStr = r ? r + " " + u.toUpperCase() : "";
+                        if (desc && parseInt(desc) > 0) metaStr += (metaStr ? ' | ' : '') + 'Pausa: ' + desc + 's';
+                        wLista.innerHTML += crearCard(n, l, metaStr, cc);
+                    }
                 });
             }
 
@@ -5012,9 +5033,18 @@
                     html += '<div class="circ-bloque-header"><span class="circ-bloque-label">Bloque #' + (b.id || 1) + '</span></div>';
                     (b.ejercicios || []).forEach(function(ej) {
                         var ejU = (ej.unit || "Reps").toUpperCase();
-                        var metaStr = (ej.reps || "") + " " + ejU;
-                        if (ej.descanso && parseInt(ej.descanso) > 0) metaStr += ' | Pausa: ' + ej.descanso + 's';
-                        html += crearCard(ej.nombre, ej.link, metaStr, ej.con_carga);
+                        // Mostrar reps por vuelta si el profesor las configuró
+                        if (ej.reps_por_vuelta && ej.reps_por_vuelta.length > 0) {
+                            var vLabels = ej.reps_por_vuelta.map(function(rv, vi) {
+                                return '<span style="color:var(--naranja);font-weight:700;font-size:0.7rem;">V' + (vi+1) + ':</span> <span style="font-weight:700;">' + rv + ' ' + ejU + '</span>';
+                            }).join(' &nbsp; ');
+                            var descExtra = ej.descanso && parseInt(ej.descanso) > 0 ? ' <span style="color:var(--texto-suave);font-size:0.7rem;">| Pausa: ' + ej.descanso + 's</span>' : '';
+                            html += crearCard(ej.nombre, ej.link, '', ej.con_carga, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:6px; align-items:center;">' + vLabels + descExtra + '</div>');
+                        } else {
+                            var metaStr = (ej.reps || "") + " " + ejU;
+                            if (ej.descanso && parseInt(ej.descanso) > 0) metaStr += ' | Pausa: ' + ej.descanso + 's';
+                            html += crearCard(ej.nombre, ej.link, metaStr, ej.con_carga);
+                        }
                     });
                 });
                 html += '<button id="' + uid + '-btn-vuelta" class="btn-rest" style="margin-top:12px;" ' +
@@ -5243,19 +5273,41 @@
                 const pesoInputId = 'peso-' + idxS;
                 var elem = _obtenerElemento(nombre);
                 var elemHtml = elem ? '<div style="margin-bottom:6px;"><span class="card-elemento-badge">' + elem + '</span></div>' : '';
+
+                // Verificar si tiene reps/pausa por serie configurados por el profesor
+                var haPerSerie = ej.reps_por_serie && ej.reps_por_serie.length > 0;
+                var serieDetalle = '';
+                // Pausa de la primera serie (para el botón marcarSerie)
+                var pausaPrimeraSerie = pausaN;
+                if (haPerSerie) {
+                    serieDetalle = '<div style="margin:8px 0 4px; font-size:0.7rem; font-weight:700; color:var(--texto-suave); text-transform:uppercase; letter-spacing:1px;">Detalle por serie:</div>' +
+                        '<div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">';
+                    ej.reps_por_serie.forEach(function(rs, si) {
+                        var pSerie = (ej.pausa_por_serie && ej.pausa_por_serie[si] !== undefined && ej.pausa_por_serie[si] !== '') ? parseInt(ej.pausa_por_serie[si]) : pausaN;
+                        if (si === 0) pausaPrimeraSerie = pSerie || pausaN;
+                        serieDetalle += '<span style="background:rgba(105,240,174,0.1);border:1px solid rgba(105,240,174,0.2);border-radius:8px;padding:4px 8px;white-space:nowrap;">' +
+                            '<span style="color:var(--verde);font-weight:900;font-size:0.65rem;">S' + (si+1) + '</span> ' +
+                            '<span style="font-weight:700;">' + rs + ' ' + (ej.unit || 'Reps') + '</span>' +
+                            (pSerie > 0 ? ' <span style="color:var(--naranja);font-size:0.65rem;">· ' + formatearTiempo(pSerie) + '</span>' : '') +
+                            '</span>';
+                    });
+                    serieDetalle += '</div>';
+                }
+
                 html += '<div class="serie-card">' +
                     '<div class="serie-header"><span class="serie-nombre">' + nombre + '</span>' +
                     (link ? '<button onclick="abrirVideo(\'' + link.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')" class="btn-play-video">' + svgPlay() + '</button>' : '') + '</div>' +
                     elemHtml +
                     '<div class="serie-meta">' +
                     '<div class="serie-meta-item"><span class="serie-meta-label">Series</span><span class="serie-meta-value" id="s-val-' + idxS + '">' + seriesN + '</span></div>' +
-                    '<div class="serie-meta-item"><span class="serie-meta-label">' + (ej.unit || 'Reps') + '</span><span class="serie-meta-value">' + repsN + '</span></div>' +
-                    '<div class="serie-meta-item"><span class="serie-meta-label">Descanso</span><span class="serie-meta-value" style="color:var(--naranja)">' + formatearTiempo(pausaN) + '</span></div>' +
+                    '<div class="serie-meta-item"><span class="serie-meta-label">' + (ej.unit || 'Reps') + '</span><span class="serie-meta-value">' + (haPerSerie ? ej.reps_por_serie[0] : repsN) + '</span></div>' +
+                    '<div class="serie-meta-item"><span class="serie-meta-label">Descanso</span><span class="serie-meta-value" style="color:var(--naranja)">' + formatearTiempo(pausaPrimeraSerie) + '</span></div>' +
                     '</div>' +
+                    serieDetalle +
                     crearPesoRow(nombre, pesoInputId) +
                     notaHtml +
                     '<div style="text-align:center;"><div class="timer-display" id="timer-' + idxS + '">' + formatearTiempo(pausaN) + '</div>' +
-                    '<button class="btn-rest" id="btn-' + idxS + '" onclick="marcarSerie(' + idxS + ',' + pausaN + ')">Marcar Serie</button></div></div>';
+                    '<button class="btn-rest" id="btn-' + idxS + '" onclick="marcarSerieConPausa(' + idxS + ',' + JSON.stringify(ej.pausa_por_serie || []) + ',' + pausaN + ')">Marcar Serie</button></div></div>';
             });
             html += '</div>';
             pLista.innerHTML += html;
@@ -5362,6 +5414,26 @@
                     liberarWakeLock();
                 }
             }, 1000);
+        }
+
+        // ─── MARCAR SERIE CON PAUSA POR SERIE ───
+        function marcarSerieConPausa(i, pausasPorSerie, pausaDefault) {
+            // seriesRestantes[i] = cuántas quedan ANTES de decrementar
+            // índice de la serie que se está marcando ahora (0-based):
+            // si quedan N, el índice de la que se marca es (total - N)
+            // pero no tenemos el total fácilmente; lo leemos del DOM
+            var remaining = seriesRestantes[i];
+            var valEl = document.getElementById('s-val-' + i);
+            var displayedRemaining = valEl ? parseInt(valEl.innerText) : remaining;
+            // El índice (0-based) de la serie que se está marcando:
+            var pSerie = pausaDefault;
+            if (pausasPorSerie && pausasPorSerie.length > 0 && displayedRemaining > 0) {
+                var serieIdx = pausasPorSerie.length - displayedRemaining;
+                if (serieIdx >= 0 && serieIdx < pausasPorSerie.length && pausasPorSerie[serieIdx] !== '' && pausasPorSerie[serieIdx] !== undefined) {
+                    pSerie = parseInt(pausasPorSerie[serieIdx]) || pausaDefault;
+                }
+            }
+            marcarSerie(i, pSerie || pausaDefault);
         }
 
         // ─── DESCANSO CIRCUITO (overlay) ───
