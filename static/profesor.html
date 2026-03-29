@@ -610,6 +610,15 @@
                                 <button onclick="modalNuevaCategoria()" class="bg-verde/20 text-verde px-3 py-2 rounded-lg text-xs font-bold hover:bg-verde/30 transition">+ Categoria</button>
                             </div>
                         </div>
+                        <!-- Filtros: Elemento y Grupo Muscular -->
+                        <div class="flex flex-wrap gap-2 mb-3">
+                            <select id="vt-elemento-select" onchange="renderizarVideoteca()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
+                                <option value="">Todo elemento</option>
+                            </select>
+                            <select id="vt-musculo-select" onchange="renderizarVideoteca()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
+                                <option value="">Todo músculo</option>
+                            </select>
+                        </div>
                         <div id="lista-ejercicios" class="space-y-2 max-h-[500px] overflow-y-auto pr-2">
                             <p class="text-textoSuave text-sm text-center py-8">Cargando...</p>
                         </div>
@@ -984,6 +993,13 @@
         cargarEjsBloque();
         // Poblar los selects de cada dia ya renderizado
         diasData.forEach((_, idx) => poblarCategoriasDia(idx));
+        // Poblar filtros de elemento y musculo en videoteca
+        poblarElementoSelect('vt-elemento-select');
+        const vtMuscSel = document.getElementById('vt-musculo-select');
+        if (vtMuscSel) {
+            vtMuscSel.innerHTML = '<option value="">Todo músculo</option>' +
+                GRUPOS_MUSCULARES.map(m => '<option value="' + m + '">' + m + '</option>').join('');
+        }
     }
 
     // Pobla un select de elemento con las opciones de ELEMENTOS
@@ -996,25 +1012,7 @@
 
     // Filtra la videoteca segun el texto del buscador
     function filtrarVideoteca() {
-        const query = (document.getElementById('buscar-ejercicio')?.value || '').trim().toLowerCase();
-        if (!query) {
-            renderizarVideoteca();
-            return;
-        }
-
-        // Filtrar ejercicios por nombre manteniendo estructura de categorias
-        const filtrado = {};
-        for (const [cat, ejercicios] of Object.entries(VIDEOTECA_DATA)) {
-            const ejsFiltrados = (ejercicios || []).filter(ej => {
-                const nombre = (ej.nombre || ej[0] || '').toLowerCase();
-                return nombre.includes(query);
-            });
-            if (ejsFiltrados.length > 0) {
-                filtrado[cat] = ejsFiltrados;
-            }
-        }
-
-        renderizarVideoteca(filtrado);
+        renderizarVideoteca();
     }
 
     // Renderiza la videoteca (completa o filtrada)
@@ -1023,20 +1021,44 @@
         const lista = document.getElementById('lista-ejercicios');
         const catSelect = document.getElementById('cat-select');
         const query = (document.getElementById('buscar-ejercicio')?.value || '').trim().toLowerCase();
+        const elemFiltro = (document.getElementById('vt-elemento-select')?.value || '');
+        const muscFiltro = (document.getElementById('vt-musculo-select')?.value || '').toLowerCase();
 
-        // Modo busqueda: mostrar resultados agrupados por categoria
-        if (dataOverride) {
-            const cats = Object.keys(dataOverride);
-            if (cats.length === 0) {
-                lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">No se encontraron ejercicios</p>';
-                return;
-            }
-            let html = '';
-            cats.forEach(cat => {
-                html += `<div class="mb-1"><span class="text-xs font-bold text-naranja uppercase tracking-wider">${cat}</span></div>`;
-                html += renderEjerciciosList(dataOverride[cat]);
+        // Función para filtrar un array de ejercicios
+        function aplicarFiltros(ejercicios) {
+            return (ejercicios || []).filter(ej => {
+                const nombre = (ej.nombre || ej[0] || '').toLowerCase();
+                if (query && !nombre.includes(query)) return false;
+                if (elemFiltro && (ej.elemento || '') !== elemFiltro) return false;
+                if (muscFiltro) {
+                    const m1 = (ej.musculo1 || '').toLowerCase();
+                    const m2 = (ej.musculo2 || '').toLowerCase();
+                    const sin = (ej.sinergista || '').toLowerCase();
+                    if (!m1.includes(muscFiltro) && !m2.includes(muscFiltro) && !sin.includes(muscFiltro)) return false;
+                }
+                return true;
             });
-            lista.innerHTML = html;
+        }
+
+        // Modo con query o filtro elemento/musculo: mostrar resultados agrupados por categoria
+        if (dataOverride || query || elemFiltro || muscFiltro) {
+            const sourceData = dataOverride || VIDEOTECA_DATA;
+            const cats = Object.keys(sourceData);
+            let html = '';
+            let total = 0;
+            cats.forEach(cat => {
+                const ejsFiltrados = aplicarFiltros(sourceData[cat]);
+                if (ejsFiltrados.length > 0) {
+                    html += `<div class="mb-1"><span class="text-xs font-bold text-naranja uppercase tracking-wider">${cat}</span></div>`;
+                    html += renderEjerciciosList(ejsFiltrados);
+                    total += ejsFiltrados.length;
+                }
+            });
+            if (total === 0) {
+                lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">No se encontraron ejercicios</p>';
+            } else {
+                lista.innerHTML = html;
+            }
             return;
         }
 
@@ -2962,21 +2984,21 @@
             if (!e.nombre) return '';
             const metaParts = [];
             if (e.series)   metaParts.push('Series: ' + e.series);
-            // Per-vuelta reps
+            // Per-vuelta reps: Vuelta 1: 10 Reps, Vuelta 2: 12 Reps
             if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
-                const vLabels = e.reps_por_vuelta.map((r, vi) => 'V' + (vi+1) + ': ' + r).join(', ');
-                metaParts.push(vLabels + (e.unit ? ' ' + e.unit : ''));
-            // Per-serie reps
+                const vLabels = e.reps_por_vuelta.map((rv, vi) => 'Vuelta ' + (vi+1) + ': <strong>' + rv + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>').join(' &nbsp; ');
+                metaParts.push(vLabels);
+                if (e.descanso) metaParts.push('Pausa entre vueltas: ' + e.descanso + 's');
+            // Per-serie reps: Serie 1: 10 Reps | Pausa: 60s
             } else if (e.reps_por_serie && e.reps_por_serie.length > 0) {
-                const sLabels = e.reps_por_serie.map((r, si) => 'S' + (si+1) + ': ' + r).join(', ');
-                metaParts.push(sLabels + (e.unit ? ' ' + e.unit : ''));
+                const sLabels = e.reps_por_serie.map((rs, si) => {
+                    const pausaSerie = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
+                    return 'Serie ' + (si+1) + ': <strong>' + rs + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>' + (pausaSerie ? ' <span style="color:#e67e22;">| Pausa: ' + pausaSerie + 's</span>' : '');
+                }).join(' &nbsp; ');
+                metaParts.push(sLabels);
             } else if (e.reps) {
                 metaParts.push(e.reps + (e.unit ? ' ' + e.unit : ''));
-            }
-            // Per-serie pausa
-            if (e.pausa_por_serie && e.pausa_por_serie.length > 0) {
-                const pLabels = e.pausa_por_serie.map((p, si) => 'S' + (si+1) + ': ' + p + 's').join(', ');
-                metaParts.push('Pausa: ' + pLabels);
+                if (e.descanso) metaParts.push('Pausa: ' + e.descanso + 's');
             } else if (e.descanso) {
                 metaParts.push('Pausa: ' + e.descanso + 's');
             }
@@ -3245,14 +3267,35 @@
                 const e = normalizeEj(ej);
                 if (!e.nombre) return;
 
-                // Calcular altura: fila 1 (nombre + link) + fila 2 (meta) si existe
-                const metaParts = [];
-                if (e.series)   metaParts.push('Series: ' + e.series);
-                if (e.reps)     metaParts.push(e.reps + (e.unit ? ' ' + e.unit : ''));
-                if (e.descanso) metaParts.push('Pausa: ' + e.descanso + 's');
-                if (e.nota_tecnica) metaParts.push(e.nota_tecnica);
-                const metaStr  = metaParts.join('   |   ');
-                const boxH     = metaStr ? 16 : 11;
+                // Construir líneas de detalle por serie o vuelta
+                const detLines = [];
+
+                if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
+                    // Circuito por vueltas: Vuelta 1  10 Reps
+                    e.reps_por_vuelta.forEach((rv, vi) => {
+                        detLines.push('Vuelta ' + (vi+1) + '   ' + rv + (e.unit ? ' ' + e.unit : ' Reps'));
+                    });
+                    // Pausa si existe
+                    if (e.descanso) detLines.push('Pausa entre vueltas: ' + e.descanso + 's');
+                } else if (e.reps_por_serie && e.reps_por_serie.length > 0) {
+                    // Series individuales: Serie 1  10 Reps  |  Pausa: 60s
+                    e.reps_por_serie.forEach((rs, si) => {
+                        const pausaSerie = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
+                        let linea = 'Serie ' + (si+1) + '   ' + rs + (e.unit ? ' ' + e.unit : ' Reps');
+                        if (pausaSerie) linea += '   |   Pausa: ' + pausaSerie + 's';
+                        detLines.push(linea);
+                    });
+                } else {
+                    // Formato general
+                    if (e.series) detLines.push('Series: ' + e.series + (e.reps ? '   x   ' + e.reps + (e.unit ? ' ' + e.unit : ' Reps') : ''));
+                    else if (e.reps) detLines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
+                    if (e.descanso && !e.series) detLines.push('Pausa: ' + e.descanso + 's');
+                    else if (e.descanso && e.series) detLines[detLines.length - 1] += '   |   Pausa: ' + e.descanso + 's';
+                }
+                if (e.nota_tecnica) detLines.push(e.nota_tecnica);
+
+                const lineH = 5.5;
+                const boxH = 9 + (detLines.length > 0 ? detLines.length * lineH + 2 : 0);
 
                 chk(boxH + 3);
 
@@ -3276,12 +3319,14 @@
                     doc.textWithLink(linkTxt, pw - mR - linkW, y + 7, { url: e.link });
                 }
 
-                // Metadata (debajo, gris oscuro)
-                if (metaStr) {
+                // Líneas de detalle (series/vueltas/pausa)
+                if (detLines.length > 0) {
                     doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(9);
+                    doc.setFontSize(8.5);
                     doc.setTextColor(80, 80, 80);
-                    doc.text(metaStr, mL + 4, y + 13);
+                    detLines.forEach((line, li) => {
+                        doc.text(line, mL + 4, y + 9 + 2 + (li * lineH));
+                    });
                 }
 
                 y += boxH + 3;
