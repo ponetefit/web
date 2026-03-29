@@ -2856,7 +2856,6 @@
                 }
                 return Math.ceil(((bloque.config || {}).trabajo || 300) / 60);
             }
-            if (tipo === 'Mix') return bloque.series_globales || 3;
             return 1;
         }
 
@@ -2884,7 +2883,6 @@
                 }
                 return Math.ceil(((bloque.config || {}).trabajo || 300) / 60);
             }
-            if (tipo === 'Mix') return bloque.series_globales || 3;
             return 1;
         }
 
@@ -4604,8 +4602,7 @@
                 pLista.innerHTML += '<div class="bloque-descripcion">' + data.descripcion + '</div>';
             }
             ejercicios.forEach(function(ej, i) {
-                // Usar pausa definida por el profesor si existe; sino calcular automáticamente
-                const pausa = (ej.pausa_ej !== undefined && ej.pausa_ej !== null) ? parseInt(ej.pausa_ej) : calcularPausa(ej.reps);
+                const pausa = calcularPausa(ej.reps);
                 seriesRestantes[i] = parseInt(ej.series);
                 ejercicioNombres[i] = ej.nombre || '';
                 const notaHtml = ej.nota_tecnica ? '<div class="nota-tecnica">📝 ' + ej.nota_tecnica + '</div>' : '';
@@ -4933,8 +4930,7 @@
                 "Circuito por Tiempo": "#4fc3f7",
                 "Tabata": "var(--naranja)",
                 "EMOM": "var(--amarillo)",
-                "Series": "var(--verde)",
-                "Mix": "var(--purpura)"
+                "Series": "var(--verde)"
             };
             const color = colorMap[tipo] || "var(--purpura)";
             const uid = "blq-" + idx;
@@ -4943,13 +4939,10 @@
                 const vueltas = bloque.vueltas || 3;
                 const pausaV = bloque.pausa_vuelta || 0;
                 const vContId = uid + '-vcount';
-                const vActualId = uid + '-vuelta-actual';
                 let html = '<div class="bloque-mix" style="border-color:' + color + ';">' +
                     '<div class="bloque-mix-titulo" style="color:' + color + ';">BLOQUE ' + idx + ' — CIRCUITO (' + vueltas + ' VUELTAS)</div>' +
-                    (pausaV > 0 ? '<div style="color:var(--naranja); font-size:0.8rem; margin-bottom:6px;">Pausa entre vueltas: ' + pausaV + 's</div>' : '') +
-                    '<div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:12px;">' +
-                    '<div id="' + vContId + '" style="color:var(--amarillo); font-weight:900; font-size:1.1rem;">Vueltas restantes: ' + vueltas + '</div>' +
-                    '</div>';
+                    (pausaV > 0 ? '<div style="color:var(--naranja); font-size:0.8rem; margin-bottom:10px;">Pausa entre vueltas: ' + pausaV + 's</div>' : '') +
+                    '<div id="' + vContId + '" style="color:var(--amarillo); font-weight:900; text-align:center; font-size:1.2rem; margin-bottom:12px;">Vueltas restantes: ' + vueltas + '</div>';
                 if (bloque.descripcion) {
                     html += '<div class="bloque-descripcion">' + bloque.descripcion + '</div>';
                 }
@@ -4961,47 +4954,15 @@
                         ejercicios: bloque.ejercicios
                     }];
                 }
-                // Indicador de vuelta actual
-                html += '<div id="' + vActualId + '" style="text-align:center; font-size:0.75rem; color:var(--azul); font-weight:700; letter-spacing:2px; margin-bottom:10px; text-transform:uppercase;">VUELTA 1 DE ' + vueltas + '</div>';
                 circEjs.forEach(function(b) {
                     html += '<div class="circ-bloque-header"><span class="circ-bloque-label">Bloque #' + (b.id || 1) + '</span></div>';
-                    (b.ejercicios || []).forEach(function(ej, ejIdx) {
+                    (b.ejercicios || []).forEach(function(ej) {
                         var ejU = (ej.unit || "Reps").toUpperCase();
-                        // Si tiene reps_por_vuelta, mostrar las de la vuelta actual (vuelta 1 al inicio)
-                        var repsDisplay = '';
-                        var pausaEjVal = ej.pausa_ej !== undefined ? ej.pausa_ej : null;
-                        if (Array.isArray(ej.reps_por_vuelta) && ej.reps_por_vuelta.length > 0) {
-                            // Mostrar todas las vueltas en una tabla compacta
-                            var vueltasRow = ej.reps_por_vuelta.map(function(r, vi) {
-                                return '<span style="display:inline-flex;flex-direction:column;align-items:center;background:rgba(255,255,255,0.05);border-radius:6px;padding:3px 8px;margin:2px;">' +
-                                    '<span style="font-size:0.6rem;color:var(--texto-suave);text-transform:uppercase;">V' + (vi+1) + '</span>' +
-                                    '<span style="font-size:0.9rem;font-weight:700;color:var(--amarillo);">' + r + '</span>' +
-                                    '</span>';
-                            }).join('');
-                            repsDisplay = '<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;align-items:center;">' +
-                                '<span style="font-size:0.65rem;color:var(--texto-suave);margin-right:4px;text-transform:uppercase;">' + ejU + ' por vuelta:</span>' +
-                                vueltasRow + '</div>';
-                        } else {
-                            repsDisplay = (ej.reps || "") + " " + ejU;
-                        }
-                        var pausaEjHtml = pausaEjVal !== null && pausaEjVal > 0 ?
-                            '<div style="font-size:0.68rem;color:var(--naranja);margin-top:2px;">⏱ Pausa post-ejercicio: ' + pausaEjVal + 's</div>' : '';
-                        if (Array.isArray(ej.reps_por_vuelta)) {
-                            // Tarjeta con reps por vuelta en tabla
-                            html += '<div style="background:var(--fondo);border-radius:10px;padding:10px 12px;margin-bottom:8px;border:1px solid rgba(255,255,255,0.07);">' +
-                                '<div style="display:flex;align-items:center;justify-content:space-between;">' +
-                                '<span style="font-weight:700;font-size:0.9rem;">' + (ej.nombre||'') + '</span>' +
-                                (ej.link ? '<button onclick="abrirVideo(\'' + (ej.link||'').replace(/'/g,"\\'") + '\',\'' + (ej.nombre||'').replace(/'/g,"\\'") + '\')" style="background:none;border:none;cursor:pointer;color:var(--rojo);font-size:0.75rem;font-weight:700;padding:2px 6px;">▶ VIDEO</button>' : '') +
-                                '</div>' +
-                                repsDisplay + pausaEjHtml + '</div>';
-                        } else {
-                            html += crearCard(ej.nombre, ej.link, repsDisplay, ej.con_carga);
-                            if (pausaEjHtml) html += '<div style="margin:-6px 0 8px 8px;">' + pausaEjHtml + '</div>';
-                        }
+                        html += crearCard(ej.nombre, ej.link, (ej.reps || "") + " " + ejU, ej.con_carga);
                     });
                 });
                 html += '<button id="' + uid + '-btn-vuelta" class="btn-rest" style="margin-top:12px;" ' +
-                    'onclick="marcarVueltaMixBloque(\'' + uid + '\',\'' + vContId + '\',' + pausaV + ',' + vueltas + ',\'' + vActualId + '\')">ACTIVAR PAUSA</button></div>';
+                    'onclick="marcarVueltaMixBloque(\'' + uid + '\',\'' + vContId + '\',' + pausaV + ',' + vueltas + ')">ACTIVAR PAUSA</button></div>';
                 pLista.innerHTML += html;
 
             } else if (tipo === "Circuito por Tiempo") {
@@ -5126,87 +5087,17 @@
             } else if (tipo === "Series") {
                 const serialOffset = idx * 100;
                 renderSeriesMixInline(pLista, bloque.rutina || bloque.ejercicios || [], serialOffset, bloque.descripcion || "");
-
-            } else if (tipo === "Mix") {
-                // Bloque Mix: series globales + reps individuales por ejercicio
-                const seriesGlobales = bloque.series_globales || 3;
-                const pausaEntreSeries = bloque.pausa_entre_series || 60;
-                const ejerciciosMix = bloque.ejercicios || bloque.rutina || [];
-                let htmlMix = '<div class="bloque-mix" style="border-color:' + color + ';">' +
-                    '<div class="bloque-mix-titulo" style="color:' + color + ';">BLOQUE ' + idx + ' — MIX (' + seriesGlobales + ' SERIES)</div>' +
-                    '<div style="color:var(--naranja); font-size:0.8rem; margin-bottom:6px;">Pausa entre series: ' + pausaEntreSeries + 's</div>';
-                if (bloque.descripcion) {
-                    htmlMix += '<div class="bloque-descripcion">' + bloque.descripcion + '</div>';
-                }
-                ejerciciosMix.forEach(function(ej) {
-                    const nombre = ej.nombre || ej[0] || '';
-                    const link = ej.link || ej[1] || '';
-                    const reps = ej.reps || ej[2] || '';
-                    const unit = (ej.unit || 'Reps').toUpperCase();
-                    const pausaEj = ej.pausa_ej !== undefined ? ej.pausa_ej : null;
-                    const notaTec = ej.nota_tecnica || '';
-                    const conCarga = ej.con_carga || false;
-                    const pausaHtml = pausaEj !== null && pausaEj > 0 ?
-                        '<div style="font-size:0.68rem;color:var(--naranja);margin-top:2px;">⏱ Pausa: ' + pausaEj + 's</div>' : '';
-                    const notaHtml = notaTec ?
-                        '<div style="font-size:0.68rem;color:var(--azul);margin-top:2px;">💡 ' + notaTec + '</div>' : '';
-                    htmlMix += '<div style="background:var(--fondo);border-radius:10px;padding:10px 12px;margin-bottom:8px;border:1px solid rgba(255,255,255,0.07);">' +
-                        '<div style="display:flex;align-items:center;justify-content:space-between;">' +
-                        '<span style="font-weight:700;font-size:0.9rem;">' + nombre + '</span>' +
-                        (link ? '<button onclick="abrirVideo('' + link.replace(/'/g,"\'") + '','' + nombre.replace(/'/g,"\'") + '')" style="background:none;border:none;cursor:pointer;color:var(--rojo);font-size:0.75rem;font-weight:700;padding:2px 6px;">▶ VIDEO</button>' : '') +
-                        '</div>' +
-                        (reps ? '<div style="font-size:0.85rem;color:var(--amarillo);font-weight:700;margin-top:3px;">' + reps + ' ' + unit + (conCarga ? ' 🏋️' : '') + '</div>' : '') +
-                        pausaHtml + notaHtml + '</div>';
-                });
-                // Serie counter + botón de pausa
-                const mixSerieId = uid + '-mix-serie';
-                htmlMix += '<div id="' + mixSerieId + '" style="color:var(--amarillo); font-weight:900; text-align:center; margin:10px 0; font-size:1rem;">Serie actual: 1 / ' + seriesGlobales + '</div>' +
-                    '<button class="btn-rest" onclick="marcarSerieMix('' + mixSerieId + '',' + seriesGlobales + ',' + pausaEntreSeries + ')">ACTIVAR PAUSA ENTRE SERIES</button>' +
-                    '</div>';
-                pLista.innerHTML += htmlMix;
             }
         }
 
         const mixBloqueVueltas = {};
-        const mixSeriesCounter = {};
 
-        function marcarSerieMix(serieId, totalSeries, pausaEntreSeries) {
-            if (!mixSeriesCounter[serieId]) mixSeriesCounter[serieId] = 1;
-            mixSeriesCounter[serieId]++;
-            const el = document.getElementById(serieId);
-            if (!el) return;
-            if (mixSeriesCounter[serieId] > totalSeries) {
-                el.innerText = '✓ BLOQUE MIX COMPLETADO';
-                el.style.color = 'var(--verde)';
-                el.nextElementSibling && (el.nextElementSibling.disabled = true);
-                incrementarProgreso(1);
-                return;
-            }
-            el.innerText = 'Serie actual: ' + mixSeriesCounter[serieId] + ' / ' + totalSeries;
-            incrementarProgreso(1);
-            coachPausaVueltas(totalSeries - mixSeriesCounter[serieId] + 1);
-            if (pausaEntreSeries > 0) iniciarDescansoCircuito(pausaEntreSeries);
-        }
-
-        function marcarVueltaMixBloque(uid, contId, pausaVuelta, totalVueltas, vActualId) {
+        function marcarVueltaMixBloque(uid, contId, pausaVuelta, totalVueltas) {
             if (!mixBloqueVueltas[uid]) mixBloqueVueltas[uid] = totalVueltas;
             if (mixBloqueVueltas[uid] <= 0) return;
             mixBloqueVueltas[uid]--;
             const el = document.getElementById(contId);
             if (el) el.innerText = mixBloqueVueltas[uid] > 0 ? 'Vueltas restantes: ' + mixBloqueVueltas[uid] : 'BLOQUE COMPLETO!';
-            // Actualizar indicador de vuelta actual
-            if (vActualId) {
-                const vActEl = document.getElementById(vActualId);
-                const vueltaActual = totalVueltas - mixBloqueVueltas[uid] + 1;
-                if (vActEl) {
-                    if (mixBloqueVueltas[uid] > 0) {
-                        vActEl.innerText = 'VUELTA ' + vueltaActual + ' DE ' + totalVueltas;
-                    } else {
-                        vActEl.innerText = '✓ CIRCUITO COMPLETO';
-                        vActEl.style.color = 'var(--verde)';
-                    }
-                }
-            }
             incrementarProgreso(1);
             // >>> COACH: Pausa circuito vueltas mix con motivación y vueltas restantes
             coachPausaVueltas(mixBloqueVueltas[uid]);
@@ -5285,8 +5176,7 @@
                 const link = ej.link || ej[1] || "";
                 const seriesN = ej.series || 3;
                 const repsN = ej.reps || 10;
-                // Usar pausa definida por el profesor; si no existe, calcular automáticamente
-                const pausaN = (ej.pausa_ej !== undefined && ej.pausa_ej !== null) ? parseInt(ej.pausa_ej) : calcularPausa(repsN);
+                const pausaN = calcularPausa(repsN);
                 const idxS = i + offset;
                 seriesRestantes[idxS] = parseInt(seriesN);
                 ejercicioNombres[idxS] = nombre;
