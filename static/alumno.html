@@ -3746,28 +3746,31 @@
                 wLista.innerHTML += '<div class="info-block" style="border-color:var(--naranja);">' +
                     '<span class="info-block-titulo" style="color:var(--naranja)">' + tabTrabajoW + 's TRABAJO / ' + tabPausaW + 's DESCANSO</span>' +
                     '<span class="info-block-subtitulo">' + tabRondasW + ' RONDA(S) \u00d7 ' + tabCantidadW + ' SERIES' + (tabPausaRondasW > 0 ? ' | Pausa rondas: ' + tabPausaRondasW + 's' : '') + '</span></div>';
-                // Cards numeradas como en entrenamiento
+                // Cards numeradas como en entrenamiento - Tabata es por tiempo, sin carga individual
                 ejsW.forEach(function(ej, i) {
                     const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || "");
                     const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
-                    const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
-                    wLista.innerHTML += crearCardNumero(i + 1, ejsW.length, n, l, cc);
+                    wLista.innerHTML += crearCardNumero(i + 1, ejsW.length, n, l, false);
                 });
             } else if (tipo === "EMOM") {
-                // Info-block estilo entrenamiento con minutos y ciclo
+                // Info-block EMOM calentamiento
                 var emomMinW = det.minutos || 5;
                 var emomEjsPorMinW = det.ejercicios_por_minuto || 1;
                 wLista.innerHTML += '<div class="info-block" style="border-color:var(--amarillo);">' +
-                    '<span class="info-block-titulo" style="color:var(--amarillo)">' + emomMinW + ' MIN  Ciclo: ' + emomEjsPorMinW + ' min</span></div>';
-                // Cards con reps como en entrenamiento
+                    '<span class="info-block-titulo" style="color:var(--amarillo)">' + emomMinW + ' MIN — ' + emomEjsPorMinW + ' ej/min</span></div>';
+                // Mostrar cada ejercicio UNA vez con reps y carga
                 var emomRepsDictW = det.reps_por_ejercicio || {};
                 var emomUnitsDictW = det.units_por_ejercicio || {};
+                var emomCargaDictW = det.carga_por_ejercicio || {};
+                var yaVistos = new Set();
                 ejsW.forEach(function(ej) {
                     const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio);
+                    if (yaVistos.has(n)) return;
+                    yaVistos.add(n);
                     const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
                     const r = Array.isArray(ej) ? ej[2] : (ej.reps || emomRepsDictW[n] || "");
                     const u = Array.isArray(ej) ? (ej[3] || "Reps") : (ej.unit || emomUnitsDictW[n] || "Reps");
-                    const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
+                    const cc = Array.isArray(ej) ? (emomCargaDictW[n]||false) : (ej.con_carga || emomCargaDictW[n] || false);
                     wLista.innerHTML += crearCard(n, l, r ? r + " " + u.toUpperCase() : "EMOM", cc);
                 });
             } else {
@@ -4779,18 +4782,32 @@
 
             ejercicios.forEach(function(b, bIdx) {
                 pLista.innerHTML += '<div class="circ-bloque-header"><span class="circ-bloque-label">Circuito ' + (bIdx + 1) + ' — ' + vBloque + ' Vueltas</span></div>';
-                b.ejercicios.forEach(function(ej) {
+                b.ejercicios.forEach(function(ej, ejIdx) {
                     var ejU = (ej.unit || "Reps").toUpperCase();
-                    var metaStr = ej.reps + " " + ejU;
-                    if (ej.descanso && parseInt(ej.descanso) > 0) metaStr += ' | Pausa: ' + ej.descanso + 's';
-                    pLista.innerHTML += crearCard(ej.nombre, ej.link, metaStr, ej.con_carga);
+                    var uid = 'circ-main-b' + bIdx + '-e' + ejIdx;
+                    if (ej.reps_por_vuelta && ej.reps_por_vuelta.length > 0) {
+                        var vLabels = ej.reps_por_vuelta.map(function(rv, vi) {
+                            return '<span style="color:var(--naranja);font-weight:700;font-size:0.7rem;">V' + (vi+1) + ':</span> <span style="font-weight:700;">' + rv + ' ' + ejU + '</span>';
+                        }).join(' &nbsp; ');
+                        var descExtra = ej.descanso && parseInt(ej.descanso) > 0 ? ' <span style="color:var(--texto-suave);font-size:0.7rem;">| Pausa: ' + ej.descanso + 's</span>' : '';
+                        var vCargaHtml = ej.con_carga ? crearPesoRowsPorVuelta(ej.nombre, ej.reps_por_vuelta.length, uid) : '';
+                        pLista.innerHTML += crearCard(ej.nombre, ej.link, '', false, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:6px; align-items:center;">' + vLabels + descExtra + '</div>' + vCargaHtml);
+                    } else if (ej.con_carga) {
+                        var metaStr = ej.reps ? ej.reps + ' ' + ejU : '';
+                        if (ej.descanso && parseInt(ej.descanso) > 0) metaStr += (metaStr ? ' | ' : '') + 'Pausa: ' + ej.descanso + 's';
+                        var vPesoHtml = crearPesoRowsPorVuelta(ej.nombre, vBloque, uid);
+                        pLista.innerHTML += crearCard(ej.nombre, ej.link, metaStr, false, '', vPesoHtml);
+                    } else {
+                        var metaStr = ej.reps ? ej.reps + ' ' + ejU : '';
+                        if (ej.descanso && parseInt(ej.descanso) > 0) metaStr += (metaStr ? ' | ' : '') + 'Pausa: ' + ej.descanso + 's';
+                        pLista.innerHTML += crearCard(ej.nombre, ej.link, metaStr, false);
+                    }
                 });
             });
 
             pLista.innerHTML += '<div style="margin-top:16px;">' +
                 '<button id="circ-btn-vuelta" class="btn-rest" onclick="marcarVueltaCircuito(' + pausaVuelta + ',\'' + vContId + '\',' + vBloque + ')">ACTIVAR PAUSA</button></div>';
         }
-
         let circVueltasRestantes = 0;
 
         function marcarVueltaCircuito(pausaVuelta, contId, totalVueltas) {
@@ -4836,8 +4853,8 @@
                         const link = ej.link || ej[1] || "";
                         const reps = ej.reps || ej[2] || "";
                         const ejU = (ej.unit || "Reps").toUpperCase();
+                        // Circuito por tiempo: solo reps, sin pausa (la pausa no existe en este modo)
                         var metaStr = reps ? reps + " " + ejU : "";
-                        if (ej.descanso && parseInt(ej.descanso) > 0) metaStr += (metaStr ? ' | ' : '') + 'Pausa: ' + ej.descanso + 's';
                         html += crearCard(nombre, link, metaStr, ej.con_carga);
                     });
                     html += '<div id="' + timerId + '" style="font-size:3rem; font-family:Roboto Mono,monospace; font-weight:700; color:var(--amarillo); text-align:center; margin:12px 0; text-shadow:0 0 20px var(--amarillo-glow);">' + tiempoMin + ':00</div>' +
@@ -4903,11 +4920,11 @@
                 pLista.innerHTML += '<div class="bloque-descripcion">' + data.descripcion + '</div>';
             }
 
+            // Tabata es por tiempo: no se muestran reps ni carga individual (es por tiempo)
             ejercicios.forEach(function(ej, i) {
                 const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || "");
                 const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
-                const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
-                pLista.innerHTML += crearCardNumero(i + 1, ejercicios.length, n, l, cc);
+                pLista.innerHTML += crearCardNumero(i + 1, ejercicios.length, n, l, false);
             });
         }
 
@@ -4919,45 +4936,73 @@
             const minutos = data.minutos_totales || 10;
             const ejsPorMin = data.ejercicios_por_minuto || 1;
             const repsDict = data.reps_por_ejercicio || {};
-            const rutina = data.rutina || [];
+            const unitsDict = data.units_por_ejercicio || {};
+            const cargaDict = data.carga_por_ejercicio || {};
+            const rutina = toArray(data.rutina || []);
             const minutosCiclo = data.minutos_ciclo || [];
             emomTotalMin = minutos;
             emomMinutosCiclo = minutosCiclo;
             emomCicloLen = ejsPorMin;
 
             pLista.innerHTML += '<div class="info-block" style="border-color:var(--amarillo);">' +
-                '<span class="info-block-titulo" style="color:var(--amarillo)">' + minutos + ' MIN  Ciclo: ' + ejsPorMin + ' min</span></div>';
+                '<span class="info-block-titulo" style="color:var(--amarillo)">' + minutos + ' MIN — Ciclo: ' + ejsPorMin + ' ej/min</span></div>';
             if (data.descripcion) {
                 pLista.innerHTML += '<div class="bloque-descripcion">' + data.descripcion + '</div>';
             }
+
+            // Mostrar ciclo por minuto (solo el índice de qué ejercicio va en cada minuto)
             if (minutosCiclo.length > 0) {
+                var cicloHtml = '<div style="margin-bottom:10px;padding:10px 12px;background:rgba(255,193,7,0.07);border:1px solid rgba(255,193,7,0.2);border-radius:12px;">' +
+                    '<div style="font-size:0.65rem;font-weight:900;color:var(--amarillo);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Distribución por minuto</div>';
                 minutosCiclo.forEach(function(minData, mi) {
                     var esD = minData.es_descanso || false;
                     var ejs = minData.ejercicios || [];
                     var col = esD ? '#e74c3c' : 'var(--amarillo)';
                     var tag = esD ? 'DESCANSO' : ejs.map(function(e) {
-                        return e.nombre;
+                        return e.nombre + (e.reps ? ' (' + e.reps + ' ' + (e.unit||'Reps').toLowerCase() + ')' : '');
                     }).join(' + ');
-                    pLista.innerHTML += '<div class="info-block" style="border-color:' + col + '; margin-bottom:6px;">' +
-                        '<span class="info-block-titulo" style="color:' + col + '">MIN ' + (mi + 1) + ': ' + tag + '</span></div>';
-                    if (!esD) {
-                        ejs.forEach(function(ej) {
-                            var ejU = (ej.unit || "Reps").toUpperCase();
-                            pLista.innerHTML += crearCard(ej.nombre, ej.link || "", ej.reps ? ej.reps + " " + ejU : "EMOM", ej.con_carga);
+                    cicloHtml += '<div style="font-size:0.7rem;padding:2px 0;color:' + col + ';">' +
+                        '<span style="font-weight:900;min-width:38px;display:inline-block;">MIN ' + (mi+1) + ':</span> ' + tag + '</div>';
+                });
+                cicloHtml += '</div>';
+                pLista.innerHTML += cicloHtml;
+            }
+
+            // Mostrar cada ejercicio UNA SOLA VEZ con sus reps y campo de carga
+            var yaMostrados = new Set();
+            // Fuente de ejercicios: si hay minutosCiclo usar los únicos; sino rutina
+            var ejsList = [];
+            if (minutosCiclo.length > 0) {
+                minutosCiclo.forEach(function(minData) {
+                    if (!minData.es_descanso) {
+                        (minData.ejercicios || []).forEach(function(ej) {
+                            if (!yaMostrados.has(ej.nombre)) {
+                                yaMostrados.add(ej.nombre);
+                                ejsList.push(ej);
+                            }
                         });
                     }
                 });
             } else {
-                var unitsDict = data.units_por_ejercicio || {};
-                rutina.forEach(function(ej, i) {
-                    const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio);
-                    const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
-                    const reps = repsDict[n] || "";
-                    const ejU = (unitsDict[n] || "Reps").toUpperCase();
-                    const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
-                    pLista.innerHTML += crearCard(n, l, reps ? reps + " " + ejU : "EMOM", cc);
+                rutina.forEach(function(ej) {
+                    const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || '');
+                    if (!yaMostrados.has(n)) {
+                        yaMostrados.add(n);
+                        ejsList.push(ej);
+                    }
                 });
             }
+
+            ejsList.forEach(function(ej) {
+                const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || '');
+                const l = Array.isArray(ej) ? ej[1] : (ej.link || '');
+                const reps = Array.isArray(ej) ? '' : (ej.reps || repsDict[n] || '');
+                const ejU = (Array.isArray(ej) ? 'Reps' : (ej.unit || unitsDict[n] || 'Reps')).toUpperCase();
+                const cc = Array.isArray(ej) ? (cargaDict[n] || false) : (ej.con_carga || cargaDict[n] || false);
+                const meta = reps ? reps + ' ' + ejU : 'EMOM';
+                pLista.innerHTML += crearCard(n, l, meta, cc);
+            });
+
             document.getElementById('emom-status').innerText = "LISTO";
             document.getElementById('emom-clock').innerText = "05";
             document.getElementById('emom-clock').className = '';
@@ -5142,8 +5187,8 @@
                         '<div style="color:var(--azul); font-weight:bold; margin-bottom:8px; font-size:0.8rem; letter-spacing:1px;">BLOQUE #' + b.id + ' — ' + tiempo + ' min</div>';
                     (b.ejercicios || []).forEach(function(ej) {
                         var ejU = (ej.unit || "Reps").toUpperCase();
-                        var metaStr = (ej.reps || ej[2] || "") + (ej.reps ? " " + ejU : "");
-                        if (ej.descanso && parseInt(ej.descanso) > 0) metaStr += ' | Pausa: ' + ej.descanso + 's';
+                        // Circuito por Tiempo: solo reps, sin pausa
+                        var metaStr = (ej.reps || ej[2] || "") ? (ej.reps || ej[2]) + " " + ejU : "";
                         html += crearCard(ej.nombre || ej[0] || "", ej.link || ej[1] || "", metaStr, ej.con_carga);
                     });
                     var pId = uid + "-ct-pausa-" + bIdx;
@@ -5204,29 +5249,44 @@
                 if (bloque.descripcion) {
                     emomHtml += '<div class="bloque-descripcion">' + bloque.descripcion + '</div>';
                 }
+                // Mostrar ciclo por minuto (solo índice, sin repetir cards)
                 if (minutosCicloBlq.length > 0) {
+                    emomHtml += '<div style="margin-bottom:10px;padding:8px 10px;background:rgba(255,193,7,0.07);border:1px solid rgba(255,193,7,0.2);border-radius:10px;">' +
+                        '<div style="font-size:0.6rem;font-weight:900;color:var(--amarillo);letter-spacing:1px;margin-bottom:4px;">DISTRIBUCIÓN POR MINUTO</div>';
                     minutosCicloBlq.forEach(function(minData, mi) {
                         var ejs = minData.ejercicios || [];
                         var tag = ejs.length > 0 ? ejs.map(function(e) {
                             var eU = (e.unit || 'Reps').toLowerCase();
                             return e.nombre + (e.reps ? ' (' + e.reps + ' ' + eU + ')' : '');
                         }).join(' + ') : 'DESCANSO';
-                        emomHtml += '<div style="font-size:0.75rem; color:var(--amarillo); margin:2px 0 2px 8px;">MIN ' + (mi + 1) + ': ' + tag + '</div>';
-                        if (ejs.length > 0) {
-                            ejs.forEach(function(ej) {
-                                var ejU = (ej.unit || "Reps").toUpperCase();
-                                emomHtml += crearCard(ej.nombre, ej.link || "", ej.reps ? ej.reps + " " + ejU : "EMOM", ej.con_carga);
+                        emomHtml += '<div style="font-size:0.7rem;color:var(--amarillo);padding:2px 0;">MIN ' + (mi+1) + ': ' + tag + '</div>';
+                    });
+                    emomHtml += '</div>';
+                    // Mostrar cada ejercicio UNA sola vez con carga
+                    var yaMostradosBlq = new Set();
+                    minutosCicloBlq.forEach(function(minData) {
+                        if (!minData.es_descanso) {
+                            (minData.ejercicios || []).forEach(function(ej) {
+                                if (!yaMostradosBlq.has(ej.nombre)) {
+                                    yaMostradosBlq.add(ej.nombre);
+                                    var ejU = (ej.unit || 'Reps').toUpperCase();
+                                    emomHtml += crearCard(ej.nombre, ej.link || '', ej.reps ? ej.reps + ' ' + ejU : 'EMOM', ej.con_carga || (bloque.carga_por_ejercicio || {})[ej.nombre] || false);
+                                }
                             });
                         }
                     });
                 } else {
                     var unitsDict = bloque.units_por_ejercicio || {};
+                    var cargaDictBlq = bloque.carga_por_ejercicio || {};
+                    var yaMostrados2 = new Set();
                     (bloque.rutina || bloque.ejercicios || []).forEach(function(ej) {
                         const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej);
+                        if (yaMostrados2.has(n)) return;
+                        yaMostrados2.add(n);
                         const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
                         const reps = repsDict[n] || "";
                         const ejU = (unitsDict[n] || "Reps").toUpperCase();
-                        const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
+                        const cc = Array.isArray(ej) ? (cargaDictBlq[n] || false) : (ej.con_carga || cargaDictBlq[n] || false);
                         emomHtml += crearCard(n, l, reps ? reps + " " + ejU : "EMOM", cc);
                     });
                 }
@@ -5278,11 +5338,11 @@
                 pausaId = uid + "-pausa";
             let html = '<div class="mix-seccion" style="border-color:var(--naranja);">' +
                 '<div class="mix-seccion-titulo" style="color:var(--naranja);">TABATA — ' + tc.trabajo + 's / ' + tc.pausa + 's / ' + tc.rondas + ' ronda(s)</div>';
+            // Tabata es por tiempo - sin carga individual
             rutina.forEach(function(ej, i) {
                 const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej);
                 const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
-                const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
-                html += crearCardNumero(i + 1, rutina.length, n, l, cc);
+                html += crearCardNumero(i + 1, rutina.length, n, l, false);
             });
             html += '<div class="emom-inline-box">' +
                 '<div id="' + statusId + '" style="font-size:0.7rem; font-weight:900; letter-spacing:3px; color:var(--naranja);">LISTO PARA TABATA</div>' +
