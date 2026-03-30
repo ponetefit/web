@@ -834,7 +834,7 @@
                     <div class="mb-2">
                         <input id="bloque-buscar-ej" type="text" placeholder="Buscar ejercicio..." onkeyup="filtrarEjsBloque()" class="w-full rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-verde focus:ring-2 focus:ring-verde/30 transition">
                     </div>
-                    <div class="flex gap-2 mb-3">
+                    <div class="flex gap-2 mb-3 flex-wrap">
                         <select id="bloque-cat-select" onchange="cargarEjsBloque()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
                         </select>
                         <select id="bloque-elemento-select" onchange="cargarEjsBloque()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
@@ -1594,19 +1594,27 @@
         const nombre = selEj ? selEj.value : '';
         const reps = document.getElementById('warmup-ej-reps-' + idx)?.value.trim() || '';
         const unit = document.getElementById('warmup-ej-unit-' + idx)?.value || 'Reps';
-        if (!nombre) return;
+        if (!nombre || nombre === 'Sin ejercicios' || nombre === 'Sin resultados') return;
         const selectedOption = selEj.options[selEj.selectedIndex];
-        const cat = (selectedOption && selectedOption.dataset.cat) || document.getElementById('warmup-cat-select-' + idx)?.value;
-        const ejs = videotecaCache[cat] || [];
-        const ejData = ejs.find(e => (e.nombre||e[0]) === nombre);
+        const catHint = (selectedOption && selectedOption.dataset.cat) || document.getElementById('warmup-cat-select-' + idx)?.value;
+        // Buscar globalmente si no esta en la categoria detectada
+        let ejData = catHint && videotecaCache[catHint] ? (videotecaCache[catHint] || []).find(e => (e.nombre||e[0]) === nombre) : null;
+        if (!ejData) {
+            for (const cat of Object.keys(videotecaCache)) {
+                const found = (videotecaCache[cat] || []).find(e => (e.nombre||e[0]) === nombre);
+                if (found) { ejData = found; break; }
+            }
+        }
         const link = ejData ? (ejData.link||ejData[1]||'') : '';
         const con_carga = ejData ? (ejData.con_carga === true || ejData.con_carga === 'true') : false;
         const tip1 = ejData ? (ejData.tip1 || '') : '';
         const tip2 = ejData ? (ejData.tip2 || '') : '';
+        const elemento = ejData ? (ejData.elemento || '') : '';
         const buscador = document.getElementById('warmup-buscar-ej-' + idx);
         if (buscador) buscador.value = '';
+        cargarEjsWarmupDia(idx);
         if (!diasData[idx]) return;
-        diasData[idx].warmupEjercicios.push({ nombre, link, reps, unit, con_carga, tip1, tip2 });
+        diasData[idx].warmupEjercicios.push({ nombre, link, reps, unit, con_carga, tip1, tip2, elemento });
         renderWarmupEjsDia(idx);
         const repsInput = document.getElementById('warmup-ej-reps-' + idx);
         if (repsInput) repsInput.value = '';
@@ -1691,8 +1699,27 @@
                     seriePausaInputs +
                     '<span class="text-xs text-textoSuave">seg</span>' +
                     '</div>';
+            } else if (warmupTipo === 'Tabata') {
+                // Tabata calentamiento: solo por tiempo, sin reps ni pausa individual
+                controlsHtml = '<p class="text-xs text-textoSuave italic mt-1">Por tiempo (configurado en el bloque)</p>';
+            } else if (warmupTipo === 'Circuito por Tiempo') {
+                // Circuito por Tiempo: solo reps, sin pausa
+                controlsHtml = '<div class="flex gap-2 items-center mt-1.5 flex-wrap">' +
+                    '<span class="text-xs text-textoSuave font-bold">Reps:</span>' +
+                    '<input type="text" value="' + (ej.reps || '') + '" onchange="diasData[' + idx + '].warmupEjercicios[' + i + '].reps=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Reps">' +
+                    '<select onchange="diasData[' + idx + '].warmupEjercicios[' + i + '].unit=this.value" class="rounded-lg px-2 py-1 text-xs">' +
+                    '<option ' + ((ej.unit||'Reps')==='Reps'?'selected':'') + '>Reps</option><option ' + ((ej.unit||'Reps')==='Segs'?'selected':'') + '>Segs</option></select>' +
+                    '</div>';
+            } else if (warmupTipo === 'EMOM') {
+                // EMOM: solo reps individuales
+                controlsHtml = '<div class="flex gap-2 items-center mt-1.5 flex-wrap">' +
+                    '<span class="text-xs text-textoSuave font-bold">Reps:</span>' +
+                    '<input type="text" value="' + (ej.reps || '') + '" onchange="diasData[' + idx + '].warmupEjercicios[' + i + '].reps=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Reps">' +
+                    '<select onchange="diasData[' + idx + '].warmupEjercicios[' + i + '].unit=this.value" class="rounded-lg px-2 py-1 text-xs">' +
+                    '<option ' + ((ej.unit||'Reps')==='Reps'?'selected':'') + '>Reps</option><option ' + ((ej.unit||'Reps')==='Segs'?'selected':'') + '>Segs</option></select>' +
+                    '</div>';
             } else {
-                // Default behavior
+                // Default: reps + pausa (Circuito Vueltas 1 vuelta, etc.)
                 controlsHtml = '<div class="flex gap-2 items-center mt-1.5 flex-wrap">' +
                     '<input type="text" value="' + (ej.reps || '') + '" onchange="diasData[' + idx + '].warmupEjercicios[' + i + '].reps=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Reps">' +
                     '<select onchange="diasData[' + idx + '].warmupEjercicios[' + i + '].unit=this.value" class="rounded-lg px-2 py-1 text-xs">' +
@@ -1702,6 +1729,7 @@
                     '<span class="text-xs text-textoSuave">seg</span>' +
                     '</div>';
             }
+            const cargaBadgeW = ej.con_carga ? ' <span class="text-[9px] bg-verde/20 text-verde px-1 py-0.5 rounded font-bold">🏋️</span>' : '';
 
             return '<div class="exercise-chip bg-fondoAlt rounded-xl px-3 py-2.5 border border-borde/50"' +
                 ' draggable="true" data-idx="' + i + '" data-list="warmup-dia-' + idx + '"' +
@@ -1710,7 +1738,7 @@
                 '<div class="flex items-center gap-2 flex-1 min-w-0">' +
                 '<span class="drag-handle flex-shrink-0" title="Arrastrar">' + svgHandle + '</span>' +
                 '<span class="text-xs text-textoSuave font-mono flex-shrink-0">' + (i+1) + '</span>' +
-                '<span class="text-sm font-bold ej-hover-preview truncate" data-video-url="' + linkEsc + '" data-ej-nombre="' + nombreEsc + '" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">' + ej.nombre + '</span>' +
+                '<span class="text-sm font-bold ej-hover-preview truncate" data-video-url="' + linkEsc + '" data-ej-nombre="' + nombreEsc + '" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">' + ej.nombre + '</span>' + cargaBadgeW +
                 '</div>' +
                 '<button onclick="quitarEjWarmupDia(' + idx + ',' + i + ')" class="text-rojo hover:text-red-400 text-lg font-bold leading-none flex-shrink-0 ml-2">&times;</button>' +
                 '</div>' +
@@ -1875,22 +1903,25 @@
         const nombre = selEj.value;
         const reps = document.getElementById('warmup-ej-reps').value.trim() || '';
         const unit = document.getElementById('warmup-ej-unit').value;
-        if (!nombre) return;
-
-        // Detectar categoria: si viene de busqueda usar data-cat, sino el select de categoria
+        if (!nombre || nombre === 'Sin ejercicios' || nombre === 'Sin resultados') return;
         const selectedOption = selEj.options[selEj.selectedIndex];
-        const cat = (selectedOption && selectedOption.dataset.cat) || document.getElementById('warmup-cat-select').value;
-        const ejs = videotecaCache[cat] || [];
-        const ejData = ejs.find(e => (e.nombre||e[0]) === nombre);
+        const catHint = (selectedOption && selectedOption.dataset.cat) || document.getElementById('warmup-cat-select').value;
+        let ejData = catHint && videotecaCache[catHint] ? (videotecaCache[catHint] || []).find(e => (e.nombre||e[0]) === nombre) : null;
+        if (!ejData) {
+            for (const cat of Object.keys(videotecaCache)) {
+                const found = (videotecaCache[cat] || []).find(e => (e.nombre||e[0]) === nombre);
+                if (found) { ejData = found; break; }
+            }
+        }
         const link = ejData ? (ejData.link||ejData[1]||'') : '';
         const con_carga = ejData ? (ejData.con_carga === true || ejData.con_carga === 'true') : false;
         const tip1 = ejData ? (ejData.tip1 || '') : '';
         const tip2 = ejData ? (ejData.tip2 || '') : '';
-        // Limpiar buscador despues de agregar
+        const elemento = ejData ? (ejData.elemento || '') : '';
         const buscador = document.getElementById('warmup-buscar-ej');
         if (buscador) buscador.value = '';
-
-        warmupEjercicios.push({ nombre, link, reps, unit, con_carga, tip1, tip2 });
+        cargarEjsWarmup();
+        warmupEjercicios.push({ nombre, link, reps, unit, con_carga, tip1, tip2, elemento });
         renderWarmupEjs();
         document.getElementById('warmup-ej-reps').value = '';
     }
@@ -1906,15 +1937,19 @@
             lista.innerHTML = '';
             return;
         }
+        const warmupTipoActual = document.getElementById('warmup-tipo')?.value || '';
+        const esTabataW = (warmupTipoActual === 'Tabata');
         lista.innerHTML = warmupEjercicios.map((ej, i) => {
             const linkEsc = (ej.link || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
             const nombreEsc = (ej.nombre || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+            const cargaBadge = ej.con_carga ? '<span class="text-[9px] bg-verde/20 text-verde px-1 py-0.5 rounded font-bold ml-1">🏋️</span>' : '';
+            const repsBadge = (!esTabataW && ej.reps) ? '<span class="text-xs text-amarillo font-bold">' + ej.reps + ' ' + (ej.unit||'Reps') + '</span>' : '';
             return `<div class="exercise-chip flex items-center justify-between bg-fondoAlt rounded-xl px-4 py-2.5 border border-borde/50" draggable="true" data-idx="${i}" data-list="warmup" ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)">
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3 flex-wrap">
                     <span class="drag-handle" title="Arrastrar para reordenar"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
                     <span class="text-xs text-textoSuave font-mono">${i+1}</span>
                     <span class="text-sm font-bold ej-hover-preview" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">${ej.nombre}</span>
-                    ${ej.reps ? '<span class="text-xs text-amarillo font-bold">' + ej.reps + ' ' + ej.unit + '</span>' : ''}
+                    ${repsBadge}${cargaBadge}
                 </div>
                 <button onclick="quitarEjWarmup(${i})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none">&times;</button>
             </div>`;
@@ -2016,20 +2051,34 @@
     function agregarEjBloque() {
         const selEj = document.getElementById('bloque-ej-select');
         const nombre = selEj.value;
-        if (!nombre) return;
+        if (!nombre || nombre === 'Sin ejercicios' || nombre === 'Sin resultados') return;
         // Detectar categoria: si viene de busqueda usar data-cat, sino el select de categoria
         const selectedOption = selEj.options[selEj.selectedIndex];
-        const cat = (selectedOption && selectedOption.dataset.cat) || document.getElementById('bloque-cat-select').value;
-        const ejs = videotecaCache[cat] || [];
-        const ejData = ejs.find(e => (e.nombre||e[0]) === nombre);
+        const catHint = (selectedOption && selectedOption.dataset.cat) || document.getElementById('bloque-cat-select').value;
+
+        // Buscar datos del ejercicio: primero en la categoria detectada, luego en toda la videoteca
+        let ejData = null;
+        if (catHint && videotecaCache[catHint]) {
+            ejData = (videotecaCache[catHint] || []).find(e => (e.nombre||e[0]) === nombre);
+        }
+        if (!ejData) {
+            // Búsqueda global en todas las categorías
+            for (const cat of Object.keys(videotecaCache)) {
+                const found = (videotecaCache[cat] || []).find(e => (e.nombre||e[0]) === nombre);
+                if (found) { ejData = found; break; }
+            }
+        }
         const link = ejData ? (ejData.link||ejData[1]||'') : '';
         const con_carga = ejData ? (ejData.con_carga === true || ejData.con_carga === 'true') : false;
         const tip1 = ejData ? (ejData.tip1 || '') : '';
         const tip2 = ejData ? (ejData.tip2 || '') : '';
+        const elemento = ejData ? (ejData.elemento || '') : '';
         // Limpiar buscador despues de agregar
         const buscador = document.getElementById('bloque-buscar-ej');
         if (buscador) buscador.value = '';
-        bloqueEjsTemp.push({ nombre, link, reps: '12', unit: 'Reps', series: 4, descanso: '60', nota_tecnica: '', con_carga, tip1, tip2 });
+        // Restaurar lista completa después de buscar
+        cargarEjsBloque();
+        bloqueEjsTemp.push({ nombre, link, reps: '12', unit: 'Reps', series: 4, descanso: '60', nota_tecnica: '', con_carga, tip1, tip2, elemento });
         renderBloqueEjsTemp();
     }
 
@@ -2042,11 +2091,12 @@
         const lista = document.getElementById('bloque-ejercicios-lista');
         const tipo = document.getElementById('bloque-tipo').value;
         const esCircuito = (tipo === 'Circuito');
+        const esCircuitoTiempo = (tipo === 'Circuito por Tiempo');
         const esSeries = (tipo === 'Series');
-        const mostrarReps = (tipo !== 'Tabata');
-        const mostrarDescanso = (esCircuito || esSeries);
+        const esTabata = (tipo === 'Tabata');
+        const esEMOM = (tipo === 'EMOM');
 
-        // Get vueltas count for Circuito mode
+        // Cantidad de vueltas para Circuito por vuelta
         let numVueltas = 1;
         if (esCircuito) {
             numVueltas = parseInt(document.getElementById('bp-vueltas')?.value) || 3;
@@ -2059,18 +2109,19 @@
         lista.innerHTML = bloqueEjsTemp.map((ej, i) => {
             const linkEsc = (ej.link || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
             const nombreEsc = (ej.nombre || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+            const cargaBadge = ej.con_carga ? ' <span class="text-[10px] bg-verde/20 text-verde px-1.5 py-0.5 rounded font-bold">🏋️ CARGA</span>' : '';
 
             let controlsHtml = '';
 
-            if (esCircuito && numVueltas > 1) {
-                // Circuito: per-vuelta reps
+            if (esCircuito) {
+                // Circuito por vuelta: reps por vuelta + pausa por vuelta al final
                 ej.reps_por_vuelta = ensureArrayLen(ej.reps_por_vuelta, numVueltas, ej.reps || '12');
                 let vueltaInputs = '';
                 for (let v = 0; v < numVueltas; v++) {
                     vueltaInputs += '<span class="text-xs text-naranja font-bold">V' + (v+1) + ':</span>' +
                         '<input type="text" value="' + (ej.reps_por_vuelta[v] || '') + '" ' +
                         'onchange="bloqueEjsTemp[' + i + '].reps_por_vuelta[' + v + ']=this.value" ' +
-                        'class="rounded-lg px-1 py-1 text-xs w-12" placeholder="Reps">';
+                        'class="rounded-lg px-1 py-1 text-xs w-14" placeholder="Reps">';
                 }
                 controlsHtml = '<div class="flex gap-1 items-center flex-wrap">' +
                     '<span class="text-xs text-textoSuave font-bold mr-1">Reps:</span>' +
@@ -2078,12 +2129,13 @@
                     '<select onchange="bloqueEjsTemp[' + i + '].unit=this.value" class="rounded-lg px-1 py-1 text-xs ml-1"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' +
                     '</div>' +
                     '<div class="flex gap-2 items-center flex-wrap mt-1">' +
-                    '<span class="text-xs text-textoSuave ml-1">Pausa:</span>' +
+                    '<span class="text-xs text-textoSuave font-bold ml-1">Pausa al final de la vuelta:</span>' +
                     '<input type="number" value="' + (ej.descanso || '60') + '" min="0" onchange="bloqueEjsTemp[' + i + '].descanso=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Seg">' +
                     '<span class="text-xs text-textoSuave">seg</span>' +
                     '</div>';
+
             } else if (esSeries) {
-                // Series: per-serie reps AND per-serie pausa
+                // Series: reps por serie Y pausa por serie
                 const numS = parseInt(ej.series) || 4;
                 ej.reps_por_serie = ensureArrayLen(ej.reps_por_serie, numS, ej.reps || '12');
                 ej.pausa_por_serie = ensureArrayLen(ej.pausa_por_serie, numS, ej.descanso || '60');
@@ -2116,12 +2168,32 @@
                     '<div class="flex gap-2 items-center flex-wrap mt-1">' +
                     '<input type="text" value="' + (ej.nota_tecnica||'') + '" onchange="bloqueEjsTemp[' + i + '].nota_tecnica=this.value" class="rounded-lg px-2 py-1 text-xs flex-1" placeholder="Nota tecnica...">' +
                     '</div>';
-            } else {
-                // Default (Circuito por Tiempo, Tabata, EMOM, Circuito con 1 vuelta)
+
+            } else if (esTabata) {
+                // Tabata: SIN reps (solo es por tiempo), SIN pausa (la configura el bloque)
+                controlsHtml = '<p class="text-xs text-textoSuave italic">Ejercicio por tiempo — configurado en el bloque Tabata</p>';
+
+            } else if (esEMOM) {
+                // EMOM: reps individuales por ejercicio + carga si aplica
                 controlsHtml = '<div class="flex gap-2 items-center flex-wrap">' +
-                    (mostrarReps ? '<input type="text" value="' + ej.reps + '" onchange="bloqueEjsTemp[' + i + '].reps=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Reps">' +
-                    '<select onchange="bloqueEjsTemp[' + i + '].unit=this.value" class="rounded-lg px-2 py-1 text-xs"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' : '') +
-                    (mostrarDescanso ? '<span class="text-xs text-textoSuave ml-1">Pausa:</span><input type="number" value="' + (ej.descanso || '60') + '" min="0" onchange="bloqueEjsTemp[' + i + '].descanso=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Seg"><span class="text-xs text-textoSuave">seg</span>' : '') +
+                    '<span class="text-xs text-textoSuave font-bold">Reps:</span>' +
+                    '<input type="text" value="' + (ej.reps||'10') + '" onchange="bloqueEjsTemp[' + i + '].reps=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Reps">' +
+                    '<select onchange="bloqueEjsTemp[' + i + '].unit=this.value" class="rounded-lg px-2 py-1 text-xs"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' +
+                    '</div>';
+
+            } else if (esCircuitoTiempo) {
+                // Circuito por Tiempo: reps pero SIN pausa ni vueltas
+                controlsHtml = '<div class="flex gap-2 items-center flex-wrap">' +
+                    '<span class="text-xs text-textoSuave font-bold">Reps:</span>' +
+                    '<input type="text" value="' + (ej.reps||'12') + '" onchange="bloqueEjsTemp[' + i + '].reps=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Reps">' +
+                    '<select onchange="bloqueEjsTemp[' + i + '].unit=this.value" class="rounded-lg px-2 py-1 text-xs"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' +
+                    '</div>';
+
+            } else {
+                // Fallback genérico
+                controlsHtml = '<div class="flex gap-2 items-center flex-wrap">' +
+                    '<input type="text" value="' + ej.reps + '" onchange="bloqueEjsTemp[' + i + '].reps=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Reps">' +
+                    '<select onchange="bloqueEjsTemp[' + i + '].unit=this.value" class="rounded-lg px-2 py-1 text-xs"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' +
                     '</div>';
             }
 
@@ -2129,7 +2201,7 @@
                 <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center gap-2">
                         <span class="drag-handle" title="Arrastrar para reordenar"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
-                        <span class="text-sm font-bold ej-hover-preview" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">${i+1}. ${ej.nombre}</span>
+                        <span class="text-sm font-bold ej-hover-preview" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">${i+1}. ${ej.nombre}</span>${cargaBadge}
                     </div>
                     <button onclick="quitarEjBloque(${i})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none">&times;</button>
                 </div>
@@ -2498,7 +2570,11 @@
                     warmupDetalle.reps = parseInt(document.getElementById('warmup-reps-val-' + diaIdx)?.value || 10);
                 }
                 const warmupEjsExport = dia.warmupEjercicios.map(e => {
-                    const exp = { nombre: e.nombre, link: e.link, reps: e.reps || '', unit: e.unit || 'Reps', descanso: e.descanso || '' };
+                    const exp = {
+                        nombre: e.nombre, link: e.link, reps: e.reps || '',
+                        unit: e.unit || 'Reps', descanso: e.descanso || '',
+                        con_carga: e.con_carga || false, elemento: e.elemento || ''
+                    };
                     if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) exp.reps_por_vuelta = e.reps_por_vuelta;
                     if (e.reps_por_serie && e.reps_por_serie.length > 0) exp.reps_por_serie = e.reps_por_serie;
                     if (e.pausa_por_serie && e.pausa_por_serie.length > 0) exp.pausa_por_serie = e.pausa_por_serie;
@@ -2519,19 +2595,21 @@
                     } else if (tipo === 'Tabata') {
                         datos = { rutina: b.ejercicios.map(e => [e.nombre, e.link]), trabajo: b.trabajo, pausa: b.pausa, rondas: b.rondas, cantidad: b.ejercicios.length, pausa_entre_rondas: b.pausa_entre_rondas, descripcion: b.descripcion || descGlobal };
                     } else if (tipo === 'EMOM') {
-                        const repsDict = {}; const unitsDict = {};
-                        b.ejercicios.forEach(e => { repsDict[e.nombre] = e.reps; unitsDict[e.nombre] = e.unit; });
+                        const repsDict = {}; const unitsDict = {}; const cargaDict = {};
+                        b.ejercicios.forEach(e => { repsDict[e.nombre] = e.reps; unitsDict[e.nombre] = e.unit || 'Reps'; cargaDict[e.nombre] = e.con_carga || false; });
                         const ciclo = [];
                         for (let m = 0; m < b.minutos_totales; m++) {
                             const ejsMin = [];
                             for (let j = 0; j < b.ejercicios_por_minuto; j++) {
                                 const idx = (m * b.ejercicios_por_minuto + j) % b.ejercicios.length;
                                 const e = b.ejercicios[idx];
-                                ejsMin.push({ nombre: e.nombre, link: e.link, reps: e.reps, unit: e.unit });
+                                ejsMin.push({ nombre: e.nombre, link: e.link, reps: e.reps, unit: e.unit || 'Reps', con_carga: e.con_carga || false });
                             }
                             ciclo.push({ ejercicios: ejsMin, es_descanso: false });
                         }
-                        datos = { rutina: b.ejercicios.map(e => [e.nombre, e.link]), minutos_totales: b.minutos_totales, ejercicios_por_minuto: b.ejercicios_por_minuto, reps_por_ejercicio: repsDict, units_por_ejercicio: unitsDict, minutos_ciclo: ciclo, descripcion: b.descripcion || descGlobal };
+                        // rutina como objetos completos para preservar con_carga
+                        const rutinaObjs = b.ejercicios.map(e => ({ nombre: e.nombre, link: e.link, con_carga: e.con_carga || false }));
+                        datos = { rutina: rutinaObjs, minutos_totales: b.minutos_totales, ejercicios_por_minuto: b.ejercicios_por_minuto, reps_por_ejercicio: repsDict, units_por_ejercicio: unitsDict, carga_por_ejercicio: cargaDict, minutos_ciclo: ciclo, descripcion: b.descripcion || descGlobal };
                     } else if (tipo === 'Series') {
                         datos = { datos: b.ejercicios, descripcion: b.descripcion || descGlobal };
                     }
@@ -2679,7 +2757,9 @@
             unit:         ej.unit   || 'Reps',
             series:       String(ej.series  || ''),
             descanso:     String(ej.descanso || ej.pausa || ''),
-            nota_tecnica: ej.nota_tecnica || ''
+            nota_tecnica: ej.nota_tecnica || '',
+            con_carga:    ej.con_carga === true || ej.con_carga === 'true',
+            elemento:     ej.elemento || ''
         };
         if (ej.reps_por_vuelta) result.reps_por_vuelta = ej.reps_por_vuelta;
         if (ej.reps_por_serie) result.reps_por_serie = ej.reps_por_serie;
@@ -3128,17 +3208,19 @@
             const e = normalizeEj(ej);
             if (!e.nombre) return '';
             const metaParts = [];
+            if (e.elemento) metaParts.push('🔧 ' + e.elemento);
+            if (e.con_carga) metaParts.push('🏋️ Lleva carga');
             if (e.series)   metaParts.push('Series: ' + e.series);
             // Per-vuelta reps: Vuelta 1: 10 Reps, Vuelta 2: 12 Reps
             if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
-                const vLabels = e.reps_por_vuelta.map((rv, vi) => 'Vuelta ' + (vi+1) + ': <strong>' + rv + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>').join(' &nbsp; ');
+                const vLabels = e.reps_por_vuelta.map((rv, vi) => 'V' + (vi+1) + ': <strong>' + rv + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>').join(' &nbsp; ');
                 metaParts.push(vLabels);
-                if (e.descanso) metaParts.push('Pausa entre vueltas: ' + e.descanso + 's');
+                if (e.descanso) metaParts.push('Pausa por vuelta: ' + e.descanso + 's');
             // Per-serie reps: Serie 1: 10 Reps | Pausa: 60s
             } else if (e.reps_por_serie && e.reps_por_serie.length > 0) {
                 const sLabels = e.reps_por_serie.map((rs, si) => {
                     const pausaSerie = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
-                    return 'Serie ' + (si+1) + ': <strong>' + rs + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>' + (pausaSerie ? ' <span style="color:#e67e22;">| Pausa: ' + pausaSerie + 's</span>' : '');
+                    return 'S' + (si+1) + ': <strong>' + rs + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>' + (pausaSerie ? ' <span style="color:#e67e22;">| Pausa: ' + pausaSerie + 's</span>' : '');
                 }).join(' &nbsp; ');
                 metaParts.push(sLabels);
             } else if (e.reps) {
@@ -3147,7 +3229,7 @@
             } else if (e.descanso) {
                 metaParts.push('Pausa: ' + e.descanso + 's');
             }
-            if (e.nota_tecnica) metaParts.push(e.nota_tecnica);
+            if (e.nota_tecnica) metaParts.push('📝 ' + e.nota_tecnica);
             const metaStr = metaParts.join(' &nbsp;|&nbsp; ');
             return `<div style="${sEjBox}">
                 <div style="${sEjTop}">
@@ -3407,7 +3489,7 @@
                 y += 10;
             }
 
-            // Ejercicio en caja gris #F0F0F0 — nombre + video + Series|Reps|Pausa
+            // Ejercicio en caja gris #F0F0F0 — nombre + video + Series|Reps|Pausa + carga + elemento
             function ejGris(ej) {
                 const e = normalizeEj(ej);
                 if (!e.nombre) return;
@@ -3415,18 +3497,23 @@
                 // Construir líneas de detalle por serie o vuelta
                 const detLines = [];
 
+                // Elemento y carga
+                const tagParts = [];
+                if (e.elemento) tagParts.push('[' + e.elemento + ']');
+                if (e.con_carga) tagParts.push('[Lleva carga]');
+                if (tagParts.length) detLines.push(tagParts.join('  '));
+
                 if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
-                    // Circuito por vueltas: Vuelta 1  10 Reps
+                    // Circuito por vueltas: V1  10 Reps
                     e.reps_por_vuelta.forEach((rv, vi) => {
-                        detLines.push('Vuelta ' + (vi+1) + '   ' + rv + (e.unit ? ' ' + e.unit : ' Reps'));
+                        detLines.push('V' + (vi+1) + '   ' + rv + (e.unit ? ' ' + e.unit : ' Reps'));
                     });
-                    // Pausa si existe
-                    if (e.descanso) detLines.push('Pausa entre vueltas: ' + e.descanso + 's');
+                    if (e.descanso) detLines.push('Pausa por vuelta: ' + e.descanso + 's');
                 } else if (e.reps_por_serie && e.reps_por_serie.length > 0) {
-                    // Series individuales: Serie 1  10 Reps  |  Pausa: 60s
+                    // Series individuales: S1  10 Reps  |  Pausa: 60s
                     e.reps_por_serie.forEach((rs, si) => {
                         const pausaSerie = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
-                        let linea = 'Serie ' + (si+1) + '   ' + rs + (e.unit ? ' ' + e.unit : ' Reps');
+                        let linea = 'S' + (si+1) + '   ' + rs + (e.unit ? ' ' + e.unit : ' Reps');
                         if (pausaSerie) linea += '   |   Pausa: ' + pausaSerie + 's';
                         detLines.push(linea);
                     });
@@ -3437,7 +3524,7 @@
                     if (e.descanso && !e.series) detLines.push('Pausa: ' + e.descanso + 's');
                     else if (e.descanso && e.series) detLines[detLines.length - 1] += '   |   Pausa: ' + e.descanso + 's';
                 }
-                if (e.nota_tecnica) detLines.push(e.nota_tecnica);
+                if (e.nota_tecnica) detLines.push('Nota: ' + e.nota_tecnica);
 
                 const lineH = 5.5;
                 const boxH = 9 + (detLines.length > 0 ? detLines.length * lineH + 2 : 0);
@@ -3464,7 +3551,7 @@
                     doc.textWithLink(linkTxt, pw - mR - linkW, y + 7, { url: e.link });
                 }
 
-                // Líneas de detalle (series/vueltas/pausa)
+                // Líneas de detalle (series/vueltas/pausa/carga/elemento)
                 if (detLines.length > 0) {
                     doc.setFont('helvetica', 'normal');
                     doc.setFontSize(8.5);
