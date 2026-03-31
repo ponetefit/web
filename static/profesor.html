@@ -1571,7 +1571,10 @@
         } else if (tipo === 'Tabata') {
             html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Trabajo (seg)</label><input id="warmup-trabajo-' + idx + '" type="number" value="20" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label><input id="warmup-pausa-' + idx + '" type="number" value="10" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de series</label><input id="warmup-cantidad-' + idx + '" type="number" value="8" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
         } else if (tipo === 'EMOM') {
-            html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Minutos</label><input id="warmup-minutos-' + idx + '" type="number" value="5" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>';
+            html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Minutos</label><input id="warmup-minutos-' + idx + '" type="number" value="5" min="1" oninput="actualizarEMOMWarmupMinutosConfig(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>' +
+                   '<p class="text-xs text-textoSuave mt-2">Configurá cuántos ejercicios hay en cada minuto</p>' +
+                   '<div id="emom-warmup-config-' + idx + '" class="mt-3 space-y-2"></div>';
+            setTimeout(() => actualizarEMOMWarmupMinutosConfig(idx), 0);
         } else if (tipo === 'Series/Reps') {
             html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Series</label><input id="warmup-series-' + idx + '" type="number" value="3" min="1" oninput="renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones (default)</label><input id="warmup-reps-val-' + idx + '" type="number" value="10" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
         }
@@ -1920,7 +1923,10 @@
                     <input id="warmup-cantidad" type="number" value="8" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>`;
         } else if (tipo === 'EMOM') {
             html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Minutos</label>
-                    <input id="warmup-minutos" type="number" value="5" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>`;
+                    <input id="warmup-minutos" type="number" value="5" min="1" oninput="actualizarEMOMWarmupMinutosConfig('standalone')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+                    <p class="text-xs text-textoSuave mt-2">Configurá cuántos ejercicios hay en cada minuto</p>
+                    <div id="emom-warmup-config-standalone" class="mt-3 space-y-2"></div>`;
+            setTimeout(() => actualizarEMOMWarmupMinutosConfig('standalone'), 0);
         } else if (tipo === 'Series/Reps') {
             html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Series</label>
                     <input id="warmup-series" type="number" value="3" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
@@ -2062,8 +2068,8 @@
                 <input id="bp-trabajo" type="number" value="20" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label>
                 <input id="bp-pausa" type="number" value="10" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
-                <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de series</label>
-                <input id="bp-cantidad" type="number" value="8" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+                <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de ejercicios</label>
+                <input id="bp-cantidad" type="number" value="4" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Rondas</label>
                 <input id="bp-rondas" type="number" value="1" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre rondas (seg)</label>
@@ -2072,20 +2078,191 @@
         } else if (tipo === 'EMOM') {
             html = `<div class="grid grid-cols-2 gap-3">
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Minutos totales</label>
-                <input id="bp-minutos" type="number" value="10" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
-                <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Ej. por minuto</label>
-                <input id="bp-ej-por-min" type="number" value="1" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
-            </div>`;
+                <input id="bp-minutos" type="number" value="10" min="1" max="60" oninput="actualizarEMOMMinutosConfig()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+            </div>
+            <p class="text-xs text-textoSuave mt-2">Configurá cuántos ejercicios hay en cada minuto</p>
+            <div id="emom-minutos-config" class="mt-3 space-y-2"></div>`;
+            setTimeout(() => actualizarEMOMMinutosConfig(), 0);
         } else if (tipo === 'Series') {
             html = `<p class="text-xs text-textoSuave">Define series, repeticiones y pausa por ejercicio abajo</p>`;
         }
         container.innerHTML = html;
     }
 
+    // Nueva función: genera los selectores de ejercicios por minuto para EMOM
+    function actualizarEMOMMinutosConfig() {
+        const minsEl = document.getElementById('bp-minutos');
+        if (!minsEl) return;
+        const mins = parseInt(minsEl.value) || 1;
+        const container = document.getElementById('emom-minutos-config');
+        if (!container) return;
+
+        // Preservar valores actuales
+        const prevVals = {};
+        for (let m = 0; m < 60; m++) {
+            const cEl = document.getElementById('emom-min-cant-' + m);
+            if (!cEl) break;
+            const cant = parseInt(cEl.value) || 1;
+            const eNames = [];
+            for (let e = 0; e < cant; e++) {
+                const eEl = document.getElementById('emom-min-' + m + '-ej-' + e);
+                if (eEl) eNames.push(eEl.value);
+            }
+            prevVals[m] = { cant, eNames };
+        }
+
+        let html = '';
+        for (let m = 0; m < mins; m++) {
+            const prev = prevVals[m] || { cant: 1, eNames: [] };
+            html += `<div class="bg-fondo rounded-xl p-3 border border-borde/40 mb-2">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-xs font-bold text-amarillo uppercase">Minuto ${m+1}</span>
+                    <select id="emom-min-cant-${m}" onchange="actualizarEMOMEjSelectores(${m})" class="rounded-lg px-2 py-1 text-xs ml-auto">
+                        <option value="1" ${prev.cant===1?'selected':''}>1 ejercicio</option>
+                        <option value="2" ${prev.cant===2?'selected':''}>2 ejercicios</option>
+                        <option value="3" ${prev.cant===3?'selected':''}>3 ejercicios</option>
+                        <option value="4" ${prev.cant===4?'selected':''}>4 ejercicios</option>
+                    </select>
+                </div>
+                <div id="emom-min-${m}-ejs" class="space-y-1"></div>
+            </div>`;
+        }
+        container.innerHTML = html;
+
+        // Generar selectores de ejercicios para cada minuto
+        for (let m = 0; m < mins; m++) {
+            const prev = prevVals[m] || { cant: 1, eNames: [] };
+            actualizarEMOMEjSelectores(m);
+            // Restaurar valores
+            setTimeout((mi, pv) => {
+                for (let e = 0; e < pv.cant; e++) {
+                    const eEl = document.getElementById('emom-min-' + mi + '-ej-' + e);
+                    if (eEl && pv.eNames[e]) eEl.value = pv.eNames[e];
+                }
+            }, 0, m, prev);
+        }
+    }
+
+    function actualizarEMOMEjSelectores(minIdx) {
+        const cantEl = document.getElementById('emom-min-cant-' + minIdx);
+        const ejsContainer = document.getElementById('emom-min-' + minIdx + '-ejs');
+        if (!cantEl || !ejsContainer) return;
+        const cant = parseInt(cantEl.value) || 1;
+
+        // Obtener todos los ejercicios de la videoteca
+        let allEjs = [];
+        for (const [cat, lista] of Object.entries(videotecaCache || {})) {
+            (lista || []).forEach(e => {
+                const n = e.nombre || e[0] || '';
+                if (n) allEjs.push(n);
+            });
+        }
+        allEjs.sort();
+
+        let html = '';
+        for (let e = 0; e < cant; e++) {
+            html += `<div class="flex items-center gap-2">
+                <span class="text-xs text-textoSuave w-4">E${e+1}</span>
+                <select id="emom-min-${minIdx}-ej-${e}" class="flex-1 rounded-lg px-2 py-1 text-xs">
+                    <option value="">-- Ejercicio --</option>
+                    ${allEjs.map(n => `<option value="${n}">${n}</option>`).join('')}
+                </select>
+            </div>`;
+        }
+        ejsContainer.innerHTML = html;
+    }
+
+    // EMOM Warmup: configuración por minuto (reutiliza la lógica del bloque principal)
+    function actualizarEMOMWarmupMinutosConfig(idxOrKey) {
+        const suffix = idxOrKey === 'standalone' ? '' : ('-' + idxOrKey);
+        const minsEl = document.getElementById('warmup-minutos' + suffix);
+        if (!minsEl) return;
+        const mins = parseInt(minsEl.value) || 1;
+        const container = document.getElementById('emom-warmup-config-' + idxOrKey);
+        if (!container) return;
+
+        // Preservar valores actuales
+        const prevVals = {};
+        for (let m = 0; m < 60; m++) {
+            const cEl = document.getElementById('emow-min-cant-' + idxOrKey + '-' + m);
+            if (!cEl) break;
+            const cant = parseInt(cEl.value) || 1;
+            const eNames = [];
+            for (let e = 0; e < cant; e++) {
+                const eEl = document.getElementById('emow-min-' + idxOrKey + '-' + m + '-ej-' + e);
+                if (eEl) eNames.push(eEl.value);
+            }
+            prevVals[m] = { cant, eNames };
+        }
+
+        let allEjs = [];
+        for (const [cat, lista] of Object.entries(videotecaCache || {})) {
+            (lista || []).forEach(e => { const n = e.nombre || e[0] || ''; if (n) allEjs.push(n); });
+        }
+        allEjs.sort();
+
+        let html = '';
+        for (let m = 0; m < mins; m++) {
+            const prev = prevVals[m] || { cant: 1, eNames: [] };
+            const optsCount = [1,2,3,4].map(v => `<option value="${v}" ${prev.cant===v?'selected':''}>${v} ejercicio${v>1?'s':''}</option>`).join('');
+            const optsEj = '<option value="">-- Ejercicio --</option>' + allEjs.map(n => `<option value="${n}">${n}</option>`).join('');
+            let ejSelectors = '';
+            for (let e = 0; e < (prev.cant || 1); e++) {
+                ejSelectors += `<div class="flex items-center gap-2"><span class="text-xs text-textoSuave w-4">E${e+1}</span><select id="emow-min-${idxOrKey}-${m}-ej-${e}" class="flex-1 rounded-lg px-2 py-1 text-xs">${optsEj}</select></div>`;
+            }
+            html += `<div class="bg-fondo rounded-xl p-3 border border-borde/40 mb-2">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-xs font-bold text-amarillo uppercase">Minuto ${m+1}</span>
+                    <select id="emow-min-cant-${idxOrKey}-${m}" onchange="actualizarEMOMWarmupEjSelectores('${idxOrKey}', ${m})" class="rounded-lg px-2 py-1 text-xs ml-auto">${optsCount}</select>
+                </div>
+                <div id="emow-min-${idxOrKey}-${m}-ejs">${ejSelectors}</div>
+            </div>`;
+        }
+        container.innerHTML = html;
+        // Restaurar valores
+        for (let m = 0; m < mins; m++) {
+            const prev = prevVals[m] || { cant: 1, eNames: [] };
+            setTimeout((mi, pv) => {
+                for (let e = 0; e < pv.cant; e++) {
+                    const eEl = document.getElementById('emow-min-' + idxOrKey + '-' + mi + '-ej-' + e);
+                    if (eEl && pv.eNames[e]) eEl.value = pv.eNames[e];
+                }
+            }, 0, m, prev);
+        }
+    }
+
+    function actualizarEMOMWarmupEjSelectores(idxOrKey, minIdx) {
+        const cantEl = document.getElementById('emow-min-cant-' + idxOrKey + '-' + minIdx);
+        const ejsCont = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-ejs');
+        if (!cantEl || !ejsCont) return;
+        const cant = parseInt(cantEl.value) || 1;
+        let allEjs = [];
+        for (const [cat, lista] of Object.entries(videotecaCache || {})) {
+            (lista || []).forEach(e => { const n = e.nombre || e[0] || ''; if (n) allEjs.push(n); });
+        }
+        allEjs.sort();
+        const optsEj = '<option value="">-- Ejercicio --</option>' + allEjs.map(n => `<option value="${n}">${n}</option>`).join('');
+        let html = '';
+        for (let e = 0; e < cant; e++) {
+            html += `<div class="flex items-center gap-2"><span class="text-xs text-textoSuave w-4">E${e+1}</span><select id="emow-min-${idxOrKey}-${minIdx}-ej-${e}" class="flex-1 rounded-lg px-2 py-1 text-xs">${optsEj}</select></div>`;
+        }
+        ejsCont.innerHTML = html;
+    }
+
     function agregarEjBloque() {
         const selEj = document.getElementById('bloque-ej-select');
         const nombre = selEj.value;
         if (!nombre || nombre === 'Sin ejercicios' || nombre === 'Sin resultados') return;
+        // Tabata: no se pueden agregar más ejercicios que la "cantidad" configurada
+        const tipoBlq = document.getElementById('bloque-tipo').value;
+        if (tipoBlq === 'Tabata') {
+            const cantMax = parseInt(document.getElementById('bp-cantidad')?.value) || 4;
+            if (bloqueEjsTemp.length >= cantMax) {
+                toast('Tabata tiene ' + cantMax + ' ejercicio(s) configurado(s). Aumentá la cantidad para agregar más.');
+                return;
+            }
+        }
+
         // Detectar categoria: si viene de busqueda usar data-cat, sino el select de categoria
         const selectedOption = selEj.options[selEj.selectedIndex];
         const catHint = (selectedOption && selectedOption.dataset.cat) || document.getElementById('bloque-cat-select').value;
@@ -2266,7 +2443,19 @@
             bloque.pausa_entre_rondas = parseInt(document.getElementById('bp-pausa-rondas')?.value || 0);
         } else if (tipo === 'EMOM') {
             bloque.minutos_totales = parseInt(document.getElementById('bp-minutos')?.value || 10);
-            bloque.ejercicios_por_minuto = parseInt(document.getElementById('bp-ej-por-min')?.value || 1);
+            // Leer configuración por minuto
+            bloque.emom_config_por_minuto = [];
+            for (let _em = 0; _em < bloque.minutos_totales; _em++) {
+                const _cantEl = document.getElementById('emom-min-cant-' + _em);
+                const _cant = _cantEl ? (parseInt(_cantEl.value) || 1) : 1;
+                const _ejsMin = [];
+                for (let _ee = 0; _ee < _cant; _ee++) {
+                    const _ejEl = document.getElementById('emom-min-' + _em + '-ej-' + _ee);
+                    if (_ejEl && _ejEl.value) _ejsMin.push(_ejEl.value);
+                }
+                bloque.emom_config_por_minuto.push({ minuto: _em + 1, ejercicios_cantidad: _cant, ejercicios_nombres: _ejsMin });
+            }
+            bloque.ejercicios_por_minuto = bloque.emom_config_por_minuto.reduce((mx, m) => Math.max(mx, m.ejercicios_cantidad), 1);
         }
         // Series: los datos ya estan en cada ejercicio
 
@@ -2307,8 +2496,27 @@
             const r = document.getElementById('bp-rondas'); if(r) r.value = b.rondas || 1;
             const pr = document.getElementById('bp-pausa-rondas'); if(pr) pr.value = b.pausa_entre_rondas || 0;
         } else if (b.tipo === 'EMOM') {
-            const m = document.getElementById('bp-minutos'); if(m) m.value = b.minutos_totales || 10;
-            const e = document.getElementById('bp-ej-por-min'); if(e) e.value = b.ejercicios_por_minuto || 1;
+            const _mEl = document.getElementById('bp-minutos');
+            if(_mEl) { _mEl.value = b.minutos_totales || 10; }
+            setTimeout(() => {
+                actualizarEMOMMinutosConfig();
+                // Restaurar los ejercicios por minuto si existen
+                if (b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
+                    b.emom_config_por_minuto.forEach(function(minCfg, mi) {
+                        const cantEl = document.getElementById('emom-min-cant-' + mi);
+                        if (cantEl) {
+                            cantEl.value = minCfg.ejercicios_cantidad || 1;
+                            actualizarEMOMEjSelectores(mi);
+                            if (minCfg.ejercicios_nombres) {
+                                minCfg.ejercicios_nombres.forEach(function(ejNombre, ei) {
+                                    const ejEl = document.getElementById('emom-min-' + mi + '-ej-' + ei);
+                                    if (ejEl) ejEl.value = ejNombre;
+                                });
+                            }
+                        }
+                    });
+                }
+            }, 100);
         }
 
         bloqueEjsTemp = JSON.parse(JSON.stringify(b.ejercicios || []));
@@ -2351,7 +2559,13 @@
             if (b.tipo === 'Circuito') metaHtml = b.vueltas + ' vueltas | Pausa: ' + b.pausa_vuelta + 's';
             else if (b.tipo === 'Circuito por Tiempo') metaHtml = b.duracion_min + ' min';
             else if (b.tipo === 'Tabata') metaHtml = b.trabajo + 's/' + b.pausa + 's | ' + b.rondas + ' ronda(s)';
-            else if (b.tipo === 'EMOM') metaHtml = b.minutos_totales + ' min | ' + b.ejercicios_por_minuto + ' ej/min';
+            else if (b.tipo === 'EMOM') {
+                if (b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
+                    metaHtml = b.minutos_totales + ' min | Config por minuto';
+                } else {
+                    metaHtml = b.minutos_totales + ' min | ' + (b.ejercicios_por_minuto || 1) + ' ej/min';
+                }
+            }
             else if (b.tipo === 'Series') metaHtml = b.ejercicios.length + ' ejercicios';
 
             return `<div class="bg-fondoAlt rounded-2xl border border-${color}/30 p-4" draggable="true" data-idx="${i}" data-list="bloques" ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)">
@@ -2597,6 +2811,18 @@
                     warmupDetalle.cantidad = parseInt(document.getElementById('warmup-cantidad-' + diaIdx)?.value || 8);
                 } else if (warmupTipo === 'EMOM') {
                     warmupDetalle.minutos = parseInt(document.getElementById('warmup-minutos-' + diaIdx)?.value || 5);
+                    // Leer config por minuto del warmup EMOM
+                    warmupDetalle.emom_config_por_minuto = [];
+                    for (let _wm = 0; _wm < warmupDetalle.minutos; _wm++) {
+                        const _wCantEl = document.getElementById('emow-min-cant-' + diaIdx + '-' + _wm);
+                        const _wCant = _wCantEl ? (parseInt(_wCantEl.value) || 1) : 1;
+                        const _wEjsMin = [];
+                        for (let _we = 0; _we < _wCant; _we++) {
+                            const _wEjEl = document.getElementById('emow-min-' + diaIdx + '-' + _wm + '-ej-' + _we);
+                            if (_wEjEl && _wEjEl.value) _wEjsMin.push(_wEjEl.value);
+                        }
+                        warmupDetalle.emom_config_por_minuto.push({ minuto: _wm + 1, ejercicios_cantidad: _wCant, ejercicios_nombres: _wEjsMin });
+                    }
                 } else if (warmupTipo === 'Series/Reps') {
                     warmupDetalle.series = parseInt(document.getElementById('warmup-series-' + diaIdx)?.value || 3);
                     warmupDetalle.reps = parseInt(document.getElementById('warmup-reps-val-' + diaIdx)?.value || 10);
@@ -2630,18 +2856,40 @@
                         const repsDict = {}; const unitsDict = {}; const cargaDict = {};
                         b.ejercicios.forEach(e => { repsDict[e.nombre] = e.reps; unitsDict[e.nombre] = e.unit || 'Reps'; cargaDict[e.nombre] = e.con_carga || false; });
                         const ciclo = [];
-                        for (let m = 0; m < b.minutos_totales; m++) {
-                            const ejsMin = [];
-                            for (let j = 0; j < b.ejercicios_por_minuto; j++) {
-                                const idx = (m * b.ejercicios_por_minuto + j) % b.ejercicios.length;
-                                const e = b.ejercicios[idx];
-                                ejsMin.push({ nombre: e.nombre, link: e.link, reps: e.reps, unit: e.unit || 'Reps', con_carga: e.con_carga || false });
+                        // Usar emom_config_por_minuto si existe (nueva configuración por minuto)
+                        if (b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
+                            b.emom_config_por_minuto.forEach(minCfg => {
+                                const ejsMin = [];
+                                (minCfg.ejercicios_nombres || []).forEach(ejNombre => {
+                                    // Buscar el ejercicio en la lista de ejercicios del bloque
+                                    let ejData = b.ejercicios.find(e => e.nombre === ejNombre);
+                                    if (!ejData) {
+                                        // Buscar en la videoteca
+                                        let found = null;
+                                        for (const cat of Object.keys(videotecaCache || {})) {
+                                            found = (videotecaCache[cat] || []).find(e => (e.nombre||e[0]) === ejNombre);
+                                            if (found) break;
+                                        }
+                                        ejData = found ? { nombre: ejNombre, link: found.link || found[1] || '', reps: '', unit: 'Reps', con_carga: found.con_carga || false } : { nombre: ejNombre, link: '', reps: '', unit: 'Reps', con_carga: false };
+                                    }
+                                    ejsMin.push({ nombre: ejData.nombre, link: ejData.link || '', reps: ejData.reps || repsDict[ejNombre] || '', unit: ejData.unit || unitsDict[ejNombre] || 'Reps', con_carga: ejData.con_carga || cargaDict[ejNombre] || false });
+                                });
+                                ciclo.push({ ejercicios: ejsMin, es_descanso: ejsMin.length === 0 });
+                            });
+                        } else {
+                            for (let m = 0; m < b.minutos_totales; m++) {
+                                const ejsMin = [];
+                                for (let j = 0; j < (b.ejercicios_por_minuto || 1); j++) {
+                                    const idx = (m * (b.ejercicios_por_minuto||1) + j) % b.ejercicios.length;
+                                    const e = b.ejercicios[idx];
+                                    ejsMin.push({ nombre: e.nombre, link: e.link, reps: e.reps, unit: e.unit || 'Reps', con_carga: e.con_carga || false });
+                                }
+                                ciclo.push({ ejercicios: ejsMin, es_descanso: false });
                             }
-                            ciclo.push({ ejercicios: ejsMin, es_descanso: false });
                         }
                         // rutina como objetos completos para preservar con_carga
                         const rutinaObjs = b.ejercicios.map(e => ({ nombre: e.nombre, link: e.link, con_carga: e.con_carga || false }));
-                        datos = { rutina: rutinaObjs, minutos_totales: b.minutos_totales, ejercicios_por_minuto: b.ejercicios_por_minuto, reps_por_ejercicio: repsDict, units_por_ejercicio: unitsDict, carga_por_ejercicio: cargaDict, minutos_ciclo: ciclo, descripcion: b.descripcion || descGlobal };
+                        datos = { rutina: rutinaObjs, minutos_totales: b.minutos_totales, ejercicios_por_minuto: b.ejercicios_por_minuto || 1, reps_por_ejercicio: repsDict, units_por_ejercicio: unitsDict, carga_por_ejercicio: cargaDict, minutos_ciclo: ciclo, descripcion: b.descripcion || descGlobal };
                     } else if (tipo === 'Series') {
                         datos = { datos: b.ejercicios, descripcion: b.descripcion || descGlobal };
                     }
