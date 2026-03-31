@@ -1569,10 +1569,10 @@
         } else if (tipo === 'Circuito por Tiempo') {
             html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Duracion (minutos)</label><input id="warmup-duracion-' + idx + '" type="number" value="3" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>';
         } else if (tipo === 'Tabata') {
-            html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Trabajo (seg)</label><input id="warmup-trabajo-' + idx + '" type="number" value="20" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label><input id="warmup-pausa-' + idx + '" type="number" value="10" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de series</label><input id="warmup-cantidad-' + idx + '" type="number" value="8" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
+            html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Trabajo (seg)</label><input id="warmup-trabajo-' + idx + '" type="number" value="20" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label><input id="warmup-pausa-' + idx + '" type="number" value="10" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de ejercicios</label><input id="warmup-cantidad-' + idx + '" type="number" value="' + (diasData[idx] ? diasData[idx].warmupEjercicios.length : 0) + '" min="0" readonly class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondo/50 text-textoSuave cursor-not-allowed"></div></div><p class="text-xs text-textoSuave mt-1">Se actualiza automáticamente según los ejercicios agregados abajo</p>';
         } else if (tipo === 'EMOM') {
             html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Minutos</label><input id="warmup-minutos-' + idx + '" type="number" value="5" min="1" oninput="actualizarEMOMWarmupMinutosConfig(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>' +
-                   '<p class="text-xs text-textoSuave mt-2">Configurá cuántos ejercicios hay en cada minuto</p>' +
+                   '<p class="text-xs text-textoSuave mt-2">En cada minuto, buscá y agregá los ejercicios con sus repeticiones</p>' +
                    '<div id="emom-warmup-config-' + idx + '" class="mt-3 space-y-2"></div>';
             setTimeout(() => actualizarEMOMWarmupMinutosConfig(idx), 0);
         } else if (tipo === 'Series/Reps') {
@@ -1666,6 +1666,9 @@
         const lista = document.getElementById('warmup-ejercicios-lista-' + idx);
         if (!lista || !diasData[idx]) return;
         const ejs = diasData[idx].warmupEjercicios;
+        // Auto-actualizar el contador "Cantidad de ejercicios" para Tabata calentamiento
+        const cantidadEl = document.getElementById('warmup-cantidad-' + idx);
+        if (cantidadEl) { cantidadEl.value = ejs.length || 0; }
         if (ejs.length === 0) { lista.innerHTML = ''; return; }
 
         // Detectar tipo de warmup para este dia
@@ -1919,12 +1922,13 @@
                     <input id="warmup-trabajo" type="number" value="20" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                     <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label>
                     <input id="warmup-pausa" type="number" value="10" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
-                    <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de series</label>
-                    <input id="warmup-cantidad" type="number" value="8" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>`;
+                    <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de ejercicios</label>
+                    <input id="warmup-cantidad" type="number" value="${warmupEjercicios.length}" min="0" readonly class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondo/50 text-textoSuave cursor-not-allowed"></div>
+                    <p class="text-xs text-textoSuave col-span-2 mt-1">Se actualiza automáticamente según los ejercicios agregados abajo</p>`;
         } else if (tipo === 'EMOM') {
             html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Minutos</label>
                     <input id="warmup-minutos" type="number" value="5" min="1" oninput="actualizarEMOMWarmupMinutosConfig('standalone')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
-                    <p class="text-xs text-textoSuave mt-2">Configurá cuántos ejercicios hay en cada minuto</p>
+                    <p class="text-xs text-textoSuave mt-2">En cada minuto, buscá y agregá los ejercicios con sus repeticiones</p>
                     <div id="emom-warmup-config-standalone" class="mt-3 space-y-2"></div>`;
             setTimeout(() => actualizarEMOMWarmupMinutosConfig('standalone'), 0);
         } else if (tipo === 'Series/Reps') {
@@ -1971,6 +1975,9 @@
 
     function renderWarmupEjs() {
         const lista = document.getElementById('warmup-ejercicios-lista');
+        // Auto-actualizar el contador "Cantidad de ejercicios" para Tabata calentamiento standalone
+        const cantidadEl = document.getElementById('warmup-cantidad');
+        if (cantidadEl) { cantidadEl.value = warmupEjercicios.length; }
         if (warmupEjercicios.length === 0) {
             lista.innerHTML = '';
             return;
@@ -2097,100 +2104,205 @@
         const container = document.getElementById('emom-minutos-config');
         if (!container) return;
 
-        // Preservar valores actuales
-        const prevVals = {};
+        // Preservar ejercicios ya agregados por minuto
+        const prevEjs = {};
         for (let m = 0; m < 60; m++) {
-            const cEl = document.getElementById('emom-min-cant-' + m);
-            if (!cEl) break;
-            const cant = parseInt(cEl.value) || 1;
-            const eNames = [];
-            const eReps = [];
-            for (let e = 0; e < cant; e++) {
-                const eEl = document.getElementById('emom-min-' + m + '-ej-' + e);
-                if (eEl) eNames.push(eEl.value);
-                const rEl = document.getElementById('emom-min-' + m + '-reps-' + e);
-                eReps.push(rEl ? rEl.value : '10');
-            }
-            prevVals[m] = { cant, eNames, eReps };
+            const listEl = document.getElementById('emom-min-' + m + '-lista');
+            if (!listEl) break;
+            try { prevEjs[m] = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { prevEjs[m] = []; }
         }
+
+        // Opciones de categorias
+        const cats = Object.keys(videotecaCache || {}).sort();
+        const catOpts = '<option value="">Todas las categorías</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
+
+        // Opciones de elementos unicos
+        const elemSet = new Set();
+        for (const lista of Object.values(videotecaCache || {})) {
+            (lista || []).forEach(e => { if (e.elemento) elemSet.add(e.elemento); });
+        }
+        const elemOpts = '<option value="">Todos los elementos</option>' + [...elemSet].sort().map(el => `<option value="${el}">${el}</option>`).join('');
 
         let html = '';
         for (let m = 0; m < mins; m++) {
-            const prev = prevVals[m] || { cant: 1, eNames: [], eReps: [] };
+            const ejsGuardados = prevEjs[m] || [];
+            const ejsListaHtml = ejsGuardados.map((ej, ei) =>
+                `<div class="flex items-center gap-2 bg-fondoAlt rounded-lg px-2 py-1 mt-1">
+                    <span class="text-xs font-bold text-amarillo">E${ei+1}</span>
+                    <span class="text-xs flex-1">${ej.nombre}</span>
+                    <input type="text" value="${ej.reps||''}" placeholder="Reps/Seg"
+                        onchange="emomBloqueSetReps(${m},${ei},this.value)"
+                        class="rounded px-1 py-0.5 text-xs w-16">
+                    <select onchange="emomBloqueSetUnit(${m},${ei},this.value)" class="rounded px-1 py-0.5 text-xs">
+                        <option ${(ej.unit||'Reps')==='Reps'?'selected':''}>Reps</option>
+                        <option ${(ej.unit||'Reps')==='Segs'?'selected':''}>Segs</option>
+                    </select>
+                    <button onclick="emomBloqueQuitarEj(${m},${ei})" class="text-rojo font-bold text-sm leading-none">&times;</button>
+                </div>`
+            ).join('');
+
             html += `<div class="bg-fondo rounded-xl p-3 border border-borde/40 mb-2">
                 <div class="flex items-center gap-2 mb-2">
                     <span class="text-xs font-bold text-amarillo uppercase">Minuto ${m+1}</span>
-                    <select id="emom-min-cant-${m}" onchange="actualizarEMOMEjSelectores(${m})" class="rounded-lg px-2 py-1 text-xs ml-auto">
-                        <option value="1" ${prev.cant===1?'selected':''}>1 ejercicio</option>
-                        <option value="2" ${prev.cant===2?'selected':''}>2 ejercicios</option>
-                        <option value="3" ${prev.cant===3?'selected':''}>3 ejercicios</option>
-                        <option value="4" ${prev.cant===4?'selected':''}>4 ejercicios</option>
+                    <span class="text-xs text-textoSuave ml-auto">${ejsGuardados.length} ejercicio${ejsGuardados.length!==1?'s':''}</span>
+                </div>
+                <div id="emom-min-${m}-lista" data-ejs='${JSON.stringify(ejsGuardados).replace(/'/g,"&#39;")}' class="mb-2">${ejsListaHtml}</div>
+                <div class="border-t border-borde/30 pt-2 mt-1">
+                    <p class="text-xs text-textoSuave mb-1 font-semibold">Agregar ejercicio:</p>
+                    <div class="grid grid-cols-2 gap-1 mb-1">
+                        <select id="emom-cat-${m}" onchange="emomBloqueCargarEjs(${m})" class="rounded-lg px-2 py-1 text-xs">${catOpts}</select>
+                        <select id="emom-elem-${m}" onchange="emomBloqueCargarEjs(${m})" class="rounded-lg px-2 py-1 text-xs">${elemOpts}</select>
+                    </div>
+                    <div class="flex gap-1 mb-1">
+                        <input type="text" id="emom-buscar-${m}" placeholder="Buscar ejercicio..." oninput="emomBloqueFiltrarEjs(${m})" class="flex-1 rounded-lg px-2 py-1 text-xs">
+                    </div>
+                    <select id="emom-ejsel-${m}" class="w-full rounded-lg px-2 py-1 text-xs mb-1">
+                        <option value="">-- Seleccionar ejercicio --</option>
                     </select>
+                    <div class="flex gap-1 items-center">
+                        <input type="text" id="emom-reps-${m}" placeholder="Reps/Seg" class="rounded-lg px-2 py-1 text-xs w-20">
+                        <select id="emom-unit-${m}" class="rounded-lg px-2 py-1 text-xs">
+                            <option>Reps</option><option>Segs</option>
+                        </select>
+                        <button onclick="emomBloqueAgregarEj(${m})" class="bg-amarillo/20 text-amarillo text-xs font-bold px-3 py-1 rounded-lg hover:bg-amarillo/30 flex-1">+ Agregar</button>
+                    </div>
                 </div>
-                <div class="flex items-center gap-2 mb-1 px-1">
-                    <span class="text-xs text-textoSuave w-4"></span>
-                    <span class="text-xs text-textoSuave flex-1">Ejercicio</span>
-                    <span class="text-xs text-textoSuave w-16 text-center">Reps</span>
-                </div>
-                <div id="emom-min-${m}-ejs" class="space-y-1"></div>
             </div>`;
         }
         container.innerHTML = html;
 
-        // Generar selectores de ejercicios para cada minuto
+        // Cargar ejercicios en cada selector de minuto
         for (let m = 0; m < mins; m++) {
-            const prev = prevVals[m] || { cant: 1, eNames: [], eReps: [] };
-            actualizarEMOMEjSelectores(m);
-            // Restaurar valores de ejercicios y reps
-            setTimeout((mi, pv) => {
-                for (let e = 0; e < pv.cant; e++) {
-                    const eEl = document.getElementById('emom-min-' + mi + '-ej-' + e);
-                    if (eEl && pv.eNames[e]) eEl.value = pv.eNames[e];
-                    const rEl = document.getElementById('emom-min-' + mi + '-reps-' + e);
-                    if (rEl && pv.eReps[e]) rEl.value = pv.eReps[e];
-                }
-            }, 0, m, prev);
+            emomBloqueCargarEjs(m);
         }
     }
 
-    function actualizarEMOMEjSelectores(minIdx) {
-        const cantEl = document.getElementById('emom-min-cant-' + minIdx);
-        const ejsContainer = document.getElementById('emom-min-' + minIdx + '-ejs');
-        if (!cantEl || !ejsContainer) return;
-        const cant = parseInt(cantEl.value) || 1;
+    // Cargar lista de ejercicios en el selector de un minuto EMOM bloque
+    function emomBloqueCargarEjs(minIdx) {
+        const catEl = document.getElementById('emom-cat-' + minIdx);
+        const elemEl = document.getElementById('emom-elem-' + minIdx);
+        const sel = document.getElementById('emom-ejsel-' + minIdx);
+        if (!sel) return;
+        const cat = catEl ? catEl.value : '';
+        const elem = elemEl ? elemEl.value : '';
+        let ejs = cat ? (videotecaCache[cat] || []) : Object.values(videotecaCache || {}).flat();
+        if (elem) ejs = ejs.filter(e => (e.elemento || '') === elem);
+        ejs = ejs.map(e => e.nombre || e[0] || '').filter(Boolean).sort();
+        sel.innerHTML = '<option value="">-- Seleccionar ejercicio --</option>' + ejs.map(n => `<option value="${n}">${n}</option>`).join('');
+    }
 
-        // Preservar reps actuales antes de reconstruir
-        const prevReps = [];
-        for (let e = 0; e < cant; e++) {
-            const rEl = document.getElementById('emom-min-' + minIdx + '-reps-' + e);
-            prevReps[e] = rEl ? rEl.value : '10';
-        }
-
-        // Obtener todos los ejercicios de la videoteca
-        let allEjs = [];
+    // Filtrar ejercicios en un minuto EMOM bloque
+    function emomBloqueFiltrarEjs(minIdx) {
+        const query = (document.getElementById('emom-buscar-' + minIdx)?.value || '').trim().toLowerCase();
+        const elemEl = document.getElementById('emom-elem-' + minIdx);
+        const elem = elemEl ? elemEl.value : '';
+        const sel = document.getElementById('emom-ejsel-' + minIdx);
+        if (!sel) return;
+        if (!query) { emomBloqueCargarEjs(minIdx); return; }
+        let resultados = [];
         for (const [cat, lista] of Object.entries(videotecaCache || {})) {
             (lista || []).forEach(e => {
-                const n = e.nombre || e[0] || '';
-                if (n) allEjs.push(n);
+                const nombre = (e.nombre || e[0] || '').toLowerCase();
+                if (nombre.includes(query)) {
+                    if (elem && (e.elemento || '') !== elem) return;
+                    resultados.push({ nombre: e.nombre || e[0], cat });
+                }
             });
         }
-        allEjs.sort();
-
-        let html = '';
-        for (let e = 0; e < cant; e++) {
-            html += `<div class="flex items-center gap-2 mb-1">
-                <span class="text-xs text-textoSuave w-4">E${e+1}</span>
-                <select id="emom-min-${minIdx}-ej-${e}" class="flex-1 rounded-lg px-2 py-1 text-xs">
-                    <option value="">-- Ejercicio --</option>
-                    ${allEjs.map(n => `<option value="${n}">${n}</option>`).join('')}
-                </select>
-                <input id="emom-min-${minIdx}-reps-${e}" type="text" value="${prevReps[e] || '10'}" placeholder="Reps" class="rounded-lg px-2 py-1 text-xs w-16" title="Repeticiones">
-            </div>`;
-        }
-        ejsContainer.innerHTML = html;
+        resultados.sort((a,b) => a.nombre.localeCompare(b.nombre));
+        sel.innerHTML = resultados.length
+            ? '<option value="">-- Seleccionar ejercicio --</option>' + resultados.map(r => `<option value="${r.nombre}" data-cat="${r.cat}">${r.nombre} (${r.cat})</option>`).join('')
+            : '<option value="">Sin resultados</option>';
     }
 
-    // EMOM Warmup: configuración por minuto (reutiliza la lógica del bloque principal)
+    // Agregar ejercicio a un minuto EMOM bloque
+    function emomBloqueAgregarEj(minIdx) {
+        const sel = document.getElementById('emom-ejsel-' + minIdx);
+        const nombre = sel ? sel.value : '';
+        if (!nombre || nombre === 'Sin resultados') return;
+        const reps = document.getElementById('emom-reps-' + minIdx)?.value.trim() || '';
+        const unit = document.getElementById('emom-unit-' + minIdx)?.value || 'Reps';
+        const listEl = document.getElementById('emom-min-' + minIdx + '-lista');
+        if (!listEl) return;
+        let ejs = [];
+        try { ejs = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { ejs = []; }
+        ejs.push({ nombre, reps, unit });
+        listEl.dataset.ejs = JSON.stringify(ejs);
+        listEl.innerHTML = ejs.map((ej, ei) =>
+            `<div class="flex items-center gap-2 bg-fondoAlt rounded-lg px-2 py-1 mt-1">
+                <span class="text-xs font-bold text-amarillo">E${ei+1}</span>
+                <span class="text-xs flex-1">${ej.nombre}</span>
+                <input type="text" value="${ej.reps||''}" placeholder="Reps/Seg"
+                    onchange="emomBloqueSetReps(${minIdx},${ei},this.value)"
+                    class="rounded px-1 py-0.5 text-xs w-16">
+                <select onchange="emomBloqueSetUnit(${minIdx},${ei},this.value)" class="rounded px-1 py-0.5 text-xs">
+                    <option ${(ej.unit||'Reps')==='Reps'?'selected':''}>Reps</option>
+                    <option ${(ej.unit||'Reps')==='Segs'?'selected':''}>Segs</option>
+                </select>
+                <button onclick="emomBloqueQuitarEj(${minIdx},${ei})" class="text-rojo font-bold text-sm leading-none">&times;</button>
+            </div>`
+        ).join('');
+        const headerSpan = listEl.previousElementSibling?.querySelector('span.text-textoSuave');
+        if (headerSpan) headerSpan.textContent = ejs.length + ' ejercicio' + (ejs.length!==1?'s':'');
+        // Reset
+        const buscarEl = document.getElementById('emom-buscar-' + minIdx);
+        if (buscarEl) buscarEl.value = '';
+        const repsEl = document.getElementById('emom-reps-' + minIdx);
+        if (repsEl) repsEl.value = '';
+        emomBloqueCargarEjs(minIdx);
+    }
+
+    // Quitar ejercicio de un minuto EMOM bloque
+    function emomBloqueQuitarEj(minIdx, ejIdx) {
+        const listEl = document.getElementById('emom-min-' + minIdx + '-lista');
+        if (!listEl) return;
+        let ejs = [];
+        try { ejs = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { ejs = []; }
+        ejs.splice(ejIdx, 1);
+        listEl.dataset.ejs = JSON.stringify(ejs);
+        listEl.innerHTML = ejs.map((ej, ei) =>
+            `<div class="flex items-center gap-2 bg-fondoAlt rounded-lg px-2 py-1 mt-1">
+                <span class="text-xs font-bold text-amarillo">E${ei+1}</span>
+                <span class="text-xs flex-1">${ej.nombre}</span>
+                <input type="text" value="${ej.reps||''}" placeholder="Reps/Seg"
+                    onchange="emomBloqueSetReps(${minIdx},${ei},this.value)"
+                    class="rounded px-1 py-0.5 text-xs w-16">
+                <select onchange="emomBloqueSetUnit(${minIdx},${ei},this.value)" class="rounded px-1 py-0.5 text-xs">
+                    <option ${(ej.unit||'Reps')==='Reps'?'selected':''}>Reps</option>
+                    <option ${(ej.unit||'Reps')==='Segs'?'selected':''}>Segs</option>
+                </select>
+                <button onclick="emomBloqueQuitarEj(${minIdx},${ei})" class="text-rojo font-bold text-sm leading-none">&times;</button>
+            </div>`
+        ).join('');
+        const headerSpan = listEl.previousElementSibling?.querySelector('span.text-textoSuave');
+        if (headerSpan) headerSpan.textContent = ejs.length + ' ejercicio' + (ejs.length!==1?'s':'');
+    }
+
+    // Actualizar reps/unit de un ejercicio EMOM bloque
+    function emomBloqueSetReps(minIdx, ejIdx, val) {
+        const listEl = document.getElementById('emom-min-' + minIdx + '-lista');
+        if (!listEl) return;
+        try {
+            const ejs = JSON.parse(listEl.dataset.ejs || '[]');
+            if (ejs[ejIdx]) { ejs[ejIdx].reps = val; listEl.dataset.ejs = JSON.stringify(ejs); }
+        } catch(e) {}
+    }
+
+    function emomBloqueSetUnit(minIdx, ejIdx, val) {
+        const listEl = document.getElementById('emom-min-' + minIdx + '-lista');
+        if (!listEl) return;
+        try {
+            const ejs = JSON.parse(listEl.dataset.ejs || '[]');
+            if (ejs[ejIdx]) { ejs[ejIdx].unit = val; listEl.dataset.ejs = JSON.stringify(ejs); }
+        } catch(e) {}
+    }
+
+    // (Kept for compatibility — new UI uses emomBloqueAgregarEj)
+    function actualizarEMOMEjSelectores(minIdx) {
+        // No-op: new bloque EMOM UI uses emomBloqueCargarEjs instead
+    }
+
+    // EMOM Warmup: configuración por minuto con buscador completo
     function actualizarEMOMWarmupMinutosConfig(idxOrKey) {
         const suffix = idxOrKey === 'standalone' ? '' : ('-' + idxOrKey);
         const minsEl = document.getElementById('warmup-minutos' + suffix);
@@ -2199,91 +2311,204 @@
         const container = document.getElementById('emom-warmup-config-' + idxOrKey);
         if (!container) return;
 
-        // Preservar valores actuales
-        const prevVals = {};
+        // Preservar ejercicios ya agregados por minuto
+        const prevEjs = {};
         for (let m = 0; m < 60; m++) {
-            const cEl = document.getElementById('emow-min-cant-' + idxOrKey + '-' + m);
-            if (!cEl) break;
-            const cant = parseInt(cEl.value) || 1;
-            const eNames = [];
-            const eReps = [];
-            for (let e = 0; e < cant; e++) {
-                const eEl = document.getElementById('emow-min-' + idxOrKey + '-' + m + '-ej-' + e);
-                if (eEl) eNames.push(eEl.value);
-                const rEl = document.getElementById('emow-min-' + idxOrKey + '-' + m + '-reps-' + e);
-                eReps.push(rEl ? rEl.value : '10');
-            }
-            prevVals[m] = { cant, eNames, eReps };
+            const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + m + '-lista');
+            if (!listEl) break;
+            try { prevEjs[m] = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { prevEjs[m] = []; }
         }
 
-        let allEjs = [];
-        for (const [cat, lista] of Object.entries(videotecaCache || {})) {
-            (lista || []).forEach(e => { const n = e.nombre || e[0] || ''; if (n) allEjs.push(n); });
+        // Opciones de categorias
+        const cats = Object.keys(videotecaCache || {}).sort();
+        const catOpts = '<option value="">Todas las categorías</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
+
+        // Opciones de elementos unicos
+        const elemSet = new Set();
+        for (const lista of Object.values(videotecaCache || {})) {
+            (lista || []).forEach(e => { if (e.elemento) elemSet.add(e.elemento); });
         }
-        allEjs.sort();
+        const elemOpts = '<option value="">Todos los elementos</option>' + [...elemSet].sort().map(el => `<option value="${el}">${el}</option>`).join('');
 
         let html = '';
         for (let m = 0; m < mins; m++) {
-            const prev = prevVals[m] || { cant: 1, eNames: [], eReps: [] };
-            const optsCount = [1,2,3,4].map(v => `<option value="${v}" ${prev.cant===v?'selected':''}>${v} ejercicio${v>1?'s':''}</option>`).join('');
-            const optsEj = '<option value="">-- Ejercicio --</option>' + allEjs.map(n => `<option value="${n}">${n}</option>`).join('');
-            let ejSelectors = '';
-            for (let e = 0; e < (prev.cant || 1); e++) {
-                const repsVal = prev.eReps[e] || '10';
-                ejSelectors += `<div class="flex items-center gap-2 mb-1"><span class="text-xs text-textoSuave w-4">E${e+1}</span><select id="emow-min-${idxOrKey}-${m}-ej-${e}" class="flex-1 rounded-lg px-2 py-1 text-xs">${optsEj}</select><input id="emow-min-${idxOrKey}-${m}-reps-${e}" type="text" value="${repsVal}" placeholder="Reps" class="rounded-lg px-2 py-1 text-xs w-16" title="Repeticiones"></div>`;
-            }
+            const ejsGuardados = prevEjs[m] || [];
+            const ejsListaHtml = ejsGuardados.map((ej, ei) =>
+                `<div class="flex items-center gap-2 bg-fondoAlt rounded-lg px-2 py-1 mt-1">
+                    <span class="text-xs font-bold text-amarillo">E${ei+1}</span>
+                    <span class="text-xs flex-1">${ej.nombre}</span>
+                    <input type="text" value="${ej.reps||''}" placeholder="Reps/Seg"
+                        onchange="emomWarmupSetReps('${idxOrKey}',${m},${ei},this.value)"
+                        class="rounded px-1 py-0.5 text-xs w-16">
+                    <select onchange="emomWarmupSetUnit('${idxOrKey}',${m},${ei},this.value)" class="rounded px-1 py-0.5 text-xs">
+                        <option ${(ej.unit||'Reps')==='Reps'?'selected':''}>Reps</option>
+                        <option ${(ej.unit||'Reps')==='Segs'?'selected':''}>Segs</option>
+                    </select>
+                    <button onclick="emomWarmupQuitarEj('${idxOrKey}',${m},${ei})" class="text-rojo font-bold text-sm leading-none">&times;</button>
+                </div>`
+            ).join('');
+
             html += `<div class="bg-fondo rounded-xl p-3 border border-borde/40 mb-2">
                 <div class="flex items-center gap-2 mb-2">
                     <span class="text-xs font-bold text-amarillo uppercase">Minuto ${m+1}</span>
-                    <select id="emow-min-cant-${idxOrKey}-${m}" onchange="actualizarEMOMWarmupEjSelectores('${idxOrKey}', ${m})" class="rounded-lg px-2 py-1 text-xs ml-auto">${optsCount}</select>
+                    <span class="text-xs text-textoSuave ml-auto">${ejsGuardados.length} ejercicio${ejsGuardados.length!==1?'s':''}</span>
                 </div>
-                <div class="flex items-center gap-2 mb-1 px-1">
-                    <span class="text-xs text-textoSuave w-4"></span>
-                    <span class="text-xs text-textoSuave flex-1">Ejercicio</span>
-                    <span class="text-xs text-textoSuave w-16 text-center">Reps</span>
+                <div id="emow-min-${idxOrKey}-${m}-lista" data-ejs='${JSON.stringify(ejsGuardados).replace(/'/g,"&#39;")}' class="mb-2">${ejsListaHtml}</div>
+                <div class="border-t border-borde/30 pt-2 mt-1">
+                    <p class="text-xs text-textoSuave mb-1 font-semibold">Agregar ejercicio:</p>
+                    <div class="grid grid-cols-2 gap-1 mb-1">
+                        <select id="emow-cat-${idxOrKey}-${m}" onchange="emomWarmupCargarEjs('${idxOrKey}',${m})" class="rounded-lg px-2 py-1 text-xs">${catOpts}</select>
+                        <select id="emow-elem-${idxOrKey}-${m}" onchange="emomWarmupCargarEjs('${idxOrKey}',${m})" class="rounded-lg px-2 py-1 text-xs">${elemOpts}</select>
+                    </div>
+                    <div class="flex gap-1 mb-1">
+                        <input type="text" id="emow-buscar-${idxOrKey}-${m}" placeholder="Buscar ejercicio..." oninput="emomWarmupFiltrarEjs('${idxOrKey}',${m})" class="flex-1 rounded-lg px-2 py-1 text-xs">
+                    </div>
+                    <select id="emow-ejsel-${idxOrKey}-${m}" class="w-full rounded-lg px-2 py-1 text-xs mb-1">
+                        <option value="">-- Seleccionar ejercicio --</option>
+                    </select>
+                    <div class="flex gap-1 items-center">
+                        <input type="text" id="emow-reps-${idxOrKey}-${m}" placeholder="Reps/Seg" class="rounded-lg px-2 py-1 text-xs w-20">
+                        <select id="emow-unit-${idxOrKey}-${m}" class="rounded-lg px-2 py-1 text-xs">
+                            <option>Reps</option><option>Segs</option>
+                        </select>
+                        <button onclick="emomWarmupAgregarEj('${idxOrKey}',${m})" class="bg-amarillo/20 text-amarillo text-xs font-bold px-3 py-1 rounded-lg hover:bg-amarillo/30 flex-1">+ Agregar</button>
+                    </div>
                 </div>
-                <div id="emow-min-${idxOrKey}-${m}-ejs">${ejSelectors}</div>
             </div>`;
         }
         container.innerHTML = html;
-        // Restaurar valores
+
+        // Cargar ejercicios en cada minuto
         for (let m = 0; m < mins; m++) {
-            const prev = prevVals[m] || { cant: 1, eNames: [], eReps: [] };
-            setTimeout((mi, pv) => {
-                for (let e = 0; e < pv.cant; e++) {
-                    const eEl = document.getElementById('emow-min-' + idxOrKey + '-' + mi + '-ej-' + e);
-                    if (eEl && pv.eNames[e]) eEl.value = pv.eNames[e];
-                    const rEl = document.getElementById('emow-min-' + idxOrKey + '-' + mi + '-reps-' + e);
-                    if (rEl && pv.eReps[e]) rEl.value = pv.eReps[e];
-                }
-            }, 0, m, prev);
+            emomWarmupCargarEjs(idxOrKey, m);
         }
     }
 
-    function actualizarEMOMWarmupEjSelectores(idxOrKey, minIdx) {
-        const cantEl = document.getElementById('emow-min-cant-' + idxOrKey + '-' + minIdx);
-        const ejsCont = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-ejs');
-        if (!cantEl || !ejsCont) return;
-        const cant = parseInt(cantEl.value) || 1;
+    // Cargar lista de ejercicios en el selector de un minuto EMOM warmup
+    function emomWarmupCargarEjs(idxOrKey, minIdx) {
+        const catEl = document.getElementById('emow-cat-' + idxOrKey + '-' + minIdx);
+        const elemEl = document.getElementById('emow-elem-' + idxOrKey + '-' + minIdx);
+        const sel = document.getElementById('emow-ejsel-' + idxOrKey + '-' + minIdx);
+        if (!sel) return;
+        const cat = catEl ? catEl.value : '';
+        const elem = elemEl ? elemEl.value : '';
+        let ejs = cat ? (videotecaCache[cat] || []) : Object.values(videotecaCache || {}).flat();
+        if (elem) ejs = ejs.filter(e => (e.elemento || '') === elem);
+        ejs = ejs.map(e => e.nombre || e[0] || '').filter(Boolean).sort();
+        sel.innerHTML = '<option value="">-- Seleccionar ejercicio --</option>' + ejs.map(n => `<option value="${n}">${n}</option>`).join('');
+    }
 
-        // Preservar reps actuales
-        const prevReps = [];
-        for (let e = 0; e < cant; e++) {
-            const rEl = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-reps-' + e);
-            prevReps[e] = rEl ? rEl.value : '10';
-        }
-
-        let allEjs = [];
+    // Filtrar ejercicios en un minuto EMOM warmup
+    function emomWarmupFiltrarEjs(idxOrKey, minIdx) {
+        const query = (document.getElementById('emow-buscar-' + idxOrKey + '-' + minIdx)?.value || '').trim().toLowerCase();
+        const elemEl = document.getElementById('emow-elem-' + idxOrKey + '-' + minIdx);
+        const elem = elemEl ? elemEl.value : '';
+        const sel = document.getElementById('emow-ejsel-' + idxOrKey + '-' + minIdx);
+        if (!sel) return;
+        if (!query) { emomWarmupCargarEjs(idxOrKey, minIdx); return; }
+        let resultados = [];
         for (const [cat, lista] of Object.entries(videotecaCache || {})) {
-            (lista || []).forEach(e => { const n = e.nombre || e[0] || ''; if (n) allEjs.push(n); });
+            (lista || []).forEach(e => {
+                const nombre = (e.nombre || e[0] || '').toLowerCase();
+                if (nombre.includes(query)) {
+                    if (elem && (e.elemento || '') !== elem) return;
+                    resultados.push({ nombre: e.nombre || e[0], cat });
+                }
+            });
         }
-        allEjs.sort();
-        const optsEj = '<option value="">-- Ejercicio --</option>' + allEjs.map(n => `<option value="${n}">${n}</option>`).join('');
-        let html = '';
-        for (let e = 0; e < cant; e++) {
-            html += `<div class="flex items-center gap-2 mb-1"><span class="text-xs text-textoSuave w-4">E${e+1}</span><select id="emow-min-${idxOrKey}-${minIdx}-ej-${e}" class="flex-1 rounded-lg px-2 py-1 text-xs">${optsEj}</select><input id="emow-min-${idxOrKey}-${minIdx}-reps-${e}" type="text" value="${prevReps[e] || '10'}" placeholder="Reps" class="rounded-lg px-2 py-1 text-xs w-16" title="Repeticiones"></div>`;
-        }
-        ejsCont.innerHTML = html;
+        resultados.sort((a,b) => a.nombre.localeCompare(b.nombre));
+        sel.innerHTML = resultados.length
+            ? '<option value="">-- Seleccionar ejercicio --</option>' + resultados.map(r => `<option value="${r.nombre}" data-cat="${r.cat}">${r.nombre} (${r.cat})</option>`).join('')
+            : '<option value="">Sin resultados</option>';
+    }
+
+    // Agregar ejercicio a un minuto EMOM warmup
+    function emomWarmupAgregarEj(idxOrKey, minIdx) {
+        const sel = document.getElementById('emow-ejsel-' + idxOrKey + '-' + minIdx);
+        const nombre = sel ? sel.value : '';
+        if (!nombre || nombre === 'Sin resultados') return;
+        const reps = document.getElementById('emow-reps-' + idxOrKey + '-' + minIdx)?.value.trim() || '';
+        const unit = document.getElementById('emow-unit-' + idxOrKey + '-' + minIdx)?.value || 'Reps';
+        const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-lista');
+        if (!listEl) return;
+        let ejs = [];
+        try { ejs = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { ejs = []; }
+        ejs.push({ nombre, reps, unit });
+        listEl.dataset.ejs = JSON.stringify(ejs);
+        // Re-render la lista
+        listEl.innerHTML = ejs.map((ej, ei) =>
+            `<div class="flex items-center gap-2 bg-fondoAlt rounded-lg px-2 py-1 mt-1">
+                <span class="text-xs font-bold text-amarillo">E${ei+1}</span>
+                <span class="text-xs flex-1">${ej.nombre}</span>
+                <input type="text" value="${ej.reps||''}" placeholder="Reps/Seg"
+                    onchange="emomWarmupSetReps('${idxOrKey}',${minIdx},${ei},this.value)"
+                    class="rounded px-1 py-0.5 text-xs w-16">
+                <select onchange="emomWarmupSetUnit('${idxOrKey}',${minIdx},${ei},this.value)" class="rounded px-1 py-0.5 text-xs">
+                    <option ${(ej.unit||'Reps')==='Reps'?'selected':''}>Reps</option>
+                    <option ${(ej.unit||'Reps')==='Segs'?'selected':''}>Segs</option>
+                </select>
+                <button onclick="emomWarmupQuitarEj('${idxOrKey}',${minIdx},${ei})" class="text-rojo font-bold text-sm leading-none">&times;</button>
+            </div>`
+        ).join('');
+        // Actualizar contador de ejercicios en header del minuto
+        const headerSpan = listEl.previousElementSibling?.querySelector('span.text-textoSuave');
+        if (headerSpan) headerSpan.textContent = ejs.length + ' ejercicio' + (ejs.length!==1?'s':'');
+        // Reset buscador
+        const buscarEl = document.getElementById('emow-buscar-' + idxOrKey + '-' + minIdx);
+        if (buscarEl) buscarEl.value = '';
+        const repsEl = document.getElementById('emow-reps-' + idxOrKey + '-' + minIdx);
+        if (repsEl) repsEl.value = '';
+        emomWarmupCargarEjs(idxOrKey, minIdx);
+    }
+
+    // Quitar ejercicio de un minuto EMOM warmup
+    function emomWarmupQuitarEj(idxOrKey, minIdx, ejIdx) {
+        const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-lista');
+        if (!listEl) return;
+        let ejs = [];
+        try { ejs = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { ejs = []; }
+        ejs.splice(ejIdx, 1);
+        listEl.dataset.ejs = JSON.stringify(ejs);
+        listEl.innerHTML = ejs.map((ej, ei) =>
+            `<div class="flex items-center gap-2 bg-fondoAlt rounded-lg px-2 py-1 mt-1">
+                <span class="text-xs font-bold text-amarillo">E${ei+1}</span>
+                <span class="text-xs flex-1">${ej.nombre}</span>
+                <input type="text" value="${ej.reps||''}" placeholder="Reps/Seg"
+                    onchange="emomWarmupSetReps('${idxOrKey}',${minIdx},${ei},this.value)"
+                    class="rounded px-1 py-0.5 text-xs w-16">
+                <select onchange="emomWarmupSetUnit('${idxOrKey}',${minIdx},${ei},this.value)" class="rounded px-1 py-0.5 text-xs">
+                    <option ${(ej.unit||'Reps')==='Reps'?'selected':''}>Reps</option>
+                    <option ${(ej.unit||'Reps')==='Segs'?'selected':''}>Segs</option>
+                </select>
+                <button onclick="emomWarmupQuitarEj('${idxOrKey}',${minIdx},${ei})" class="text-rojo font-bold text-sm leading-none">&times;</button>
+            </div>`
+        ).join('');
+        const headerSpan = listEl.previousElementSibling?.querySelector('span.text-textoSuave');
+        if (headerSpan) headerSpan.textContent = ejs.length + ' ejercicio' + (ejs.length!==1?'s':'');
+    }
+
+    // Actualizar reps/unit de un ejercicio ya agregado en EMOM warmup
+    function emomWarmupSetReps(idxOrKey, minIdx, ejIdx, val) {
+        const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-lista');
+        if (!listEl) return;
+        try {
+            const ejs = JSON.parse(listEl.dataset.ejs || '[]');
+            if (ejs[ejIdx]) { ejs[ejIdx].reps = val; listEl.dataset.ejs = JSON.stringify(ejs); }
+        } catch(e) {}
+    }
+
+    function emomWarmupSetUnit(idxOrKey, minIdx, ejIdx, val) {
+        const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-lista');
+        if (!listEl) return;
+        try {
+            const ejs = JSON.parse(listEl.dataset.ejs || '[]');
+            if (ejs[ejIdx]) { ejs[ejIdx].unit = val; listEl.dataset.ejs = JSON.stringify(ejs); }
+        } catch(e) {}
+    }
+
+    // (Kept for compatibility, no longer used in warmup - now handled by emomWarmupAgregarEj)
+    function actualizarEMOMWarmupEjSelectores(idxOrKey, minIdx) {
+        // No-op: new warmup EMOM UI uses emomWarmupCargarEjs instead
     }
 
     function agregarEjBloque() {
@@ -2480,20 +2705,20 @@
             bloque.pausa_entre_rondas = parseInt(document.getElementById('bp-pausa-rondas')?.value || 0);
         } else if (tipo === 'EMOM') {
             bloque.minutos_totales = parseInt(document.getElementById('bp-minutos')?.value || 10);
-            // Leer configuración por minuto
+            // Leer configuración por minuto desde la nueva UI con buscador
             bloque.emom_config_por_minuto = [];
             for (let _em = 0; _em < bloque.minutos_totales; _em++) {
-                const _cantEl = document.getElementById('emom-min-cant-' + _em);
-                const _cant = _cantEl ? (parseInt(_cantEl.value) || 1) : 1;
-                const _ejsMin = [];
-                const _repsMin = [];
-                for (let _ee = 0; _ee < _cant; _ee++) {
-                    const _ejEl = document.getElementById('emom-min-' + _em + '-ej-' + _ee);
-                    if (_ejEl && _ejEl.value) _ejsMin.push(_ejEl.value);
-                    const _repsEl = document.getElementById('emom-min-' + _em + '-reps-' + _ee);
-                    _repsMin.push(_repsEl ? (_repsEl.value || '10') : '10');
+                const _listEl = document.getElementById('emom-min-' + _em + '-lista');
+                let _ejsData = [];
+                if (_listEl) {
+                    try { _ejsData = JSON.parse(_listEl.dataset.ejs || '[]'); } catch(e) { _ejsData = []; }
                 }
-                bloque.emom_config_por_minuto.push({ minuto: _em + 1, ejercicios_cantidad: _cant, ejercicios_nombres: _ejsMin, ejercicios_reps: _repsMin });
+                bloque.emom_config_por_minuto.push({
+                    minuto: _em + 1,
+                    ejercicios_cantidad: _ejsData.length,
+                    ejercicios_nombres: _ejsData.map(e => e.nombre),
+                    ejercicios: _ejsData
+                });
             }
             bloque.ejercicios_por_minuto = bloque.emom_config_por_minuto.reduce((mx, m) => Math.max(mx, m.ejercicios_cantidad), 1);
         }
@@ -2538,29 +2763,34 @@
         } else if (b.tipo === 'EMOM') {
             const _mEl = document.getElementById('bp-minutos');
             if(_mEl) { _mEl.value = b.minutos_totales || 10; }
+            // Pre-cargar ejercicios por minuto para que actualizarEMOMMinutosConfig los preserve
+            if (b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
+                // Los datos se restauran via actualizarEMOMMinutosConfig al renderizar
+                // Guardar temporalmente en una variable global para que el render los use
+                window._emomRestoreData = b.emom_config_por_minuto;
+            }
             setTimeout(() => {
-                actualizarEMOMMinutosConfig();
-                // Restaurar los ejercicios por minuto si existen
-                if (b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
-                    b.emom_config_por_minuto.forEach(function(minCfg, mi) {
-                        const cantEl = document.getElementById('emom-min-cant-' + mi);
-                        if (cantEl) {
-                            cantEl.value = minCfg.ejercicios_cantidad || 1;
-                            actualizarEMOMEjSelectores(mi);
-                            if (minCfg.ejercicios_nombres) {
-                                minCfg.ejercicios_nombres.forEach(function(ejNombre, ei) {
-                                    const ejEl = document.getElementById('emom-min-' + mi + '-ej-' + ei);
-                                    if (ejEl) ejEl.value = ejNombre;
-                                    // Restaurar reps si existen
-                                    const repsEl = document.getElementById('emom-min-' + mi + '-reps-' + ei);
-                                    if (repsEl && minCfg.ejercicios_reps && minCfg.ejercicios_reps[ei] !== undefined) {
-                                        repsEl.value = minCfg.ejercicios_reps[ei];
-                                    }
-                                });
+                // Inyectar datos previos en los list elements antes de renderizar
+                if (window._emomRestoreData) {
+                    // Crear el HTML con los datos del bloque guardado
+                    const container = document.getElementById('emom-minutos-config');
+                    if (container) {
+                        // Crear temporalmente los data-ejs para que actualizarEMOMMinutosConfig los preserve
+                        window._emomRestoreData.forEach(function(minCfg, mi) {
+                            const ejsList = minCfg.ejercicios || (minCfg.ejercicios_nombres || []).map(n => ({nombre: n, reps: '', unit: 'Reps'}));
+                            // Crear un placeholder para que la funcion lo lea
+                            let placeholder = document.getElementById('emom-min-' + mi + '-lista');
+                            if (!placeholder) {
+                                placeholder = document.createElement('div');
+                                placeholder.id = 'emom-min-' + mi + '-lista';
+                                container.appendChild(placeholder);
                             }
-                        }
-                    });
+                            placeholder.dataset.ejs = JSON.stringify(ejsList);
+                        });
+                    }
+                    window._emomRestoreData = null;
                 }
+                actualizarEMOMMinutosConfig();
             }, 100);
         }
 
@@ -2856,20 +3086,20 @@
                     warmupDetalle.cantidad = parseInt(document.getElementById('warmup-cantidad-' + diaIdx)?.value || 8);
                 } else if (warmupTipo === 'EMOM') {
                     warmupDetalle.minutos = parseInt(document.getElementById('warmup-minutos-' + diaIdx)?.value || 5);
-                    // Leer config por minuto del warmup EMOM
+                    // Leer config por minuto del warmup EMOM (nueva UI con busqueda)
                     warmupDetalle.emom_config_por_minuto = [];
                     for (let _wm = 0; _wm < warmupDetalle.minutos; _wm++) {
-                        const _wCantEl = document.getElementById('emow-min-cant-' + diaIdx + '-' + _wm);
-                        const _wCant = _wCantEl ? (parseInt(_wCantEl.value) || 1) : 1;
-                        const _wEjsMin = [];
-                        const _wRepsMin = [];
-                        for (let _we = 0; _we < _wCant; _we++) {
-                            const _wEjEl = document.getElementById('emow-min-' + diaIdx + '-' + _wm + '-ej-' + _we);
-                            if (_wEjEl && _wEjEl.value) _wEjsMin.push(_wEjEl.value);
-                            const _wRepsEl = document.getElementById('emow-min-' + diaIdx + '-' + _wm + '-reps-' + _we);
-                            _wRepsMin.push(_wRepsEl ? (_wRepsEl.value || '10') : '10');
+                        const _listEl = document.getElementById('emow-min-' + diaIdx + '-' + _wm + '-lista');
+                        let _wEjs = [];
+                        if (_listEl) {
+                            try { _wEjs = JSON.parse(_listEl.dataset.ejs || '[]'); } catch(e) { _wEjs = []; }
                         }
-                        warmupDetalle.emom_config_por_minuto.push({ minuto: _wm + 1, ejercicios_cantidad: _wCant, ejercicios_nombres: _wEjsMin, ejercicios_reps: _wRepsMin });
+                        warmupDetalle.emom_config_por_minuto.push({
+                            minuto: _wm + 1,
+                            ejercicios_cantidad: _wEjs.length,
+                            ejercicios_nombres: _wEjs.map(e => e.nombre),
+                            ejercicios: _wEjs
+                        });
                     }
                 } else if (warmupTipo === 'Series/Reps') {
                     warmupDetalle.series = parseInt(document.getElementById('warmup-series-' + diaIdx)?.value || 3);
@@ -2908,7 +3138,7 @@
                         if (b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
                             b.emom_config_por_minuto.forEach(minCfg => {
                                 const ejsMin = [];
-                                (minCfg.ejercicios_nombres || []).forEach((ejNombre, ejIdx) => {
+                                (minCfg.ejercicios_nombres || []).forEach(ejNombre => {
                                     // Buscar el ejercicio en la lista de ejercicios del bloque
                                     let ejData = b.ejercicios.find(e => e.nombre === ejNombre);
                                     if (!ejData) {
@@ -2920,9 +3150,7 @@
                                         }
                                         ejData = found ? { nombre: ejNombre, link: found.link || found[1] || '', reps: '', unit: 'Reps', con_carga: found.con_carga || false } : { nombre: ejNombre, link: '', reps: '', unit: 'Reps', con_carga: false };
                                     }
-                                    // Usar reps del config por minuto si disponible
-                                    const repsFromConfig = (minCfg.ejercicios_reps && minCfg.ejercicios_reps[ejIdx] !== undefined) ? minCfg.ejercicios_reps[ejIdx] : null;
-                                    ejsMin.push({ nombre: ejData.nombre, link: ejData.link || '', reps: repsFromConfig || ejData.reps || repsDict[ejNombre] || '', unit: ejData.unit || unitsDict[ejNombre] || 'Reps', con_carga: ejData.con_carga || cargaDict[ejNombre] || false });
+                                    ejsMin.push({ nombre: ejData.nombre, link: ejData.link || '', reps: ejData.reps || repsDict[ejNombre] || '', unit: ejData.unit || unitsDict[ejNombre] || 'Reps', con_carga: ejData.con_carga || cargaDict[ejNombre] || false });
                                 });
                                 ciclo.push({ ejercicios: ejsMin, es_descanso: ejsMin.length === 0 });
                             });
@@ -3523,29 +3751,6 @@
                             const c = document.getElementById('warmup-cantidad-' + i); if (c) c.value = cfg.cantidad || 8;
                         } else if (dia._wTipo === 'EMOM') {
                             const m = document.getElementById('warmup-minutos-' + i); if (m) m.value = cfg.minutos || 5;
-                            // Restaurar config por minuto del warmup EMOM
-                            setTimeout(() => {
-                                actualizarEMOMWarmupMinutosConfig(i);
-                                if (cfg.emom_config_por_minuto && cfg.emom_config_por_minuto.length > 0) {
-                                    cfg.emom_config_por_minuto.forEach(function(minCfg, mi) {
-                                        const wCantEl = document.getElementById('emow-min-cant-' + i + '-' + mi);
-                                        if (wCantEl) {
-                                            wCantEl.value = minCfg.ejercicios_cantidad || 1;
-                                            actualizarEMOMWarmupEjSelectores(i, mi);
-                                            if (minCfg.ejercicios_nombres) {
-                                                minCfg.ejercicios_nombres.forEach(function(ejNombre, ei) {
-                                                    const wEjEl = document.getElementById('emow-min-' + i + '-' + mi + '-ej-' + ei);
-                                                    if (wEjEl) wEjEl.value = ejNombre;
-                                                    const wRepsEl = document.getElementById('emow-min-' + i + '-' + mi + '-reps-' + ei);
-                                                    if (wRepsEl && minCfg.ejercicios_reps && minCfg.ejercicios_reps[ei] !== undefined) {
-                                                        wRepsEl.value = minCfg.ejercicios_reps[ei];
-                                                    }
-                                                });
-                                            }
-                                        }
-                                    });
-                                }
-                            }, 150);
                         } else if (dia._wTipo === 'Series/Reps') {
                             const s = document.getElementById('warmup-series-' + i); if (s) s.value = cfg.series || 3;
                             const rv = document.getElementById('warmup-reps-val-' + i); if (rv) rv.value = cfg.reps || 10;
