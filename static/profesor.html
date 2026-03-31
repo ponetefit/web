@@ -1502,7 +1502,7 @@
                         <div class="mb-2">
                             <input id="warmup-buscar-ej-${idx}" type="text" placeholder="Buscar ejercicio..." onkeyup="filtrarEjsWarmupDia(${idx})" class="w-full rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-azul focus:ring-2 focus:ring-azul/30 transition">
                         </div>
-                        <div class="flex gap-2 mb-3">
+                        <div class="flex gap-2 mb-2 flex-wrap">
                             <select id="warmup-cat-select-${idx}" onchange="cargarEjsWarmupDia(${idx})" class="rounded-lg px-3 py-2 text-sm flex-shrink-0"></select>
                             <select id="warmup-elemento-select-${idx}" onchange="cargarEjsWarmupDia(${idx})" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
                                 <option value="">Todo elemento</option>
@@ -1512,7 +1512,13 @@
                             <select id="warmup-ej-unit-${idx}" class="rounded-lg px-3 py-2 text-sm w-20">
                                 <option>Reps</option><option>Segs</option>
                             </select>
-                            <button onclick="agregarEjWarmupDia(${idx})" class="bg-azul/20 text-azul px-3 py-2 rounded-lg text-sm font-bold hover:bg-azul/30 transition whitespace-nowrap">+ Agregar</button>
+                        </div>
+                        <div id="warmup-emom-min-row-${idx}" class="flex gap-2 items-center mb-2" style="display:none;">
+                            <label class="text-xs text-textoSuave whitespace-nowrap">Agregar al minuto:</label>
+                            <select id="warmup-emom-min-sel-${idx}" class="rounded-lg px-2 py-1 text-xs flex-shrink-0"></select>
+                        </div>
+                        <div class="flex gap-2 mb-3">
+                            <button onclick="agregarEjWarmupDia(${idx})" class="bg-azul/20 text-azul px-3 py-2 rounded-lg text-sm font-bold hover:bg-azul/30 transition whitespace-nowrap w-full">+ Agregar</button>
                         </div>
                         </div>
                         <div id="warmup-ejercicios-lista-${idx}" class="space-y-2"></div>
@@ -1581,10 +1587,19 @@
             html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Series</label><input id="warmup-series-' + idx + '" type="number" value="3" min="1" oninput="renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones (default)</label><input id="warmup-reps-val-' + idx + '" type="number" value="10" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
         }
         container.innerHTML = html;
-        // Ocultar el panel generico de busqueda/agregar ejercicio cuando el tipo es EMOM
-        // (el EMOM tiene su propia UI de ejercicios por minuto dentro de warmup-params-container)
+        // Mostrar/ocultar selector de minuto EMOM y siempre mostrar el panel de busqueda
         const ejPanel = document.getElementById('warmup-ej-panel-' + idx);
-        if (ejPanel) ejPanel.style.display = (tipo === 'EMOM') ? 'none' : '';
+        const emomMinRow = document.getElementById('warmup-emom-min-row-' + idx);
+        if (ejPanel) ejPanel.style.display = '';
+        if (emomMinRow) {
+            if (tipo === 'EMOM') {
+                emomMinRow.style.display = '';
+                // Poblar selector de minutos segun los minutos configurados
+                setTimeout(() => actualizarWarmupEmomMinSel(idx), 100);
+            } else {
+                emomMinRow.style.display = 'none';
+            }
+        }
         // Re-render exercise chips when warmup type changes
         renderWarmupEjsDia(idx);
     }
@@ -1628,6 +1643,23 @@
             : '<option value="">Sin resultados</option>';
     }
 
+    // Actualiza el selector de minutos EMOM en la barra de agregar del calentamiento
+    function actualizarWarmupEmomMinSel(idx) {
+        const sel = document.getElementById('warmup-emom-min-sel-' + idx);
+        if (!sel) return;
+        const minsEl = document.getElementById('warmup-minutos-' + idx);
+        const mins = parseInt(minsEl?.value) || (diasData[idx]?.warmupEmomConfig?.length || 5);
+        const prev = parseInt(sel.value) || 0;
+        sel.innerHTML = '';
+        for (let m = 0; m < mins; m++) {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = 'Minuto ' + (m + 1);
+            sel.appendChild(opt);
+        }
+        sel.value = (prev < mins) ? prev : 0;
+    }
+
     function agregarEjWarmupDia(idx) {
         const selEj = document.getElementById('warmup-ej-select-' + idx);
         const nombre = selEj ? selEj.value : '';
@@ -1651,6 +1683,29 @@
         const elemento = ejData ? (ejData.elemento || '') : '';
         const buscador = document.getElementById('warmup-buscar-ej-' + idx);
         if (buscador) buscador.value = '';
+
+        // Si el tipo es EMOM, agregar al slot del minuto seleccionado
+        const tipoSel = document.getElementById('warmup-tipo-' + idx);
+        if (tipoSel && tipoSel.value === 'EMOM') {
+            const minSel = document.getElementById('warmup-emom-min-sel-' + idx);
+            const minIdx = parseInt(minSel?.value) || 0;
+            const listEl = document.getElementById('emow-min-' + idx + '-' + minIdx + '-lista');
+            if (listEl) {
+                let ejs = [];
+                try { ejs = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { ejs = []; }
+                ejs.push({ nombre, link, reps, unit, con_carga });
+                listEl.dataset.ejs = JSON.stringify(ejs);
+                listEl.innerHTML = ejs.map((ej, ei) => emomChipHtml(ej, ei, minIdx, 'warmup', idx)).join('');
+                const cntEl = document.getElementById('emow-min-' + idx + '-' + minIdx + '-cnt');
+                if (cntEl) cntEl.textContent = ejs.length + ' ejercicio' + (ejs.length !== 1 ? 's' : '');
+            }
+            const repsInput = document.getElementById('warmup-ej-reps-' + idx);
+            if (repsInput) repsInput.value = '';
+            cargarEjsWarmupDia(idx);
+            guardarWarmupEmom(idx);
+            return;
+        }
+
         cargarEjsWarmupDia(idx);
         if (!diasData[idx]) return;
         diasData[idx].warmupEjercicios.push({ nombre, link, reps, unit, con_carga, tip1, tip2, elemento });
@@ -2361,6 +2416,8 @@
         for (let m = 0; m < mins; m++) {
             emomCargarEjsSelect('emow-ejsel-' + idxOrKey + '-' + m, 'emow-buscar-' + idxOrKey + '-' + m);
         }
+        // Actualizar el selector de minutos en la barra de agregar del calentamiento
+        actualizarWarmupEmomMinSel(idxOrKey);
     }
 
     function emomWarmupAgregarEj(idxOrKey, minIdx) {
