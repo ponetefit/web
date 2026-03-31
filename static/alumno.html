@@ -1715,9 +1715,7 @@
 
             <!-- Timer Tabata / Circuito por Tiempo -->
             <div id="sec-timer-ui" style="display:none;">
-                <div id="timer-volver-container" style="margin-bottom:12px;">
-                    <button class="btn-header" onclick="salirDelTimer()" style="width:100%; border-radius:12px; font-size:0.85rem; min-height:48px;">← VOLVER A ENTRENAMIENTO</button>
-                </div>
+                <div id="timer-volver-container" style="display:none; margin-bottom:12px;"></div>
                 <div id="timer-box">
                     <div id="t-status">LISTO</div>
                     <div id="t-ejercicio-nombre"></div>
@@ -1739,9 +1737,6 @@
 
             <!-- EMOM -->
             <div id="sec-emom-ui" style="display:none;">
-                <div style="margin-bottom:12px;">
-                    <button class="btn-header" onclick="salirDelEmom()" style="width:100%; border-radius:12px; font-size:0.85rem; min-height:48px;">← VOLVER A ENTRENAMIENTO</button>
-                </div>
                 <div id="emom-box">
                     <div id="emom-status">LISTO</div>
                     <div id="emom-ejercicio-nombre"></div>
@@ -3752,7 +3747,7 @@
                 var tabPausaRondasW = det.pausa_entre_rondas || 0;
                 wLista.innerHTML += '<div class="info-block" style="border-color:var(--naranja);">' +
                     '<span class="info-block-titulo" style="color:var(--naranja)">' + tabTrabajoW + 's TRABAJO / ' + tabPausaW + 's DESCANSO</span>' +
-                    '<span class="info-block-subtitulo">' + tabRondasW + ' RONDA(S) \u00d7 ' + tabCantidadW + ' SERIES' + (tabPausaRondasW > 0 ? ' | Pausa rondas: ' + tabPausaRondasW + 's' : '') + '</span></div>';
+                    '<span class="info-block-subtitulo">' + tabRondasW + ' RONDA(S) \u00d7 ' + tabCantidadW + ' EJERCICIOS' + (tabPausaRondasW > 0 ? ' | Pausa rondas: ' + tabPausaRondasW + 's' : '') + '</span></div>';
                 // Cards numeradas como en entrenamiento - Tabata es por tiempo, sin carga individual
                 ejsW.forEach(function(ej, i) {
                     const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || "");
@@ -3762,24 +3757,51 @@
             } else if (tipo === "EMOM") {
                 // Info-block EMOM calentamiento
                 var emomMinW = det.minutos || 5;
-                var emomEjsPorMinW = det.ejercicios_por_minuto || 1;
                 wLista.innerHTML += '<div class="info-block" style="border-color:var(--amarillo);">' +
-                    '<span class="info-block-titulo" style="color:var(--amarillo)">' + emomMinW + ' MIN — ' + emomEjsPorMinW + ' ej/min</span></div>';
-                // Mostrar cada ejercicio UNA vez con reps y carga
-                var emomRepsDictW = det.reps_por_ejercicio || {};
-                var emomUnitsDictW = det.units_por_ejercicio || {};
-                var emomCargaDictW = det.carga_por_ejercicio || {};
-                var yaVistos = new Set();
-                ejsW.forEach(function(ej) {
-                    const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio);
-                    if (yaVistos.has(n)) return;
-                    yaVistos.add(n);
-                    const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
-                    const r = Array.isArray(ej) ? ej[2] : (ej.reps || emomRepsDictW[n] || "");
-                    const u = Array.isArray(ej) ? (ej[3] || "Reps") : (ej.unit || emomUnitsDictW[n] || "Reps");
-                    const cc = Array.isArray(ej) ? (emomCargaDictW[n]||false) : (ej.con_carga || emomCargaDictW[n] || false);
-                    wLista.innerHTML += crearCard(n, l, r ? r + " " + u.toUpperCase() : "EMOM", cc);
-                });
+                    '<span class="info-block-titulo" style="color:var(--amarillo)">' + emomMinW + ' MIN EMOM</span></div>';
+
+                // Mostrar distribución por minuto si existe la nueva config
+                var emomCfgW = det.emom_config_por_minuto || [];
+                if (emomCfgW.length > 0) {
+                    var emomMinHtmlW = '<div style="margin-bottom:12px;padding:10px 12px;background:rgba(255,193,7,0.07);border:1px solid rgba(255,193,7,0.25);border-radius:12px;">' +
+                        '<div style="font-size:0.6rem;font-weight:900;color:var(--amarillo);letter-spacing:1px;margin-bottom:6px;">📋 EJERCICIOS POR MINUTO</div>';
+                    var yaVistosCfgW = new Set();
+                    emomCfgW.forEach(function(minCfg, mi) {
+                        var ejNombres = (minCfg.ejercicios_nombres || []).filter(function(n){ return n; });
+                        var tag = ejNombres.length > 0 ? ejNombres.join(' + ') : '—';
+                        emomMinHtmlW += '<div style="font-size:0.75rem;color:var(--amarillo);padding:3px 0;display:flex;gap:8px;align-items:baseline;">' +
+                            '<span style="font-weight:900;min-width:50px;">MIN ' + (mi+1) + ':</span>' +
+                            '<span style="color:var(--texto);">' + tag + '</span></div>';
+                        ejNombres.forEach(function(n){ yaVistosCfgW.add(n); });
+                    });
+                    emomMinHtmlW += '</div>';
+                    wLista.innerHTML += emomMinHtmlW;
+                    // Mostrar cards de ejercicios únicos
+                    yaVistosCfgW.forEach(function(n) {
+                        var ejData = ejsW.find(function(e){ return (Array.isArray(e) ? e[0] : (e.nombre||e.ejercicio)) === n; });
+                        var l = ejData ? (Array.isArray(ejData) ? ejData[1] : (ejData.link||'')) : '';
+                        var r = ejData ? (Array.isArray(ejData) ? ejData[2] : (ejData.reps||'')) : '';
+                        var u = ejData ? (Array.isArray(ejData) ? (ejData[3]||'Reps') : (ejData.unit||'Reps')) : 'Reps';
+                        var cc = ejData ? (Array.isArray(ejData) ? false : (ejData.con_carga||false)) : false;
+                        wLista.innerHTML += crearCard(n, l, r ? r + ' ' + u.toUpperCase() : 'EMOM', cc);
+                    });
+                } else {
+                    // Fallback: mostrar cada ejercicio una vez
+                    var emomRepsDictW = det.reps_por_ejercicio || {};
+                    var emomUnitsDictW = det.units_por_ejercicio || {};
+                    var emomCargaDictW = det.carga_por_ejercicio || {};
+                    var yaVistosW = new Set();
+                    ejsW.forEach(function(ej) {
+                        const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio);
+                        if (yaVistosW.has(n)) return;
+                        yaVistosW.add(n);
+                        const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
+                        const r = Array.isArray(ej) ? ej[2] : (ej.reps || emomRepsDictW[n] || "");
+                        const u = Array.isArray(ej) ? (ej[3] || "Reps") : (ej.unit || emomUnitsDictW[n] || "Reps");
+                        const cc = Array.isArray(ej) ? (emomCargaDictW[n]||false) : (ej.con_carga || emomCargaDictW[n] || false);
+                        wLista.innerHTML += crearCard(n, l, r ? r + " " + u.toUpperCase() : "EMOM", cc);
+                    });
+                }
             } else {
                 // Número de vueltas del calentamiento (para generar inputs de carga por vuelta)
                 var _wVueltas = data.warmup_vueltas || det.vueltas || 2;
@@ -3976,21 +3998,36 @@
             } else if (tipo === "Series/Reps") {
                 const seriesW = det.series || 3;
                 const repsW = det.reps || 10;
-                const pausaSerieW = calcularPausa(repsW);
+                // Usar pausa del primer ejercicio si tiene pausa_por_serie o descanso configurado
+                var pausaSerieW = calcularPausa(repsW);
+                if (ejsW.length > 0) {
+                    var firstEj = ejsW[0];
+                    var firstEjDescanso = Array.isArray(firstEj) ? 0 : (parseInt(firstEj.descanso) || 0);
+                    var firstEjPausaSerie = Array.isArray(firstEj) ? 0 : (firstEj.pausa_por_serie && firstEj.pausa_por_serie[0] ? parseInt(firstEj.pausa_por_serie[0]) : 0);
+                    if (firstEjPausaSerie > 0) pausaSerieW = firstEjPausaSerie;
+                    else if (firstEjDescanso > 0) pausaSerieW = firstEjDescanso;
+                }
                 tBox.style.display = "block";
                 var wUnitS = (det.unit || "Reps").toUpperCase();
                 tStatus.innerText = seriesW + " SERIES × " + repsW + " " + wUnitS;
-                tEj.innerText = "Descanso entre series: " + pausaSerieW + "s";
+                tEj.innerText = "Descanso entre series: " + formatearTiempo(pausaSerieW);
                 tClock.style.display = "block";
                 tClock.innerText = "--";
                 tBtn.style.display = "none";
 
-                let wSeriesHtml = '';
+                // Mostrar cada serie con su pausa y carga
+                let wSeriesHtml = '<div style="margin-top:10px;padding:10px;background:rgba(105,240,174,0.05);border:1px solid rgba(105,240,174,0.15);border-radius:12px;">';
+                wSeriesHtml += '<div style="font-size:0.6rem;font-weight:900;color:var(--verde);letter-spacing:1px;margin-bottom:8px;">SERIES DE CALENTAMIENTO</div>';
                 for (let si = 0; si < seriesW; si++) {
-                    wSeriesHtml += '<div style="margin-top:8px;">' +
-                        '<button class="btn-rest" id="warmup-serie-btn-' + si + '" onclick="marcarSerieWarmup(' + si + ',' + pausaSerieW + ',' + seriesW + ')">' +
-                        'Serie ' + (si + 1) + ' de ' + seriesW + '</button></div>';
+                    wSeriesHtml += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+                        '<span style="color:var(--verde);font-weight:900;font-size:0.7rem;min-width:24px;">S' + (si+1) + '</span>' +
+                        '<span style="font-size:0.8rem;font-weight:700;">' + repsW + ' ' + wUnitS + '</span>' +
+                        '<span style="color:var(--naranja);font-size:0.7rem;margin-left:4px;">· Pausa: ' + formatearTiempo(pausaSerieW) + '</span>' +
+                        '<button class="btn-rest" id="warmup-serie-btn-' + si + '" onclick="marcarSerieWarmup(' + si + ',' + pausaSerieW + ',' + seriesW + ')" style="margin-left:auto;padding:8px 12px;font-size:0.75rem;min-height:36px;">' +
+                        'Marcar</button>' +
+                        '</div>';
                 }
+                wSeriesHtml += '</div>';
                 const wSeriesContainer = document.createElement('div');
                 wSeriesContainer.id = 'warmup-series-btns';
                 wSeriesContainer.innerHTML = wSeriesHtml;
@@ -4091,7 +4128,7 @@
                 }
                 const ej = ejsW[ejIdx % ejsW.length];
                 const nombre = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || "");
-                document.getElementById('warmup-status').innerText = "TRABAJO — Serie " + (ejIdx + 1) + "/" + totalEjs;
+                document.getElementById('warmup-status').innerText = "TRABAJO — Ejercicio " + (ejIdx + 1) + "/" + totalEjs;
                 document.getElementById('warmup-ej').innerText = nombre;
                 // >>> COACH: Arrancamos con ejercicio + tip técnico (warmup Tabata)
                 hablarCoach('Arrancamos con ' + nombre + '. Vamos, dale!');
@@ -4274,6 +4311,7 @@
             const mins = det.minutos || 5;
             const ejsW = (dataGlobal && dataGlobal.warmup_ejercicios) ? dataGlobal.warmup_ejercicios : [];
             const ejsPorMin = ejsW.length > 0 ? Math.ceil(ejsW.length / mins) : 1;
+            const emomCfgPorMin = det.emom_config_por_minuto || [];
             let minActual = 0;
 
             // Mostrar boton pausa y reiniciar EMOM warmup
@@ -4313,17 +4351,25 @@
                     return;
                 }
                 document.getElementById('warmup-status').innerText = "MINUTO " + (minActual + 1) + "/" + mins;
-                var _wEmomNombresMin = _obtenerNombresEmomWarmup(minActual, ejsW, ejsPorMin);
-                if (ejsW.length > 0) {
-                    const startIdx = minActual * ejsPorMin;
-                    const endIdx = Math.min(startIdx + ejsPorMin, ejsW.length);
-                    const ejsMinuto = [];
-                    for (var ei = startIdx; ei < endIdx; ei++) {
-                        const ej = ejsW[ei];
-                        ejsMinuto.push(Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || ""));
+                // Usar config por minuto si existe
+                var _wEmomNombresMin = '';
+                var _wEjsMinDisplay = [];
+                if (emomCfgPorMin.length > 0 && emomCfgPorMin[minActual]) {
+                    var _wMinCfg = emomCfgPorMin[minActual];
+                    _wEjsMinDisplay = (_wMinCfg.ejercicios_nombres || []).filter(function(n){ return n; });
+                    _wEmomNombresMin = _wEjsMinDisplay.join(' y ');
+                } else {
+                    // fallback: calcular por índice
+                    var _wStartIdx = minActual * ejsPorMin;
+                    var _wEndIdx = Math.min(_wStartIdx + ejsPorMin, ejsW.length);
+                    for (var _wei = _wStartIdx; _wei < _wEndIdx; _wei++) {
+                        var _wej = ejsW[_wei];
+                        var _wn = Array.isArray(_wej) ? _wej[0] : (_wej.nombre || _wej.ejercicio || "");
+                        if (_wn) _wEjsMinDisplay.push(_wn);
                     }
-                    document.getElementById('warmup-ej').innerText = ejsMinuto.length > 0 ? ejsMinuto.join(" | ") : (Array.isArray(ejsW[ejsW.length - 1]) ? ejsW[ejsW.length - 1][0] : (ejsW[ejsW.length - 1].nombre || ""));
+                    _wEmomNombresMin = _wEjsMinDisplay.join(' y ');
                 }
+                document.getElementById('warmup-ej').innerText = _wEjsMinDisplay.length > 0 ? _wEjsMinDisplay.join(" | ") : "";
                 // >>> COACH: Anunciar ejercicios del minuto + tip técnico
                 var _wEmomEsUltimo = (minActual + 1 >= mins);
                 if (_wEmomNombresMin) {
@@ -4921,7 +4967,7 @@
 
             pLista.innerHTML += '<div class="info-block" style="border-color:var(--naranja);">' +
                 '<span class="info-block-titulo" style="color:var(--naranja)">' + config.trabajo + 's TRABAJO / ' + config.pausa + 's DESCANSO</span>' +
-                '<span class="info-block-subtitulo">' + config.rondas + ' RONDA(S)' + (config.cantidad ? ' × ' + config.cantidad + ' SERIES' : '') + (pr > 0 ? ' | Pausa rondas: ' + pr + 's' : '') + '</span></div>';
+                '<span class="info-block-subtitulo">' + config.rondas + ' RONDA(S)' + (config.cantidad ? ' × ' + config.cantidad + ' EJERCICIOS' : '') + (pr > 0 ? ' | Pausa rondas: ' + pr + 's' : '') + '</span></div>';
             if (data.descripcion) {
                 pLista.innerHTML += '<div class="bloque-descripcion">' + data.descripcion + '</div>';
             }
@@ -5170,7 +5216,19 @@
                     });
                 });
                 html += '<button id="' + uid + '-btn-vuelta" class="btn-rest" style="margin-top:12px;" ' +
-                    'onclick="marcarVueltaMixBloque(\'' + uid + '\',\'' + vContId + '\',' + pausaV + ',' + vueltas + ')">ACTIVAR PAUSA</button></div>';
+                    'onclick="marcarVueltaMixBloque(\'' + uid + '\',\'' + vContId + '\',' + pausaV + ',' + vueltas + ')">ACTIVAR PAUSA</button>';
+                // Timer con pausa/reiniciar para Circuito por Vuelta
+                if (pausaV > 0) {
+                    var _cvClockId = uid + '-cv-clock';
+                    var _cvPausaId = uid + '-cv-pausa';
+                    var _cvReinId = uid + '-cv-rein';
+                    html += '<div style="margin-top:10px;text-align:center;">' +
+                        '<div id="' + _cvClockId + '" style="font-size:2.5rem;font-family:Roboto Mono,monospace;font-weight:700;color:var(--rojo);display:none;margin:6px 0;">' + pausaV + '</div>' +
+                        '<button id="' + _cvPausaId + '" class="btn-pausa" style="display:none;" onclick="togglePausaCircuito(\'' + _cvClockId + '\', this)">⏸ PAUSAR</button>' +
+                        '<button id="' + _cvReinId + '" class="btn-pausa" style="display:none;background:var(--tarjeta-alt);color:var(--texto-suave);border-color:var(--borde);" onclick="reiniciarCircuito(\'' + _cvClockId + '\',\'' + _cvPausaId + '\',\'' + _cvReinId + '\',' + pausaV + ')">↺ REINICIAR</button>' +
+                        '</div>';
+                }
+                html += '</div>';
                 pLista.innerHTML += html;
 
             } else if (tipo === "Circuito por Tiempo") {
@@ -5223,7 +5281,7 @@
                     '<div class="bloque-mix-titulo" style="color:var(--naranja);">BLOQUE ' + idx + ' — TABATA</div>' +
                     '<div class="info-block" style="border-color:var(--naranja);">' +
                     '<span class="info-block-titulo" style="color:var(--naranja)">' + tc.trabajo + 's / ' + tc.pausa + 's</span>' +
-                    '<span class="info-block-subtitulo">' + tc.rondas + ' ronda(s) × ' + tc.cantidad + ' series' + (tc.pausa_entre_rondas > 0 ? ' | Pausa: ' + tc.pausa_entre_rondas + 's' : '') + '</span></div>';
+                    '<span class="info-block-subtitulo">' + tc.rondas + ' ronda(s) × ' + tc.cantidad + ' ejercicios' + (tc.pausa_entre_rondas > 0 ? ' | Pausa: ' + tc.pausa_entre_rondas + 's' : '') + '</span></div>';
                 if (bloque.descripcion) {
                     htmlTab += '<div class="bloque-descripcion">' + bloque.descripcion + '</div>';
                 }
@@ -5297,15 +5355,18 @@
                     });
                 }
                 var emomPausaId = emomUid + "-pausa";
+                var emomReinId = emomUid + "-rein";
                 emomHtml += '<div class="emom-inline-box">' +
                     '<div id="' + emomStatusId + '" style="font-size:0.7rem; font-weight:900; letter-spacing:3px; color:var(--amarillo); margin-bottom:4px;">LISTO PARA EMOM</div>' +
                     '<div id="' + emomRoundId + '" style="font-size:0.8rem; color:var(--amarillo);"></div>' +
-                    '<div id="' + emomEjId + '" style="font-size:0.9rem; color:var(--texto); min-height:1.4rem; margin-bottom:4px;"></div>' +
+                    '<div id="' + emomEjId + '" style="font-size:1rem; font-weight:900; color:var(--amarillo); min-height:1.4rem; margin-bottom:4px; text-align:center;"></div>' +
                     '<div class="emom-inline-clock" id="' + emomClockId + '">05</div>' +
                     '<button id="' + emomBtnId + '" class="btn-rest" style="max-width:280px; margin:12px auto 0; background:linear-gradient(135deg,var(--amarillo),#f9a825); color:#000;" ' +
                     'onclick="iniciarEmomMix(' + (idx - 1) + ', \'' + emomBtnId + '\', \'' + emomStatusId + '\', \'' + emomRoundId + '\', \'' + emomClockId + '\', \'' + emomEjId + '\')">INICIAR EMOM</button>' +
                     '<button id="' + emomPausaId + '" class="btn-pausa" style="max-width:280px; margin:8px auto 0; display:none;" ' +
                     'onclick="togglePausaEmomBloque(\'' + emomClockId + '\', document.getElementById(\'' + emomPausaId + '\'))">\u23f8 PAUSAR</button>' +
+                    '<button id="' + emomReinId + '" class="btn-pausa" style="max-width:280px; margin:8px auto 0; display:none; background:var(--tarjeta-alt); color:var(--texto-suave); border-color:var(--borde);" ' +
+                    'onclick="reiniciarEmomMixInline(\'' + emomBtnId + '\', \'' + emomStatusId + '\', \'' + emomRoundId + '\', \'' + emomClockId + '\', \'' + emomEjId + '\', \'' + emomPausaId + '\', \'' + emomReinId + '\')">&#8635; REINICIAR</button>' +
                     '</div></div>';
                 pLista.innerHTML += emomHtml;
 
@@ -5326,13 +5387,19 @@
             incrementarProgreso(1);
             // >>> COACH: Pausa circuito vueltas mix con motivación y vueltas restantes
             coachPausaVueltas(mixBloqueVueltas[uid]);
+            // Iniciar timer con pausa/reiniciar si hay pausa configurada
+            if (pausaVuelta > 0 && mixBloqueVueltas[uid] > 0) {
+                var _cvClockId = uid + '-cv-clock';
+                var _cvPausaId = uid + '-cv-pausa';
+                var _cvReinId = uid + '-cv-rein';
+                iniciarTimerCircuito(_cvClockId, _cvPausaId, _cvReinId, pausaVuelta);
+            }
             const btn = document.getElementById(uid + '-btn-vuelta');
             if (mixBloqueVueltas[uid] <= 0 && btn) {
                 btn.disabled = true;
                 btn.innerText = "Completado";
                 return;
             }
-            if (pausaVuelta > 0) iniciarDescansoCircuito(pausaVuelta);
         }
 
         function renderTabataMixInline(rutina, tc, uid) {
@@ -5343,7 +5410,7 @@
                 btnId = uid + "-btn",
                 pausaId = uid + "-pausa";
             let html = '<div class="mix-seccion" style="border-color:var(--naranja);">' +
-                '<div class="mix-seccion-titulo" style="color:var(--naranja);">TABATA — ' + tc.trabajo + 's / ' + tc.pausa + 's / ' + tc.rondas + ' ronda(s)</div>';
+                '<div class="mix-seccion-titulo" style="color:var(--naranja);">TABATA — ' + tc.trabajo + 's / ' + tc.pausa + 's | ' + tc.rondas + ' ronda(s) × ' + (tc.cantidad||8) + ' ejercicios</div>';
             // Tabata es por tiempo - sin carga individual
             rutina.forEach(function(ej, i) {
                 const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej);
@@ -5448,22 +5515,30 @@
                     });
                     serieDetalle += '</div>';
                 } else {
-                    // Para ejercicios estándar (sin detalle por serie): mostrar cargas de última sesión
-                    var cargasUltima = [];
-                    for (var su = 0; su < parseInt(seriesN); su++) {
-                        var upU = obtenerUltimoPesoSerie(nombre, su);
-                        if (upU) cargasUltima.push('<span style="color:var(--verde);font-weight:900;font-size:0.65rem;">S' + (su+1) + '</span> <span style="font-size:0.7rem;">' + upU + 'kg</span>');
+                    // Para ejercicios estándar (sin detalle por serie): mostrar cada serie con su pausa y carga
+                    var seriesNI = parseInt(seriesN);
+                    var pausaEjN = (ej.descanso && parseInt(ej.descanso) > 0) ? parseInt(ej.descanso) : pausaN;
+                    serieDetalle = '<div style="margin:8px 0 4px; font-size:0.7rem; font-weight:700; color:var(--texto-suave); text-transform:uppercase; letter-spacing:1px;">Series:</div>' +
+                        '<div id="det-' + idxS + '" style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">';
+                    for (var ssi = 0; ssi < seriesNI; ssi++) {
+                        var bgSi = ssi === 0 ? 'rgba(105,240,174,0.25)' : 'rgba(105,240,174,0.06)';
+                        var borderSi = ssi === 0 ? '1px solid rgba(105,240,174,0.6)' : '1px solid rgba(105,240,174,0.15)';
+                        var upSi = obtenerUltimoPesoSerie(nombre, ssi);
+                        serieDetalle += '<span data-si="' + ssi + '" style="background:' + bgSi + ';border:' + borderSi + ';border-radius:8px;padding:4px 8px;white-space:nowrap;transition:background 0.3s,border 0.3s;">' +
+                            '<span style="color:var(--verde);font-weight:900;font-size:0.65rem;">S' + (ssi+1) + '</span> ' +
+                            '<span style="font-weight:700;">' + repsN + ' ' + (ej.unit || 'Reps') + '</span>' +
+                            (upSi ? ' <span style="background:rgba(255,255,255,0.08);border-radius:4px;padding:1px 5px;font-size:0.6rem;color:#ccc;font-weight:700;">' + upSi + 'kg</span>' : '') +
+                            (pausaEjN > 0 ? ' <span style="color:var(--naranja);font-size:0.65rem;">· ' + formatearTiempo(pausaEjN) + '</span>' : '') +
+                            '</span>';
                     }
-                    if (cargasUltima.length > 0) {
-                        serieDetalle = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px;align-items:center;">' +
-                            '<span style="font-size:0.6rem;color:var(--texto-suave);text-transform:uppercase;letter-spacing:1px;">Última sesión:</span>' +
-                            cargasUltima.map(function(c) { return '<span style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:2px 7px;">' + c + '</span>'; }).join('') +
-                            '</div>';
-                    }
+                    serieDetalle += '</div>';
+                    // También guardar los datos en los diccionarios globales para marcarSerieConPausa
+                    _pausasPorSerieData[idxS] = [];
+                    _repsPorSerieData[idxS] = [];
                 }
 
                 // Pausa a usar para el timer y el botón
-                var pausaBoton = haPerSerie ? pausaPrimeraSerie : pausaN;
+                var pausaBoton = haPerSerie ? pausaPrimeraSerie : ((ej.descanso && parseInt(ej.descanso) > 0) ? parseInt(ej.descanso) : pausaN);
 
                 html += '<div class="serie-card">' +
                     '<div class="serie-header"><span class="serie-nombre">' + nombre + '</span>' +
@@ -5478,7 +5553,7 @@
                     crearPesoRowsPorSerie(nombre, parseInt(seriesN), pesoInputId) +
                     notaHtml +
                     '<div style="text-align:center;"><div class="timer-display" id="timer-' + idxS + '">' + formatearTiempo(pausaBoton) + '</div>' +
-                    '<button class="btn-rest" id="btn-' + idxS + '" onclick="marcarSerieConPausa(' + idxS + ',' + pausaBoton + ')">Marcar Serie</button></div></div>';
+                    '<button class="btn-rest" id="btn-' + idxS + '" onclick="marcarSerieConPausa(' + idxS + ',' + pausaBoton + ')">Marcar Serie (' + seriesN + ' rest.)</button></div></div>';
             });
             html += '</div>';
             pLista.innerHTML += html;
@@ -5681,6 +5756,58 @@
             liberarWakeLock();
         }
 
+        // ─── TIMER CON PAUSA/REINICIAR PARA CIRCUITO POR VUELTA BLOQUE PRINCIPAL ───
+        var _circTimers = {}; // { clockId: { interval, rem, deadline, pausado } }
+
+        function iniciarTimerCircuito(clockId, pausaId, reinId, totalSeg) {
+            if (_circTimers[clockId]) {
+                bgClearInterval(_circTimers[clockId].interval);
+            }
+            var ct = { rem: totalSeg, deadline: Date.now() + totalSeg * 1000, pausado: false, interval: null };
+            _circTimers[clockId] = ct;
+            var clockEl = document.getElementById(clockId);
+            var pausaEl = document.getElementById(pausaId);
+            var reinEl = document.getElementById(reinId);
+            if (clockEl) { clockEl.style.display = 'block'; clockEl.innerText = totalSeg; }
+            if (pausaEl) { pausaEl.style.display = 'block'; pausaEl.innerText = '⏸ PAUSAR'; }
+            if (reinEl) reinEl.style.display = 'block';
+            ct.interval = bgSetInterval(function() {
+                if (ct.pausado) return;
+                ct.rem = Math.max(0, Math.round((ct.deadline - Date.now()) / 1000));
+                if (clockEl) clockEl.innerText = ct.rem < 10 ? '0' + ct.rem : ct.rem;
+                if (ct.rem <= 3 && ct.rem > 0) beep(400);
+                if (ct.rem <= 0) {
+                    bgClearInterval(ct.interval);
+                    beep(800);
+                    if (clockEl) clockEl.style.display = 'none';
+                    if (pausaEl) pausaEl.style.display = 'none';
+                    if (reinEl) reinEl.style.display = 'none';
+                }
+            }, 1000);
+        }
+
+        function togglePausaCircuito(clockId, pausaBtn) {
+            var ct = _circTimers[clockId];
+            if (!ct) return;
+            ct.pausado = !ct.pausado;
+            if (pausaBtn) pausaBtn.innerText = ct.pausado ? '▶ REANUDAR' : '⏸ PAUSAR';
+            if (!ct.pausado) {
+                ct.deadline = Date.now() + ct.rem * 1000;
+            }
+        }
+
+        function reiniciarCircuito(clockId, pausaId, reinId, totalSeg) {
+            var ct = _circTimers[clockId];
+            if (ct) bgClearInterval(ct.interval);
+            delete _circTimers[clockId];
+            var clockEl = document.getElementById(clockId);
+            var pausaEl = document.getElementById(pausaId);
+            var reinEl = document.getElementById(reinId);
+            if (clockEl) { clockEl.style.display = 'none'; clockEl.innerText = totalSeg; }
+            if (pausaEl) { pausaEl.style.display = 'none'; pausaEl.innerText = '⏸ PAUSAR'; }
+            if (reinEl) reinEl.style.display = 'none';
+        }
+
         // ─── BLOQUE TIEMPO (Circuito por Tiempo) ───
         var bloqueTiempoPausado = {};
         var _btDeadlines = {}; // deadline timestamp por timerId
@@ -5874,7 +6001,7 @@
                     const ej = rutina[tIdx % rutina.length];
                     const nombre = Array.isArray(ej) ? ej[0] : (ej.nombre || "");
                     document.getElementById('t-ejercicio-nombre').innerText = tFase === "trabajo" ? nombre : (tFase === "pausa" ? "Respira..." : "");
-                    document.getElementById('t-ej-restantes').innerText = tFase === "trabajo" ? ("Serie " + (tIdx + 1) + "/" + cantidad + " — Ronda " + tRonda + "/" + rondas) : "";
+                    document.getElementById('t-ej-restantes').innerText = tFase === "trabajo" ? ("Ejercicio " + (tIdx + 1) + "/" + cantidad + " — Ronda " + tRonda + "/" + rondas) : "";
 
                     const nextIdx = (tIdx + 1) % rutina.length;
                     if (tFase === "pausa" && tIdx < cantidad - 1) {
@@ -6171,9 +6298,19 @@
             if (emomFase === "trabajo") {
                 document.getElementById('emom-minuto').innerText = "Minuto " + (emomMinActual + 1) + " de " + emomMinTotal;
                 document.getElementById('emom-subtexto').innerText = "";
+                // Mostrar ejercicios del minuto actual
+                var _emNomActual = _obtenerNombresEmomMinuto(emomMinActual, emomMinutosCiclo);
+                var ejNomEl = document.getElementById('emom-ejercicio-nombre');
+                if (ejNomEl && _emNomActual) {
+                    ejNomEl.innerHTML = '<span style="color:var(--amarillo);font-weight:900;">' + _emNomActual.split(' y ').join('</span><br><span style="color:var(--amarillo);font-weight:900;">') + '</span>';
+                } else if (ejNomEl) {
+                    ejNomEl.innerHTML = '';
+                }
             } else if (emomFase === "prep") {
                 document.getElementById('emom-minuto').innerText = "";
                 document.getElementById('emom-subtexto').innerText = "Preparate";
+                var ejNomElPrep = document.getElementById('emom-ejercicio-nombre');
+                if (ejNomElPrep) ejNomElPrep.innerHTML = '';
             } else {
                 document.getElementById('emom-minuto').innerText = "";
                 document.getElementById('emom-subtexto').innerText = "";
@@ -6476,7 +6613,7 @@
                     const nombre = Array.isArray(ej) ? ej[0] : (ej.nombre || ej);
                     document.getElementById(statusId).innerText = "TRABAJO";
                     document.getElementById(ejId).innerText = nombre;
-                    document.getElementById(infoId).innerText = "Serie " + (ejIdx + 1) + "/" + cantidad + " — Ronda " + rondaActual + "/" + rondas;
+                    document.getElementById(infoId).innerText = "Ejercicio " + (ejIdx + 1) + "/" + cantidad + " — Ronda " + rondaActual + "/" + rondas;
                     // >>> COACH: Arrancamos con ejercicio + tip técnico (Tabata Mix)
                     hablarCoach('Arrancamos con ' + nombre + '. Vamos, dale!');
                     var _tipTabMix = _obtenerTip(nombre);
@@ -6553,6 +6690,14 @@
                 coachPausa();
             } else {
                 solicitarWakeLock();
+                // Recalibrar deadline con los segundos restantes al reanudar
+                var clockEl = document.getElementById(clockId);
+                if (clockEl) {
+                    var remSecs = parseInt(clockEl.innerText) || 60;
+                    // Store in a way that bgSetInterval can use it
+                    if (!window._emomBloqueDeadlines) window._emomBloqueDeadlines = {};
+                    window._emomBloqueDeadlines[clockId] = Date.now() + remSecs * 1000;
+                }
             }
         }
 
@@ -6598,6 +6743,7 @@
                     emomBloquePausado[clockId] = false;
                     desactivarTimerGlobal();
                     if (pausaBtnEl) pausaBtnEl.style.display = 'none';
+                    if (reinBtnEl) reinBtnEl.style.display = 'none';
                     liberarWakeLock();
                     return;
                 }
@@ -6670,9 +6816,11 @@
             emomBloquePausado[clockId] = false;
             let minActual = 0;
 
-            // Mostrar boton pausa EMOM bloque
+            // Mostrar boton pausa y reiniciar EMOM bloque
             var pausaBtnEl = document.getElementById(clockId.replace('-clock', '-pausa'));
             if (pausaBtnEl) pausaBtnEl.style.display = 'block';
+            var reinBtnEl = document.getElementById(clockId.replace('-clock', '-rein'));
+            if (reinBtnEl) reinBtnEl.style.display = 'block';
 
             function mostrarEjercicios(minIdx) {
                 var ejEl = ejId ? document.getElementById(ejId) : null;
@@ -6717,6 +6865,7 @@
                     emomBloquePausado[clockId] = false;
                     desactivarTimerGlobal();
                     if (pausaBtnEl) pausaBtnEl.style.display = 'none';
+                    if (reinBtnEl) reinBtnEl.style.display = 'none';
                     liberarWakeLock();
                     return;
                 }
@@ -6801,6 +6950,28 @@
                 }
             }
             iniciarEmomBloqueConCiclo(btnId, statusId, roundId, clockId, ejId || null, totalMin, ciclo);
+        }
+
+        // ─── REINICIAR EMOM BLOQUE MIX INLINE ───
+        function reiniciarEmomMixInline(btnId, statusId, roundId, clockId, ejId, pausaId, reinId) {
+            // Cancel any running interval
+            var pausaBtnEl = document.getElementById(pausaId);
+            var reinBtnEl = document.getElementById(reinId);
+            var btn = document.getElementById(btnId);
+            emomBloquePausado[clockId] = false;
+            desactivarTimerGlobal();
+            liberarWakeLock();
+            if (btn) { btn.dataset.running = "0"; btn.disabled = false; btn.innerText = "INICIAR EMOM"; }
+            if (pausaBtnEl) { pausaBtnEl.style.display = 'none'; pausaBtnEl.innerText = '⏸ PAUSAR'; }
+            if (reinBtnEl) reinBtnEl.style.display = 'none';
+            var clockEl = document.getElementById(clockId);
+            if (clockEl) clockEl.innerText = '05';
+            var statusEl = document.getElementById(statusId);
+            if (statusEl) statusEl.innerText = 'LISTO PARA EMOM';
+            var roundEl = document.getElementById(roundId);
+            if (roundEl) roundEl.innerText = '';
+            var ejEl = ejId ? document.getElementById(ejId) : null;
+            if (ejEl) ejEl.innerHTML = '';
         }
 
         // ─── SALIR DEL TIMER ───
