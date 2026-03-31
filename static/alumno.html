@@ -1715,7 +1715,7 @@
 
             <!-- Timer Tabata / Circuito por Tiempo -->
             <div id="sec-timer-ui" style="display:none;">
-                <div style="margin-bottom:12px;">
+                <div id="timer-volver-container" style="margin-bottom:12px;">
                     <button class="btn-header" onclick="salirDelTimer()" style="width:100%; border-radius:12px; font-size:0.85rem; min-height:48px;">← VOLVER A ENTRENAMIENTO</button>
                 </div>
                 <div id="timer-box">
@@ -3593,7 +3593,7 @@
                     lista.forEach(function(ej) {
                         var nombre = (ej.nombre || '').toUpperCase();
                         if (nombre) {
-                            _videotecaTips[nombre] = { tip1: ej.tip1 || '', tip2: ej.tip2 || '', elemento: ej.elemento || '' };
+                            _videotecaTips[nombre] = { tip1: ej.tip1 || '', tip2: ej.tip2 || '', elemento: ej.elemento || '', con_carga: ej.con_carga === true || ej.con_carga === 'true' };
                         }
                     });
                 });
@@ -3605,6 +3605,13 @@
             var key = (nombreEj || '').toUpperCase();
             var data = _videotecaTips[key];
             return data ? (data.elemento || '') : '';
+        }
+
+        // Devuelve si el ejercicio tiene carga según videoteca cache
+        function _obtenerConCarga(nombreEj) {
+            var key = (nombreEj || '').toUpperCase();
+            var data = _videotecaTips[key];
+            return data ? (data.con_carga || false) : false;
         }
 
         // Devuelve el tip que corresponde (alternando), o '' si no hay
@@ -4059,7 +4066,8 @@
             if (_wReinBtn) _wReinBtn.style.display = 'block';
             const trabajo = det.trabajo || 20;
             const pausa = det.pausa || 10;
-            const totalEjs = ejsW.length;
+            const cantidadSeries = det.cantidad || ejsW.length || 8;
+            let totalEjs = cantidadSeries;
             let ejIdx = 0;
 
             var clockEl = document.getElementById('warmup-clock');
@@ -4081,9 +4089,9 @@
                     liberarWakeLock();
                     return;
                 }
-                const ej = ejsW[ejIdx];
+                const ej = ejsW[ejIdx % ejsW.length];
                 const nombre = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || "");
-                document.getElementById('warmup-status').innerText = "TRABAJO — Ej " + (ejIdx + 1) + "/" + totalEjs;
+                document.getElementById('warmup-status').innerText = "TRABAJO — Serie " + (ejIdx + 1) + "/" + totalEjs;
                 document.getElementById('warmup-ej').innerText = nombre;
                 // >>> COACH: Arrancamos con ejercicio + tip técnico (warmup Tabata)
                 hablarCoach('Arrancamos con ' + nombre + '. Vamos, dale!');
@@ -4109,15 +4117,15 @@
                             return;
                         }
                         document.getElementById('warmup-status').innerText = "DESCANSO";
-                        var _esAnteultimaWarmup = (ejIdx + 2 >= totalEjs) && (ejIdx + 1 < totalEjs);
+                        var _esUltimoWarmup = (ejIdx + 2 === totalEjs);
                         hablarCoach('Pausa.');
-                        if (_esAnteultimaWarmup) {
+                        if (_esUltimoWarmup) {
                             hablarCoach('Vamos que es el último ejercicio, no aflojes!');
                         }
                         const nextIdx = ejIdx + 1;
                         var nextNombre = '';
                         if (nextIdx < totalEjs) {
-                            const nextEj = ejsW[nextIdx];
+                            const nextEj = ejsW[nextIdx % ejsW.length];
                             nextNombre = Array.isArray(nextEj) ? nextEj[0] : (nextEj.nombre || "");
                             document.getElementById('warmup-ej').innerText = "PROXIMO: " + nextNombre;
                             hablarCoach('El próximo ejercicio es ' + nextNombre + '.');
@@ -4778,7 +4786,6 @@
             if (pausaVuelta > 0) {
                 pLista.innerHTML += '<div class="info-block"><span class="info-block-titulo" style="color:var(--naranja)">Pausa entre Vueltas</span><span class="info-block-subtitulo">' + pausaVuelta + ' segundos</span></div>';
             }
-            pLista.innerHTML += '<div id="' + vContId + '" style="text-align:center; font-size:1.4rem; font-weight:900; color:var(--amarillo); padding:14px; background:var(--tarjeta-alt); border-radius:14px; margin-bottom:14px; border:1px solid var(--borde-sutil);">Vueltas restantes: ' + vRestantes + '</div>';
 
             ejercicios.forEach(function(b, bIdx) {
                 pLista.innerHTML += '<div class="circ-bloque-header"><span class="circ-bloque-label">Circuito ' + (bIdx + 1) + ' — ' + vBloque + ' Vueltas</span></div>';
@@ -4789,23 +4796,21 @@
                         var vLabels = ej.reps_por_vuelta.map(function(rv, vi) {
                             return '<span style="color:var(--naranja);font-weight:700;font-size:0.7rem;">V' + (vi+1) + ':</span> <span style="font-weight:700;">' + rv + ' ' + ejU + '</span>';
                         }).join(' &nbsp; ');
-                        var descExtra = ej.descanso && parseInt(ej.descanso) > 0 ? ' <span style="color:var(--texto-suave);font-size:0.7rem;">| Pausa: ' + ej.descanso + 's</span>' : '';
                         var vCargaHtml = ej.con_carga ? crearPesoRowsPorVuelta(ej.nombre, ej.reps_por_vuelta.length, uid) : '';
-                        pLista.innerHTML += crearCard(ej.nombre, ej.link, '', false, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:6px; align-items:center;">' + vLabels + descExtra + '</div>' + vCargaHtml);
+                        pLista.innerHTML += crearCard(ej.nombre, ej.link, '', false, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:6px; align-items:center;">' + vLabels + '</div>' + vCargaHtml);
                     } else if (ej.con_carga) {
                         var metaStr = ej.reps ? ej.reps + ' ' + ejU : '';
-                        if (ej.descanso && parseInt(ej.descanso) > 0) metaStr += (metaStr ? ' | ' : '') + 'Pausa: ' + ej.descanso + 's';
                         var vPesoHtml = crearPesoRowsPorVuelta(ej.nombre, vBloque, uid);
                         pLista.innerHTML += crearCard(ej.nombre, ej.link, metaStr, false, '', vPesoHtml);
                     } else {
                         var metaStr = ej.reps ? ej.reps + ' ' + ejU : '';
-                        if (ej.descanso && parseInt(ej.descanso) > 0) metaStr += (metaStr ? ' | ' : '') + 'Pausa: ' + ej.descanso + 's';
                         pLista.innerHTML += crearCard(ej.nombre, ej.link, metaStr, false);
                     }
                 });
             });
 
             pLista.innerHTML += '<div style="margin-top:16px;">' +
+                '<div id="' + vContId + '" style="text-align:center; font-size:1.4rem; font-weight:900; color:var(--amarillo); padding:14px; background:var(--tarjeta-alt); border-radius:14px; margin-bottom:14px; border:1px solid var(--borde-sutil);">Vueltas restantes: ' + vRestantes + '</div>' +
                 '<button id="circ-btn-vuelta" class="btn-rest" onclick="marcarVueltaCircuito(' + pausaVuelta + ',\'' + vContId + '\',' + vBloque + ')">ACTIVAR PAUSA</button></div>';
         }
         let circVueltasRestantes = 0;
@@ -4855,7 +4860,8 @@
                         const ejU = (ej.unit || "Reps").toUpperCase();
                         // Circuito por tiempo: solo reps, sin pausa (la pausa no existe en este modo)
                         var metaStr = reps ? reps + " " + ejU : "";
-                        html += crearCard(nombre, link, metaStr, ej.con_carga);
+                        var cc = (ej.con_carga === true) || _obtenerConCarga(nombre);
+                        html += crearCard(nombre, link, metaStr, cc);
                     });
                     html += '<div id="' + timerId + '" style="font-size:3rem; font-family:Roboto Mono,monospace; font-weight:700; color:var(--amarillo); text-align:center; margin:12px 0; text-shadow:0 0 20px var(--amarillo-glow);">' + tiempoMin + ':00</div>' +
                         '<button id="' + btnId + '" class="btn-rest" onclick="iniciarBloqueTiempoConDescuento(\'' + timerId + '\',\'' + btnId + '\',' + tiempoSeg + ')">Iniciar Bloque</button>' +
@@ -4872,7 +4878,7 @@
                     const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
                     const r = Array.isArray(ej) ? (ej[2] || "") : (ej.reps || "");
                     const ejU = Array.isArray(ej) ? ((ej[3] || "Reps").toUpperCase()) : ((ej.unit || "Reps").toUpperCase());
-                    const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
+                    const cc = Array.isArray(ej) ? _obtenerConCarga(n) : ((ej.con_carga === true) || _obtenerConCarga(n));
                     pLista.innerHTML += crearCard(n, l, r ? r + " " + ejU : "TIEMPO", cc);
                 });
 
@@ -5833,6 +5839,8 @@
             const pausaRondas = config.pausa_entre_rondas || 0;
 
             document.getElementById('btnStartTimer').style.display = "none";
+            var _volverContainer = document.getElementById('timer-volver-container');
+            if (_volverContainer) _volverContainer.style.display = 'none';
             const btnPausa = document.getElementById('btnPausaTimer');
             if (btnPausa) {
                 btnPausa.style.display = "block";
@@ -5952,16 +5960,18 @@
                                 _btnStartSkip.style.display = 'block';
                                 _btnStartSkip.innerText = 'EMPEZAR';
                             }
+                            var _volverSkip = document.getElementById('timer-volver-container');
+                            if (_volverSkip) _volverSkip.style.display = 'block';
                             liberarWakeLock();
                             _detenerAudioKeepalive();
                             coachFinalizacion();
                         } else {
                             _setFase("pausa", pausa);
                             actualizarUI();
-                            var _esAnteultimaTabata = (tIdx >= cantidad - 2) && (tIdx < cantidad - 1);
+                            var _esUltimoTabata = (tIdx === cantidad - 1) && (tRonda >= rondas);
                             if (tIdx < cantidad && rutina.length > 0) {
                                 var _nxt = rutina[tIdx % rutina.length];
-                                coachDescanso(pausa, Array.isArray(_nxt) ? _nxt[0] : (_nxt.nombre || ""), _esAnteultimaTabata);
+                                coachDescanso(pausa, Array.isArray(_nxt) ? _nxt[0] : (_nxt.nombre || ""), _esUltimoTabata);
                             } else if (tIdx >= cantidad - 1) {
                                 coachDescanso(pausa, '', false);
                             }
@@ -5998,6 +6008,8 @@
                                     _btnStartEnd.style.display = 'block';
                                     _btnStartEnd.innerText = 'EMPEZAR';
                                 }
+                                var _volverEnd = document.getElementById('timer-volver-container');
+                                if (_volverEnd) _volverEnd.style.display = 'block';
                                 liberarWakeLock();
                                 _detenerAudioKeepalive();
                                 coachFinalizacion();
@@ -6076,6 +6088,8 @@
             document.getElementById('btnPausaTimer').style.display = "none";
             document.getElementById('btnPausaTimer').innerText = "⏸ PAUSAR";
             document.getElementById('btnReiniciarTimer').style.display = "none";
+            var _volverRein = document.getElementById('timer-volver-container');
+            if (_volverRein) _volverRein.style.display = 'block';
             liberarWakeLock();
         }
 
@@ -6488,9 +6502,9 @@
                             }
                             document.getElementById(statusId).innerText = "DESCANSO";
                             // >>> COACH: Pausa + próximo ejercicio (Tabata Mix) - sin 3 2 1 en rest
-                            var _esAnteultimaMix = (ejIdx + 2 >= cantidad) && (ejIdx + 1 < cantidad);
+                            var _esUltimoMix = (ejIdx + 2 >= cantidad) && (ejIdx + 1 < cantidad) && (rondaActual >= rondas);
                             hablarCoach('Pausa.');
-                            if (_esAnteultimaMix) {
+                            if (_esUltimoMix) {
                                 hablarCoach('Vamos que es el último ejercicio, no aflojes!');
                             }
                             var _nxtMix = rutina[(ejIdx + 1) % rutina.length];
@@ -6816,6 +6830,8 @@
             }
             var btnReiniciarT = document.getElementById('btnReiniciarTimer');
             if (btnReiniciarT) btnReiniciarT.style.display = 'none';
+            var _volverSalir = document.getElementById('timer-volver-container');
+            if (_volverSalir) _volverSalir.style.display = 'block';
             var secLista = document.getElementById('sec-rutina-lista');
             if (secLista) {
                 secLista.style.display = 'block';
