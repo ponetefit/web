@@ -3172,7 +3172,22 @@
                     datos = { bloques: bloques, descripcion: descGlobal };
                 }
 
-                datos.warmup_ejercicios = warmupEjsExport;
+                // Para EMOM en calentamiento, warmup_ejercicios se rellena con todos los ejercicios
+                // de todos los minutos (aplanados) para que el PDF y la vista previa los encuentren
+                let warmupEjsFinal = warmupEjsExport;
+                if (warmupTipo === 'EMOM' && warmupDetalle.emom_config_por_minuto && warmupDetalle.emom_config_por_minuto.length > 0) {
+                    const ejsEmomAplanados = [];
+                    warmupDetalle.emom_config_por_minuto.forEach(minCfg => {
+                        (minCfg.ejercicios || []).forEach(ej => {
+                            ejsEmomAplanados.push({
+                                nombre: ej.nombre, link: ej.link || '', reps: ej.reps || '',
+                                unit: ej.unit || 'Reps', con_carga: ej.con_carga || false, elemento: ej.elemento || ''
+                            });
+                        });
+                    });
+                    if (ejsEmomAplanados.length > 0) warmupEjsFinal = ejsEmomAplanados;
+                }
+                datos.warmup_ejercicios = warmupEjsFinal;
                 datos.warmup_tipo = warmupTipo;
                 datos.warmup_vueltas = warmupDetalle.vueltas || 2;
                 datos.warmup_config_detalle = warmupDetalle;
@@ -3888,7 +3903,7 @@
                 const dWEjs  = toArray(diaDatos.warmup_ejercicios);
                 const dWTipo = diaDatos.warmup_tipo || '';
                 const dWCfg  = diaDatos.warmup_config_detalle || {};
-                if (dWEjs.length > 0) {
+                if (dWEjs.length > 0 || (dWTipo === 'EMOM' && dWCfg.emom_config_por_minuto && dWCfg.emom_config_por_minuto.length > 0)) {
                     html += `<div style="${sSecHeader}background:#4FC3F7;">Calentamiento${dWTipo ? ' — ' + dWTipo.toUpperCase() : ''}</div>`;
                     const wP = [];
                     if (dWCfg.vueltas)         wP.push('Vueltas: ' + dWCfg.vueltas);
@@ -3897,7 +3912,19 @@
                     if (dWCfg.trabajo)         wP.push('Trabajo: ' + dWCfg.trabajo + 's / Pausa: ' + (dWCfg.pausa||10) + 's');
                     if (dWCfg.minutos)         wP.push('Minutos: ' + dWCfg.minutos);
                     if (wP.length) html += `<p style="${ff}color:#555;font-style:italic;font-size:12px;margin:0 0 10px 2px;">${wP.join(' | ')}</p>`;
-                    dWEjs.forEach(ej => { html += ejBox(ej); });
+                    if (dWTipo === 'EMOM' && dWCfg.emom_config_por_minuto && dWCfg.emom_config_por_minuto.length > 0) {
+                        dWCfg.emom_config_por_minuto.forEach((minCfg, mi) => {
+                            html += `<div style="${ff}background:#FFD54F22;border-left:3px solid #FFD54F;padding:4px 10px;margin:6px 0 2px;border-radius:4px;font-size:11px;font-weight:700;color:#b8860b;">MINUTO ${mi+1}</div>`;
+                            const ejsMin = minCfg.ejercicios || [];
+                            if (ejsMin.length === 0) {
+                                html += `<p style="${ff}color:#aaa;font-size:11px;font-style:italic;margin:2px 0 6px 10px;">Sin ejercicios</p>`;
+                            } else {
+                                ejsMin.forEach(ej => { html += ejBox(ej); });
+                            }
+                        });
+                    } else {
+                        dWEjs.forEach(ej => { html += ejBox(ej); });
+                    }
                     html += '<hr style="border:none;border-top:1px solid #eee;margin:12px 0;">';
                 }
                 // Bloque principal del día
@@ -3949,7 +3976,7 @@
         const wEjs    = toArray(datos.warmup_ejercicios);
         const wTipo   = datos.warmup_tipo || '';
         const wConfig = datos.warmup_config_detalle || {};
-        if (wEjs.length > 0) {
+        if (wEjs.length > 0 || (wTipo === 'EMOM' && wConfig.emom_config_por_minuto && wConfig.emom_config_por_minuto.length > 0)) {
             html += `<div style="${sSecHeader}background:#4FC3F7;">1. CALENTAMIENTO${wTipo ? ' — ' + wTipo.toUpperCase() : ''}</div>`;
             // Metadata del warmup
             const wParts = [];
@@ -3959,7 +3986,19 @@
             if (wConfig.trabajo)        wParts.push('Trabajo: ' + wConfig.trabajo + 's / Pausa: ' + (wConfig.pausa||10) + 's');
             if (wConfig.minutos)        wParts.push('Minutos: ' + wConfig.minutos);
             if (wParts.length) html += `<p style="${ff}color:#555;font-style:italic;font-size:12px;margin:0 0 10px 2px;">${wParts.join(' | ')}</p>`;
-            wEjs.forEach(ej => { html += ejBox(ej); });
+            if (wTipo === 'EMOM' && wConfig.emom_config_por_minuto && wConfig.emom_config_por_minuto.length > 0) {
+                wConfig.emom_config_por_minuto.forEach((minCfg, mi) => {
+                    html += `<div style="${ff}background:#FFD54F22;border-left:3px solid #FFD54F;padding:4px 10px;margin:6px 0 2px;border-radius:4px;font-size:11px;font-weight:700;color:#b8860b;">MINUTO ${mi+1}</div>`;
+                    const ejsMin = minCfg.ejercicios || [];
+                    if (ejsMin.length === 0) {
+                        html += `<p style="${ff}color:#aaa;font-size:11px;font-style:italic;margin:2px 0 6px 10px;">Sin ejercicios</p>`;
+                    } else {
+                        ejsMin.forEach(ej => { html += ejBox(ej); });
+                    }
+                });
+            } else {
+                wEjs.forEach(ej => { html += ejBox(ej); });
+            }
             html += '<hr style="border:none;border-top:2px solid #eee;margin:20px 0;">';
         }
 
@@ -4252,7 +4291,7 @@
                     const dWEjs  = toArray(diaDatos.warmup_ejercicios);
                     const dWTipo = diaDatos.warmup_tipo || '';
                     const dWCfg  = diaDatos.warmup_config_detalle || {};
-                    if (dWEjs.length > 0) {
+                    if (dWEjs.length > 0 || (dWTipo === 'EMOM' && dWCfg.emom_config_por_minuto && dWCfg.emom_config_por_minuto.length > 0)) {
                         colorBar('Calentamiento' + (dWTipo ? '  —  ' + dWTipo.toUpperCase() : ''), 79, 195, 247);
                         const wP2 = [];
                         if (dWCfg.vueltas)         wP2.push('Vueltas: ' + dWCfg.vueltas);
@@ -4261,7 +4300,21 @@
                         if (dWCfg.trabajo)         wP2.push('Trabajo: ' + dWCfg.trabajo + 's / Pausa: ' + (dWCfg.pausa||10) + 's');
                         if (dWCfg.minutos)         wP2.push('Minutos: ' + dWCfg.minutos);
                         if (wP2.length) { chk(6); doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(110,110,110); doc.text(wP2.join('   |   '), mL+2, y); y+=6; }
-                        dWEjs.forEach(ej => ejGris(ej));
+                        if (dWTipo === 'EMOM' && dWCfg.emom_config_por_minuto && dWCfg.emom_config_por_minuto.length > 0) {
+                            dWCfg.emom_config_por_minuto.forEach((minCfg, mi) => {
+                                chk(8);
+                                doc.setFillColor(255, 213, 79, 0.15);
+                                doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(180, 130, 0);
+                                doc.text('MINUTO ' + (mi + 1), mL + 2, y); y += 5;
+                                const ejsMin = minCfg.ejercicios || [];
+                                if (ejsMin.length === 0) {
+                                    doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(170,170,170);
+                                    doc.text('Sin ejercicios', mL + 4, y); y += 5;
+                                } else { ejsMin.forEach(ej => ejGris(ej)); }
+                            });
+                        } else {
+                            dWEjs.forEach(ej => ejGris(ej));
+                        }
                         chk(6); doc.setDrawColor(210,210,210); doc.setLineWidth(0.4); doc.line(mL, y+2, pw-mR, y+2); y+=8;
                     }
 
@@ -4336,7 +4389,7 @@
             const wTipo   = datos.warmup_tipo || '';
             const wConfig = datos.warmup_config_detalle || {};
 
-            if (wEjs.length > 0) {
+            if (wEjs.length > 0 || (wTipo === 'EMOM' && wConfig.emom_config_por_minuto && wConfig.emom_config_por_minuto.length > 0)) {
                 colorBar('1. CALENTAMIENTO' + (wTipo ? '  —  ' + wTipo.toUpperCase() : ''), 79, 195, 247);
 
                 // Metadata warmup
@@ -4355,7 +4408,20 @@
                     y += 6;
                 }
 
-                wEjs.forEach(ej => ejGris(ej));
+                if (wTipo === 'EMOM' && wConfig.emom_config_por_minuto && wConfig.emom_config_por_minuto.length > 0) {
+                    wConfig.emom_config_por_minuto.forEach((minCfg, mi) => {
+                        chk(8);
+                        doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(180, 130, 0);
+                        doc.text('MINUTO ' + (mi + 1), mL + 2, y); y += 5;
+                        const ejsMin = minCfg.ejercicios || [];
+                        if (ejsMin.length === 0) {
+                            doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(170,170,170);
+                            doc.text('Sin ejercicios', mL + 4, y); y += 5;
+                        } else { ejsMin.forEach(ej => ejGris(ej)); }
+                    });
+                } else {
+                    wEjs.forEach(ej => ejGris(ej));
+                }
 
                 // Divisor
                 chk(10);
