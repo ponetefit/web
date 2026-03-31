@@ -1405,7 +1405,7 @@
     // Agrega un nuevo dia al contenedor
     function agregarDia() {
         const idx = diasData.length;
-        diasData.push({ titulo: 'Dia ' + (idx + 1), warmupEjercicios: [], bloquesRutina: [] });
+        diasData.push({ titulo: 'Dia ' + (idx + 1), warmupEjercicios: [], warmupEmomConfig: [], bloquesRutina: [] });
         renderDias();
         // Expandir el nuevo dia
         setTimeout(() => toggleDia(idx, true), 50);
@@ -1874,7 +1874,17 @@
         // Use the specific class we set in crearHTMLDia
         const badge = card.querySelector('.dia-badge-count');
         if (badge) {
-            badge.textContent = diasData[idx].warmupEjercicios.length + ' cal · ' + diasData[idx].bloquesRutina.length + ' bloque(s)';
+            const tipoSel = document.getElementById('warmup-tipo-' + idx);
+            const wTipo = tipoSel ? tipoSel.value : (diasData[idx]._wTipo || '');
+            let calCount;
+            if (wTipo === 'EMOM') {
+                const emomCfg = diasData[idx].warmupEmomConfig || [];
+                calCount = emomCfg.reduce((sum, m) => sum + (m.ejercicios ? m.ejercicios.length : 0), 0);
+                calCount = calCount + ' ej (EMOM)';
+            } else {
+                calCount = diasData[idx].warmupEjercicios.length;
+            }
+            badge.textContent = calCount + ' cal · ' + diasData[idx].bloquesRutina.length + ' bloque(s)';
         }
     }
 
@@ -2282,6 +2292,23 @@
 
     // ── EMOM Warmup ─────────────────────────────────────────────────────────
 
+    // Persiste el config EMOM del calentamiento en diasData[idx]
+    function guardarWarmupEmom(idxOrKey) {
+        if (idxOrKey === 'standalone' || !diasData[idxOrKey]) return;
+        const suffix = '-' + idxOrKey;
+        const mins = parseInt(document.getElementById('warmup-minutos' + suffix)?.value) || 1;
+        const config = [];
+        for (let m = 0; m < mins; m++) {
+            const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + m + '-lista');
+            let ejs = [];
+            if (listEl) { try { ejs = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { ejs = []; } }
+            config.push({ minuto: m + 1, ejercicios: ejs, ejercicios_cantidad: ejs.length, ejercicios_nombres: ejs.map(e => e.nombre) });
+        }
+        diasData[idxOrKey].warmupEmomConfig = config;
+        // Actualizar badge del dia
+        actualizarBadgeDia(idxOrKey);
+    }
+
     function actualizarEMOMWarmupMinutosConfig(idxOrKey) {
         const suffix = idxOrKey === 'standalone' ? '' : ('-' + idxOrKey);
         const minsEl = document.getElementById('warmup-minutos' + suffix);
@@ -2290,8 +2317,12 @@
         const container = document.getElementById('emom-warmup-config-' + idxOrKey);
         if (!container) return;
 
-        // Preservar ejercicios ya cargados
+        // Preservar ejercicios: primero desde DOM, luego desde diasData como fallback
         const prevEjs = {};
+        // Primero leer desde diasData (persistido)
+        const savedConfig = (idxOrKey !== 'standalone' && diasData[idxOrKey]) ? (diasData[idxOrKey].warmupEmomConfig || []) : [];
+        savedConfig.forEach((minCfg, m) => { prevEjs[m] = minCfg.ejercicios || []; });
+        // Sobreescribir con datos del DOM si existen (más recientes)
         for (let m = 0; m < 60; m++) {
             const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + m + '-lista');
             if (!listEl) break;
@@ -2352,6 +2383,7 @@
         const repsEl = document.getElementById('emow-reps-' + idxOrKey + '-' + minIdx);
         if (repsEl) repsEl.value = '';
         emomCargarEjsSelect('emow-ejsel-' + idxOrKey + '-' + minIdx, 'emow-buscar-' + idxOrKey + '-' + minIdx);
+        guardarWarmupEmom(idxOrKey);
     }
 
     function emomWarmupQuitarEj(idxOrKey, minIdx, ejIdx) {
@@ -2364,18 +2396,21 @@
         listEl.innerHTML = ejs.map((ej, ei) => emomChipHtml(ej, ei, minIdx, 'warmup', idxOrKey)).join('');
         const cntEl = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-cnt');
         if (cntEl) cntEl.textContent = ejs.length + ' ejercicio' + (ejs.length !== 1 ? 's' : '');
+        guardarWarmupEmom(idxOrKey);
     }
 
     function emomWarmupSetReps(idxOrKey, minIdx, ejIdx, val) {
         const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-lista');
         if (!listEl) return;
         try { const ejs = JSON.parse(listEl.dataset.ejs || '[]'); if (ejs[ejIdx]) { ejs[ejIdx].reps = val; listEl.dataset.ejs = JSON.stringify(ejs); } } catch(e) {}
+        guardarWarmupEmom(idxOrKey);
     }
 
     function emomWarmupSetUnit(idxOrKey, minIdx, ejIdx, val) {
         const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-lista');
         if (!listEl) return;
         try { const ejs = JSON.parse(listEl.dataset.ejs || '[]'); if (ejs[ejIdx]) { ejs[ejIdx].unit = val; listEl.dataset.ejs = JSON.stringify(ejs); } } catch(e) {}
+        guardarWarmupEmom(idxOrKey);
     }
 
     function emomWarmupCopiarMin(idxOrKey, minIdx) {
@@ -2397,6 +2432,7 @@
         if (!listEl) return;
         listEl.dataset.ejs = JSON.stringify(JSON.parse(JSON.stringify(_emomMinCopiado.ejs)));
         actualizarEMOMWarmupMinutosConfig(idxOrKey);
+        guardarWarmupEmom(idxOrKey);
         toast('Pegado en minuto ' + (minIdx + 1));
     }
 
@@ -2965,7 +3001,11 @@
         const descGlobal = document.getElementById('rutina-desc').value.trim();
 
         // Verificar que haya al menos algo en algun dia
-        const hayContenido = diasData.some(d => d.warmupEjercicios.length > 0 || d.bloquesRutina.length > 0);
+        const hayContenido = diasData.some(d =>
+            d.warmupEjercicios.length > 0 ||
+            d.bloquesRutina.length > 0 ||
+            (d.warmupEmomConfig && d.warmupEmomConfig.some(m => m.ejercicios && m.ejercicios.length > 0))
+        );
         if (!hayContenido) {
             toast('Agrega ejercicios a al menos un dia');
             return;
@@ -2990,14 +3030,19 @@
                     warmupDetalle.pausa = parseInt(document.getElementById('warmup-pausa-' + diaIdx)?.value || 10);
                     warmupDetalle.cantidad = parseInt(document.getElementById('warmup-cantidad-' + diaIdx)?.value || 8);
                 } else if (warmupTipo === 'EMOM') {
-                    warmupDetalle.minutos = parseInt(document.getElementById('warmup-minutos-' + diaIdx)?.value || 5);
-                    // Leer config por minuto del warmup EMOM (nueva UI con busqueda)
+                    warmupDetalle.minutos = parseInt(document.getElementById('warmup-minutos-' + diaIdx)?.value || (diasData[diaIdx]?.warmupEmomConfig?.length || 5));
+                    // Leer config por minuto del warmup EMOM: primero DOM, luego diasData como fallback
+                    const _savedEmomCfg = (diasData[diaIdx] && diasData[diaIdx].warmupEmomConfig) || [];
                     warmupDetalle.emom_config_por_minuto = [];
                     for (let _wm = 0; _wm < warmupDetalle.minutos; _wm++) {
                         const _listEl = document.getElementById('emow-min-' + diaIdx + '-' + _wm + '-lista');
                         let _wEjs = [];
                         if (_listEl) {
                             try { _wEjs = JSON.parse(_listEl.dataset.ejs || '[]'); } catch(e) { _wEjs = []; }
+                        }
+                        // Fallback a datos persistidos en diasData si el DOM no tiene el elemento
+                        if (_wEjs.length === 0 && _savedEmomCfg[_wm]) {
+                            _wEjs = _savedEmomCfg[_wm].ejercicios || [];
                         }
                         warmupDetalle.emom_config_por_minuto.push({
                             minuto: _wm + 1,
@@ -3604,6 +3649,7 @@
                     diasData.push({
                         titulo: diaR.titulo || ('Dia ' + di),
                         warmupEjercicios: normWarmupEjs(dd.warmup_ejercicios),
+                        warmupEmomConfig: toArray(dWCfg.emom_config_por_minuto),
                         bloquesRutina: dBloques,
                         _wTipo: dWTipo,
                         _wCfg: dWCfg
@@ -3617,12 +3663,14 @@
                 const bloquesDelDia = toArray(datos.bloques).length > 0
                     ? normBloques(datos.bloques)
                     : bloquesDesdePlano(tipo, datos);
+                const _wCfgB = datos.warmup_config_detalle || {};
                 diasData.push({
                     titulo: 'Dia 1',
                     warmupEjercicios: normWarmupEjs(datos.warmup_ejercicios),
+                    warmupEmomConfig: toArray(_wCfgB.emom_config_por_minuto),
                     bloquesRutina: bloquesDelDia,
                     _wTipo: datos.warmup_tipo || 'Circuito (Vueltas)',
-                    _wCfg:  datos.warmup_config_detalle || {}
+                    _wCfg:  _wCfgB
                 });
             }
 
