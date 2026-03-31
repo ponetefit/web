@@ -741,7 +741,20 @@
                     </div>
                     <p class="text-xs text-textoSuave mb-4" id="modal-dias-info">Incluye Calentamiento + Bloque Principal</p>
                     <button onclick="copiarCodigo()" class="bg-azul/20 text-azul px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-azul/30 transition mb-3 w-full">Copiar Codigo</button>
-                    <button onclick="document.getElementById('modal-codigo').classList.add('hidden')" class="text-textoSuave text-sm hover:text-texto transition w-full py-2">Cerrar</button>
+
+                    <!-- Asignar a otros alumnos -->
+                    <div class="border-t border-borde/50 mt-2 pt-4 mb-2">
+                        <p class="text-xs text-textoSuave uppercase tracking-wider mb-3">Asignar también a otros alumnos</p>
+                        <div class="flex gap-2 mb-2">
+                            <select id="modal-alumno-extra" class="flex-1 rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto">
+                                <option value="">-- Seleccionar alumno --</option>
+                            </select>
+                            <button onclick="asignarRutinaAAlumnoExtra()" class="bg-verde/20 text-verde px-4 py-2 rounded-lg text-sm font-bold hover:bg-verde/30 transition whitespace-nowrap">+ Asignar</button>
+                        </div>
+                        <div id="modal-alumnos-asignados" class="text-xs text-left space-y-1 max-h-28 overflow-y-auto"></div>
+                    </div>
+
+                    <button onclick="document.getElementById('modal-codigo').classList.add('hidden')" class="text-textoSuave text-sm hover:text-texto transition w-full py-2 mt-1">Cerrar</button>
                 </div>
             </div>
         </section>
@@ -1407,6 +1420,22 @@
         renderDias();
     }
 
+    function duplicarDia(idx) {
+        const original = diasData[idx];
+        const copia = JSON.parse(JSON.stringify(original));
+        const nuevoIdx = diasData.length;
+        copia.titulo = 'Dia ' + (nuevoIdx + 1) + ' (copia de ' + original.titulo + ')';
+        diasData.push(copia);
+        renderDias();
+        // Abrir el día nuevo y hacer scroll hasta él
+        setTimeout(() => {
+            toggleDia(nuevoIdx, true);
+            const card = document.getElementById('dia-card-' + nuevoIdx);
+            if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            toast('Día duplicado ✓');
+        }, 80);
+    }
+
     // Renderiza todos los dias en #dias-container
     function renderDias() {
         const container = document.getElementById('dias-container');
@@ -1443,6 +1472,7 @@
                     <span class="text-xs text-textoSuave whitespace-nowrap flex-shrink-0 dia-badge-count">${dia.warmupEjercicios.length} cal · ${dia.bloquesRutina.length} bloque(s)</span>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
+                    <button onclick="duplicarDia(${idx})" title="Duplicar día" class="text-azul/50 hover:text-azul text-xs font-bold px-2 py-1 rounded transition" style="font-size:1rem;">⧉</button>
                     ${diasData.length > 1 ? '<button onclick="eliminarDia(' + idx + ')" class="text-rojo/50 hover:text-rojo text-xs font-bold px-2 py-1 rounded transition">✕</button>' : ''}
                     <div onclick="toggleDia(${idx})" style="cursor:pointer;">
                         <svg id="dia-chevron-${idx}" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-textoSuave transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
@@ -1539,7 +1569,7 @@
         } else if (tipo === 'Circuito por Tiempo') {
             html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Duracion (minutos)</label><input id="warmup-duracion-' + idx + '" type="number" value="3" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>';
         } else if (tipo === 'Tabata') {
-            html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Trabajo (seg)</label><input id="warmup-trabajo-' + idx + '" type="number" value="20" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label><input id="warmup-pausa-' + idx + '" type="number" value="10" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
+            html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Trabajo (seg)</label><input id="warmup-trabajo-' + idx + '" type="number" value="20" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label><input id="warmup-pausa-' + idx + '" type="number" value="10" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de series</label><input id="warmup-cantidad-' + idx + '" type="number" value="8" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
         } else if (tipo === 'EMOM') {
             html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Minutos</label><input id="warmup-minutos-' + idx + '" type="number" value="5" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>';
         } else if (tipo === 'Series/Reps') {
@@ -1885,7 +1915,9 @@
             html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Trabajo (seg)</label>
                     <input id="warmup-trabajo" type="number" value="20" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                     <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label>
-                    <input id="warmup-pausa" type="number" value="10" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>`;
+                    <input id="warmup-pausa" type="number" value="10" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+                    <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de series</label>
+                    <input id="warmup-cantidad" type="number" value="8" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>`;
         } else if (tipo === 'EMOM') {
             html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Minutos</label>
                     <input id="warmup-minutos" type="number" value="5" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>`;
@@ -2030,6 +2062,8 @@
                 <input id="bp-trabajo" type="number" value="20" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label>
                 <input id="bp-pausa" type="number" value="10" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+                <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de series</label>
+                <input id="bp-cantidad" type="number" value="8" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Rondas</label>
                 <input id="bp-rondas" type="number" value="1" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre rondas (seg)</label>
@@ -2127,11 +2161,6 @@
                     '<span class="text-xs text-textoSuave font-bold mr-1">Reps:</span>' +
                     vueltaInputs +
                     '<select onchange="bloqueEjsTemp[' + i + '].unit=this.value" class="rounded-lg px-1 py-1 text-xs ml-1"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' +
-                    '</div>' +
-                    '<div class="flex gap-2 items-center flex-wrap mt-1">' +
-                    '<span class="text-xs text-textoSuave font-bold ml-1">Pausa al final de la vuelta:</span>' +
-                    '<input type="number" value="' + (ej.descanso || '60') + '" min="0" onchange="bloqueEjsTemp[' + i + '].descanso=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Seg">' +
-                    '<span class="text-xs text-textoSuave">seg</span>' +
                     '</div>';
 
             } else if (esSeries) {
@@ -2232,6 +2261,7 @@
         } else if (tipo === 'Tabata') {
             bloque.trabajo = parseInt(document.getElementById('bp-trabajo')?.value || 20);
             bloque.pausa = parseInt(document.getElementById('bp-pausa')?.value || 10);
+            bloque.cantidad = parseInt(document.getElementById('bp-cantidad')?.value || 8);
             bloque.rondas = parseInt(document.getElementById('bp-rondas')?.value || 1);
             bloque.pausa_entre_rondas = parseInt(document.getElementById('bp-pausa-rondas')?.value || 0);
         } else if (tipo === 'EMOM') {
@@ -2273,6 +2303,7 @@
         } else if (b.tipo === 'Tabata') {
             const t = document.getElementById('bp-trabajo'); if(t) t.value = b.trabajo || 20;
             const p = document.getElementById('bp-pausa'); if(p) p.value = b.pausa || 10;
+            const c = document.getElementById('bp-cantidad'); if(c) c.value = b.cantidad || 8;
             const r = document.getElementById('bp-rondas'); if(r) r.value = b.rondas || 1;
             const pr = document.getElementById('bp-pausa-rondas'); if(pr) pr.value = b.pausa_entre_rondas || 0;
         } else if (b.tipo === 'EMOM') {
@@ -2563,6 +2594,7 @@
                 } else if (warmupTipo === 'Tabata') {
                     warmupDetalle.trabajo = parseInt(document.getElementById('warmup-trabajo-' + diaIdx)?.value || 20);
                     warmupDetalle.pausa = parseInt(document.getElementById('warmup-pausa-' + diaIdx)?.value || 10);
+                    warmupDetalle.cantidad = parseInt(document.getElementById('warmup-cantidad-' + diaIdx)?.value || 8);
                 } else if (warmupTipo === 'EMOM') {
                     warmupDetalle.minutos = parseInt(document.getElementById('warmup-minutos-' + diaIdx)?.value || 5);
                 } else if (warmupTipo === 'Series/Reps') {
@@ -2593,7 +2625,7 @@
                     } else if (tipo === 'Circuito por Tiempo') {
                         datos = { datos: [{ id: 1, ejercicios: b.ejercicios, tiempo_min: b.duracion_min }], descripcion: b.descripcion || descGlobal };
                     } else if (tipo === 'Tabata') {
-                        datos = { rutina: b.ejercicios.map(e => [e.nombre, e.link]), trabajo: b.trabajo, pausa: b.pausa, rondas: b.rondas, cantidad: b.ejercicios.length, pausa_entre_rondas: b.pausa_entre_rondas, descripcion: b.descripcion || descGlobal };
+                        datos = { rutina: b.ejercicios.map(e => [e.nombre, e.link]), trabajo: b.trabajo, pausa: b.pausa, rondas: b.rondas, cantidad: b.cantidad || b.ejercicios.length || 8, pausa_entre_rondas: b.pausa_entre_rondas, descripcion: b.descripcion || descGlobal };
                     } else if (tipo === 'EMOM') {
                         const repsDict = {}; const unitsDict = {}; const cargaDict = {};
                         b.ejercicios.forEach(e => { repsDict[e.nombre] = e.reps; unitsDict[e.nombre] = e.unit || 'Reps'; cargaDict[e.nombre] = e.con_carga || false; });
@@ -2658,6 +2690,27 @@
                     ? 'Incluye ' + data.total_dias + ' dias de entrenamiento'
                     : 'Incluye Calentamiento + Bloque Principal';
                 document.getElementById('modal-dias-info').innerText = diasInfo;
+                // Resetear sección de alumnos extra
+                document.getElementById('modal-alumnos-asignados').innerHTML = '';
+                _lastPayload = payload;
+                _alumnosAsignados = [alumno.toUpperCase()];
+                // Cargar lista de alumnos en el select extra
+                try {
+                    const resA = await fetch(API_BASE + '/api/alumnos');
+                    const dataA = await resA.json();
+                    const sel = document.getElementById('modal-alumno-extra');
+                    sel.innerHTML = '<option value="">-- Seleccionar alumno --</option>';
+                    if (dataA.ok && dataA.alumnos) {
+                        dataA.alumnos
+                            .filter(a => a.toUpperCase() !== alumno.toUpperCase())
+                            .forEach(a => {
+                                const opt = document.createElement('option');
+                                opt.value = a;
+                                opt.textContent = a.toUpperCase();
+                                sel.appendChild(opt);
+                            });
+                    }
+                } catch(e) {}
                 document.getElementById('modal-codigo').classList.remove('hidden');
                 toast('Rutina compartida!');
             } else {
@@ -2673,6 +2726,47 @@
     function copiarCodigo() {
         const codigo = document.getElementById('modal-codigo-text').innerText;
         navigator.clipboard.writeText(codigo).then(() => toast('Codigo copiado!')).catch(() => {});
+    }
+
+    let _lastPayload = null;
+    let _alumnosAsignados = [];
+
+    async function asignarRutinaAAlumnoExtra() {
+        const sel = document.getElementById('modal-alumno-extra');
+        const alumnoExtra = sel.value.trim();
+        if (!alumnoExtra) { toast('Seleccioná un alumno'); return; }
+        if (_alumnosAsignados.includes(alumnoExtra.toUpperCase())) {
+            toast('Ya fue asignado a ' + alumnoExtra.toUpperCase());
+            return;
+        }
+        if (!_lastPayload) { toast('Error: no hay rutina guardada'); return; }
+
+        const payloadExtra = Object.assign({}, _lastPayload, { alumno: alumnoExtra });
+        try {
+            const res = await fetch(API_BASE + '/api/rutina/compartir', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payloadExtra)
+            });
+            const data = await res.json();
+            if (data.ok) {
+                _alumnosAsignados.push(alumnoExtra.toUpperCase());
+                // Quitar del select
+                sel.remove(sel.selectedIndex);
+                sel.value = '';
+                // Agregar chip en la lista de asignados
+                const lista = document.getElementById('modal-alumnos-asignados');
+                const chip = document.createElement('div');
+                chip.className = 'flex items-center gap-2 bg-verde/10 border border-verde/30 rounded-lg px-3 py-1.5';
+                chip.innerHTML = '<span class="text-verde text-xs">✓</span><span class="text-texto text-xs font-bold flex-1">' + alumnoExtra.toUpperCase() + '</span><span class="text-textoSuave text-xs font-mono">' + data.codigo.toUpperCase() + '</span>';
+                lista.appendChild(chip);
+                toast('Asignado a ' + alumnoExtra.toUpperCase() + ' ✓');
+            } else {
+                toast('Error: ' + (data.error || 'no se pudo asignar'));
+            }
+        } catch(e) {
+            toast('Error de conexión');
+        }
     }
 
     // ====================================================================
@@ -3128,6 +3222,7 @@
                         } else if (dia._wTipo === 'Tabata') {
                             const t = document.getElementById('warmup-trabajo-' + i); if (t) t.value = cfg.trabajo || 20;
                             const p = document.getElementById('warmup-pausa-' + i); if (p) p.value = cfg.pausa || 10;
+                            const c = document.getElementById('warmup-cantidad-' + i); if (c) c.value = cfg.cantidad || 8;
                         } else if (dia._wTipo === 'EMOM') {
                             const m = document.getElementById('warmup-minutos-' + i); if (m) m.value = cfg.minutos || 5;
                         } else if (dia._wTipo === 'Series/Reps') {
