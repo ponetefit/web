@@ -1513,10 +1513,6 @@
                                 <option>Reps</option><option>Segs</option>
                             </select>
                         </div>
-                        <div id="warmup-emom-min-row-${idx}" class="flex gap-2 items-center mb-2" style="display:none;">
-                            <label class="text-xs text-textoSuave whitespace-nowrap">Agregar al minuto:</label>
-                            <select id="warmup-emom-min-sel-${idx}" class="rounded-lg px-2 py-1 text-xs flex-shrink-0"></select>
-                        </div>
                         <div class="flex gap-2 mb-3">
                             <button onclick="agregarEjWarmupDia(${idx})" class="bg-azul/20 text-azul px-3 py-2 rounded-lg text-sm font-bold hover:bg-azul/30 transition whitespace-nowrap w-full">+ Agregar</button>
                         </div>
@@ -1587,19 +1583,12 @@
             html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Series</label><input id="warmup-series-' + idx + '" type="number" value="3" min="1" oninput="renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones (default)</label><input id="warmup-reps-val-' + idx + '" type="number" value="10" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
         }
         container.innerHTML = html;
-        // Mostrar/ocultar selector de minuto EMOM y siempre mostrar el panel de busqueda
+        // Mostrar/ocultar el panel de búsqueda general según el tipo
+        // En EMOM, cada minuto tiene su propio buscador y botón amarillo → ocultar el panel general (azul)
         const ejPanel = document.getElementById('warmup-ej-panel-' + idx);
         const emomMinRow = document.getElementById('warmup-emom-min-row-' + idx);
-        if (ejPanel) ejPanel.style.display = '';
-        if (emomMinRow) {
-            if (tipo === 'EMOM') {
-                emomMinRow.style.display = '';
-                // Poblar selector de minutos segun los minutos configurados
-                setTimeout(() => actualizarWarmupEmomMinSel(idx), 100);
-            } else {
-                emomMinRow.style.display = 'none';
-            }
-        }
+        if (ejPanel) ejPanel.style.display = (tipo === 'EMOM') ? 'none' : '';
+        if (emomMinRow) emomMinRow.style.display = 'none'; // siempre oculto (ya no se usa)
         // Re-render exercise chips when warmup type changes
         renderWarmupEjsDia(idx);
     }
