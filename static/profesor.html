@@ -842,7 +842,7 @@
                 </div>
 
                 <!-- Ejercicios del bloque -->
-                <div>
+                <div id="bloque-ejercicios-panel">
                     <label class="text-xs text-textoSuave uppercase tracking-wider block mb-2">Ejercicios</label>
                     <div class="mb-2">
                         <input id="bloque-buscar-ej" type="text" placeholder="Buscar ejercicio..." onkeyup="filtrarEjsBloque()" class="w-full rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-verde focus:ring-2 focus:ring-verde/30 transition">
@@ -1498,6 +1498,7 @@
                             </div>
                             <div id="warmup-params-container-${idx}" class="md:col-span-2"></div>
                         </div>
+                        <div id="warmup-ej-panel-${idx}">
                         <div class="mb-2">
                             <input id="warmup-buscar-ej-${idx}" type="text" placeholder="Buscar ejercicio..." onkeyup="filtrarEjsWarmupDia(${idx})" class="w-full rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-azul focus:ring-2 focus:ring-azul/30 transition">
                         </div>
@@ -1512,6 +1513,7 @@
                                 <option>Reps</option><option>Segs</option>
                             </select>
                             <button onclick="agregarEjWarmupDia(${idx})" class="bg-azul/20 text-azul px-3 py-2 rounded-lg text-sm font-bold hover:bg-azul/30 transition whitespace-nowrap">+ Agregar</button>
+                        </div>
                         </div>
                         <div id="warmup-ejercicios-lista-${idx}" class="space-y-2"></div>
                     </div>
@@ -1579,6 +1581,10 @@
             html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Series</label><input id="warmup-series-' + idx + '" type="number" value="3" min="1" oninput="renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones (default)</label><input id="warmup-reps-val-' + idx + '" type="number" value="10" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
         }
         container.innerHTML = html;
+        // Ocultar el panel generico de busqueda/agregar ejercicio cuando el tipo es EMOM
+        // (el EMOM tiene su propia UI de ejercicios por minuto dentro de warmup-params-container)
+        const ejPanel = document.getElementById('warmup-ej-panel-' + idx);
+        if (ejPanel) ejPanel.style.display = (tipo === 'EMOM') ? 'none' : '';
         // Re-render exercise chips when warmup type changes
         renderWarmupEjsDia(idx);
     }
@@ -2057,6 +2063,7 @@
     function actualizarBloqueParams() {
         const tipo = document.getElementById('bloque-tipo').value;
         const container = document.getElementById('bloque-params-container');
+        const ejPanel = document.getElementById('bloque-ejercicios-panel');
         let html = '';
         if (tipo === 'Circuito') {
             html = `<div class="grid grid-cols-2 gap-3">
@@ -2094,6 +2101,9 @@
             html = `<p class="text-xs text-textoSuave">Define series, repeticiones y pausa por ejercicio abajo</p>`;
         }
         container.innerHTML = html;
+        // Ocultar el panel generico de ejercicios cuando el tipo es EMOM
+        // (el EMOM tiene su propia UI de ejercicios por minuto dentro de bloque-params-container)
+        if (ejPanel) ejPanel.style.display = (tipo === 'EMOM') ? 'none' : '';
     }
 
     // ── Helpers compartidos EMOM ────────────────────────────────────────────
@@ -2561,9 +2571,19 @@
     }
 
     function confirmarBloque() {
-        if (bloqueEjsTemp.length === 0) { toast('Agrega al menos un ejercicio'); return; }
-
         const tipo = document.getElementById('bloque-tipo').value;
+        // Para EMOM, los ejercicios se cargan en los slots por minuto, no en bloqueEjsTemp
+        if (tipo !== 'EMOM' && bloqueEjsTemp.length === 0) { toast('Agrega al menos un ejercicio'); return; }
+        // Para EMOM, verificar que haya al menos un ejercicio en algun minuto
+        if (tipo === 'EMOM') {
+            const mins = parseInt(document.getElementById('bp-minutos')?.value || 10);
+            let totalEjs = 0;
+            for (let _em = 0; _em < mins; _em++) {
+                const _listEl = document.getElementById('emom-min-' + _em + '-lista');
+                if (_listEl) { try { totalEjs += JSON.parse(_listEl.dataset.ejs || '[]').length; } catch(e) {} }
+            }
+            if (totalEjs === 0) { toast('Agrega al menos un ejercicio en algun minuto'); return; }
+        }
         const desc = document.getElementById('bloque-desc').value.trim();
 
         const bloque = {
@@ -2588,6 +2608,7 @@
             bloque.minutos_totales = parseInt(document.getElementById('bp-minutos')?.value || 10);
             // Leer configuración por minuto desde la nueva UI con buscador
             bloque.emom_config_por_minuto = [];
+            const _todosEjs = [];
             for (let _em = 0; _em < bloque.minutos_totales; _em++) {
                 const _listEl = document.getElementById('emom-min-' + _em + '-lista');
                 let _ejsData = [];
@@ -2600,8 +2621,11 @@
                     ejercicios_nombres: _ejsData.map(e => e.nombre),
                     ejercicios: _ejsData
                 });
+                _ejsData.forEach(e => { if (!_todosEjs.some(x => x.nombre === e.nombre)) _todosEjs.push(e); });
             }
             bloque.ejercicios_por_minuto = bloque.emom_config_por_minuto.reduce((mx, m) => Math.max(mx, m.ejercicios_cantidad), 1);
+            // Poblar ejercicios con lista unica para compatibilidad con otras partes del codigo
+            bloque.ejercicios = _todosEjs;
         }
         // Series: los datos ya estan en cada ejercicio
 
