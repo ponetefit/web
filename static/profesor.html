@@ -319,6 +319,7 @@
             <button onclick="showTab('rutina')" id="tab-rutina" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Crear Rutina</button>
             <button onclick="showTab('videoteca')" id="tab-videoteca" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Videoteca</button>
             <button onclick="showTab('historial')" id="tab-historial" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Historial</button>
+            <button onclick="showTab('repositorio')" id="tab-repositorio" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Repositorio</button>
         </div>
     </nav>
 
@@ -754,7 +755,57 @@
                         <div id="modal-alumnos-asignados" class="text-xs text-left space-y-1 max-h-28 overflow-y-auto"></div>
                     </div>
 
+                    <!-- Guardar en repositorio -->
+                    <div class="border-t border-borde/50 mt-2 pt-4 mb-2">
+                        <p class="text-xs text-textoSuave uppercase tracking-wider mb-3">Guardar en Repositorio</p>
+                        <div class="flex gap-2">
+                            <input type="text" id="repo-nombre-input" placeholder="Nombre ej: Push Pull Piernas" class="flex-1 rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto" />
+                            <button onclick="guardarEnRepositorio()" class="bg-naranja/20 text-naranja px-4 py-2 rounded-lg text-sm font-bold hover:bg-naranja/30 transition whitespace-nowrap">Guardar</button>
+                        </div>
+                        <p class="text-xs text-textoSuave mt-1.5" id="repo-modal-status"></p>
+                    </div>
+
                     <button onclick="document.getElementById('modal-codigo').classList.add('hidden')" class="text-textoSuave text-sm hover:text-texto transition w-full py-2 mt-1">Cerrar</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- TAB: REPOSITORIO -->
+        <!-- ═══════════════════════════════════════════ -->
+        <section id="sec-repositorio" class="hidden">
+            <div class="bg-tarjeta rounded-2xl border border-borde p-6 mb-6">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+                    <div>
+                        <h2 class="text-lg font-bold text-naranja uppercase tracking-wider">Repositorio de Rutinas</h2>
+                        <p class="text-textoSuave text-xs mt-0.5">Rutinas modelo guardadas para reutilizar con cualquier alumno</p>
+                    </div>
+                    <button onclick="cargarRepositorio()" class="bg-naranja/20 text-naranja px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition whitespace-nowrap">Actualizar</button>
+                </div>
+
+                <!-- Buscador -->
+                <div class="mb-4">
+                    <input type="text" id="repo-filtro" placeholder="Buscar rutina..." oninput="filtrarRepositorio()" class="w-full rounded-lg px-4 py-2.5 text-sm bg-fondoAlt border border-borde text-texto" />
+                </div>
+
+                <!-- Lista de rutinas del repositorio -->
+                <div id="repo-lista" class="space-y-3">
+                    <p class="text-textoSuave text-sm text-center py-10">Cargando repositorio...</p>
+                </div>
+            </div>
+
+            <!-- Modal copiar a alumno -->
+            <div id="modal-repo-copiar" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+                <div class="bg-tarjeta rounded-2xl border border-borde p-6 max-w-sm w-full">
+                    <h3 class="text-base font-black text-texto mb-1">Copiar al Alumno</h3>
+                    <p class="text-textoSuave text-xs mb-4" id="modal-repo-rutina-nombre"></p>
+                    <select id="modal-repo-alumno-sel" class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondoAlt border border-borde text-texto mb-3">
+                        <option value="">-- Seleccionar alumno --</option>
+                    </select>
+                    <div class="flex gap-2">
+                        <button onclick="confirmarCopiarDesdeRepo()" class="flex-1 bg-verde/20 text-verde py-2.5 rounded-lg text-sm font-bold hover:bg-verde/30 transition">Copiar</button>
+                        <button onclick="document.getElementById('modal-repo-copiar').classList.add('hidden')" class="flex-1 bg-borde/20 text-textoSuave py-2.5 rounded-lg text-sm font-bold hover:bg-borde/40 transition">Cancelar</button>
+                    </div>
                 </div>
             </div>
         </section>
@@ -1113,7 +1164,7 @@
     // TABS
     // ====================================================================
     function showTab(tab) {
-        ['dashboard', 'videoteca', 'rutina', 'historial'].forEach(t => {
+        ['dashboard', 'videoteca', 'rutina', 'historial', 'repositorio'].forEach(t => {
             document.getElementById('sec-' + t).classList.toggle('hidden', t !== tab);
             document.getElementById('tab-' + t).className = t === tab
                 ? 'tab-active px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors'
@@ -1121,6 +1172,7 @@
         });
         if (tab === 'rutina') inicializarRutina();
         if (tab === 'dashboard') cargarAlumnosDash();
+        if (tab === 'repositorio') cargarRepositorio();
     }
 
     // ====================================================================
@@ -4598,6 +4650,155 @@
             console.error('Error generando PDF:', err);
             toast('Error al generar PDF: ' + (err.message || 'desconocido'));
         }
+    }
+
+    // ====================================================================
+    // REPOSITORIO DE RUTINAS
+    // ====================================================================
+
+    let _repositorioData = {};       // cache { key: {nombre, tipo, fecha, ...payload} }
+    let _repoKeyParaCopiar = null;   // key seleccionada en el modal de copiar
+
+    // ── Carga todos los items del repositorio desde Firebase ──
+    async function cargarRepositorio() {
+        const lista = document.getElementById('repo-lista');
+        if (lista) lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-10">Cargando...</p>';
+        try {
+            const data = await fbGet('/repositorio') || {};
+            _repositorioData = data;
+            renderRepositorio(data);
+        } catch(e) {
+            if (lista) lista.innerHTML = '<p class="text-rojo text-sm text-center py-10">Error al cargar: ' + e.message + '</p>';
+        }
+    }
+
+    // ── Renderiza la lista de rutinas del repositorio ──
+    function renderRepositorio(data) {
+        const lista = document.getElementById('repo-lista');
+        if (!lista) return;
+        const filtro = (document.getElementById('repo-filtro')?.value || '').toLowerCase();
+        const keys = Object.keys(data).filter(k => {
+            if (!filtro) return true;
+            return (data[k].nombre || k).toLowerCase().includes(filtro);
+        }).sort((a, b) => (data[b].fecha || '').localeCompare(data[a].fecha || ''));
+
+        if (keys.length === 0) {
+            lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-10">No hay rutinas en el repositorio' + (filtro ? ' que coincidan con la búsqueda' : '') + '</p>';
+            return;
+        }
+
+        lista.innerHTML = keys.map(k => {
+            const r = data[k];
+            const nombre = r.nombre || k;
+            const tipo = (r.tipo || r.rutina_tipo || 'ENTRENAMIENTO').toUpperCase();
+            const fecha = r.fecha ? new Date(r.fecha).toLocaleDateString('es-AR', { day:'2-digit', month:'short', year:'2-digit' }) : '';
+            const colorTipo = tipo === 'SPINNING' ? 'text-azul' : tipo === 'MULTIDIA' ? 'text-purpura' : 'text-verde';
+            const badgeTipo = tipo === 'SPINNING' ? 'bg-azul/10 text-azul' : tipo === 'MULTIDIA' ? 'bg-purpura/10 text-purpura' : 'bg-verde/10 text-verde';
+            return `<div class="flex items-center justify-between gap-3 bg-fondoAlt border border-borde rounded-xl px-4 py-3">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="font-bold text-texto text-sm">${escapeHtml(nombre)}</span>
+                        <span class="text-xs font-bold px-2 py-0.5 rounded-full ${badgeTipo}">${tipo}</span>
+                    </div>
+                    ${fecha ? '<p class="text-textoSuave text-xs mt-0.5">Guardado: ' + fecha + '</p>' : ''}
+                </div>
+                <div class="flex gap-2 shrink-0">
+                    <button onclick="abrirModalCopiarRepo('${k}')" class="bg-verde/20 text-verde px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-verde/30 transition">Copiar a alumno</button>
+                    <button onclick="eliminarDelRepositorio('${k}')" class="bg-rojo/20 text-rojo px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition">Eliminar</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // ── Filtra la lista según el input de búsqueda ──
+    function filtrarRepositorio() {
+        renderRepositorio(_repositorioData);
+    }
+
+    // ── Guarda la rutina actual (del modal compartir) en el repositorio ──
+    async function guardarEnRepositorio() {
+        const input = document.getElementById('repo-nombre-input');
+        const status = document.getElementById('repo-modal-status');
+        const nombre = (input?.value || '').trim();
+        if (!nombre) { if (status) status.textContent = 'Escribí un nombre para la rutina'; return; }
+        if (!_lastPayload) { if (status) status.textContent = 'Primero compartí la rutina'; return; }
+
+        if (status) status.textContent = 'Guardando...';
+        try {
+            const key = nombre.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') + '_' + Date.now();
+            const tipo = _lastPayload.tipo || 'ENTRENAMIENTO';
+            const entry = Object.assign({}, _lastPayload, { nombre, tipo, fecha: new Date().toISOString(), rutina_tipo: tipo });
+            await fbPut('/repositorio/' + key, entry);
+            if (input) input.value = '';
+            if (status) { status.textContent = '✓ Guardado en repositorio'; status.style.color = '#4CAF50'; }
+            setTimeout(() => { if (status) { status.textContent = ''; status.style.color = ''; } }, 3000);
+            // Actualizar cache
+            _repositorioData[key] = entry;
+        } catch(e) {
+            if (status) status.textContent = 'Error: ' + e.message;
+        }
+    }
+
+    // ── Abre el modal para copiar una rutina del repositorio a un alumno ──
+    async function abrirModalCopiarRepo(key) {
+        _repoKeyParaCopiar = key;
+        const r = _repositorioData[key];
+        const nombreRutina = document.getElementById('modal-repo-rutina-nombre');
+        if (nombreRutina) nombreRutina.textContent = r ? (r.nombre || key) : key;
+
+        // Cargar alumnos en el select
+        const sel = document.getElementById('modal-repo-alumno-sel');
+        if (sel) {
+            sel.innerHTML = '<option value="">-- Seleccionar alumno --</option>';
+            try {
+                const data = await apiGetAlumnos();
+                (data.alumnos || []).forEach(a => {
+                    const opt = document.createElement('option');
+                    opt.value = a;
+                    opt.textContent = a.toUpperCase();
+                    sel.appendChild(opt);
+                });
+            } catch(e) {}
+        }
+        document.getElementById('modal-repo-copiar')?.classList.remove('hidden');
+    }
+
+    // ── Confirma la copia al alumno seleccionado ──
+    async function confirmarCopiarDesdeRepo() {
+        const sel = document.getElementById('modal-repo-alumno-sel');
+        const alumno = sel?.value || '';
+        if (!alumno) { toast('Seleccioná un alumno'); return; }
+        if (!_repoKeyParaCopiar || !_repositorioData[_repoKeyParaCopiar]) { toast('Error: rutina no encontrada'); return; }
+
+        try {
+            toast('Copiando rutina...');
+            const r = _repositorioData[_repoKeyParaCopiar];
+            const payload = Object.assign({}, r, { alumno });
+            const data = await apiCompartirRutina(payload);
+            document.getElementById('modal-repo-copiar')?.classList.add('hidden');
+            toast('Rutina copiada a ' + alumno.toUpperCase() + ' con código ' + (data.codigo || '').toUpperCase());
+        } catch(e) {
+            toast('Error al copiar: ' + e.message);
+        }
+    }
+
+    // ── Elimina una rutina del repositorio ──
+    async function eliminarDelRepositorio(key) {
+        const nombre = (_repositorioData[key]?.nombre || key);
+        if (!confirm('¿Eliminar "' + nombre + '" del repositorio? Esta acción no se puede deshacer.')) return;
+        try {
+            await fbDelete('/repositorio/' + key);
+            delete _repositorioData[key];
+            renderRepositorio(_repositorioData);
+            toast('Rutina eliminada del repositorio');
+        } catch(e) {
+            toast('Error al eliminar: ' + e.message);
+        }
+    }
+
+    // ── Helper para escapar HTML en nombres ──
+    function escapeHtml(s) {
+        return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
     // ====================================================================
