@@ -976,7 +976,6 @@
     // ====================================================================
     function toast(msg) {
         const t = document.getElementById('toast');
-        if (!t) return;
         t.innerText = msg;
         t.style.transform = 'translateX(-50%) translateY(0)';
         setTimeout(() => t.style.transform = 'translateX(-50%) translateY(80px)', 2800);
@@ -1084,7 +1083,6 @@
     // Si se pasa dataOverride se usa eso, sino se usa la categoria seleccionada de VIDEOTECA_DATA
     function renderizarVideoteca(dataOverride) {
         const lista = document.getElementById('lista-ejercicios');
-        if (!lista) return;
         const query = (document.getElementById('buscar-ejercicio')?.value || '').trim().toLowerCase();
         const elemFiltro = (document.getElementById('vt-elemento-select')?.value || '');
         const zonaRaw = (document.getElementById('vt-zona-select')?.value || '');
@@ -1164,47 +1162,44 @@
     }
 
     function editarEjercicio(nombre, link) {
-        const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-        set('ej-nombre', nombre);
-        set('ej-link', link);
-        set('ej-musculo1', '');
-        set('ej-musculo2', '');
-        set('ej-sinergista', '');
-        const statusEl = document.getElementById('status-ej');
-        if (statusEl) statusEl.innerText = 'Editando: ' + nombre;
+        document.getElementById('ej-nombre').value = nombre;
+        document.getElementById('ej-link').value = link;
+        document.getElementById('ej-musculo1').value = '';
+        document.getElementById('ej-musculo2').value = '';
+        document.getElementById('ej-sinergista').value = '';
+        document.getElementById('status-ej').innerText = 'Editando: ' + nombre;
     }
 
     function editarEjercicioFull(data) {
-        const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-        set('ej-nombre', data.nombre || '');
-        set('ej-link', data.link || '');
-        set('ej-musculo1', data.m1 || '');
-        set('ej-musculo2', data.m2 || '');
-        set('ej-sinergista', data.sin || '');
-        set('ej-elemento', data.elemento || '');
-        set('ej-tip1', data.tip1 || '');
-        set('ej-tip2', data.tip2 || '');
-        const conCargaEl = document.getElementById('ej-con-carga');
-        if (conCargaEl) conCargaEl.checked = data.con_carga === true || data.con_carga === 'true';
-        const statusEl = document.getElementById('status-ej');
-        if (statusEl) statusEl.innerText = 'Editando: ' + (data.nombre || '');
+        document.getElementById('ej-nombre').value = data.nombre || '';
+        document.getElementById('ej-link').value = data.link || '';
+        document.getElementById('ej-musculo1').value = data.m1 || '';
+        document.getElementById('ej-musculo2').value = data.m2 || '';
+        document.getElementById('ej-sinergista').value = data.sin || '';
+        document.getElementById('ej-elemento').value = data.elemento || '';
+        document.getElementById('ej-con-carga').checked = data.con_carga === true || data.con_carga === 'true';
+        document.getElementById('ej-tip1').value = data.tip1 || '';
+        document.getElementById('ej-tip2').value = data.tip2 || '';
+        document.getElementById('status-ej').innerText = 'Editando: ' + (data.nombre || '');
         const ejCat = document.getElementById('ej-categoria');
-        if (ejCat && data.cat) ejCat.value = data.cat;
-        const ejNombreEl = document.getElementById('ej-nombre');
-        if (ejNombreEl) ejNombreEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (ejCat) {
+            const catActual = data.cat || '';
+            if (catActual) ejCat.value = catActual;
+        }
+        document.getElementById('ej-nombre').scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     async function guardarEjercicio() {
         const categoria = document.getElementById('ej-categoria')?.value || '';
-        const nombre = (document.getElementById('ej-nombre')?.value || '').trim();
-        const link = (document.getElementById('ej-link')?.value || '').trim();
-        const musculo1 = document.getElementById('ej-musculo1')?.value || '';
-        const musculo2 = document.getElementById('ej-musculo2')?.value || '';
-        const sinergista = document.getElementById('ej-sinergista')?.value || '';
-        const elemento = document.getElementById('ej-elemento')?.value || '';
-        const con_carga = document.getElementById('ej-con-carga')?.checked || false;
-        const tip1 = (document.getElementById('ej-tip1')?.value || '').trim();
-        const tip2 = (document.getElementById('ej-tip2')?.value || '').trim();
+        const nombre = document.getElementById('ej-nombre').value.trim();
+        const link = document.getElementById('ej-link').value.trim();
+        const musculo1 = document.getElementById('ej-musculo1').value;
+        const musculo2 = document.getElementById('ej-musculo2').value;
+        const sinergista = document.getElementById('ej-sinergista').value;
+        const elemento = document.getElementById('ej-elemento').value;
+        const con_carga = document.getElementById('ej-con-carga').checked;
+        const tip1 = document.getElementById('ej-tip1').value.trim();
+        const tip2 = document.getElementById('ej-tip2').value.trim();
         if (!nombre || !link) { toast('Completa nombre y link'); return; }
 
         try {
@@ -1239,11 +1234,16 @@
                 toast('Ejercicio guardado');
             }
 
-            ['ej-nombre','ej-link','ej-musculo1','ej-musculo2','ej-sinergista','ej-elemento','ej-tip1','ej-tip2'].forEach(id => {
-                const el = document.getElementById(id); if (el) el.value = '';
-            });
-            const conCargaEl = document.getElementById('ej-con-carga'); if (conCargaEl) conCargaEl.checked = false;
-            const statusEl = document.getElementById('status-ej'); if (statusEl) statusEl.innerText = '';
+            document.getElementById('ej-nombre').value = '';
+            document.getElementById('ej-link').value = '';
+            document.getElementById('ej-musculo1').value = '';
+            document.getElementById('ej-musculo2').value = '';
+            document.getElementById('ej-sinergista').value = '';
+            document.getElementById('ej-elemento').value = '';
+            document.getElementById('ej-con-carga').checked = false;
+            document.getElementById('ej-tip1').value = '';
+            document.getElementById('ej-tip2').value = '';
+            document.getElementById('status-ej').innerText = '';
             await cargarVideoteca();
         } catch (e) {
             toast('Error al guardar el ejercicio');
@@ -1253,7 +1253,7 @@
 
     async function eliminarEjercicio() {
         const categoria = document.getElementById('ej-categoria')?.value || '';
-        const nombre = (document.getElementById('ej-nombre')?.value || '').trim();
+        const nombre = document.getElementById('ej-nombre').value.trim();
         if (!nombre) { toast('Escribe el nombre a eliminar'); return; }
 
         if (!confirm('Eliminar "' + nombre + '"?')) return;
@@ -1267,9 +1267,9 @@
             const data = await res.json();
             if (data.ok) {
                 toast(data.mensaje);
-                const ejNomEl = document.getElementById('ej-nombre'); if (ejNomEl) ejNomEl.value = '';
-                const ejLinkEl = document.getElementById('ej-link'); if (ejLinkEl) ejLinkEl.value = '';
-                const statusEl2 = document.getElementById('status-ej'); if (statusEl2) statusEl2.innerText = data.mensaje;
+                document.getElementById('ej-nombre').value = '';
+                document.getElementById('ej-link').value = '';
+                document.getElementById('status-ej').innerText = data.mensaje;
                 await cargarVideoteca();
             } else {
                 toast('Error: ' + data.error);
@@ -1290,7 +1290,7 @@
         // Verificar que no exista ya
         if (VIDEOTECA_DATA[nombre]) {
             toast('La categoría "' + nombre + '" ya existe');
-            document.getElementById('modal-nueva-cat')?.classList.add('hidden');
+            document.getElementById('modal-nueva-cat').classList.add('hidden');
             // Seleccionar esa categoría en el filtro y mostrar sus ejercicios
             poblarCategorias();
             const vtZona = document.getElementById('vt-zona-select');
@@ -1316,9 +1316,8 @@
             renderizarVideoteca();
         }
         toast('Categoría "' + nombre + '" creada');
-        document.getElementById('modal-nueva-cat')?.classList.add('hidden');
-        const nuevoNombreEl = document.getElementById('nueva-cat-nombre');
-        if (nuevoNombreEl) nuevoNombreEl.value = '';
+        document.getElementById('modal-nueva-cat').classList.add('hidden');
+        document.getElementById('nueva-cat-nombre').value = '';
 
         // 2. Guardar en el backend en segundo plano
         try {
@@ -1418,9 +1417,6 @@
         diasData.splice(idx, 1);
         // Re-titular dias
         diasData.forEach((d, i) => { d.titulo = 'Dia ' + (i + 1); });
-        // Resincronizar al primer día disponible
-        diaActivoIdx = 0;
-        bloquesRutina = diasData[0].bloquesRutina;
         renderDias();
     }
 
@@ -2006,9 +2002,8 @@
 
     function agregarEjWarmup() {
         const selEj = document.getElementById('warmup-ej-select');
-        if (!selEj) return;
         const nombre = selEj.value;
-        const reps = (document.getElementById('warmup-ej-reps')?.value || '').trim();
+        const reps = document.getElementById('warmup-ej-reps').value.trim() || '';
         const unit = document.getElementById('warmup-ej-unit').value;
         if (!nombre || nombre === 'Sin ejercicios' || nombre === 'Sin resultados') return;
         const selectedOption = selEj.options[selEj.selectedIndex];
@@ -2040,7 +2035,6 @@
 
     function renderWarmupEjs() {
         const lista = document.getElementById('warmup-ejercicios-lista');
-        if (!lista) return;
         // Auto-actualizar el contador "Cantidad de ejercicios" para Tabata calentamiento standalone
         const cantidadEl = document.getElementById('warmup-cantidad');
         if (cantidadEl) { cantidadEl.value = warmupEjercicios.length; }
@@ -2086,7 +2080,6 @@
         const cat = document.getElementById('bloque-cat-select')?.value;
         const sel = document.getElementById('bloque-ej-select');
         const elemSel = document.getElementById('bloque-elemento-select');
-        if (!sel) return;
         const elemFiltro = elemSel ? elemSel.value : '';
 
         let ejs = cat ? (videotecaCache[cat] || []) : Object.values(videotecaCache).flat();
@@ -2103,7 +2096,6 @@
         const query = (document.getElementById('bloque-buscar-ej')?.value || '').trim().toLowerCase();
         const sel = document.getElementById('bloque-ej-select');
         const elemSel = document.getElementById('bloque-elemento-select');
-        if (!sel) return;
         const elemFiltro = elemSel ? elemSel.value : '';
         if (!query) { cargarEjsBloque(); return; }
         // Buscar en TODAS las categorias
@@ -2123,10 +2115,8 @@
     }
 
     function actualizarBloqueParams() {
-        const tipoEl = document.getElementById('bloque-tipo');
+        const tipo = document.getElementById('bloque-tipo').value;
         const container = document.getElementById('bloque-params-container');
-        if (!tipoEl || !container) return;
-        const tipo = tipoEl.value;
         const ejPanel = document.getElementById('bloque-ejercicios-panel');
         let html = '';
         if (tipo === 'Circuito') {
@@ -2496,11 +2486,10 @@
 
     function agregarEjBloque() {
         const selEj = document.getElementById('bloque-ej-select');
-        if (!selEj) return;
         const nombre = selEj.value;
         if (!nombre || nombre === 'Sin ejercicios' || nombre === 'Sin resultados') return;
         // Tabata: no se pueden agregar más ejercicios que la "cantidad" configurada
-        const tipoBlq = document.getElementById('bloque-tipo')?.value || '';
+        const tipoBlq = document.getElementById('bloque-tipo').value;
         if (tipoBlq === 'Tabata') {
             const cantMax = parseInt(document.getElementById('bp-cantidad')?.value) || 4;
             if (bloqueEjsTemp.length >= cantMax) {
@@ -2546,9 +2535,7 @@
 
     function renderBloqueEjsTemp() {
         const lista = document.getElementById('bloque-ejercicios-lista');
-        const tipoEl = document.getElementById('bloque-tipo');
-        if (!lista || !tipoEl) return;
-        const tipo = tipoEl.value;
+        const tipo = document.getElementById('bloque-tipo').value;
         const esCircuito = (tipo === 'Circuito');
         const esCircuitoTiempo = (tipo === 'Circuito por Tiempo');
         const esSeries = (tipo === 'Series');
@@ -2666,7 +2653,7 @@
     }
 
     function confirmarBloque() {
-        const tipo = document.getElementById('bloque-tipo')?.value || 'Circuito';
+        const tipo = document.getElementById('bloque-tipo').value;
         // Para EMOM, los ejercicios se cargan en los slots por minuto, no en bloqueEjsTemp
         if (tipo !== 'EMOM' && bloqueEjsTemp.length === 0) { toast('Agrega al menos un ejercicio'); return; }
         // Para EMOM, verificar que haya al menos un ejercicio en algun minuto
@@ -2679,7 +2666,7 @@
             }
             if (totalEjs === 0) { toast('Agrega al menos un ejercicio en algun minuto'); return; }
         }
-        const desc = (document.getElementById('bloque-desc')?.value || '').trim();
+        const desc = document.getElementById('bloque-desc').value.trim();
 
         const bloque = {
             tipo: tipo,
@@ -2743,8 +2730,6 @@
 
     function editarBloque(idx) {
         editandoBloqueIdx = idx;
-        // Asegurar que bloquesRutina apunta al día activo
-        if (diasData[diaActivoIdx]) bloquesRutina = diasData[diaActivoIdx].bloquesRutina;
         const b = bloquesRutina[idx];
         document.getElementById('bloque-tipo').value = b.tipo;
         document.getElementById('bloque-desc').value = b.descripcion || '';
@@ -2808,27 +2793,19 @@
     function eliminarBloque(idx) {
         if (!confirm('Eliminar este bloque?')) return;
         bloquesRutina.splice(idx, 1);
-        diasData[diaActivoIdx].bloquesRutina = bloquesRutina;
-        renderBloquesDia(diaActivoIdx);
-        actualizarBadgeDia(diaActivoIdx);
+        renderBloques();
     }
 
     function renderBloques() {
-        // La UI usa el sistema multi-día: delegar siempre a renderBloquesDia
-        renderBloquesDia(diaActivoIdx);
-        actualizarBadgeDia(diaActivoIdx);
-    }
-
-    function _renderBloquesLegacy() {
         const lista = document.getElementById('bloques-lista');
         const sinBloques = document.getElementById('sin-bloques');
-        if (!lista) return;
+
         if (bloquesRutina.length === 0) {
             lista.innerHTML = '';
-            if (sinBloques) sinBloques.classList.remove('hidden');
+            sinBloques.classList.remove('hidden');
             return;
         }
-        if (sinBloques) sinBloques.classList.add('hidden');
+        sinBloques.classList.add('hidden');
 
         const colorMap = {
             'Circuito': 'azul', 'Circuito por Tiempo': 'azul',
@@ -2837,7 +2814,7 @@
 
         lista.innerHTML = bloquesRutina.map((b, i) => {
             const color = colorMap[b.tipo] || 'purpura';
-            const ejsHtml = (b.ejercicios || []).map(e =>
+            const ejsHtml = b.ejercicios.map(e =>
                 `<span class="text-xs bg-fondoAlt px-2 py-1 rounded">${e.nombre}</span>`
             ).join(' ');
             let metaHtml = '';
@@ -2851,7 +2828,7 @@
                     metaHtml = b.minutos_totales + ' min | ' + (b.ejercicios_por_minuto || 1) + ' ej/min';
                 }
             }
-            else if (b.tipo === 'Series') metaHtml = (b.ejercicios || []).length + ' ejercicios';
+            else if (b.tipo === 'Series') metaHtml = b.ejercicios.length + ' ejercicios';
 
             return `<div class="bg-fondoAlt rounded-2xl border border-${color}/30 p-4" draggable="true" data-idx="${i}" data-list="bloques" ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)">
                 <div class="flex items-center justify-between mb-2">
@@ -2870,7 +2847,11 @@
             </div>`;
         }).join('');
         initTouchDragForList(lista, 'bloques');
-    } // end _renderBloquesLegacy
+    }
+
+    // ====================================================================
+    // DRAG & DROP - Reordenar ejercicios y bloques
+    // ====================================================================
     let dragState = { srcIdx: null, listType: null };
 
     function getDataArray(listType) {
@@ -2888,7 +2869,7 @@
     function rerenderList(listType) {
         if (listType === 'warmup') renderWarmupEjs();
         if (listType === 'bloque') renderBloqueEjsTemp();
-        if (listType === 'bloques') { renderBloquesDia(diaActivoIdx); actualizarBadgeDia(diaActivoIdx); return; }
+        if (listType === 'bloques') renderBloques();
         const wmMatch = listType.match(/^warmup-dia-(\d+)$/);
         if (wmMatch) { const i = parseInt(wmMatch[1]); renderWarmupEjsDia(i); actualizarBadgeDia(i); return; }
         const blMatch = listType.match(/^bloques-dia-(\d+)$/);
@@ -2959,7 +2940,6 @@
     // TOUCH DRAG & DROP (mobile support)
     // ====================================================================
     function initTouchDragForList(container, listType) {
-        if (!container) return;
         const items = container.querySelectorAll('[draggable="true"]');
         items.forEach(item => {
             const handle = item.querySelector('.drag-handle');
@@ -3063,8 +3043,8 @@
 
     // --- Compartir ---
     async function compartirRutina() {
-        const alumno = (document.getElementById('alumno-nombre')?.value || '').trim() || 'ALUMNO';
-        const descGlobal = (document.getElementById('rutina-desc')?.value || '').trim();
+        const alumno = document.getElementById('alumno-nombre').value.trim() || 'ALUMNO';
+        const descGlobal = document.getElementById('rutina-desc').value.trim();
 
         // Verificar que haya al menos algo en algun dia
         const hayContenido = diasData.some(d =>
@@ -3145,10 +3125,10 @@
                     } else if (tipo === 'Circuito por Tiempo') {
                         datos = { datos: [{ id: 1, ejercicios: b.ejercicios, tiempo_min: b.duracion_min }], descripcion: b.descripcion || descGlobal };
                     } else if (tipo === 'Tabata') {
-                        datos = { rutina: (b.ejercicios||[]).map(e => [e.nombre, e.link]), trabajo: b.trabajo, pausa: b.pausa, rondas: b.rondas, cantidad: b.cantidad || (b.ejercicios||[]).length || 8, pausa_entre_rondas: b.pausa_entre_rondas, descripcion: b.descripcion || descGlobal };
+                        datos = { rutina: b.ejercicios.map(e => [e.nombre, e.link]), trabajo: b.trabajo, pausa: b.pausa, rondas: b.rondas, cantidad: b.cantidad || b.ejercicios.length || 8, pausa_entre_rondas: b.pausa_entre_rondas, descripcion: b.descripcion || descGlobal };
                     } else if (tipo === 'EMOM') {
                         const repsDict = {}; const unitsDict = {}; const cargaDict = {};
-                        (b.ejercicios||[]).forEach(e => { repsDict[e.nombre] = e.reps; unitsDict[e.nombre] = e.unit || 'Reps'; cargaDict[e.nombre] = e.con_carga || false; });
+                        b.ejercicios.forEach(e => { repsDict[e.nombre] = e.reps; unitsDict[e.nombre] = e.unit || 'Reps'; cargaDict[e.nombre] = e.con_carga || false; });
                         const ciclo = [];
                         // Usar emom_config_por_minuto si existe (nueva configuración por minuto)
                         if (b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
@@ -3156,7 +3136,7 @@
                                 const ejsMin = [];
                                 (minCfg.ejercicios_nombres || []).forEach(ejNombre => {
                                     // Buscar el ejercicio en la lista de ejercicios del bloque
-                                    let ejData = (b.ejercicios||[]).find(e => e.nombre === ejNombre);
+                                    let ejData = b.ejercicios.find(e => e.nombre === ejNombre);
                                     if (!ejData) {
                                         // Buscar en la videoteca
                                         let found = null;
@@ -3174,7 +3154,7 @@
                             for (let m = 0; m < b.minutos_totales; m++) {
                                 const ejsMin = [];
                                 for (let j = 0; j < (b.ejercicios_por_minuto || 1); j++) {
-                                    const idx = (m * (b.ejercicios_por_minuto||1) + j) % (b.ejercicios||[1]).length;
+                                    const idx = (m * (b.ejercicios_por_minuto||1) + j) % b.ejercicios.length;
                                     const e = b.ejercicios[idx];
                                     ejsMin.push({ nombre: e.nombre, link: e.link, reps: e.reps, unit: e.unit || 'Reps', con_carga: e.con_carga || false });
                                 }
@@ -3182,7 +3162,7 @@
                             }
                         }
                         // rutina como objetos completos para preservar con_carga
-                        const rutinaObjs = (b.ejercicios||[]).map(e => ({ nombre: e.nombre, link: e.link, con_carga: e.con_carga || false }));
+                        const rutinaObjs = b.ejercicios.map(e => ({ nombre: e.nombre, link: e.link, con_carga: e.con_carga || false }));
                         datos = { rutina: rutinaObjs, minutos_totales: b.minutos_totales, ejercicios_por_minuto: b.ejercicios_por_minuto || 1, reps_por_ejercicio: repsDict, units_por_ejercicio: unitsDict, carga_por_ejercicio: cargaDict, minutos_ciclo: ciclo, descripcion: b.descripcion || descGlobal };
                     } else if (tipo === 'Series') {
                         datos = { datos: b.ejercicios, descripcion: b.descripcion || descGlobal };
@@ -3241,16 +3221,14 @@
             });
             const data = await res.json();
             if (data.ok) {
-                document.getElementById('modal-codigo-text').innerText = (data.codigo || '').toUpperCase();
-                document.getElementById('modal-info').innerText = 'Rutina asignada a ' + (data.alumno || alumno);
+                document.getElementById('modal-codigo-text').innerText = data.codigo.toUpperCase();
+                document.getElementById('modal-info').innerText = 'Rutina asignada a ' + data.alumno;
                 const diasInfo = data.es_multidia
                     ? 'Incluye ' + data.total_dias + ' dias de entrenamiento'
                     : 'Incluye Calentamiento + Bloque Principal';
-                const diasInfoEl = document.getElementById('modal-dias-info');
-                if (diasInfoEl) diasInfoEl.innerText = diasInfo;
+                document.getElementById('modal-dias-info').innerText = diasInfo;
                 // Resetear sección de alumnos extra
-                const asignadosEl = document.getElementById('modal-alumnos-asignados');
-                if (asignadosEl) asignadosEl.innerHTML = '';
+                document.getElementById('modal-alumnos-asignados').innerHTML = '';
                 _lastPayload = payload;
                 _alumnosAsignados = [alumno.toUpperCase()];
                 // Cargar lista de alumnos en el select extra
@@ -3258,7 +3236,6 @@
                     const resA = await fetch(API_BASE + '/api/alumnos');
                     const dataA = await resA.json();
                     const sel = document.getElementById('modal-alumno-extra');
-                    if (!sel) throw new Error('no sel');
                     sel.innerHTML = '<option value="">-- Seleccionar alumno --</option>';
                     if (dataA.ok && dataA.alumnos) {
                         dataA.alumnos
@@ -3293,7 +3270,6 @@
 
     async function asignarRutinaAAlumnoExtra() {
         const sel = document.getElementById('modal-alumno-extra');
-        if (!sel) return;
         const alumnoExtra = sel.value.trim();
         if (!alumnoExtra) { toast('Seleccioná un alumno'); return; }
         if (_alumnosAsignados.includes(alumnoExtra.toUpperCase())) {
@@ -3317,12 +3293,10 @@
                 sel.value = '';
                 // Agregar chip en la lista de asignados
                 const lista = document.getElementById('modal-alumnos-asignados');
-                if (lista) {
-                    const chip = document.createElement('div');
-                    chip.className = 'flex items-center gap-2 bg-verde/10 border border-verde/30 rounded-lg px-3 py-1.5';
-                    chip.innerHTML = '<span class="text-verde text-xs">✓</span><span class="text-texto text-xs font-bold flex-1">' + alumnoExtra.toUpperCase() + '</span><span class="text-textoSuave text-xs font-mono">' + (data.codigo || '').toUpperCase() + '</span>';
-                    lista.appendChild(chip);
-                }
+                const chip = document.createElement('div');
+                chip.className = 'flex items-center gap-2 bg-verde/10 border border-verde/30 rounded-lg px-3 py-1.5';
+                chip.innerHTML = '<span class="text-verde text-xs">✓</span><span class="text-texto text-xs font-bold flex-1">' + alumnoExtra.toUpperCase() + '</span><span class="text-textoSuave text-xs font-mono">' + data.codigo.toUpperCase() + '</span>';
+                lista.appendChild(chip);
                 toast('Asignado a ' + alumnoExtra.toUpperCase() + ' ✓');
             } else {
                 toast('Error: ' + (data.error || 'no se pudo asignar'));
@@ -3679,7 +3653,7 @@
                     if (b.tipo === 'Circuito')            { bl.vueltas = b.vueltas || 3; bl.pausa_vuelta = b.pausa_vuelta || 60; }
                     else if (b.tipo === 'Circuito por Tiempo') { bl.duracion_min = b.duracion_min || b.tiempo_min || 5; }
                     else if (b.tipo === 'Tabata')          { bl.trabajo = b.trabajo || 20; bl.pausa = b.pausa || 10; bl.rondas = b.rondas || 1; bl.pausa_entre_rondas = b.pausa_entre_rondas || 0; bl.cantidad = b.cantidad || bl.ejercicios.length || 8; }
-                    else if (b.tipo === 'EMOM')             { bl.minutos_totales = b.minutos_totales || 10; bl.ejercicios_por_minuto = b.ejercicios_por_minuto || 1; if (b.emom_config_por_minuto) bl.emom_config_por_minuto = b.emom_config_por_minuto; }
+                    else if (b.tipo === 'EMOM')             { bl.minutos_totales = b.minutos_totales || 10; bl.ejercicios_por_minuto = b.ejercicios_por_minuto || 1; }
                     else if (b.tipo === 'Series')           { /* series por ejercicio */ }
                     return bl;
                 });
@@ -3707,7 +3681,7 @@
                 if (bl.tipo === 'Circuito')            { bl.vueltas = datosR.vueltas_bloque || 3; bl.pausa_vuelta = datosR.pausa_vuelta || 60; }
                 else if (bl.tipo === 'Circuito por Tiempo') { bl.duracion_min = datosR.duracion_min || 5; }
                 else if (bl.tipo === 'Tabata')          { bl.trabajo = datosR.trabajo || 20; bl.pausa = datosR.pausa || 10; bl.rondas = datosR.rondas || 1; bl.pausa_entre_rondas = datosR.pausa_entre_rondas || 0; bl.cantidad = datosR.cantidad || bl.ejercicios.length || 8; }
-                else if (bl.tipo === 'EMOM')             { bl.minutos_totales = datosR.minutos_totales || 10; bl.ejercicios_por_minuto = datosR.ejercicios_por_minuto || 1; if (datosR.minutos_ciclo) bl.emom_config_por_minuto = toArray(datosR.minutos_ciclo).map((mc, mi) => ({ minuto: mi+1, ejercicios: mc.ejercicios || [], ejercicios_cantidad: (mc.ejercicios||[]).length, ejercicios_nombres: (mc.ejercicios||[]).map(e=>e.nombre) })); }
+                else if (bl.tipo === 'EMOM')             { bl.minutos_totales = datosR.minutos_totales || 10; bl.ejercicios_por_minuto = datosR.ejercicios_por_minuto || 1; }
                 return [bl];
             }
 
@@ -3772,11 +3746,6 @@
 
             // ── Renderizar todos los días ────────────────────────────────────
             renderDias();
-            // Sincronizar bloquesRutina global con el primer día para evitar desincronización
-            if (diasData.length > 0) {
-                diaActivoIdx = 0;
-                bloquesRutina = diasData[0].bloquesRutina;
-            }
 
             // ── Restaurar config de warmup por día (con delay para el DOM) ──
             setTimeout(() => {
@@ -4042,19 +4011,11 @@
                 if      (bloqTipo === 'Tabata')              meta = (b.trabajo||20) + 's act. / ' + (b.pausa||10) + 's pausa — ' + (b.rondas||1) + ' ronda(s)';
                 else if (bloqTipo === 'Circuito')            meta = (b.vueltas||b.vueltas_bloque||3) + ' vueltas | Pausa: ' + (b.pausa_vuelta||60) + 's';
                 else if (bloqTipo === 'Circuito por Tiempo') meta = (b.duracion_min||b.tiempo_min||5) + ' min';
-                else if (bloqTipo === 'EMOM')                meta = (b.minutos_totales||10) + ' min';
+                else if (bloqTipo === 'EMOM')                meta = (b.minutos_totales||10) + ' min | ' + (b.ejercicios_por_minuto||1) + ' ej/min';
                 else if (bloqTipo === 'Series')              meta = ejsB.length + ' ejercicio(s)';
                 html += `<div style="${sSubHeader}">Bloque ${i+1}: ${bloqTipo}${meta ? ' — ' + meta : ''}</div>`;
                 if (b.descripcion) html += `<p style="${ff}color:#666;font-size:12px;font-style:italic;margin:0 0 8px 2px;">${b.descripcion}</p>`;
-                if (bloqTipo === 'EMOM' && b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
-                    b.emom_config_por_minuto.forEach((minCfg, mi) => {
-                        html += `<div style="${ff}background:#FFD54F22;border-left:3px solid #FFD54F;padding:4px 10px;margin:6px 0 2px;border-radius:4px;font-size:11px;font-weight:700;color:#b8860b;">MINUTO ${mi+1}</div>`;
-                        const ejsMin = minCfg.ejercicios || [];
-                        if (ejsMin.length === 0) {
-                            html += `<p style="${ff}color:#aaa;font-size:11px;font-style:italic;margin:2px 0 6px 10px;">Sin ejercicios</p>`;
-                        } else { ejsMin.forEach(ej => { html += ejBox(ej); }); }
-                    });
-                } else if (ejsB.length === 0) {
+                if (ejsB.length === 0) {
                     html += `<p style="${ff}color:#aaa;font-size:12px;font-style:italic;padding:6px 2px;">Sin ejercicios registrados</p>`;
                 } else {
                     ejsB.forEach(ej => { html += ejBox(ej); });
@@ -4069,25 +4030,11 @@
         } else if (tipo === 'Tabata' || tipo === 'EMOM') {
             html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — ${tipo}</div>`;
             const ejsFlat = toArray(datos.rutina || datos.datos || []);
-            if (tipo === 'EMOM') {
-                const minutosCiclo = toArray(datos.minutos_ciclo);
-                let metaInfo = ' — ' + (datos.minutos_totales||10) + ' min';
-                html += `<div style="${sSubHeader}">EMOM${metaInfo}</div>`;
-                if (datos.descripcion) html += `<p style="${ff}color:#666;font-size:12px;font-style:italic;margin:0 0 8px 2px;">${datos.descripcion}</p>`;
-                if (minutosCiclo.length > 0) {
-                    minutosCiclo.forEach((minCfg, mi) => {
-                        html += `<div style="${ff}background:#FFD54F22;border-left:3px solid #FFD54F;padding:4px 10px;margin:6px 0 2px;border-radius:4px;font-size:11px;font-weight:700;color:#b8860b;">MINUTO ${mi+1}</div>`;
-                        const ejsMin = minCfg.ejercicios || [];
-                        if (ejsMin.length === 0) {
-                            html += `<p style="${ff}color:#aaa;font-size:11px;font-style:italic;margin:2px 0 6px 10px;">Sin ejercicios</p>`;
-                        } else { ejsMin.forEach(ej => { html += ejBox(ej); }); }
-                    });
-                } else {
-                    ejsFlat.forEach(ej => { html += ejBox(ej); });
-                }
-            } else if (ejsFlat.length > 0) {
-                let metaInfo = ' — ' + (datos.trabajo||20) + 's / ' + (datos.pausa||10) + 's | ' + (datos.rondas||1) + ' ronda(s)';
-                html += `<div style="${sSubHeader}">Tabata${metaInfo}</div>`;
+            if (ejsFlat.length > 0) {
+                let metaInfo = '';
+                if (tipo === 'Tabata') metaInfo = ' — ' + (datos.trabajo||20) + 's / ' + (datos.pausa||10) + 's | ' + (datos.rondas||1) + ' ronda(s)';
+                else if (tipo === 'EMOM') metaInfo = ' — ' + (datos.minutos_totales||10) + ' min | ' + (datos.ejercicios_por_minuto||1) + ' ej/min';
+                html += `<div style="${sSubHeader}">${tipo}${metaInfo}</div>`;
                 ejsFlat.forEach(ej => { html += ejBox(ej); });
             }
         } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo') {
@@ -4494,21 +4441,10 @@
                     if      (bloqTipo === 'Tabata')              meta = (b.trabajo||20) + 's / ' + (b.pausa||10) + 's | ' + (b.rondas||1) + ' ronda(s)';
                     else if (bloqTipo === 'Circuito')            meta = (b.vueltas||b.vueltas_bloque||3) + ' vueltas | Pausa: ' + (b.pausa_vuelta||60) + 's';
                     else if (bloqTipo === 'Circuito por Tiempo') meta = (b.duracion_min||b.tiempo_min||5) + ' min';
-                    else if (bloqTipo === 'EMOM')                meta = (b.minutos_totales||10) + ' min';
+                    else if (bloqTipo === 'EMOM')                meta = (b.minutos_totales||10) + ' min | ' + (b.ejercicios_por_minuto||1) + ' ej/min';
                     else if (bloqTipo === 'Series')              meta = ejsB.length + ' ejercicio(s)';
                     subBar('Bloque ' + (i+1) + ': ' + bloqTipo + (meta ? '  —  ' + meta : ''));
-                    if (bloqTipo === 'EMOM' && b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
-                        b.emom_config_por_minuto.forEach((minCfg, mi) => {
-                            chk(8);
-                            doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(180, 130, 0);
-                            doc.text('MINUTO ' + (mi + 1), mL + 2, y); y += 5;
-                            const ejsMin = minCfg.ejercicios || [];
-                            if (ejsMin.length === 0) {
-                                doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(170,170,170);
-                                doc.text('Sin ejercicios', mL + 4, y); y += 5;
-                            } else { ejsMin.forEach(ej => ejGris(ej)); }
-                        });
-                    } else if (ejsB.length === 0) {
+                    if (ejsB.length === 0) {
                         chk(8);
                         doc.setFont('helvetica', 'italic');
                         doc.setFontSize(9);
@@ -4527,28 +4463,11 @@
                 renderBloquePDFList(bloques, tipo);
             } else if (tipo === 'Tabata' || tipo === 'EMOM') {
                 colorBar('2. BLOQUE PRINCIPAL  —  ' + tipo, 206, 147, 216);
-                if (tipo === 'EMOM') {
-                    const minutosCiclo = toArray(datos.minutos_ciclo);
-                    subBar('EMOM  —  ' + (datos.minutos_totales||10) + ' min');
-                    if (minutosCiclo.length > 0) {
-                        minutosCiclo.forEach((minCfg, mi) => {
-                            chk(8);
-                            doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(180, 130, 0);
-                            doc.text('MINUTO ' + (mi + 1), mL + 2, y); y += 5;
-                            const ejsMin = minCfg.ejercicios || [];
-                            if (ejsMin.length === 0) {
-                                doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(170,170,170);
-                                doc.text('Sin ejercicios', mL + 4, y); y += 5;
-                            } else { ejsMin.forEach(ej => ejGris(ej)); }
-                        });
-                    } else {
-                        toArray(datos.rutina || datos.datos || []).forEach(ej => ejGris(ej));
-                    }
-                } else {
-                    let metaInfo = '  —  ' + (datos.trabajo||20) + 's / ' + (datos.pausa||10) + 's | ' + (datos.rondas||1) + ' ronda(s)';
-                    subBar('Tabata' + metaInfo);
-                    toArray(datos.rutina || datos.datos || []).forEach(ej => ejGris(ej));
-                }
+                let metaInfo = '';
+                if (tipo === 'Tabata') metaInfo = '  —  ' + (datos.trabajo||20) + 's / ' + (datos.pausa||10) + 's | ' + (datos.rondas||1) + ' ronda(s)';
+                else if (tipo === 'EMOM') metaInfo = '  —  ' + (datos.minutos_totales||10) + ' min | ' + (datos.ejercicios_por_minuto||1) + ' ej/min';
+                subBar(tipo + metaInfo);
+                toArray(datos.rutina || datos.datos || []).forEach(ej => ejGris(ej));
             } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo' || tipo === 'Series') {
                 colorBar('2. BLOQUE PRINCIPAL  —  ' + tipo, 206, 147, 216);
                 const flatList = toArray(datos.datos || datos.rutina || []);
@@ -4671,7 +4590,6 @@
 
     async function cargarAlumnosDash() {
         const sel = document.getElementById('dash-select-alumno');
-        if (!sel) return;
         try {
             const res = await fetch(API_BASE + '/api/alumnos');
             const data = await res.json();
@@ -4687,13 +4605,10 @@
     }
 
     async function cargarDashboard() {
-        const selDash = document.getElementById('dash-select-alumno');
-        if (!selDash) return;
-        const nombre = selDash.value;
+        const nombre = document.getElementById('dash-select-alumno').value;
         const contenido = document.getElementById('dash-contenido');
         const vacio = document.getElementById('dash-vacio');
         const perfil = document.getElementById('dash-perfil');
-        if (!contenido || !vacio || !perfil) return;
 
         if (!nombre) {
             contenido.classList.add('hidden');
@@ -4706,16 +4621,15 @@
         perfil.classList.remove('hidden');
 
         // Mostrar perfil
-        const avatarEl = document.getElementById('dash-avatar');
-        const nombreEl = document.getElementById('dash-nombre-alumno');
-        if (avatarEl) avatarEl.textContent = nombre.charAt(0).toUpperCase();
-        if (nombreEl) nombreEl.textContent = nombre.toUpperCase();
+        document.getElementById('dash-avatar').textContent = nombre.charAt(0).toUpperCase();
+        document.getElementById('dash-nombre-alumno').textContent = nombre.toUpperCase();
 
         // Mostrar loading
         contenido.classList.remove('hidden');
-        ['kpi-total-rutinas','kpi-metodo-dominante','kpi-ejs-unicos','kpi-frecuencia'].forEach(id => {
-            const el = document.getElementById(id); if (el) el.textContent = '...';
-        });
+        document.getElementById('kpi-total-rutinas').textContent = '...';
+        document.getElementById('kpi-metodo-dominante').textContent = '...';
+        document.getElementById('kpi-ejs-unicos').textContent = '...';
+        document.getElementById('kpi-frecuencia').textContent = '...';
 
         // Cargar lista de rutinas del alumno
         try {
@@ -4758,26 +4672,22 @@
     }
 
     function procesarDashboard(nombre) {
-        // Helper para evitar crashes si algún elemento no existe
-        function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
-        function setHTML(id, val) { const el = document.getElementById(id); if (el) el.innerHTML = val; }
-
         const rutinas = dashRutinasData;
         const keys = Object.keys(rutinas);
         const totalRutinas = keys.length;
 
         // -- KPI: Total Rutinas --
-        setText('kpi-total-rutinas', totalRutinas);
+        document.getElementById('kpi-total-rutinas').textContent = totalRutinas;
 
         if (totalRutinas === 0) {
-            setText('kpi-metodo-dominante', '--');
-            setText('kpi-ejs-unicos', '0');
-            setText('kpi-frecuencia', '--');
-            setText('dash-nivel', 'Nuevo');
-            setText('dash-objetivo', '');
-            setHTML('dash-top-mas', '<p class="text-textoSuave text-xs text-center py-4">Sin datos</p>');
-            setHTML('dash-top-menos', '<p class="text-textoSuave text-xs text-center py-4">Sin datos</p>');
-            setHTML('dash-tabla-rutinas', '<tr><td colspan="4" class="text-center text-textoSuave py-6">Sin rutinas</td></tr>');
+            document.getElementById('kpi-metodo-dominante').textContent = '--';
+            document.getElementById('kpi-ejs-unicos').textContent = '0';
+            document.getElementById('kpi-frecuencia').textContent = '--';
+            document.getElementById('dash-nivel').textContent = 'Nuevo';
+            document.getElementById('dash-objetivo').textContent = '';
+            document.getElementById('dash-top-mas').innerHTML = '<p class="text-textoSuave text-xs text-center py-4">Sin datos</p>';
+            document.getElementById('dash-top-menos').innerHTML = '<p class="text-textoSuave text-xs text-center py-4">Sin datos</p>';
+            document.getElementById('dash-tabla-rutinas').innerHTML = '<tr><td colspan="4" class="text-center text-textoSuave py-6">Sin rutinas</td></tr>';
             renderChartMetodos({});
             renderHeatMap({});
             return;
@@ -4854,11 +4764,11 @@
         for (const [m, c] of Object.entries(metodoCount)) {
             if (c > metMax) { metMax = c; metDominante = m; }
         }
-        setText('kpi-metodo-dominante', metDominante);
+        document.getElementById('kpi-metodo-dominante').textContent = metDominante;
 
         // -- KPI: Ejercicios Unicos --
         const ejsUnicos = Object.keys(ejercicioCount).length;
-        setText('kpi-ejs-unicos', ejsUnicos);
+        document.getElementById('kpi-ejs-unicos').textContent = ejsUnicos;
 
         // -- KPI: Frecuencia semanal --
         if (timestamps.length >= 2) {
@@ -4866,17 +4776,17 @@
             const rangoSeg = timestamps[timestamps.length - 1] - timestamps[0];
             const semanas = Math.max(rangoSeg / 604800, 1);
             const freq = (totalRutinas / semanas).toFixed(1);
-            setText('kpi-frecuencia', freq + '/sem');
+            document.getElementById('kpi-frecuencia').textContent = freq + '/sem';
         } else {
-            setText('kpi-frecuencia', totalRutinas + '/sem');
+            document.getElementById('kpi-frecuencia').textContent = totalRutinas + '/sem';
         }
 
         // -- Nivel --
         let nivel = 'Principiante';
         if (totalRutinas > 30) nivel = 'Avanzado';
         else if (totalRutinas > 10) nivel = 'Intermedio';
-        setText('dash-nivel', nivel);
-        setText('dash-objetivo', '| ' + totalRutinas + ' rutinas entregadas');
+        document.getElementById('dash-nivel').textContent = nivel;
+        document.getElementById('dash-objetivo').textContent = '| ' + totalRutinas + ' rutinas entregadas';
 
         // -- Top 10 Mas usados --
         const ejsSorted = Object.entries(ejercicioCount).sort((a, b) => b[1] - a[1]);
@@ -5124,15 +5034,7 @@
                 dWEjs.forEach(ej => { const e = normalizeEj(ej); if (e.nombre) nombres.push(e.nombre.toUpperCase()); });
                 const dBloques = toArray(diaDatos.bloques);
                 if (dBloques.length > 0) {
-                    dBloques.forEach(b => {
-                        if (b.tipo === 'EMOM' && b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
-                            b.emom_config_por_minuto.forEach(minCfg => {
-                                toArray(minCfg.ejercicios || []).forEach(ej => { const e = normalizeEj(ej); if (e.nombre) nombres.push(e.nombre.toUpperCase()); });
-                            });
-                        } else {
-                            toArray(b.ejercicios || []).forEach(ej => { const e = normalizeEj(ej); if (e.nombre) nombres.push(e.nombre.toUpperCase()); });
-                        }
-                    });
+                    dBloques.forEach(b => { toArray(b.ejercicios || []).forEach(ej => { const e = normalizeEj(ej); if (e.nombre) nombres.push(e.nombre.toUpperCase()); }); });
                 } else {
                     const ejsFlat = toArray(diaDatos.rutina || diaDatos.datos || []);
                     ejsFlat.forEach(item => {
@@ -5155,20 +5057,10 @@
         const bloques = toArray(datos.bloques);
         if (bloques.length > 0) {
             bloques.forEach(b => {
-                if (b.tipo === 'EMOM' && b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
-                    // Contar ejercicios por minuto (con repeticiones reales)
-                    b.emom_config_por_minuto.forEach(minCfg => {
-                        toArray(minCfg.ejercicios || []).forEach(ej => {
-                            const e = normalizeEj(ej);
-                            if (e.nombre) nombres.push(e.nombre.toUpperCase());
-                        });
-                    });
-                } else {
-                    toArray(b.ejercicios || []).forEach(ej => {
-                        const e = normalizeEj(ej);
-                        if (e.nombre) nombres.push(e.nombre.toUpperCase());
-                    });
-                }
+                toArray(b.ejercicios || []).forEach(ej => {
+                    const e = normalizeEj(ej);
+                    if (e.nombre) nombres.push(e.nombre.toUpperCase());
+                });
             });
         } else {
             // Formatos simples
@@ -5191,7 +5083,6 @@
 
     function renderBarChart(containerId, data, maxVal, color) {
         const container = document.getElementById(containerId);
-        if (!container) return;
         if (data.length === 0) {
             container.innerHTML = '<p class="text-textoSuave text-xs text-center py-4">Sin datos suficientes</p>';
             return;
@@ -5229,8 +5120,7 @@
         const values = Object.values(metodoCount);
 
         if (labels.length === 0) {
-            const leyendaEl = document.getElementById('dash-chart-leyenda');
-            if (leyendaEl) leyendaEl.innerHTML = '<span class="text-textoSuave">Sin datos</span>';
+            document.getElementById('dash-chart-leyenda').innerHTML = '<span class="text-textoSuave">Sin datos</span>';
             return;
         }
 
@@ -5273,7 +5163,6 @@
 
         // Leyenda custom
         const leyenda = document.getElementById('dash-chart-leyenda');
-        if (!leyenda) return;
         const total = values.reduce((a, b) => a + b, 0);
         leyenda.innerHTML = labels.map((l, i) => {
             const pct = total > 0 ? Math.round(values[i] / total * 100) : 0;
@@ -5335,7 +5224,6 @@
 
     function renderTablaUltimas(keys, rutinas) {
         const tbody = document.getElementById('dash-tabla-rutinas');
-        if (!tbody) return;
 
         // Ordenar por timestamp desc
         const sorted = keys.sort((a, b) => {
@@ -5367,10 +5255,8 @@
 
     async function verRutinaDash(codigo) {
         const content = document.getElementById('modal-dash-rutina-content');
-        const modalDash = document.getElementById('modal-dash-rutina');
-        if (!content || !modalDash) return;
         content.innerHTML = '<p class="text-textoSuave text-center py-8">Cargando...</p>';
-        modalDash.classList.remove('hidden');
+        document.getElementById('modal-dash-rutina').classList.remove('hidden');
 
         try {
             let r = dashRutinasData[codigo];
