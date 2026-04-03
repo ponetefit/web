@@ -3694,6 +3694,7 @@
             const colorMap = {
                 "Circuito (Vueltas)": "var(--azul)",
                 "Circuito por Tiempo": "#4fc3f7",
+                "Por Tiempo": "var(--purpura)",
                 "Tabata": "var(--naranja)",
                 "EMOM": "var(--amarillo)",
                 "Series/Reps": "var(--verde)"
@@ -4032,6 +4033,43 @@
                 wSeriesContainer.id = 'warmup-series-btns';
                 wSeriesContainer.innerHTML = wSeriesHtml;
                 tBox.appendChild(wSeriesContainer);
+            } else if (tipo === "Por Tiempo") {
+                // ─── WARMUP POR TIEMPO ───
+                const totalVueltas = det.vueltas || data.warmup_vueltas || 3;
+                tBox.style.display = "block";
+                tStatus.innerText = "POR TIEMPO — " + totalVueltas + " VUELTAS";
+                tClock.style.display = "block";
+                tClock.style.fontSize = "clamp(4rem, 18vw, 7rem)";
+                tClock.style.color = "var(--purpura)";
+                tClock.style.fontFamily = "Roboto Mono, monospace";
+                tClock.innerText = "00:00";
+                tBtn.innerText = "EMPEZAR";
+                tBtn.style.background = "linear-gradient(135deg,var(--purpura),#7b3fa0)";
+
+                // Registro de vueltas
+                var wPTVueltasLog = document.createElement('div');
+                wPTVueltasLog.id = 'warmup-pt-vueltas-log';
+                wPTVueltasLog.style.cssText = 'margin:10px 0;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:28px;';
+                tBox.insertBefore(wPTVueltasLog, tBtn);
+
+                // Contador de vueltas restantes
+                var wPTVCounter = document.createElement('div');
+                wPTVCounter.id = 'warmup-pt-vcount';
+                wPTVCounter.style.cssText = 'font-size:1.2rem;font-weight:900;color:var(--amarillo);text-align:center;margin:8px 0;';
+                wPTVCounter.innerText = 'Vueltas: 0 / ' + totalVueltas;
+                tBox.insertBefore(wPTVCounter, wPTVueltasLog);
+
+                // Botón marcar vuelta
+                var wPTMarcarBtn = document.createElement('button');
+                wPTMarcarBtn.id = 'warmup-pt-marcar';
+                wPTMarcarBtn.className = 'btn-rest';
+                wPTMarcarBtn.style.cssText = 'margin-top:10px;display:none;background:linear-gradient(135deg,var(--verde),#1a7a4a);font-size:1rem;padding:14px 28px;';
+                wPTMarcarBtn.innerText = '✓ MARCAR VUELTA';
+                tBox.appendChild(wPTMarcarBtn);
+
+                tBtn.onclick = function() {
+                    iniciarWarmupPorTiempo(totalVueltas);
+                };
             }
         }
 
@@ -4281,6 +4319,105 @@
             var reiniciarBtn = document.getElementById('warmup-emom-reiniciar');
             if (reiniciarBtn) reiniciarBtn.style.display = 'none';
             liberarWakeLock();
+        }
+
+        // ─── WARMUP POR TIEMPO (cronómetro ascendente con vueltas) ───
+        var _wPorTiempoIv = null;
+        var _wPorTiempoRunning = false;
+        var _wPorTiempoStart = 0;
+        var _wPorTiempoVueltas = 0;
+        var _wPorTiempoTotal = 0;
+        var _wPorTiempoLapStart = 0;
+        var _wPorTiempoMotivoIv = null;
+
+        function iniciarWarmupPorTiempo(totalVueltas) {
+            if (_wPorTiempoRunning) return;
+            if (hayTimerActivo()) return;
+            _wPorTiempoRunning = true;
+            _wPorTiempoTotal = totalVueltas;
+            _wPorTiempoVueltas = 0;
+            activarTimerGlobal();
+            solicitarWakeLock();
+
+            var tBtn = document.getElementById('warmup-btn');
+            var tClock = document.getElementById('warmup-clock');
+            var tStatus = document.getElementById('warmup-status');
+            var marcarBtn = document.getElementById('warmup-pt-marcar');
+            var vCounter = document.getElementById('warmup-pt-vcount');
+            var vueltasLog = document.getElementById('warmup-pt-vueltas-log');
+
+            if (tBtn) { tBtn.disabled = true; tBtn.innerText = 'En curso...'; }
+            if (marcarBtn) marcarBtn.style.display = 'block';
+            if (tStatus) tStatus.innerText = 'POR TIEMPO — ' + totalVueltas + ' VUELTAS';
+
+            // Voz apertura
+            hablarCoach('Recordá, son ' + totalVueltas + ' ' + (totalVueltas === 1 ? 'vuelta' : 'vueltas') + '. Dale con todo!');
+
+            _wPorTiempoStart = Date.now();
+            _wPorTiempoLapStart = Date.now();
+
+            function _fmtCrono(ms) {
+                var tot = Math.floor(ms / 1000);
+                var m = Math.floor(tot / 60);
+                var s = tot % 60;
+                return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+            }
+
+            _wPorTiempoIv = bgSetInterval(function() {
+                if (!_wPorTiempoRunning) return;
+                var elapsed = Date.now() - _wPorTiempoStart;
+                if (tClock) tClock.innerText = _fmtCrono(elapsed);
+            }, 500);
+
+            // Frase motivacional cada 15s si no marcó vuelta
+            var _lastLapOrStart = Date.now();
+            _wPorTiempoMotivoIv = bgSetInterval(function() {
+                if (!_wPorTiempoRunning) return;
+                if (Date.now() - _lastLapOrStart >= 15000) {
+                    _lastLapOrStart = Date.now();
+                    try { hablarCoach(_fraseRandom(_frasesMotivacionales)); } catch(e) {}
+                }
+            }, 15000);
+
+            // Marcar vuelta
+            if (marcarBtn) {
+                marcarBtn.onclick = function() {
+                    if (!_wPorTiempoRunning) return;
+                    var now = Date.now();
+                    var lapMs = now - _wPorTiempoLapStart;
+                    _wPorTiempoLapStart = now;
+                    _lastLapOrStart = now;
+                    _wPorTiempoVueltas++;
+
+                    var lapStr = _fmtCrono(lapMs);
+                    if (vCounter) vCounter.innerText = 'Vueltas: ' + _wPorTiempoVueltas + ' / ' + _wPorTiempoTotal;
+                    if (vueltasLog) {
+                        var chip = document.createElement('span');
+                        chip.style.cssText = 'background:rgba(105,240,174,0.15);border:1px solid rgba(105,240,174,0.4);border-radius:8px;padding:4px 10px;font-size:0.75rem;font-weight:700;color:var(--verde);';
+                        chip.innerText = 'V' + _wPorTiempoVueltas + ': ' + lapStr;
+                        vueltasLog.appendChild(chip);
+                    }
+                    beep(800);
+                    incrementarProgreso(1);
+
+                    var restantes = _wPorTiempoTotal - _wPorTiempoVueltas;
+                    if (restantes > 0) {
+                        hablarCoach(restantes === 1 ? 'Última vuelta. No aflojes!' : 'Quedan ' + restantes + ' vueltas. Vamos!');
+                    }
+
+                    if (_wPorTiempoVueltas >= _wPorTiempoTotal) {
+                        // Completado
+                        _wPorTiempoRunning = false;
+                        bgClearInterval(_wPorTiempoIv);
+                        bgClearInterval(_wPorTiempoMotivoIv);
+                        desactivarTimerGlobal();
+                        liberarWakeLock();
+                        if (marcarBtn) { marcarBtn.disabled = true; marcarBtn.innerText = '✓ COMPLETADO'; }
+                        if (tStatus) tStatus.innerText = '¡CALENTAMIENTO COMPLETO!';
+                        hablarCoach('Excelente! Completaste el calentamiento. Sos un crack!');
+                    }
+                };
+            }
         }
 
         let warmupEmomInterval = null;
@@ -4771,6 +4908,7 @@
             else if (data.tipo === "Tabata") renderTabata(data, pTitulo, pLista, ejerciciosPrincipales);
             else if (data.tipo === "Circuito por Tiempo") renderCircuitoTiempo(data, pTitulo, pLista, ejerciciosPrincipales);
             else if (data.tipo === "EMOM") renderEmom(data, pTitulo, pLista);
+            else if (data.tipo === "Por Tiempo") renderPorTiempoStandalone(data, pTitulo, pLista);
             else if (data.tipo === "ENTRENAMIENTO") renderMix(data, pTitulo, pLista);
             else {
                 pTitulo.innerText = "ENTRENAMIENTO";
@@ -5064,6 +5202,46 @@
             document.getElementById('btnStartEmom').style.display = "block";
         }
 
+        // ─── MODO POR TIEMPO (standalone) ───
+        function renderPorTiempoStandalone(data, pTitulo, pLista) {
+            pTitulo.innerText = "POR TIEMPO";
+            _tipoEntrenamientoGlobal = 'Por Tiempo';
+            var ptVueltas = data.vueltas || 3;
+            var ptEjs = toArray(data.ejercicios || []);
+            var ptUid = 'pt-main';
+            var ptClockId = 'pt-main-clock';
+            var ptBtnId = 'pt-main-btn';
+            var ptVCountId = 'pt-main-vcount';
+            var ptLogId = 'pt-main-log';
+            var ptMarcarId = 'pt-main-marcar';
+
+            if (data.descripcion) {
+                pLista.innerHTML += '<div class="bloque-descripcion">' + data.descripcion + '</div>';
+            }
+
+            ptEjs.forEach(function(ej) {
+                var n = ej.nombre || ej[0] || '';
+                var l = ej.link || ej[1] || '';
+                var r = ej.reps || ej[2] || '';
+                var u = (ej.unit || 'Reps').toUpperCase();
+                var cc = (ej.con_carga === true) || _obtenerConCarga(n);
+                pLista.innerHTML += crearCard(n, l, r ? r + ' ' + u + ' c/vuelta' : '', cc);
+            });
+
+            var ptHtml = '<div style="text-align:center;margin-top:18px;">' +
+                '<div id="' + ptVCountId + '" style="font-size:1.2rem;font-weight:900;color:var(--amarillo);margin-bottom:8px;">Vueltas: 0 / ' + ptVueltas + '</div>' +
+                '<div id="' + ptLogId + '" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:26px;margin-bottom:12px;"></div>' +
+                '<div id="' + ptClockId + '" style="font-size:clamp(4rem,20vw,8rem);font-family:Roboto Mono,monospace;font-weight:700;color:var(--purpura);text-shadow:0 0 30px rgba(167,139,250,0.6);margin:10px 0;">00:00</div>' +
+                '<button id="' + ptBtnId + '" class="btn-rest" style="background:linear-gradient(135deg,var(--purpura),#7b3fa0);font-size:1.1rem;padding:16px 32px;margin-bottom:12px;" ' +
+                'onclick="iniciarBloquesPorTiempo(\'' + ptUid + '\',\'' + ptClockId + '\',\'' + ptBtnId + '\',\'' + ptVCountId + '\',\'' + ptLogId + '\',\'' + ptMarcarId + '\',' + ptVueltas + ')">' +
+                'EMPEZAR</button><br>' +
+                '<button id="' + ptMarcarId + '" class="btn-rest" style="display:none;background:linear-gradient(135deg,var(--verde),#1a7a4a);font-size:1.1rem;padding:16px 32px;" ' +
+                'onclick="marcarVueltaPorTiempo(\'' + ptUid + '\',\'' + ptVCountId + '\',\'' + ptLogId + '\',\'' + ptMarcarId + '\',' + ptVueltas + ')">' +
+                '✓ MARCAR VUELTA</button>' +
+                '</div>';
+            pLista.innerHTML += ptHtml;
+        }
+
         // ─── MODO MIX ───
         var bloquesMix = [];
 
@@ -5169,6 +5347,7 @@
             const colorMap = {
                 "Circuito": "var(--azul)",
                 "Circuito por Tiempo": "#4fc3f7",
+                "Por Tiempo": "var(--purpura)",
                 "Tabata": "var(--naranja)",
                 "EMOM": "var(--amarillo)",
                 "Series": "var(--verde)"
@@ -5267,6 +5446,44 @@
                 }
                 html += '</div>';
                 pLista.innerHTML += html;
+
+            } else if (tipo === "Por Tiempo") {
+                const ptVueltas = bloque.vueltas || 3;
+                const ptUid = uid + '-pt';
+                const ptBtnId = uid + '-pt-btn';
+                const ptClockId = uid + '-pt-clock';
+                const ptVCountId = uid + '-pt-vcount';
+                const ptLogId = uid + '-pt-log';
+                const ptMarcarId = uid + '-pt-marcar';
+
+                let htmlPT = '<div class="bloque-mix" style="border-color:var(--purpura);">' +
+                    '<div class="bloque-mix-titulo" style="color:var(--purpura);">BLOQUE ' + idx + ' — POR TIEMPO (' + ptVueltas + ' VUELTAS)</div>';
+                if (bloque.descripcion) {
+                    htmlPT += '<div class="bloque-descripcion">' + bloque.descripcion + '</div>';
+                }
+                var ptEjs = bloque.ejercicios || [];
+                ptEjs.forEach(function(ej) {
+                    var ejN = ej.nombre || ej[0] || '';
+                    var ejL = ej.link || ej[1] || '';
+                    var ejR = ej.reps || ej[2] || '';
+                    var ejU = (ej.unit || 'Reps').toUpperCase();
+                    var cc = (ej.con_carga === true) || _obtenerConCarga(ejN);
+                    htmlPT += crearCard(ejN, ejL, ejR ? ejR + ' ' + ejU + ' c/vuelta' : '', cc);
+                });
+
+                htmlPT += '<div style="text-align:center;margin:14px 0;">' +
+                    '<div id="' + ptVCountId + '" style="font-size:1.2rem;font-weight:900;color:var(--amarillo);margin-bottom:8px;">Vueltas: 0 / ' + ptVueltas + '</div>' +
+                    '<div id="' + ptLogId + '" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:26px;margin-bottom:12px;"></div>' +
+                    '<div id="' + ptClockId + '" style="font-size:clamp(3rem,14vw,6rem);font-family:Roboto Mono,monospace;font-weight:700;color:var(--purpura);text-shadow:0 0 30px rgba(167,139,250,0.6);margin:8px 0;">00:00</div>' +
+                    '<button id="' + ptBtnId + '" class="btn-rest" style="background:linear-gradient(135deg,var(--purpura),#7b3fa0);margin-bottom:10px;" ' +
+                    'onclick="iniciarBloquesPorTiempo(\'' + ptUid + '\',\'' + ptClockId + '\',\'' + ptBtnId + '\',\'' + ptVCountId + '\',\'' + ptLogId + '\',\'' + ptMarcarId + '\',' + ptVueltas + ')">' +
+                    'EMPEZAR</button><br>' +
+                    '<button id="' + ptMarcarId + '" class="btn-rest" style="display:none;background:linear-gradient(135deg,var(--verde),#1a7a4a);font-size:1rem;padding:14px 28px;" ' +
+                    'onclick="marcarVueltaPorTiempo(\'' + ptUid + '\',\'' + ptVCountId + '\',\'' + ptLogId + '\',\'' + ptMarcarId + '\',' + ptVueltas + ')">' +
+                    '✓ MARCAR VUELTA</button>' +
+                    '</div></div>';
+
+                pLista.innerHTML += htmlPT;
 
             } else if (tipo === "Tabata") {
                 const tc = {
@@ -5399,6 +5616,105 @@
                 btn.disabled = true;
                 btn.innerText = "Completado";
                 return;
+            }
+        }
+
+        // ─── BLOQUE POR TIEMPO — Cronómetro ascendente ───
+        var _porTiempoState = {}; // { uid: { running, iv, motivoIv, start, lapStart, vueltas, total, lastLap } }
+
+        function iniciarBloquesPorTiempo(uid, clockId, btnId, vCountId, logId, marcarId, totalVueltas) {
+            if (_porTiempoState[uid] && _porTiempoState[uid].running) return;
+            if (hayTimerActivo()) return;
+            activarTimerGlobal();
+            solicitarWakeLock();
+
+            var clockEl = document.getElementById(clockId);
+            var btnEl = document.getElementById(btnId);
+            var vCountEl = document.getElementById(vCountId);
+            var logEl = document.getElementById(logId);
+            var marcarEl = document.getElementById(marcarId);
+
+            if (btnEl) { btnEl.disabled = true; btnEl.innerText = 'En curso...'; }
+            if (marcarEl) marcarEl.style.display = 'inline-block';
+
+            var now = Date.now();
+            _porTiempoState[uid] = {
+                running: true, total: totalVueltas, vueltas: 0,
+                start: now, lapStart: now, lastLap: now
+            };
+
+            // Voz apertura
+            hablarCoach('Recordá, son ' + totalVueltas + ' ' + (totalVueltas === 1 ? 'vuelta' : 'vueltas') + '. Dale con todo!');
+
+            function _fmt(ms) {
+                var tot = Math.floor(ms / 1000);
+                var m = Math.floor(tot / 60);
+                var s = tot % 60;
+                return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+            }
+
+            var st = _porTiempoState[uid];
+
+            st.iv = bgSetInterval(function() {
+                if (!st.running) return;
+                if (clockEl) clockEl.innerText = _fmt(Date.now() - st.start);
+            }, 500);
+
+            // Frases motivacionales cada 15s sin marcar vuelta
+            st.motivoIv = bgSetInterval(function() {
+                if (!st.running) return;
+                if (Date.now() - st.lastLap >= 15000) {
+                    st.lastLap = Date.now();
+                    try { hablarCoach(_fraseRandom(_frasesMotivacionales)); } catch(e) {}
+                }
+            }, 15000);
+        }
+
+        function marcarVueltaPorTiempo(uid, vCountId, logId, marcarId, totalVueltas) {
+            var st = _porTiempoState[uid];
+            if (!st || !st.running) return;
+            var now = Date.now();
+            var lapMs = now - st.lapStart;
+            st.lapStart = now;
+            st.lastLap = now;
+            st.vueltas++;
+
+            function _fmt(ms) {
+                var tot = Math.floor(ms / 1000);
+                var m = Math.floor(tot / 60);
+                var s = tot % 60;
+                return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+            }
+            var lapStr = _fmt(lapMs);
+
+            var vCountEl = document.getElementById(vCountId);
+            var logEl = document.getElementById(logId);
+            var marcarEl = document.getElementById(marcarId);
+
+            if (vCountEl) vCountEl.innerText = 'Vueltas: ' + st.vueltas + ' / ' + st.total;
+            if (logEl) {
+                var chip = document.createElement('span');
+                chip.style.cssText = 'background:rgba(105,240,174,0.15);border:1px solid rgba(105,240,174,0.4);border-radius:8px;padding:4px 10px;font-size:0.75rem;font-weight:700;color:var(--verde);';
+                chip.innerText = 'V' + st.vueltas + ': ' + lapStr;
+                logEl.appendChild(chip);
+            }
+            beep(800);
+            incrementarProgreso(1);
+
+            var restantes = st.total - st.vueltas;
+            if (restantes > 0) {
+                hablarCoach(restantes === 1 ? 'Última vuelta! No aflojes!' : 'Quedan ' + restantes + ' vueltas. Vamos!');
+            }
+
+            if (st.vueltas >= st.total) {
+                st.running = false;
+                bgClearInterval(st.iv);
+                bgClearInterval(st.motivoIv);
+                desactivarTimerGlobal();
+                liberarWakeLock();
+                if (marcarEl) { marcarEl.disabled = true; marcarEl.innerText = '✓ BLOQUE COMPLETO'; }
+                hablarCoach('Excelente! Completaste el bloque. Sos un crack!');
+                lanzarDestelloBloque();
             }
         }
 
