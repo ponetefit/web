@@ -1082,6 +1082,9 @@
     const $el  = id => document.getElementById(id);
     const $set = (id, val) => { const e = $el(id); if (e) e.textContent = val; };
     const $html = (id, val) => { const e = $el(id); if (e) e.innerHTML = val; };
+    // Aliases usados en procesarDashboard
+    const setText = $set;
+    const setHTML = $html;
 
     // ====================================================================
     // ESTADO GLOBAL — todas las variables de estado en un único bloque
@@ -3790,111 +3793,103 @@
         }).filter(e => e.nombre);
     }
 
+    // ── Núcleo compartido: carga un objeto rutina en el editor ──
+    function _aplicarRutinaAlEditor(r, alumnoOverride) {
+        const datos = resolverDatos(r);
+        const alumno = alumnoOverride !== undefined ? alumnoOverride : (r.alumno || datos.alumno || '');
+        const tipo = r.tipo || 'ENTRENAMIENTO';
+
+        diasData = [];
+        warmupEjercicios = [];
+        bloquesRutina = [];
+
+        if (tipo === 'MULTIDIA') {
+            const totalDM = r.total_dias || 0;
+            for (let di = 1; di <= totalDM; di++) {
+                const diaR = r['dia_' + di];
+                if (!diaR || !diaR.datos) continue;
+                const dd = diaR.datos;
+                const dWTipo = dd.warmup_tipo || 'Circuito (Vueltas)';
+                const dWCfg  = dd.warmup_config_detalle || {};
+                const dBloques = toArray(dd.bloques).length > 0
+                    ? normBloques(dd.bloques)
+                    : bloquesDesdePlano(diaR.tipo || 'ENTRENAMIENTO', dd);
+                diasData.push({
+                    titulo: diaR.titulo || ('Dia ' + di),
+                    warmupEjercicios: normWarmupEjs(dd.warmup_ejercicios),
+                    warmupEmomConfig: toArray(dWCfg.emom_config_por_minuto),
+                    bloquesRutina: dBloques,
+                    _wTipo: dWTipo,
+                    _wCfg: dWCfg
+                });
+            }
+        } else {
+            const bloquesDelDia = toArray(datos.bloques).length > 0
+                ? normBloques(datos.bloques)
+                : bloquesDesdePlano(tipo, datos);
+            const _wCfgB = datos.warmup_config_detalle || {};
+            diasData.push({
+                titulo: 'Dia 1',
+                warmupEjercicios: normWarmupEjs(datos.warmup_ejercicios),
+                warmupEmomConfig: toArray(_wCfgB.emom_config_por_minuto),
+                bloquesRutina: bloquesDelDia,
+                _wTipo: datos.warmup_tipo || 'Circuito (Vueltas)',
+                _wCfg:  _wCfgB
+            });
+        }
+
+        document.getElementById('alumno-nombre').value = alumno;
+        document.getElementById('rutina-desc').value = datos.descripcion || '';
+
+        _editandoRutina = true;
+        showTab('rutina');
+        _editandoRutina = false;
+
+        renderDias();
+        if (diasData.length > 0) {
+            diaActivoIdx = 0;
+            bloquesRutina = diasData[0].bloquesRutina;
+        }
+
+        clearTimeout(window._restoreTimer);
+        window._restoreTimer = setTimeout(() => {
+            diasData.forEach((dia, i) => {
+                const wts = $el('warmup-tipo-' + i);
+                if (wts) { wts.value = dia._wTipo || 'Circuito (Vueltas)'; actualizarWarmupUIDia(i); }
+                const cfg = dia._wCfg || {};
+                setTimeout(() => {
+                    if (dia._wTipo === 'Circuito (Vueltas)') {
+                        const v = $el('warmup-vueltas-' + i); if (v) v.value = cfg.vueltas || 2;
+                        const p = $el('warmup-pausa-vuelta-' + i); if (p) p.value = cfg.pausa_vuelta || 30;
+                    } else if (dia._wTipo === 'Circuito por Tiempo') {
+                        const d = $el('warmup-duracion-' + i); if (d) d.value = cfg.duracion_bloque || 3;
+                    } else if (dia._wTipo === 'Tabata') {
+                        const t = $el('warmup-trabajo-' + i); if (t) t.value = cfg.trabajo || 20;
+                        const p = $el('warmup-pausa-' + i); if (p) p.value = cfg.pausa || 10;
+                        const c = $el('warmup-cantidad-' + i); if (c) c.value = cfg.cantidad || 8;
+                    } else if (dia._wTipo === 'EMOM') {
+                        const m = $el('warmup-minutos-' + i); if (m) m.value = cfg.minutos || 5;
+                    } else if (dia._wTipo === 'Series/Reps') {
+                        const s = $el('warmup-series-' + i); if (s) s.value = cfg.series || 3;
+                        const rv = $el('warmup-reps-val-' + i); if (rv) rv.value = cfg.reps || 10;
+                    }
+                    renderWarmupEjsDia(i);
+                    renderBloquesDia(i);
+                }, 50);
+            });
+            toggleDia(0, true);
+        }, 100);
+
+        toast(tipo === 'MULTIDIA' ? 'Rutina multi-día cargada para editar' : 'Rutina cargada para editar');
+    }
+
     async function editarRutinaDesdeHistorial(codigo) {
         toast('Cargando rutina para editar...');
         try {
             const data = await apiGetRutina(codigo);
             const r = data.rutina;
             historialRutinasCache[codigo] = r;
-
-            const datos = resolverDatos(r);
-            const alumno = r.alumno || datos.alumno || '';
-            const tipo = r.tipo || 'ENTRENAMIENTO';
-
-            // Limpiar estado global
-            diasData = [];
-            warmupEjercicios = [];
-            bloquesRutina = [];
-            // ════════════════════════════════════════════════════════════════
-            if (tipo === 'MULTIDIA') {
-                const totalDM = r.total_dias || 0;
-                for (let di = 1; di <= totalDM; di++) {
-                    const diaR = r['dia_' + di];
-                    if (!diaR || !diaR.datos) continue;
-                    const dd = diaR.datos;
-                    const dWTipo = dd.warmup_tipo || 'Circuito (Vueltas)';
-                    const dWCfg  = dd.warmup_config_detalle || {};
-                    const dBloques = toArray(dd.bloques).length > 0
-                        ? normBloques(dd.bloques)
-                        : bloquesDesdePlano(diaR.tipo || 'ENTRENAMIENTO', dd);
-                    diasData.push({
-                        titulo: diaR.titulo || ('Dia ' + di),
-                        warmupEjercicios: normWarmupEjs(dd.warmup_ejercicios),
-                        warmupEmomConfig: toArray(dWCfg.emom_config_por_minuto),
-                        bloquesRutina: dBloques,
-                        _wTipo: dWTipo,
-                        _wCfg: dWCfg
-                    });
-                }
-
-            // ════════════════════════════════════════════════════════════════
-            // CASO B: Rutina de un solo día (cualquier tipo)
-            // ════════════════════════════════════════════════════════════════
-            } else {
-                const bloquesDelDia = toArray(datos.bloques).length > 0
-                    ? normBloques(datos.bloques)
-                    : bloquesDesdePlano(tipo, datos);
-                const _wCfgB = datos.warmup_config_detalle || {};
-                diasData.push({
-                    titulo: 'Dia 1',
-                    warmupEjercicios: normWarmupEjs(datos.warmup_ejercicios),
-                    warmupEmomConfig: toArray(_wCfgB.emom_config_por_minuto),
-                    bloquesRutina: bloquesDelDia,
-                    _wTipo: datos.warmup_tipo || 'Circuito (Vueltas)',
-                    _wCfg:  _wCfgB
-                });
-            }
-
-            // ── Poblar nombre y descripción ─────────────────────────────────
-            document.getElementById('alumno-nombre').value = alumno;
-            document.getElementById('rutina-desc').value = datos.descripcion || '';
-
-            // ── Navegar a la pestaña rutina con flag activo ─────────────────
-            _editandoRutina = true;
-            showTab('rutina');
-            _editandoRutina = false;
-
-            // ── Renderizar todos los días ────────────────────────────────────
-            renderDias();
-            // Sincronizar bloquesRutina global con el primer día para evitar desincronización
-            if (diasData.length > 0) {
-                diaActivoIdx = 0;
-                bloquesRutina = diasData[0].bloquesRutina;
-            }
-
-            // ── Restaurar config de warmup por día (con delay para el DOM) ──
-            clearTimeout(window._restoreTimer);
-            window._restoreTimer = setTimeout(() => {
-                diasData.forEach((dia, i) => {
-                    const wts = $el('warmup-tipo-' + i);
-                    if (wts) { wts.value = dia._wTipo || 'Circuito (Vueltas)'; actualizarWarmupUIDia(i); }
-                    const cfg = dia._wCfg || {};
-                    setTimeout(() => {
-                        if (dia._wTipo === 'Circuito (Vueltas)') {
-                            const v = $el('warmup-vueltas-' + i); if (v) v.value = cfg.vueltas || 2;
-                            const p = $el('warmup-pausa-vuelta-' + i); if (p) p.value = cfg.pausa_vuelta || 30;
-                        } else if (dia._wTipo === 'Circuito por Tiempo') {
-                            const d = $el('warmup-duracion-' + i); if (d) d.value = cfg.duracion_bloque || 3;
-                        } else if (dia._wTipo === 'Tabata') {
-                            const t = $el('warmup-trabajo-' + i); if (t) t.value = cfg.trabajo || 20;
-                            const p = $el('warmup-pausa-' + i); if (p) p.value = cfg.pausa || 10;
-                            const c = $el('warmup-cantidad-' + i); if (c) c.value = cfg.cantidad || 8;
-                        } else if (dia._wTipo === 'EMOM') {
-                            const m = $el('warmup-minutos-' + i); if (m) m.value = cfg.minutos || 5;
-                        } else if (dia._wTipo === 'Series/Reps') {
-                            const s = $el('warmup-series-' + i); if (s) s.value = cfg.series || 3;
-                            const rv = $el('warmup-reps-val-' + i); if (rv) rv.value = cfg.reps || 10;
-                        }
-                        renderWarmupEjsDia(i);
-                        renderBloquesDia(i);
-                    }, 50);
-                });
-                // Expandir el primer día
-                toggleDia(0, true);
-            }, 100);
-
-            toast(tipo === 'MULTIDIA' ? 'Rutina multi-día cargada para editar' : 'Rutina cargada para editar');
-
+            _aplicarRutinaAlEditor(r);
         } catch (e) {
             console.error('Error editando rutina:', e);
             toast('Error al cargar rutina para editar');
@@ -4729,7 +4724,8 @@
                     </div>
                     ${fecha ? '<p class="text-textoSuave text-xs mt-0.5">Guardado: ' + fecha + '</p>' : ''}
                 </div>
-                <div class="flex gap-2 shrink-0">
+                <div class="flex gap-2 shrink-0 flex-wrap justify-end">
+                    <button onclick="editarDesdeRepositorio('${k}')" class="bg-amarillo/20 text-amarillo px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-amarillo/30 transition">Editar</button>
                     <button onclick="abrirModalCopiarRepo('${k}')" class="bg-verde/20 text-verde px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-verde/30 transition">Copiar a alumno</button>
                     <button onclick="eliminarDelRepositorio('${k}')" class="bg-rojo/20 text-rojo px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition">Eliminar</button>
                 </div>
@@ -4807,6 +4803,17 @@
         } catch(e) {
             toast('Error al copiar: ' + e.message);
         }
+    }
+
+    // ── Carga una rutina del repositorio en el editor para modificarla ──
+    function editarDesdeRepositorio(key) {
+        const r = _repositorioData[key];
+        if (!r) { toast('Rutina no encontrada'); return; }
+        // Precargar en _lastPayload para que "Compartir" funcione al terminar de editar
+        _lastPayload = Object.assign({}, r);
+        // Cargar en el editor con el campo alumno vacío (es una plantilla)
+        _aplicarRutinaAlEditor(r, '');
+        toast('Rutina del repositorio cargada — editá y usá "Compartir Rutina" para asignarla');
     }
 
     // ── Elimina una rutina del repositorio ──
