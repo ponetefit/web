@@ -950,15 +950,17 @@
 
     // Extrae la clave del alumno de un código (ej: "rafa-0001" → "rafa")
     function alumnoKeyFromCodigo(codigo) {
-        const match = (codigo || '').match(/^(.+?)-(\d{4,})$/);
+        const match = (codigo || '').match(/^(.+)-\d{4,}$/);
         return match ? match[1] : codigo;
     }
 
-    // Genera el próximo código para un alumno (ej: "rafa-0003")
+    // Genera el próximo código para un alumno usando la estructura plana de /rutinas
     async function generarCodigo(alumnoKey) {
-        let existentes = {};
-        try { existentes = await fbGet('/rutinas/' + encodeURIComponent(alumnoKey)) || {}; } catch(e) {}
-        const nums = Object.keys(existentes)
+        let allRutinas = {};
+        try { allRutinas = await fbGet('/rutinas') || {}; } catch(e) {}
+        const prefix = alumnoKey + '-';
+        const nums = Object.keys(allRutinas)
+            .filter(k => k.startsWith(prefix))
             .map(k => { const m = k.match(/-(\d+)$/); return m ? parseInt(m[1]) : 0; })
             .filter(n => n > 0);
         const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
@@ -969,51 +971,76 @@
 
     async function apiGetAlumnos() {
         const data = await fbGet('/alumnos') || {};
-        return { alumnos: Object.keys(data).filter(k => data[k]) };
+        let alumnos = Object.keys(data).filter(k => data[k]);
+        // Si /alumnos está vacío, derivar los nombres desde los códigos en /rutinas
+        if (alumnos.length === 0) {
+            const rutinas = await fbGet('/rutinas') || {};
+            const seen = new Set();
+            Object.keys(rutinas).forEach(k => {
+                const m = k.match(/^(.+)-\d{4,}$/);
+                if (m) seen.add(m[1]);
+            });
+            alumnos = Array.from(seen).sort();
+            // Registrar en /alumnos para la próxima vez
+            await Promise.all(alumnos.map(a => fbPut('/alumnos/' + encodeURIComponent(a), true).catch(() => {})));
+        }
+        return { alumnos };
     }
 
+    // Estructura plana: /rutinas/{codigo} — filtra por prefijo del alumno
     async function apiGetRutinasAlumno(nombre) {
         const alumnoKey = nombre.toLowerCase().trim();
-        const data = await fbGet('/rutinas/' + encodeURIComponent(alumnoKey)) || {};
-        return { rutinas: data };
+        const prefix = alumnoKey + '-';
+        const allRutinas = await fbGet('/rutinas') || {};
+        const filtered = {};
+        Object.keys(allRutinas).forEach(k => {
+            if (k.startsWith(prefix) && allRutinas[k] && typeof allRutinas[k] === 'object') {
+                filtered[k] = allRutinas[k];
+            }
+        });
+        return { rutinas: filtered };
     }
 
+    // Estructura plana: /rutinas/{codigo}
     async function apiGetRutina(codigo) {
-        const alumnoKey = alumnoKeyFromCodigo(codigo);
-        const data = await fbGet('/rutinas/' + encodeURIComponent(alumnoKey) + '/' + codigo);
+        const data = await fbGet('/rutinas/' + encodeURIComponent(codigo));
         return { rutina: data || {} };
     }
 
     async function apiDeleteRutina(codigo) {
-        const alumnoKey = alumnoKeyFromCodigo(codigo);
-        await fbDelete('/rutinas/' + encodeURIComponent(alumnoKey) + '/' + codigo);
+        await fbDelete('/rutinas/' + encodeURIComponent(codigo));
         return { ok: true };
     }
 
+    // Elimina todas las rutinas del alumno y su entrada en /alumnos
     async function apiDeleteAlumno(nombre) {
         const alumnoKey = nombre.toLowerCase().trim();
-        await fbDelete('/rutinas/' + encodeURIComponent(alumnoKey));
+        const prefix = alumnoKey + '-';
+        const allRutinas = await fbGet('/rutinas') || {};
+        const toDelete = Object.keys(allRutinas).filter(k => k.startsWith(prefix));
+        await Promise.all(toDelete.map(k => fbDelete('/rutinas/' + encodeURIComponent(k))));
         await fbDelete('/alumnos/' + encodeURIComponent(alumnoKey));
         return { ok: true };
     }
 
+    // Guarda la rutina en /rutinas/{codigo} (estructura plana) y registra al alumno
     async function apiCompartirRutina(payload) {
-        const alumnoKey = (payload.alumno || 'alumno').toLowerCase().replace(/\s+/g, '_');
+        const alumnoKey = (payload.alumno || 'alumno').toLowerCase().trim();
         const codigo = await generarCodigo(alumnoKey);
-        const rutinaData = Object.assign({}, payload, { codigo, timestamp: new Date().toISOString() });
-        await fbPut('/rutinas/' + encodeURIComponent(alumnoKey) + '/' + codigo, rutinaData);
+        const rutinaData = Object.assign({}, payload, { alumno: alumnoKey, codigo, timestamp: new Date().toISOString() });
+        await fbPut('/rutinas/' + encodeURIComponent(codigo), rutinaData);
         await fbPut('/alumnos/' + encodeURIComponent(alumnoKey), true);
         const totalDias = payload.dias ? payload.dias.length : 1;
         return { ok: true, codigo, alumno: alumnoKey, es_multidia: !!payload.dias, total_dias: totalDias };
     }
 
+    // Mueve una rutina de un código a otro dentro de /rutinas (plano)
     async function apiRenombrarRutina(codigoViejo, codigoNuevo) {
-        const alumnoKey = alumnoKeyFromCodigo(codigoViejo);
-        const data = await fbGet('/rutinas/' + encodeURIComponent(alumnoKey) + '/' + codigoViejo);
+        const data = await fbGet('/rutinas/' + encodeURIComponent(codigoViejo));
         if (!data) return;
         const newData = Object.assign({}, data, { codigo: codigoNuevo });
-        await fbPut('/rutinas/' + encodeURIComponent(alumnoKey) + '/' + codigoNuevo, newData);
-        await fbDelete('/rutinas/' + encodeURIComponent(alumnoKey) + '/' + codigoViejo);
+        await fbPut('/rutinas/' + encodeURIComponent(codigoNuevo), newData);
+        await fbDelete('/rutinas/' + encodeURIComponent(codigoViejo));
         return { ok: true };
     }
 
