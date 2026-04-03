@@ -108,6 +108,11 @@
         }
         .btn-primary:hover { transform: scale(1.02); }
         .btn-primary:active { transform: scale(0.98); box-shadow: 0 4px 12px rgba(255,107,53,0.3); }
+        .ia-tipo-btn { background: #1e1e2e; border-color: #3a3a5a; color: #8a8a9a; }
+        .ia-tipo-btn:hover { border-color: #8b5cf6; color: #c4b5fd; }
+        .ia-tipo-active { background: linear-gradient(135deg,#6366f120,#a855f720) !important; border-color: #8b5cf6 !important; color: #c4b5fd !important; }
+        @keyframes ia-pulse { 0%,100%{box-shadow:0 0 0 0 #8b5cf655} 50%{box-shadow:0 0 0 8px #8b5cf600} }
+        #btn-generar-ia:not(:disabled) { animation: ia-pulse 2.5s infinite; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #0a0a0c; }
         ::-webkit-scrollbar-thumb { background: #2a2a35; border-radius: 3px; }
@@ -699,7 +704,14 @@
 
             <!-- Paso 1: Nombre del alumno -->
             <div class="bg-tarjeta rounded-2xl border border-borde p-6 mb-6">
-                <h2 class="text-lg font-bold text-verde uppercase tracking-wider mb-4">Datos de la Rutina</h2>
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+                    <h2 class="text-lg font-bold text-verde uppercase tracking-wider">Datos de la Rutina</h2>
+                    <button onclick="abrirModoIA()" class="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm uppercase tracking-wider transition"
+                        style="background:linear-gradient(135deg,#6366f1,#8b5cf6,#a855f7);color:#fff;box-shadow:0 0 16px #8b5cf655;">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        Modo IA
+                    </button>
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Nombre del Alumno</label>
@@ -708,6 +720,93 @@
                     <div>
                         <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Descripcion (opcional)</label>
                         <input id="rutina-desc" type="text" placeholder="Ej: Rutina de fuerza semana 1" class="w-full rounded-lg px-3 py-2.5 text-sm">
+                    </div>
+                </div>
+            </div>
+
+            <!-- ══════════════════════════════════════════ -->
+            <!-- MODAL MODO IA -->
+            <!-- ══════════════════════════════════════════ -->
+            <div id="modal-modo-ia" class="hidden fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
+                <div class="bg-tarjeta rounded-3xl border border-borde w-full max-w-lg my-6" style="border-color:#6366f155;">
+                    <!-- Header -->
+                    <div class="p-6 border-b border-borde" style="background:linear-gradient(135deg,#6366f120,#8b5cf620);border-radius:1.5rem 1.5rem 0 0;">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#6366f1,#a855f7);">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-black text-texto">MODO IA</h3>
+                                    <p class="text-xs text-textoSuave">Generador inteligente de rutinas</p>
+                                </div>
+                            </div>
+                            <button onclick="cerrarModoIA()" class="text-textoSuave hover:text-texto text-2xl leading-none">&times;</button>
+                        </div>
+                    </div>
+
+                    <div class="p-6 space-y-5">
+                        <!-- Alumno -->
+                        <div>
+                            <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Alumno *</label>
+                            <select id="ia-alumno" class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondoAlt border border-borde text-texto" onchange="iaAlumnoChanged()">
+                                <option value="">— Seleccioná un alumno —</option>
+                            </select>
+                        </div>
+
+                        <!-- Info rutinas existentes -->
+                        <div id="ia-info-alumno" class="hidden rounded-xl p-3 text-sm" style="background:#6366f115;border:1px solid #6366f133;"></div>
+
+                        <!-- Si no tiene rutinas: nivel + equipamiento -->
+                        <div id="ia-campos-nuevo" class="hidden space-y-4">
+                            <div>
+                                <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Nivel del alumno</label>
+                                <select id="ia-nivel" class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondoAlt border border-borde text-texto">
+                                    <option value="principiante">Principiante</option>
+                                    <option value="intermedio">Intermedio</option>
+                                    <option value="avanzado">Avanzado</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Equipamiento disponible</label>
+                                <input id="ia-equipamiento" type="text" placeholder="Ej: mancuernas, bandas, peso corporal, máquinas" class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondoAlt border border-borde text-texto">
+                            </div>
+                        </div>
+
+                        <!-- Tipo de rutina (opcional) -->
+                        <div>
+                            <label class="text-xs text-textoSuave uppercase tracking-wider block mb-2">Tipo de rutina</label>
+                            <div class="grid grid-cols-3 gap-2" id="ia-tipos-grid">
+                                <button onclick="toggleTipoIA(this,'AUTO')" data-tipo="AUTO" class="ia-tipo-btn ia-tipo-active py-2 px-2 rounded-lg text-xs font-bold border transition">AUTO</button>
+                                <button onclick="toggleTipoIA(this,'ENTRENAMIENTO')" data-tipo="ENTRENAMIENTO" class="ia-tipo-btn py-2 px-2 rounded-lg text-xs font-bold border transition">ENTRENAMIENTO</button>
+                                <button onclick="toggleTipoIA(this,'FUERZA')" data-tipo="FUERZA" class="ia-tipo-btn py-2 px-2 rounded-lg text-xs font-bold border transition">FUERZA</button>
+                                <button onclick="toggleTipoIA(this,'HIIT')" data-tipo="HIIT" class="ia-tipo-btn py-2 px-2 rounded-lg text-xs font-bold border transition">HIIT</button>
+                                <button onclick="toggleTipoIA(this,'TABATA')" data-tipo="TABATA" class="ia-tipo-btn py-2 px-2 rounded-lg text-xs font-bold border transition">TABATA</button>
+                                <button onclick="toggleTipoIA(this,'FUNCIONAL')" data-tipo="FUNCIONAL" class="ia-tipo-btn py-2 px-2 rounded-lg text-xs font-bold border transition">FUNCIONAL</button>
+                                <button onclick="toggleTipoIA(this,'CARDIO')" data-tipo="CARDIO" class="ia-tipo-btn py-2 px-2 rounded-lg text-xs font-bold border transition">CARDIO</button>
+                                <button onclick="toggleTipoIA(this,'SPINNING')" data-tipo="SPINNING" class="ia-tipo-btn py-2 px-2 rounded-lg text-xs font-bold border transition">SPINNING</button>
+                                <button onclick="toggleTipoIA(this,'MULTIDIA')" data-tipo="MULTIDIA" class="ia-tipo-btn py-2 px-2 rounded-lg text-xs font-bold border transition">MULTI-DÍA</button>
+                            </div>
+                        </div>
+
+                        <!-- Objetivo libre -->
+                        <div>
+                            <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Objetivo / indicaciones extra <span class="text-textoSuave font-normal">(opcional)</span></label>
+                            <textarea id="ia-objetivo" rows="2" placeholder="Ej: enfocarse en piernas, evitar saltos, incluir movilidad..." class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondoAlt border border-borde text-texto resize-none"></textarea>
+                        </div>
+
+                        <!-- Botón generar -->
+                        <button onclick="generarRutinaConIA()" id="btn-generar-ia" class="w-full py-3.5 rounded-2xl font-black text-lg text-white uppercase tracking-wider transition disabled:opacity-50" style="background:linear-gradient(135deg,#6366f1,#a855f7);">
+                            ⚡ Generar Rutina con IA
+                        </button>
+
+                        <!-- Estado / loading -->
+                        <div id="ia-loading" class="hidden text-center py-4">
+                            <div class="inline-flex items-center gap-3 text-sm" style="color:#a855f7;">
+                                <svg class="w-5 h-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                <span id="ia-loading-text">Analizando rutinas del alumno...</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -3487,125 +3586,55 @@
     // normalizado. Devuelve array de strings (texto plano, sin HTML).
     // Para HTML usar buildEjMetaHtml.
     // ====================================================================
-    function buildEjMetaLines(e, bloqTipo) {
+    function buildEjMetaLines(e) {
         const lines = [];
         const tagParts = [];
         if (e.elemento) tagParts.push('[' + e.elemento + ']');
         if (e.con_carga) tagParts.push('[Lleva carga]');
         if (tagParts.length) lines.push(tagParts.join('  '));
 
-        // ── Circuito por Vueltas ──────────────────────────────────────────
-        if (bloqTipo === 'Circuito') {
-            if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
-                e.reps_por_vuelta.forEach((rv, vi) => {
-                    lines.push('Vuelta ' + (vi+1) + ': ' + rv + (e.unit ? ' ' + e.unit : ' Reps'));
-                });
-            } else if (e.reps) {
-                lines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
-            }
-            // Pausa NO se muestra aquí (va en el título del bloque)
-
-        // ── Circuito por Tiempo ───────────────────────────────────────────
-        } else if (bloqTipo === 'Circuito por Tiempo') {
-            if (e.reps) lines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
-
-        // ── EMOM ─────────────────────────────────────────────────────────
-        } else if (bloqTipo === 'EMOM') {
-            if (e.reps) lines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
-
-        // ── Series y Repeticiones ─────────────────────────────────────────
-        } else if (bloqTipo === 'Series') {
-            if (e.reps_por_serie && e.reps_por_serie.length > 0) {
-                e.reps_por_serie.forEach((rs, si) => {
-                    const pausa = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
-                    lines.push('Serie ' + (si+1) + ': ' + rs + (e.unit ? ' ' + e.unit : ' Reps') + (pausa ? '   |   Pausa: ' + pausa + 's' : ''));
-                });
-            } else {
-                if (e.series) lines.push('Series: ' + e.series + (e.reps ? '  x  ' + e.reps + (e.unit ? ' ' + e.unit : ' Reps') : ''));
-                else if (e.reps) lines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
-                if (e.descanso) lines.push('Pausa: ' + e.descanso + 's');
-            }
-
-        // ── Fallback genérico (Tabata u otro) ─────────────────────────────
+        if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
+            e.reps_por_vuelta.forEach((rv, vi) => {
+                lines.push('V' + (vi+1) + '   ' + rv + (e.unit ? ' ' + e.unit : ' Reps'));
+            });
+            if (e.descanso) lines.push('Pausa por vuelta: ' + e.descanso + 's');
+        } else if (e.reps_por_serie && e.reps_por_serie.length > 0) {
+            e.reps_por_serie.forEach((rs, si) => {
+                const pausa = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
+                lines.push('S' + (si+1) + '   ' + rs + (e.unit ? ' ' + e.unit : ' Reps') + (pausa ? '   |   Pausa: ' + pausa + 's' : ''));
+            });
         } else {
-            if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
-                e.reps_por_vuelta.forEach((rv, vi) => {
-                    lines.push('Vuelta ' + (vi+1) + ': ' + rv + (e.unit ? ' ' + e.unit : ' Reps'));
-                });
-            } else if (e.reps_por_serie && e.reps_por_serie.length > 0) {
-                e.reps_por_serie.forEach((rs, si) => {
-                    const pausa = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
-                    lines.push('Serie ' + (si+1) + ': ' + rs + (e.unit ? ' ' + e.unit : ' Reps') + (pausa ? '   |   Pausa: ' + pausa + 's' : ''));
-                });
-            } else {
-                if (e.series) lines.push('Series: ' + e.series + (e.reps ? '  x  ' + e.reps + (e.unit ? ' ' + e.unit : ' Reps') : ''));
-                else if (e.reps) lines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
-                if (e.descanso && !e.series) lines.push('Pausa: ' + e.descanso + 's');
-                else if (e.descanso && e.series && lines.length) lines[lines.length - 1] += '   |   Pausa: ' + e.descanso + 's';
-            }
+            if (e.series) lines.push('Series: ' + e.series + (e.reps ? '   x   ' + e.reps + (e.unit ? ' ' + e.unit : ' Reps') : ''));
+            else if (e.reps) lines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
+            if (e.descanso && !e.series) lines.push('Pausa: ' + e.descanso + 's');
+            else if (e.descanso && e.series && lines.length) lines[lines.length - 1] += '   |   Pausa: ' + e.descanso + 's';
         }
-
         if (e.nota_tecnica) lines.push('Nota: ' + e.nota_tecnica);
         return lines;
     }
 
     // Versión HTML (con tags <strong> para reps por vuelta/serie)
-    function buildEjMetaHtml(e, bloqTipo) {
+    function buildEjMetaHtml(e) {
         const parts = [];
         if (e.elemento) parts.push('🔧 ' + e.elemento);
         if (e.con_carga) parts.push('🏋️ Lleva carga');
-
-        // ── Circuito por Vueltas ─────────────────────────────────────────
-        if (bloqTipo === 'Circuito') {
-            if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
-                e.reps_por_vuelta.forEach((rv, vi) => {
-                    parts.push('Vuelta ' + (vi+1) + ': <strong>' + rv + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>');
-                });
-            } else if (e.reps) {
-                parts.push('<strong>' + e.reps + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>');
-            }
-            // Pausa NO aquí (va en título del bloque)
-
-        // ── Circuito por Tiempo ──────────────────────────────────────────
-        } else if (bloqTipo === 'Circuito por Tiempo') {
-            if (e.reps) parts.push('<strong>' + e.reps + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>');
-
-        // ── EMOM ────────────────────────────────────────────────────────
-        } else if (bloqTipo === 'EMOM') {
-            if (e.reps) parts.push('<strong>' + e.reps + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>');
-
-        // ── Series ──────────────────────────────────────────────────────
-        } else if (bloqTipo === 'Series') {
-            if (e.reps_por_serie && e.reps_por_serie.length > 0) {
-                e.reps_por_serie.forEach((rs, si) => {
-                    const p = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
-                    parts.push('Serie ' + (si+1) + ': <strong>' + rs + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>' + (p ? ' <span style="color:#e67e22;">| Pausa: ' + p + 's</span>' : ''));
-                });
-            } else {
-                if (e.series) parts.push('Series: ' + e.series + (e.reps ? ' x <strong>' + e.reps + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>' : ''));
-                else if (e.reps) parts.push('<strong>' + e.reps + (e.unit ? ' ' + e.unit : '') + '</strong>');
-                if (e.descanso) parts.push('<span style="color:#e67e22;">Pausa: ' + e.descanso + 's</span>');
-            }
-
-        // ── Fallback genérico ────────────────────────────────────────────
-        } else {
-            if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
-                e.reps_por_vuelta.forEach((rv, vi) => {
-                    parts.push('Vuelta ' + (vi+1) + ': <strong>' + rv + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>');
-                });
-            } else if (e.reps_por_serie && e.reps_por_serie.length > 0) {
-                e.reps_por_serie.forEach((rs, si) => {
-                    const p = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
-                    parts.push('Serie ' + (si+1) + ': <strong>' + rs + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>' + (p ? ' <span style="color:#e67e22;">| Pausa: ' + p + 's</span>' : ''));
-                });
-            } else if (e.reps) {
-                parts.push('<strong>' + e.reps + (e.unit ? ' ' + e.unit : '') + '</strong>');
-                if (e.descanso) parts.push('Pausa: ' + e.descanso + 's');
-            } else if (e.descanso) {
-                parts.push('Pausa: ' + e.descanso + 's');
-            }
+        if (e.series) parts.push('Series: ' + e.series);
+        if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
+            parts.push(e.reps_por_vuelta.map((rv, vi) =>
+                'V' + (vi+1) + ': <strong>' + rv + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>'
+            ).join(' &nbsp; '));
+            if (e.descanso) parts.push('Pausa por vuelta: ' + e.descanso + 's');
+        } else if (e.reps_por_serie && e.reps_por_serie.length > 0) {
+            parts.push(e.reps_por_serie.map((rs, si) => {
+                const p = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
+                return 'S' + (si+1) + ': <strong>' + rs + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>' + (p ? ' <span style="color:#e67e22;">| Pausa: ' + p + 's</span>' : '');
+            }).join(' &nbsp; '));
+        } else if (e.reps) {
+            parts.push(e.reps + (e.unit ? ' ' + e.unit : ''));
+            if (e.descanso) parts.push('Pausa: ' + e.descanso + 's');
+        } else if (e.descanso) {
+            parts.push('Pausa: ' + e.descanso + 's');
         }
-
         if (e.nota_tecnica) parts.push('📝 ' + e.nota_tecnica);
         return parts.join(' &nbsp;|&nbsp; ');
     }
@@ -4018,10 +4047,10 @@
         const sEjMeta     = ff + 'font-size:11px;color:#555;margin:0;';
 
         // --- Función interna para renderizar un ejercicio en caja gris ---
-        function ejBox(ej, bloqTipo) {
+        function ejBox(ej) {
             const e = normalizeEj(ej);
             if (!e.nombre) return '';
-            const metaStr = buildEjMetaHtml(e, bloqTipo);
+            const metaStr = buildEjMetaHtml(e);
             return `<div style="${sEjBox}">
                 <div style="${sEjTop}">
                     <span style="${sEjNombre}">${e.nombre}</span>
@@ -4075,11 +4104,11 @@
                             if (ejsMin.length === 0) {
                                 html += `<p style="${ff}color:#aaa;font-size:11px;font-style:italic;margin:2px 0 6px 10px;">Sin ejercicios</p>`;
                             } else {
-                                ejsMin.forEach(ej => { html += ejBox(ej, 'EMOM'); });
+                                ejsMin.forEach(ej => { html += ejBox(ej); });
                             }
                         });
                     } else {
-                        dWEjs.forEach(ej => { html += ejBox(ej, dWTipo); });
+                        dWEjs.forEach(ej => { html += ejBox(ej); });
                     }
                     html += '<hr style="border:none;border-top:1px solid #eee;margin:12px 0;">';
                 }
@@ -4104,12 +4133,11 @@
                         if (ejsFlat[0] && ejsFlat[0].ejercicios !== undefined) {
                             ejsFlat.forEach((g, gi) => {
                                 const ejsG = toArray(g.ejercicios);
-                                const gTipo = g.tipo || diaTipo;
-                                html += `<div style="${sSubHeader}">Bloque ${gi+1}: ${gTipo}</div>`;
-                                ejsG.forEach(ej => { html += ejBox(ej, gTipo); });
+                                html += `<div style="${sSubHeader}">Bloque ${gi+1}: ${g.tipo || diaTipo}</div>`;
+                                ejsG.forEach(ej => { html += ejBox(ej); });
                             });
                         } else {
-                            ejsFlat.forEach(ej => { html += ejBox(ej, diaTipo); });
+                            ejsFlat.forEach(ej => { html += ejBox(ej); });
                         }
                     }
                 }
@@ -4150,11 +4178,11 @@
                     if (ejsMin.length === 0) {
                         html += `<p style="${ff}color:#aaa;font-size:11px;font-style:italic;margin:2px 0 6px 10px;">Sin ejercicios</p>`;
                     } else {
-                        ejsMin.forEach(ej => { html += ejBox(ej, 'EMOM'); });
+                        ejsMin.forEach(ej => { html += ejBox(ej); });
                     }
                 });
             } else {
-                wEjs.forEach(ej => { html += ejBox(ej, wTipo); });
+                wEjs.forEach(ej => { html += ejBox(ej); });
             }
             html += '<hr style="border:none;border-top:2px solid #eee;margin:20px 0;">';
         }
@@ -4173,12 +4201,12 @@
                         const ejsMin = minCfg.ejercicios || [];
                         if (ejsMin.length === 0) {
                             html += `<p style="${ff}color:#aaa;font-size:11px;font-style:italic;margin:2px 0 6px 10px;">Sin ejercicios</p>`;
-                        } else { ejsMin.forEach(ej => { html += ejBox(ej, 'EMOM'); }); }
+                        } else { ejsMin.forEach(ej => { html += ejBox(ej); }); }
                     });
                 } else if (ejsB.length === 0) {
                     html += `<p style="${ff}color:#aaa;font-size:12px;font-style:italic;padding:6px 2px;">Sin ejercicios registrados</p>`;
                 } else {
-                    ejsB.forEach(ej => { html += ejBox(ej, bloqTipo); });
+                    ejsB.forEach(ej => { html += ejBox(ej); });
                 }
             });
         }
@@ -4201,20 +4229,21 @@
                         const ejsMin = minCfg.ejercicios || [];
                         if (ejsMin.length === 0) {
                             html += `<p style="${ff}color:#aaa;font-size:11px;font-style:italic;margin:2px 0 6px 10px;">Sin ejercicios</p>`;
-                        } else { ejsMin.forEach(ej => { html += ejBox(ej, 'EMOM'); }); }
+                        } else { ejsMin.forEach(ej => { html += ejBox(ej); }); }
                     });
                 } else {
-                    ejsFlat.forEach(ej => { html += ejBox(ej, 'EMOM'); });
+                    ejsFlat.forEach(ej => { html += ejBox(ej); });
                 }
             } else if (ejsFlat.length > 0) {
                 let metaInfo = ' — ' + (datos.trabajo||20) + 's / ' + (datos.pausa||10) + 's | ' + (datos.rondas||1) + ' ronda(s)';
                 html += `<div style="${sSubHeader}">Tabata${metaInfo}</div>`;
-                ejsFlat.forEach(ej => { html += ejBox(ej, 'Tabata'); });
+                ejsFlat.forEach(ej => { html += ejBox(ej); });
             }
         } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo') {
             html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — ${tipo}</div>`;
             const gruposC = toArray(datos.datos || datos.rutina || []);
             if (gruposC.length > 0 && gruposC[0] && (gruposC[0].ejercicios !== undefined)) {
+                // Pasar tipo y datos del nivel superior como fallback para grupos sin tipo propio
                 gruposC.forEach((g, gi) => {
                     const ejsG = toArray(g.ejercicios);
                     const gTipo = g.tipo || tipo;
@@ -4225,15 +4254,15 @@
                     if (ejsG.length === 0) {
                         html += `<p style="${ff}color:#aaa;font-size:12px;font-style:italic;padding:6px 2px;">Sin ejercicios registrados</p>`;
                     } else {
-                        ejsG.forEach(ej => { html += ejBox(ej, gTipo); });
+                        ejsG.forEach(ej => { html += ejBox(ej); });
                     }
                 });
             } else {
-                gruposC.forEach(ej => { html += ejBox(ej, tipo); });
+                gruposC.forEach(ej => { html += ejBox(ej); });
             }
         } else if (tipo === 'Series') {
             html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — SERIES</div>`;
-            toArray(datos.datos || datos.rutina || []).forEach(ej => { html += ejBox(ej, 'Series'); });
+            toArray(datos.datos || datos.rutina || []).forEach(ej => { html += ejBox(ej); });
         }
 
         // --- Mapa de Calor Muscular de esta rutina ---
@@ -4319,11 +4348,11 @@
             }
 
             // Ejercicio en caja gris #F0F0F0 — nombre + video + Series|Reps|Pausa + carga + elemento
-            function ejGris(ej, bloqTipo) {
+            function ejGris(ej) {
                 const e = normalizeEj(ej);
                 if (!e.nombre) return;
 
-                const detLines = buildEjMetaLines(e, bloqTipo);
+                const detLines = buildEjMetaLines(e);
 
                 const lineH = 5.5;
                 const boxH = 9 + (detLines.length > 0 ? detLines.length * lineH + 2 : 0);
@@ -4450,10 +4479,10 @@
                                 if (ejsMin.length === 0) {
                                     doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(170,170,170);
                                     doc.text('Sin ejercicios', mL + 4, y); y += 5;
-                                } else { ejsMin.forEach(ej => ejGris(ej, 'EMOM')); }
+                                } else { ejsMin.forEach(ej => ejGris(ej)); }
                             });
                         } else {
-                            dWEjs.forEach(ej => ejGris(ej, dWTipo));
+                            dWEjs.forEach(ej => ejGris(ej));
                         }
                         chk(6); doc.setDrawColor(210,210,210); doc.setLineWidth(0.4); doc.line(mL, y+2, pw-mR, y+2); y+=8;
                     }
@@ -4473,12 +4502,11 @@
                             }
                             if (ejsF[0] && ejsF[0].ejercicios !== undefined) {
                                 ejsF.forEach((g, gi) => {
-                                    const gTipo = g.tipo || diaTipo;
-                                    subBar('Bloque ' + (gi+1) + ': ' + gTipo);
-                                    toArray(g.ejercicios).forEach(ej => ejGris(ej, gTipo));
+                                    subBar('Bloque ' + (gi+1) + ': ' + (g.tipo || diaTipo));
+                                    toArray(g.ejercicios).forEach(ej => ejGris(ej));
                                 });
                             } else {
-                                ejsF.forEach(ej => ejGris(ej, diaTipo));
+                                ejsF.forEach(ej => ejGris(ej));
                             }
                         }
                     }
@@ -4558,10 +4586,10 @@
                         if (ejsMin.length === 0) {
                             doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(170,170,170);
                             doc.text('Sin ejercicios', mL + 4, y); y += 5;
-                        } else { ejsMin.forEach(ej => ejGris(ej, 'EMOM')); }
+                        } else { ejsMin.forEach(ej => ejGris(ej)); }
                     });
                 } else {
-                    wEjs.forEach(ej => ejGris(ej, wTipo));
+                    wEjs.forEach(ej => ejGris(ej));
                 }
 
                 // Divisor
@@ -4589,7 +4617,7 @@
                             if (ejsMin.length === 0) {
                                 doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(170,170,170);
                                 doc.text('Sin ejercicios', mL + 4, y); y += 5;
-                            } else { ejsMin.forEach(ej => ejGris(ej, 'EMOM')); }
+                            } else { ejsMin.forEach(ej => ejGris(ej)); }
                         });
                     } else if (ejsB.length === 0) {
                         chk(8);
@@ -4599,7 +4627,7 @@
                         doc.text('Sin ejercicios registrados', mL + 4, y);
                         y += 8;
                     } else {
-                        ejsB.forEach(ej => ejGris(ej, bloqTipo));
+                        ejsB.forEach(ej => ejGris(ej));
                     }
                 });
             }
@@ -4622,20 +4650,21 @@
                             if (ejsMin.length === 0) {
                                 doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(170,170,170);
                                 doc.text('Sin ejercicios', mL + 4, y); y += 5;
-                            } else { ejsMin.forEach(ej => ejGris(ej, 'EMOM')); }
+                            } else { ejsMin.forEach(ej => ejGris(ej)); }
                         });
                     } else {
-                        toArray(datos.rutina || datos.datos || []).forEach(ej => ejGris(ej, 'EMOM'));
+                        toArray(datos.rutina || datos.datos || []).forEach(ej => ejGris(ej));
                     }
                 } else {
                     let metaInfo = '  —  ' + (datos.trabajo||20) + 's / ' + (datos.pausa||10) + 's | ' + (datos.rondas||1) + ' ronda(s)';
                     subBar('Tabata' + metaInfo);
-                    toArray(datos.rutina || datos.datos || []).forEach(ej => ejGris(ej, 'Tabata'));
+                    toArray(datos.rutina || datos.datos || []).forEach(ej => ejGris(ej));
                 }
             } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo' || tipo === 'Series') {
                 colorBar('2. BLOQUE PRINCIPAL  —  ' + tipo, 206, 147, 216);
                 const flatList = toArray(datos.datos || datos.rutina || []);
                 if (flatList.length && flatList[0] && flatList[0].ejercicios !== undefined) {
+                    // Grupos con ejercicios anidados - usar datos del nivel superior como fallback
                     flatList.forEach((g, gi) => {
                         const ejsG = toArray(g.ejercicios);
                         const gTipo = g.tipo || tipo;
@@ -4651,11 +4680,11 @@
                             doc.text('Sin ejercicios registrados', mL + 4, y);
                             y += 8;
                         } else {
-                            ejsG.forEach(ej => ejGris(ej, gTipo));
+                            ejsG.forEach(ej => ejGris(ej));
                         }
                     });
                 } else {
-                    flatList.forEach(ej => ejGris(ej, tipo));
+                    flatList.forEach(ej => ejGris(ej));
                 }
             }
 
@@ -5757,6 +5786,149 @@ self.addEventListener('fetch', event => {
                 .catch(err => console.log('SW error:', err));
         });
     }
+
+    // ====================================================================
+    // MODO IA — Generador de rutinas con inteligencia artificial
+    // ====================================================================
+
+    // URL base del servidor de IA (actualizar si cambia el dominio de Replit)
+    const _AI_API_URL = 'https://265e106e-bc95-4d64-904b-23cba5c00155-00-gxuw5cpyijbb.kirk.replit.dev/api/generar-rutina';
+
+    let _iaTipoSeleccionado = 'AUTO';
+    let _iaRutinasAlumno = {};
+
+    function abrirModoIA() {
+        const modal = $el('modal-modo-ia');
+        if (!modal) return;
+        // Poblar el select de alumnos
+        cargarSelectAlumnos('ia-alumno');
+        // Preseleccionar el alumno del campo si ya hay uno escrito
+        const nombreActual = ($el('alumno-nombre')?.value || '').trim();
+        if (nombreActual) {
+            setTimeout(() => {
+                const sel = $el('ia-alumno');
+                if (sel) {
+                    for (const opt of sel.options) {
+                        if (opt.value.toLowerCase() === nombreActual.toLowerCase()) {
+                            sel.value = opt.value;
+                            iaAlumnoChanged();
+                            break;
+                        }
+                    }
+                }
+            }, 300);
+        }
+        $el('ia-loading').classList.add('hidden');
+        $el('ia-campos-nuevo').classList.add('hidden');
+        $el('ia-info-alumno').classList.add('hidden');
+        modal.classList.remove('hidden');
+    }
+
+    function cerrarModoIA() {
+        $el('modal-modo-ia')?.classList.add('hidden');
+    }
+
+    function toggleTipoIA(btn, tipo) {
+        document.querySelectorAll('.ia-tipo-btn').forEach(b => b.classList.remove('ia-tipo-active'));
+        btn.classList.add('ia-tipo-active');
+        _iaTipoSeleccionado = tipo;
+    }
+
+    async function iaAlumnoChanged() {
+        const sel = $el('ia-alumno');
+        const infoEl = $el('ia-info-alumno');
+        const camposNuevo = $el('ia-campos-nuevo');
+        if (!sel || !infoEl || !camposNuevo) return;
+        const nombre = sel.value;
+        if (!nombre) {
+            infoEl.classList.add('hidden');
+            camposNuevo.classList.add('hidden');
+            _iaRutinasAlumno = {};
+            return;
+        }
+        infoEl.innerHTML = '<span style="color:#a855f7">Cargando rutinas del alumno...</span>';
+        infoEl.classList.remove('hidden');
+        try {
+            const data = await apiGetRutinasAlumno(nombre);
+            _iaRutinasAlumno = data.rutinas || {};
+            const cant = Object.keys(_iaRutinasAlumno).length;
+            if (cant > 0) {
+                const tipos = [...new Set(Object.values(_iaRutinasAlumno).map((r) => r.tipo || 'ENTRENAMIENTO'))];
+                infoEl.innerHTML = `<span style="color:#a855f7">✓</span> <strong>${cant} rutina${cant > 1 ? 's' : ''} encontrada${cant > 1 ? 's' : ''}</strong> — Tipos: <em>${tipos.join(', ')}</em><br><span class="text-textoSuave text-xs">La IA generará una rutina que progrese sobre las anteriores.</span>`;
+                camposNuevo.classList.add('hidden');
+            } else {
+                infoEl.innerHTML = `<span style="color:#f59e0b">!</span> <strong>Sin rutinas previas</strong> — Completá el nivel y equipamiento para que la IA adapte la rutina.`;
+                camposNuevo.classList.remove('hidden');
+            }
+        } catch(e) {
+            infoEl.innerHTML = '<span style="color:#ef4444">Error al cargar rutinas</span>';
+            camposNuevo.classList.remove('hidden');
+            _iaRutinasAlumno = {};
+        }
+    }
+
+    async function generarRutinaConIA() {
+        const alumno = $el('ia-alumno')?.value;
+        if (!alumno) { toast('Seleccioná un alumno primero'); return; }
+
+        const btn = $el('btn-generar-ia');
+        const loading = $el('ia-loading');
+        const loadingText = $el('ia-loading-text');
+
+        btn.disabled = true;
+        loading.classList.remove('hidden');
+
+        const tieneRutinas = Object.keys(_iaRutinasAlumno).length > 0;
+        const msgs = tieneRutinas
+            ? ['Analizando rutinas anteriores del alumno...', 'Identificando patrones y progresión...', 'Construyendo nueva rutina personalizada...']
+            : ['Calculando rutina para el nivel indicado...', 'Seleccionando ejercicios apropiados...', 'Armando bloques y calentamiento...'];
+        let mi = 0;
+        const msgInt = setInterval(() => { if (loadingText) loadingText.textContent = msgs[mi++ % msgs.length]; }, 2200);
+
+        try {
+            const payload = {
+                alumno,
+                rutinasExistentes: _iaRutinasAlumno,
+                nivel: $el('ia-nivel')?.value || 'principiante',
+                equipamiento: $el('ia-equipamiento')?.value || '',
+                objetivo: $el('ia-objetivo')?.value || '',
+                tipoSolicitado: _iaTipoSeleccionado !== 'AUTO' ? _iaTipoSeleccionado : '',
+            };
+
+            const res = await fetch(_AI_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            const json = await res.json();
+            if (!res.ok || json.error) throw new Error(json.error || 'Error al generar');
+
+            const rutina = json.rutina;
+            clearInterval(msgInt);
+
+            cerrarModoIA();
+
+            // Cargar en el editor
+            _aplicarRutinaAlEditor(rutina, alumno);
+
+            // Poner descripción si la IA la generó
+            if (rutina.nombre && $el('rutina-desc')) {
+                $el('rutina-desc').value = rutina.nombre;
+            }
+
+            toast('✅ Rutina generada con IA — revisá, ajustá y compartila cuando esté lista');
+
+        } catch(e) {
+            clearInterval(msgInt);
+            console.error('Error Modo IA:', e);
+            toast('Error al generar rutina: ' + e.message);
+        } finally {
+            btn.disabled = false;
+            loading.classList.add('hidden');
+        }
+    }
+
     </script>
 </body>
 </html>
