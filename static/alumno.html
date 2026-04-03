@@ -3395,19 +3395,35 @@
         // ─── CONSULTAR RUTINA ───
         async function consultarRutina() {
             const cod = document.getElementById('codigoInput').value.trim().toLowerCase();
-            if (!cod) return;
+            if (!cod) {
+                alert("Por favor ingresa tu código de rutina");
+                return;
+            }
             const btn = document.querySelector('.btn-principal');
             btn.innerText = 'Cargando...';
             btn.disabled = true;
             // Desbloquear audio en iOS aprovechando esta interacción real del usuario
             _desbloquearAudioIOS();
+            var data = null;
             try {
                 const res = await fetch("https://ponetefit-app-default-rtdb.firebaseio.com/rutinas/" + cod + ".json");
-                const data = await res.json();
-                if (!data) {
-                    alert("Codigo no encontrado");
-                    return;
+                if (!res.ok) {
+                    throw new Error("HTTP " + res.status);
                 }
+                data = await res.json();
+            } catch (e) {
+                alert("Error al conectar con la base de datos. Verificá tu conexión a internet.");
+                btn.innerText = 'Entrar a Entrenar';
+                btn.disabled = false;
+                return;
+            }
+            if (!data) {
+                alert("Código no encontrado. Verificá el código con tu entrenador.");
+                btn.innerText = 'Entrar a Entrenar';
+                btn.disabled = false;
+                return;
+            }
+            try {
                 dataGlobal = data;
                 currentCode = cod;
                 // Titulo dinamico para codigos con formato nombre-000X
@@ -3436,7 +3452,7 @@
                         document.getElementById('tipo-tag').innerText = data.tipo.toUpperCase();
                     }
                 } else {
-                    document.getElementById('tipo-tag').innerText = data.tipo.toUpperCase();
+                    document.getElementById('tipo-tag').innerText = (data.tipo || 'ENTRENAMIENTO').toUpperCase();
                 }
                 _pantallaFinMostrada = false;
                 _iniciarCronometroSesion();
@@ -3453,7 +3469,10 @@
                 document.getElementById('rutina-modal').classList.add('visible');
                 mostrarToast('Rutina cargada');
             } catch (e) {
-                alert("Error al conectar con la base de datos");
+                console.error('Error al renderizar rutina:', e);
+                alert("Error al mostrar la rutina: " + (e.message || e));
+                dataGlobal = null;
+                currentCode = "";
             } finally {
                 btn.innerText = 'Entrar a Entrenar';
                 btn.disabled = false;
