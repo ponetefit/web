@@ -319,7 +319,6 @@
             <button onclick="showTab('rutina')" id="tab-rutina" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Crear Rutina</button>
             <button onclick="showTab('videoteca')" id="tab-videoteca" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Videoteca</button>
             <button onclick="showTab('historial')" id="tab-historial" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Historial</button>
-            <button onclick="showTab('repositorio')" id="tab-repositorio" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Repositorio</button>
         </div>
     </nav>
 
@@ -755,57 +754,7 @@
                         <div id="modal-alumnos-asignados" class="text-xs text-left space-y-1 max-h-28 overflow-y-auto"></div>
                     </div>
 
-                    <!-- Guardar en repositorio -->
-                    <div class="border-t border-borde/50 mt-2 pt-4 mb-2">
-                        <p class="text-xs text-textoSuave uppercase tracking-wider mb-3">Guardar en Repositorio</p>
-                        <div class="flex gap-2">
-                            <input type="text" id="repo-nombre-input" placeholder="Nombre ej: Push Pull Piernas" class="flex-1 rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto" />
-                            <button onclick="guardarEnRepositorio()" class="bg-naranja/20 text-naranja px-4 py-2 rounded-lg text-sm font-bold hover:bg-naranja/30 transition whitespace-nowrap">Guardar</button>
-                        </div>
-                        <p class="text-xs text-textoSuave mt-1.5" id="repo-modal-status"></p>
-                    </div>
-
                     <button onclick="document.getElementById('modal-codigo').classList.add('hidden')" class="text-textoSuave text-sm hover:text-texto transition w-full py-2 mt-1">Cerrar</button>
-                </div>
-            </div>
-        </section>
-
-        <!-- ═══════════════════════════════════════════ -->
-        <!-- TAB: REPOSITORIO -->
-        <!-- ═══════════════════════════════════════════ -->
-        <section id="sec-repositorio" class="hidden">
-            <div class="bg-tarjeta rounded-2xl border border-borde p-6 mb-6">
-                <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
-                    <div>
-                        <h2 class="text-lg font-bold text-naranja uppercase tracking-wider">Repositorio de Rutinas</h2>
-                        <p class="text-textoSuave text-xs mt-0.5">Rutinas modelo guardadas para reutilizar con cualquier alumno</p>
-                    </div>
-                    <button onclick="cargarRepositorio()" class="bg-naranja/20 text-naranja px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition whitespace-nowrap">Actualizar</button>
-                </div>
-
-                <!-- Buscador -->
-                <div class="mb-4">
-                    <input type="text" id="repo-filtro" placeholder="Buscar rutina..." oninput="filtrarRepositorio()" class="w-full rounded-lg px-4 py-2.5 text-sm bg-fondoAlt border border-borde text-texto" />
-                </div>
-
-                <!-- Lista de rutinas del repositorio -->
-                <div id="repo-lista" class="space-y-3">
-                    <p class="text-textoSuave text-sm text-center py-10">Cargando repositorio...</p>
-                </div>
-            </div>
-
-            <!-- Modal copiar a alumno -->
-            <div id="modal-repo-copiar" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-                <div class="bg-tarjeta rounded-2xl border border-borde p-6 max-w-sm w-full">
-                    <h3 class="text-base font-black text-texto mb-1">Copiar al Alumno</h3>
-                    <p class="text-textoSuave text-xs mb-4" id="modal-repo-rutina-nombre"></p>
-                    <select id="modal-repo-alumno-sel" class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondoAlt border border-borde text-texto mb-3">
-                        <option value="">-- Seleccionar alumno --</option>
-                    </select>
-                    <div class="flex gap-2">
-                        <button onclick="confirmarCopiarDesdeRepo()" class="flex-1 bg-verde/20 text-verde py-2.5 rounded-lg text-sm font-bold hover:bg-verde/30 transition">Copiar</button>
-                        <button onclick="document.getElementById('modal-repo-copiar').classList.add('hidden')" class="flex-1 bg-borde/20 text-textoSuave py-2.5 rounded-lg text-sm font-bold hover:bg-borde/40 transition">Cancelar</button>
-                    </div>
                 </div>
             </div>
         </section>
@@ -924,208 +873,21 @@
     // ====================================================================
     // CONFIGURACION
     // ====================================================================
-    // FIREBASE — URL base y helpers de bajo nivel
-    // ====================================================================
-    const FIREBASE_BASE = 'https://ponetefit-app-default-rtdb.firebaseio.com';
+    const API_BASE = ''; // Mismo origen
 
-    async function fbGet(path) {
-        const res = await fetch(FIREBASE_BASE + path + '.json');
-        if (!res.ok) throw new Error('Firebase error ' + res.status);
-        return await res.json();
-    }
-    async function fbPut(path, data) {
-        const res = await fetch(FIREBASE_BASE + path + '.json', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        if (!res.ok) throw new Error('Firebase PUT ' + res.status);
-        return await res.json();
-    }
-    async function fbDelete(path) {
-        const res = await fetch(FIREBASE_BASE + path + '.json', { method: 'DELETE' });
-        if (!res.ok) throw new Error('Firebase DELETE ' + res.status);
-        return null;
-    }
+    // Estado global
+    let videotecaCache = {};
+    // ── MULTI-DIA ─────────────────────────────────────────────────────────
+    // diasData[i] = { titulo, warmupEjercicios:[], bloquesRutina:[] }
+    let diasData = [];
+    let diaActivoIdx = 0; // indice del dia cuyo modal de bloque esta abierto
 
-    // Extrae la clave del alumno de un código (ej: "rafa-0001" → "rafa")
-    function alumnoKeyFromCodigo(codigo) {
-        const match = (codigo || '').match(/^(.+)-\d{4,}$/);
-        return match ? match[1] : codigo;
-    }
-
-    // Genera el próximo código para un alumno usando la estructura plana de /rutinas
-    async function generarCodigo(alumnoKey) {
-        let allRutinas = {};
-        try { allRutinas = await fbGet('/rutinas') || {}; } catch(e) {}
-        const prefix = alumnoKey + '-';
-        const nums = Object.keys(allRutinas)
-            .filter(k => k.startsWith(prefix))
-            .map(k => { const m = k.match(/-(\d+)$/); return m ? parseInt(m[1]) : 0; })
-            .filter(n => n > 0);
-        const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
-        return alumnoKey + '-' + String(next).padStart(4, '0');
-    }
-
-    // ── Funciones API de alto nivel (retornan datos en el formato esperado) ──
-
-    async function apiGetAlumnos() {
-        const data = await fbGet('/alumnos') || {};
-        let alumnos = Object.keys(data).filter(k => data[k]);
-        // Si /alumnos está vacío, derivar los nombres desde los códigos en /rutinas
-        if (alumnos.length === 0) {
-            const rutinas = await fbGet('/rutinas') || {};
-            const seen = new Set();
-            Object.keys(rutinas).forEach(k => {
-                const m = k.match(/^(.+)-\d{4,}$/);
-                if (m) seen.add(m[1]);
-            });
-            alumnos = Array.from(seen).sort();
-            // Registrar en /alumnos para la próxima vez
-            await Promise.all(alumnos.map(a => fbPut('/alumnos/' + encodeURIComponent(a), true).catch(() => {})));
-        }
-        return { alumnos };
-    }
-
-    // Estructura plana: /rutinas/{codigo} — filtra por prefijo del alumno
-    async function apiGetRutinasAlumno(nombre) {
-        const alumnoKey = nombre.toLowerCase().trim();
-        const prefix = alumnoKey + '-';
-        const allRutinas = await fbGet('/rutinas') || {};
-        const filtered = {};
-        Object.keys(allRutinas).forEach(k => {
-            if (k.startsWith(prefix) && allRutinas[k] && typeof allRutinas[k] === 'object') {
-                filtered[k] = allRutinas[k];
-            }
-        });
-        return { rutinas: filtered };
-    }
-
-    // Estructura plana: /rutinas/{codigo}
-    async function apiGetRutina(codigo) {
-        const data = await fbGet('/rutinas/' + encodeURIComponent(codigo));
-        return { rutina: data || {} };
-    }
-
-    async function apiDeleteRutina(codigo) {
-        await fbDelete('/rutinas/' + encodeURIComponent(codigo));
-        return { ok: true };
-    }
-
-    // Elimina todas las rutinas del alumno y su entrada en /alumnos
-    async function apiDeleteAlumno(nombre) {
-        const alumnoKey = nombre.toLowerCase().trim();
-        const prefix = alumnoKey + '-';
-        const allRutinas = await fbGet('/rutinas') || {};
-        const toDelete = Object.keys(allRutinas).filter(k => k.startsWith(prefix));
-        await Promise.all(toDelete.map(k => fbDelete('/rutinas/' + encodeURIComponent(k))));
-        await fbDelete('/alumnos/' + encodeURIComponent(alumnoKey));
-        return { ok: true };
-    }
-
-    // Guarda la rutina en /rutinas/{codigo} (estructura plana) y registra al alumno
-    async function apiCompartirRutina(payload) {
-        const alumnoKey = (payload.alumno || 'alumno').toLowerCase().trim();
-        const codigo = await generarCodigo(alumnoKey);
-        const rutinaData = Object.assign({}, payload, { alumno: alumnoKey, codigo, timestamp: new Date().toISOString() });
-        await fbPut('/rutinas/' + encodeURIComponent(codigo), rutinaData);
-        await fbPut('/alumnos/' + encodeURIComponent(alumnoKey), true);
-        const totalDias = payload.dias ? payload.dias.length : 1;
-        return { ok: true, codigo, alumno: alumnoKey, es_multidia: !!payload.dias, total_dias: totalDias };
-    }
-
-    // Mueve una rutina de un código a otro dentro de /rutinas (plano)
-    async function apiRenombrarRutina(codigoViejo, codigoNuevo) {
-        const data = await fbGet('/rutinas/' + encodeURIComponent(codigoViejo));
-        if (!data) return;
-        const newData = Object.assign({}, data, { codigo: codigoNuevo });
-        await fbPut('/rutinas/' + encodeURIComponent(codigoNuevo), newData);
-        await fbDelete('/rutinas/' + encodeURIComponent(codigoViejo));
-        return { ok: true };
-    }
-
-    // ====================================================================
-    // API FETCH — wrapper centralizado con manejo de errores
-    // ====================================================================
-    /**
-     * Realiza un fetch a la API propia con manejo robusto de errores.
-     * Lanza un Error si la red falla, si res.ok es false, o si data.ok es false.
-     * @param {string} url  - ruta relativa o absoluta
-     * @param {object} opts - opciones fetch estándar
-     * @returns {Promise<any>} - el objeto JSON de la respuesta
-     */
-    async function apiFetch(url, opts = {}) {
-        const res = await fetch(url, {
-            headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
-            ...opts
-        });
-        if (!res.ok) {
-            const text = await res.text().catch(() => res.statusText);
-            throw new Error(`HTTP ${res.status}: ${text}`);
-        }
-        const data = await res.json();
-        if (data && data.ok === false) throw new Error(data.error || 'Error del servidor');
-        return data;
-    }
-
-    /**
-     * Igual que apiFetch pero con fallback silencioso: devuelve null en caso de error.
-     * Útil para fetches en segundo plano donde el fallo no es crítico.
-     */
-    async function apiFetchSilent(url, opts = {}) {
-        try { return await apiFetch(url, opts); } catch(e) { console.warn('apiFetchSilent:', e.message); return null; }
-    }
-
-    // ====================================================================
-    // DOM HELPERS — acceso seguro a elementos
-    // ====================================================================
-    const $el  = id => document.getElementById(id);
-    const $set = (id, val) => { const e = $el(id); if (e) e.textContent = val; };
-    const $html = (id, val) => { const e = $el(id); if (e) e.innerHTML = val; };
-    // Aliases usados en procesarDashboard
-    const setText = $set;
-    const setHTML = $html;
-
-    // ====================================================================
-    // ESTADO GLOBAL — todas las variables de estado en un único bloque
-    // ====================================================================
-
-    // — Videoteca —
-    let VIDEOTECA_DATA = {};   // datos completos del servidor/Firebase
-    let videotecaCache = {};   // alias vivo → apunta a VIDEOTECA_DATA
-
-    // — Rutina / Multi-día —
-    // diasData[i] = { titulo, warmupEjercicios[], warmupEmomConfig[], bloquesRutina[] }
-    let diasData          = [];
-    let diaActivoIdx      = 0;    // índice del día con modal de bloque abierto
-    let warmupEjercicios  = [];   // alias legacy al día activo
-    let bloquesRutina     = [];   // alias al día activo — sincronizar con diasData[diaActivoIdx].bloquesRutina
-    let bloqueEjsTemp     = [];   // ejercicios del bloque en el modal
-    let editandoBloqueIdx = null; // null=nuevo, number=índice a editar
-    let _editandoRutina   = false;// evita reset en inicializarRutina al cargar historial
-
-    // — EMOM —
-    let _emomMinCopiado = null;
-
-    // — Historial / Modal —
-    let historialRutinasCache = {};
-    let rutinaModalActual     = null;
-    let currentData           = null;
-
-    // — Compartir —
-    let _lastPayload      = null;
-    let _alumnosAsignados = [];
-
-    // — Dashboard —
-    let dashChartInstance = null;
-    let dashRutinasData   = {};
-
-    // — Drag & Drop —
-    let dragState = { srcIdx: null, listType: null };
-
-    // — Video Preview —
-    let videoPreviewTimer = null;
-    let currentPreviewUrl = '';
+    // Los alias de abajo apuntan siempre al dia activo (diaActivoIdx)
+    // para que las funciones existentes de warmup/bloques sigan funcionando.
+    let warmupEjercicios = [];
+    let bloquesRutina = [];
+    let bloqueEjsTemp = [];
+    let editandoBloqueIdx = null;
 
     // Helper para asegurar longitud de arrays por vuelta/serie
     function ensureArrayLen(arr, len, defaultVal) {
@@ -1135,6 +897,11 @@
         if (result.length > len) result.length = len;
         return result;
     }
+
+    // Historial global
+    let historialRutinasCache = {};
+    let rutinaModalActual = null;
+    let currentData = null; // Rutina actualmente visible en el modal
 
     // ====================================================================
     // ELEMENTOS (EQUIPAMIENTO)
@@ -1194,7 +961,7 @@
     // TABS
     // ====================================================================
     function showTab(tab) {
-        ['dashboard', 'videoteca', 'rutina', 'historial', 'repositorio'].forEach(t => {
+        ['dashboard', 'videoteca', 'rutina', 'historial'].forEach(t => {
             document.getElementById('sec-' + t).classList.toggle('hidden', t !== tab);
             document.getElementById('tab-' + t).className = t === tab
                 ? 'tab-active px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors'
@@ -1202,7 +969,6 @@
         });
         if (tab === 'rutina') inicializarRutina();
         if (tab === 'dashboard') cargarAlumnosDash();
-        if (tab === 'repositorio') cargarRepositorio();
     }
 
     // ====================================================================
@@ -1219,21 +985,34 @@
     // ====================================================================
     // VIDEOTECA
     // ====================================================================
+    const FIREBASE_BASE = 'https://ponetefit-app-default-rtdb.firebaseio.com';
+    let VIDEOTECA_DATA = {}; // Datos completos de la videoteca
 
     async function cargarVideoteca() {
-        let videoteca = null;
+        try {
+            // Intentar backend primero
+            const res = await fetch(API_BASE + '/api/videoteca');
+            const data = await res.json();
+            if (data.ok) {
+                VIDEOTECA_DATA = data.videoteca;
+                videotecaCache = VIDEOTECA_DATA;
+                poblarCategorias();
+                renderizarVideoteca();
+                return;
+            }
+        } catch (e) { /* fallback a Firebase */ }
+        // Fallback directo a Firebase
         try {
             const res = await fetch(FIREBASE_BASE + '/videoteca.json');
-            if (!res.ok) throw new Error('Firebase HTTP ' + res.status);
-            videoteca = await res.json();
+            const data = await res.json();
+            if (data) {
+                VIDEOTECA_DATA = data;
+                videotecaCache = VIDEOTECA_DATA;
+                poblarCategorias();
+                renderizarVideoteca();
+            }
         } catch (e) {
-            console.error('Error cargando videoteca desde Firebase:', e.message);
-        }
-        if (videoteca) {
-            VIDEOTECA_DATA = videoteca;
-            videotecaCache = VIDEOTECA_DATA;
-            poblarCategorias();
-            renderizarVideoteca();
+            console.error('Error cargando videoteca:', e);
         }
     }
 
@@ -1428,58 +1207,75 @@
         const tip2 = (document.getElementById('ej-tip2')?.value || '').trim();
         if (!nombre || !link) { toast('Completa nombre y link'); return; }
 
-        const ejObj = { categoria, nombre, link, musculo1, musculo2, sinergista, elemento, con_carga, tip1, tip2 };
         try {
-            {
-                const fbUrl = FIREBASE_BASE + '/videoteca/' + encodeURIComponent(categoria) + '.json';
-                const resGet = await fetch(fbUrl);
-                if (!resGet.ok) throw new Error('Firebase GET ' + resGet.status);
+            let ok = false;
+            try {
+                const res = await fetch(API_BASE + '/api/videoteca/ejercicio', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ categoria, nombre, link, musculo1, musculo2, sinergista, elemento, con_carga, tip1, tip2 })
+                });
+                const data = await res.json();
+                if (data.ok) { toast(data.mensaje); ok = true; }
+            } catch (e) { /* fallback */ }
+
+            // Fallback: escribir directamente en Firebase
+            if (!ok) {
+                // Leer ejercicios actuales de esa categoría
+                const resGet = await fetch(FIREBASE_BASE + '/videoteca/' + encodeURIComponent(categoria) + '.json');
                 let ejsActuales = await resGet.json();
-                if (!Array.isArray(ejsActuales)) ejsActuales = [];
+                if (!ejsActuales || !Array.isArray(ejsActuales)) ejsActuales = [];
+                // Agregar o actualizar ejercicio
                 const idx = ejsActuales.findIndex(e => (e.nombre || '').toUpperCase() === nombre.toUpperCase());
-                const ejFb = { nombre: nombre.toUpperCase(), link, musculo1, musculo2, sinergista, elemento, con_carga, tip1, tip2 };
-                if (idx >= 0) ejsActuales[idx] = ejFb; else ejsActuales.push(ejFb);
-                const resPut = await fetch(fbUrl, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(ejsActuales) });
-                if (!resPut.ok) throw new Error('Firebase PUT ' + resPut.status);
+                const ejObj = { nombre: nombre.toUpperCase(), link, musculo1, musculo2, sinergista, elemento, con_carga, tip1, tip2 };
+                if (idx >= 0) ejsActuales[idx] = ejObj;
+                else ejsActuales.push(ejObj);
+                const resPut = await fetch(FIREBASE_BASE + '/videoteca/' + encodeURIComponent(categoria) + '.json', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(ejsActuales)
+                });
+                if (!resPut.ok) throw new Error('Firebase error ' + resPut.status);
                 toast('Ejercicio guardado');
             }
 
-            // Limpiar formulario
             ['ej-nombre','ej-link','ej-musculo1','ej-musculo2','ej-sinergista','ej-elemento','ej-tip1','ej-tip2'].forEach(id => {
-                const el = $el(id); if (el) el.value = '';
+                const el = document.getElementById(id); if (el) el.value = '';
             });
-            const conCargaEl = $el('ej-con-carga'); if (conCargaEl) conCargaEl.checked = false;
-            const statusEl = $el('status-ej'); if (statusEl) statusEl.innerText = '';
+            const conCargaEl = document.getElementById('ej-con-carga'); if (conCargaEl) conCargaEl.checked = false;
+            const statusEl = document.getElementById('status-ej'); if (statusEl) statusEl.innerText = '';
             await cargarVideoteca();
         } catch (e) {
-            toast('Error al guardar: ' + e.message);
+            toast('Error al guardar el ejercicio');
             console.error(e);
         }
     }
 
     async function eliminarEjercicio() {
-        const categoria = $el('ej-categoria')?.value || '';
-        const nombre = ($el('ej-nombre')?.value || '').trim();
+        const categoria = document.getElementById('ej-categoria')?.value || '';
+        const nombre = (document.getElementById('ej-nombre')?.value || '').trim();
         if (!nombre) { toast('Escribe el nombre a eliminar'); return; }
+
         if (!confirm('Eliminar "' + nombre + '"?')) return;
 
         try {
-            const fbUrl = FIREBASE_BASE + '/videoteca/' + encodeURIComponent(categoria) + '.json';
-            const resGet = await fetch(fbUrl);
-            if (!resGet.ok) throw new Error('Firebase GET ' + resGet.status);
-            let ejsActuales = await resGet.json();
-            if (!Array.isArray(ejsActuales)) ejsActuales = [];
-            const filtered = ejsActuales.filter(e => (e.nombre || '').toUpperCase() !== nombre.toUpperCase());
-            const resPut = await fetch(fbUrl, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(filtered) });
-            if (!resPut.ok) throw new Error('Firebase PUT ' + resPut.status);
-            toast('Eliminado');
-            const ejNomEl = $el('ej-nombre'); if (ejNomEl) ejNomEl.value = '';
-            const ejLinkEl = $el('ej-link'); if (ejLinkEl) ejLinkEl.value = '';
-            const statusEl2 = $el('status-ej'); if (statusEl2) statusEl2.innerText = '';
-            await cargarVideoteca();
+            const res = await fetch(API_BASE + '/api/videoteca/ejercicio', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ categoria, nombre: nombre.toUpperCase() })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                toast(data.mensaje);
+                const ejNomEl = document.getElementById('ej-nombre'); if (ejNomEl) ejNomEl.value = '';
+                const ejLinkEl = document.getElementById('ej-link'); if (ejLinkEl) ejLinkEl.value = '';
+                const statusEl2 = document.getElementById('status-ej'); if (statusEl2) statusEl2.innerText = data.mensaje;
+                await cargarVideoteca();
+            } else {
+                toast('Error: ' + data.error);
+            }
         } catch (e) {
-            toast('Error al eliminar: ' + e.message);
-            console.error(e);
+            toast('Error de conexion');
         }
     }
 
@@ -1489,57 +1285,94 @@
         if (inp) { inp.value = ''; inp.focus(); }
     }
 
-    // Helper: selecciona una opción en vt-zona-select y re-renderiza
-    function seleccionarCategoriaEnFiltro(nombre) {
-        const vtZona = $el('vt-zona-select');
-        if (!vtZona) return;
-        const target = 'cat:' + nombre;
-        for (let i = 0; i < vtZona.options.length; i++) {
-            if (vtZona.options[i].value === target) { vtZona.selectedIndex = i; break; }
-        }
-        renderizarVideoteca();
-    }
-
     async function crearCategoria(nombre) {
         if (!nombre) return;
+        // Verificar que no exista ya
         if (VIDEOTECA_DATA[nombre]) {
             toast('La categoría "' + nombre + '" ya existe');
-            $el('modal-nueva-cat')?.classList.add('hidden');
+            document.getElementById('modal-nueva-cat')?.classList.add('hidden');
+            // Seleccionar esa categoría en el filtro y mostrar sus ejercicios
             poblarCategorias();
-            seleccionarCategoriaEnFiltro(nombre);
+            const vtZona = document.getElementById('vt-zona-select');
+            if (vtZona) {
+                for (let i = 0; i < vtZona.options.length; i++) {
+                    if (vtZona.options[i].value === 'cat:' + nombre) { vtZona.selectedIndex = i; break; }
+                }
+                renderizarVideoteca();
+            }
             return;
         }
-        // Actualizar estado local de inmediato (optimistic update)
+
+        // 1. Actualizar el estado local INMEDIATAMENTE para que aparezca en la UI
         VIDEOTECA_DATA[nombre] = [];
         videotecaCache = VIDEOTECA_DATA;
         poblarCategorias();
-        seleccionarCategoriaEnFiltro(nombre);
+        // Seleccionar la nueva categoría en vt-zona-select
+        const vtZona = document.getElementById('vt-zona-select');
+        if (vtZona) {
+            for (let i = 0; i < vtZona.options.length; i++) {
+                if (vtZona.options[i].value === 'cat:' + nombre) { vtZona.selectedIndex = i; break; }
+            }
+            renderizarVideoteca();
+        }
         toast('Categoría "' + nombre + '" creada');
-        $el('modal-nueva-cat')?.classList.add('hidden');
-        const nuevoNombreEl = $el('nueva-cat-nombre');
+        document.getElementById('modal-nueva-cat')?.classList.add('hidden');
+        const nuevoNombreEl = document.getElementById('nueva-cat-nombre');
         if (nuevoNombreEl) nuevoNombreEl.value = '';
 
-        // Persistir en Firebase
+        // 2. Guardar en el backend en segundo plano
         try {
-            const res = await fetch(FIREBASE_BASE + '/videoteca/' + encodeURIComponent(nombre) + '.json', {
-                method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify([])
-            });
-            if (!res.ok) throw new Error('Firebase ' + res.status);
-        } catch(e) {
-            toast('Categoría creada localmente, pero no se pudo guardar en el servidor');
+            let ok = false;
+            try {
+                const res = await fetch(API_BASE + '/api/videoteca/categoria', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ nombre })
+                });
+                const data = await res.json();
+                if (data.ok) ok = true;
+            } catch (e) { /* fallback */ }
+
+            if (!ok) {
+                const res = await fetch(FIREBASE_BASE + '/videoteca/' + encodeURIComponent(nombre) + '.json', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify([])
+                });
+                if (!res.ok) throw new Error('Firebase error ' + res.status);
+            }
+        } catch (e) {
+            toast('Advertencia: la categoría se creó localmente pero no se pudo guardar en el servidor');
             console.error(e);
         }
     }
 
     async function eliminarCategoriaActual() {
-        const vtZona = $el('vt-zona-select');
+        // Obtener la categoría activa desde vt-zona-select (solo si es una categoría dinámica cat:X)
+        const vtZona = document.getElementById('vt-zona-select');
         const zonaVal = vtZona ? vtZona.value : '';
         const nombre = zonaVal.startsWith('cat:') ? zonaVal.slice(4) : '';
         if (!nombre) { toast('Seleccioná una categoría del filtro para eliminar'); return; }
         if (!confirm('¿Eliminar la categoría "' + nombre + '" y todos sus ejercicios? Esta acción no se puede deshacer.')) return;
         try {
-            const res = await fetch(FIREBASE_BASE + '/videoteca/' + encodeURIComponent(nombre) + '.json', { method: 'DELETE' });
-            if (!res.ok) throw new Error('Firebase ' + res.status);
+            let ok = false;
+            try {
+                const res = await fetch(API_BASE + '/api/videoteca/categoria', {
+                    method: 'DELETE',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ nombre })
+                });
+                const data = await res.json();
+                if (data.ok) ok = true;
+            } catch (e) { /* fallback */ }
+
+            if (!ok) {
+                const res = await fetch(FIREBASE_BASE + '/videoteca/' + encodeURIComponent(nombre) + '.json', {
+                    method: 'DELETE'
+                });
+                if (!res.ok) throw new Error('Firebase error ' + res.status);
+            }
+
             toast('Categoría "' + nombre + '" eliminada');
             await cargarVideoteca();
         } catch (e) {
@@ -1551,6 +1384,7 @@
     // ====================================================================
     // CREAR RUTINA
     // ====================================================================
+    let _editandoRutina = false; // flag para evitar que inicializarRutina resetee al editar
 
     function inicializarRutina() {
         if (_editandoRutina) return; // no resetear si estamos cargando una rutina para editar
@@ -2387,296 +2221,278 @@
     }
 
     // Variable global para copiar/pegar minutos EMOM
+    let _emomMinCopiado = null;
 
     // ── EMOM Bloque Principal ───────────────────────────────────────────────
 
-    // ====================================================================
-    // EMOM — helpers genéricos compartidos por bloque y warmup
-    // ====================================================================
-
-    // Centraliza el acceso al array de ejercicios de un slot EMOM (dataset.ejs)
-    function getEjsData(listEl) {
-        if (!listEl) return [];
-        try { return JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { return []; }
-    }
-    function setEjsData(listEl, ejs) {
-        if (!listEl) return;
-        listEl.dataset.ejs = JSON.stringify(ejs);
-    }
-
-    // Pluraliza el contador de ejercicios
-    function ejsLabel(n) { return n + ' ejercicio' + (n !== 1 ? 's' : ''); }
-
-    /**
-     * Genera el HTML de un minuto EMOM (compartido por bloque y warmup).
-     * @param {number} m           - índice del minuto (0-based)
-     * @param {Array}  ejsGuardados - ejercicios ya guardados en este slot
-     * @param {string} scope       - 'bloque' | 'warmup'
-     * @param {*}      idxOrKey    - null para bloque, string/number para warmup
-     */
-    function buildEMOMMinutoHtml(m, ejsGuardados, scope, idxOrKey) {
-        const esBloque  = scope === 'bloque';
-        const prefix    = esBloque ? 'emom-min-' + m          : 'emow-min-' + idxOrKey + '-' + m;
-        const copiarFn  = esBloque ? 'emomBloqueCopiarMin(' + m + ')' : 'emomWarmupCopiarMin(\'' + idxOrKey + '\',' + m + ')';
-        const pegarFn   = esBloque ? 'emomBloquePegarMin(' + m + ')'  : 'emomWarmupPegarMin(\'' + idxOrKey + '\',' + m + ')';
-        const agregarFn = esBloque ? 'emomBloqueAgregarEj(' + m + ')' : 'emomWarmupAgregarEj(\'' + idxOrKey + '\',' + m + ')';
-        const buscarId  = esBloque ? 'emom-buscar-' + m               : 'emow-buscar-' + idxOrKey + '-' + m;
-        const ejselId   = esBloque ? 'emom-ejsel-' + m                : 'emow-ejsel-' + idxOrKey + '-' + m;
-        const repsId    = esBloque ? 'emom-reps-' + m                 : 'emow-reps-' + idxOrKey + '-' + m;
-        const unitId    = esBloque ? 'emom-unit-' + m                 : 'emow-unit-' + idxOrKey + '-' + m;
-        const pegarBtnId = esBloque ? 'emom-pegar-' + m               : 'emow-pegar-' + idxOrKey + '-' + m;
-
-        const chipsHtml = ejsGuardados.map((ej, ei) => emomChipHtml(ej, ei, m, scope, idxOrKey)).join('');
-        const ejsJson   = JSON.stringify(ejsGuardados).replace(/'/g, '&#39;');
-
-        return `<div class="bg-fondo rounded-xl p-3 border border-borde/40 mb-2">
-            <div class="flex items-center gap-2 mb-2">
-                <span class="text-xs font-bold text-amarillo uppercase">Minuto ${m+1}</span>
-                <span id="${prefix}-cnt" class="text-xs text-textoSuave">${ejsLabel(ejsGuardados.length)}</span>
-                <button onclick="${copiarFn}" title="Copiar este minuto" class="ml-auto text-xs text-azul font-bold px-2 py-0.5 rounded hover:bg-azul/10">📋 Copiar</button>
-                <button id="${pegarBtnId}" onclick="${pegarFn}" title="Pegar minuto copiado" class="text-xs text-verde font-bold px-2 py-0.5 rounded hover:bg-verde/10 hidden">📋 Pegar</button>
-            </div>
-            <div id="${prefix}-lista" data-ejs='${ejsJson}' class="mb-2">${chipsHtml}</div>
-            <div class="border-t border-borde/30 pt-2 mt-1 space-y-1">
-                <input type="text" id="${buscarId}" placeholder="Buscar ejercicio..."
-                    oninput="emomCargarEjsSelect('${ejselId}','${buscarId}')"
-                    class="w-full rounded-lg px-2 py-1 text-xs">
-                <select id="${ejselId}" class="w-full rounded-lg px-2 py-1 text-xs"><option value="">-- Ejercicio --</option></select>
-                <div class="flex gap-1 items-center">
-                    <input type="text" id="${repsId}" placeholder="Reps/Seg" class="rounded-lg px-2 py-1 text-xs w-20">
-                    <select id="${unitId}" class="rounded-lg px-2 py-1 text-xs"><option>Reps</option><option>Segs</option></select>
-                    <button onclick="${agregarFn}" class="bg-amarillo/20 text-amarillo text-xs font-bold px-3 py-1 rounded-lg hover:bg-amarillo/30 flex-1">+ Agregar</button>
-                </div>
-            </div>
-        </div>`;
-    }
-
-    /**
-     * Lógica genérica para agregar un ejercicio a un slot EMOM.
-     * @param {string} ejselId   - id del select de ejercicio
-     * @param {string} repsId    - id del input de reps
-     * @param {string} unitId    - id del select de unidad
-     * @param {string} buscarId  - id del input de búsqueda
-     * @param {string} listaId   - id del div data-ejs
-     * @param {string} cntId     - id del span contador
-     * @param {number} minIdx    - índice del minuto
-     * @param {string} scope     - 'bloque' | 'warmup'
-     * @param {*}      idxOrKey  - null | string/number
-     */
-    function emomAgregarEjGenerico(ejselId, repsId, unitId, buscarId, listaId, cntId, minIdx, scope, idxOrKey) {
-        const sel = $el(ejselId);
-        const nombre = sel ? sel.value : '';
-        if (!nombre) return;
-        const reps = ($el(repsId)?.value || '').trim();
-        const unit = $el(unitId)?.value || 'Reps';
-        const listEl = $el(listaId);
-        if (!listEl) return;
-        const ejs = getEjsData(listEl);
-        ejs.push({ nombre, reps, unit });
-        setEjsData(listEl, ejs);
-        listEl.innerHTML = ejs.map((ej, ei) => emomChipHtml(ej, ei, minIdx, scope, idxOrKey)).join('');
-        const cntEl = $el(cntId);
-        if (cntEl) cntEl.textContent = ejsLabel(ejs.length);
-        const buscarEl = $el(buscarId);
-        if (buscarEl) buscarEl.value = '';
-        const repsEl = $el(repsId);
-        if (repsEl) repsEl.value = '';
-        emomCargarEjsSelect(ejselId, buscarId);
-    }
-
-    /**
-     * Lógica genérica para quitar un ejercicio de un slot EMOM.
-     */
-    function emomQuitarEjGenerico(listaId, cntId, minIdx, ejIdx, scope, idxOrKey) {
-        const listEl = $el(listaId);
-        if (!listEl) return;
-        const ejs = getEjsData(listEl);
-        ejs.splice(ejIdx, 1);
-        setEjsData(listEl, ejs);
-        listEl.innerHTML = ejs.map((ej, ei) => emomChipHtml(ej, ei, minIdx, scope, idxOrKey)).join('');
-        const cntEl = $el(cntId);
-        if (cntEl) cntEl.textContent = ejsLabel(ejs.length);
-    }
-
-    /**
-     * Lógica genérica para actualizar reps/unit en un ejercicio de un slot EMOM.
-     */
-    function emomSetPropGenerico(listaId, ejIdx, prop, val, onSave) {
-        const listEl = $el(listaId);
-        if (!listEl) return;
-        try {
-            const ejs = getEjsData(listEl);
-            if (ejs[ejIdx]) { ejs[ejIdx][prop] = val; setEjsData(listEl, ejs); }
-        } catch(e) {}
-        if (onSave) onSave();
-    }
-
-    /**
-     * Lógica genérica de copiar un minuto EMOM.
-     */
-    function emomCopiarMinGenerico(listaId, minIdx, tipo, mins, pegarIdFn, idxOrKey) {
-        const listEl = $el(listaId);
-        if (!listEl) return;
-        try { _emomMinCopiado = { ejs: getEjsData(listEl), tipo, idxOrKey }; } catch(e) { return; }
-        for (let m = 0; m < mins; m++) {
-            const btn = $el(pegarIdFn(m));
-            if (btn) btn.classList.toggle('hidden', m === minIdx);
-        }
-        toast('Minuto ' + (minIdx + 1) + ' copiado');
-    }
-
-    // ── EMOM Bloque Principal ─────────────────────────────────────────────
-
     function actualizarEMOMMinutosConfig() {
-        const minsEl = $el('bp-minutos');
+        const minsEl = document.getElementById('bp-minutos');
         if (!minsEl) return;
         const mins = parseInt(minsEl.value) || 1;
-        const container = $el('emom-minutos-config');
+        const container = document.getElementById('emom-minutos-config');
         if (!container) return;
 
-        // Preservar ejercicios del DOM
+        // Preservar ejercicios ya cargados
         const prevEjs = {};
         for (let m = 0; m < 60; m++) {
-            const listEl = $el('emom-min-' + m + '-lista');
+            const listEl = document.getElementById('emom-min-' + m + '-lista');
             if (!listEl) break;
-            prevEjs[m] = getEjsData(listEl);
+            try { prevEjs[m] = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { prevEjs[m] = []; }
         }
 
-        container.innerHTML = Array.from({ length: mins }, (_, m) =>
-            buildEMOMMinutoHtml(m, prevEjs[m] || [], 'bloque', null)
-        ).join('');
+        let html = '';
+        for (let m = 0; m < mins; m++) {
+            const ejsGuardados = prevEjs[m] || [];
+            const chipsHtml = ejsGuardados.map((ej, ei) => emomChipHtml(ej, ei, m, 'bloque', null)).join('');
+            const cantLabel = ejsGuardados.length + ' ejercicio' + (ejsGuardados.length !== 1 ? 's' : '');
+            html += '<div class="bg-fondo rounded-xl p-3 border border-borde/40 mb-2">' +
+                '<div class="flex items-center gap-2 mb-2">' +
+                '<span class="text-xs font-bold text-amarillo uppercase">Minuto ' + (m+1) + '</span>' +
+                '<span id="emom-min-' + m + '-cnt" class="text-xs text-textoSuave">' + cantLabel + '</span>' +
+                '<button onclick="emomBloqueCopiarMin(' + m + ')" title="Copiar este minuto"' +
+                ' class="ml-auto text-xs text-azul font-bold px-2 py-0.5 rounded hover:bg-azul/10">📋 Copiar</button>' +
+                '<button id="emom-pegar-' + m + '" onclick="emomBloquePegarMin(' + m + ')" title="Pegar minuto copiado"' +
+                ' class="text-xs text-verde font-bold px-2 py-0.5 rounded hover:bg-verde/10 hidden">📋 Pegar</button>' +
+                '</div>' +
+                '<div id="emom-min-' + m + '-lista" data-ejs=\'' + JSON.stringify(ejsGuardados).replace(/'/g, '&#39;') + '\' class="mb-2">' + chipsHtml + '</div>' +
+                '<div class="border-t border-borde/30 pt-2 mt-1 space-y-1">' +
+                '<input type="text" id="emom-buscar-' + m + '" placeholder="Buscar ejercicio..."' +
+                ' oninput="emomCargarEjsSelect(\'emom-ejsel-' + m + '\',\'emom-buscar-' + m + '\')"' +
+                ' class="w-full rounded-lg px-2 py-1 text-xs">' +
+                '<select id="emom-ejsel-' + m + '" class="w-full rounded-lg px-2 py-1 text-xs">' +
+                '<option value="">-- Ejercicio --</option></select>' +
+                '<div class="flex gap-1 items-center">' +
+                '<input type="text" id="emom-reps-' + m + '" placeholder="Reps/Seg" class="rounded-lg px-2 py-1 text-xs w-20">' +
+                '<select id="emom-unit-' + m + '" class="rounded-lg px-2 py-1 text-xs"><option>Reps</option><option>Segs</option></select>' +
+                '<button onclick="emomBloqueAgregarEj(' + m + ')" class="bg-amarillo/20 text-amarillo text-xs font-bold px-3 py-1 rounded-lg hover:bg-amarillo/30 flex-1">+ Agregar</button>' +
+                '</div></div></div>';
+        }
+        container.innerHTML = html;
 
+        // Poblar todos los selectores de ejercicio
         for (let m = 0; m < mins; m++) {
             emomCargarEjsSelect('emom-ejsel-' + m, 'emom-buscar-' + m);
         }
     }
 
     function emomBloqueAgregarEj(minIdx) {
-        emomAgregarEjGenerico(
-            'emom-ejsel-' + minIdx, 'emom-reps-' + minIdx, 'emom-unit-' + minIdx,
-            'emom-buscar-' + minIdx, 'emom-min-' + minIdx + '-lista', 'emom-min-' + minIdx + '-cnt',
-            minIdx, 'bloque', null
-        );
+        const sel = document.getElementById('emom-ejsel-' + minIdx);
+        const nombre = sel ? sel.value : '';
+        if (!nombre) return;
+        const reps = document.getElementById('emom-reps-' + minIdx)?.value.trim() || '';
+        const unit = document.getElementById('emom-unit-' + minIdx)?.value || 'Reps';
+        const listEl = document.getElementById('emom-min-' + minIdx + '-lista');
+        if (!listEl) return;
+        let ejs = [];
+        try { ejs = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { ejs = []; }
+        ejs.push({ nombre, reps, unit });
+        listEl.dataset.ejs = JSON.stringify(ejs);
+        listEl.innerHTML = ejs.map((ej, ei) => emomChipHtml(ej, ei, minIdx, 'bloque', null)).join('');
+        const cntEl = document.getElementById('emom-min-' + minIdx + '-cnt');
+        if (cntEl) cntEl.textContent = ejs.length + ' ejercicio' + (ejs.length !== 1 ? 's' : '');
+        const buscarEl = document.getElementById('emom-buscar-' + minIdx);
+        if (buscarEl) buscarEl.value = '';
+        const repsEl = document.getElementById('emom-reps-' + minIdx);
+        if (repsEl) repsEl.value = '';
+        emomCargarEjsSelect('emom-ejsel-' + minIdx, 'emom-buscar-' + minIdx);
     }
 
     function emomBloqueQuitarEj(minIdx, ejIdx) {
-        emomQuitarEjGenerico('emom-min-' + minIdx + '-lista', 'emom-min-' + minIdx + '-cnt', minIdx, ejIdx, 'bloque', null);
+        const listEl = document.getElementById('emom-min-' + minIdx + '-lista');
+        if (!listEl) return;
+        let ejs = [];
+        try { ejs = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { ejs = []; }
+        ejs.splice(ejIdx, 1);
+        listEl.dataset.ejs = JSON.stringify(ejs);
+        listEl.innerHTML = ejs.map((ej, ei) => emomChipHtml(ej, ei, minIdx, 'bloque', null)).join('');
+        const cntEl = document.getElementById('emom-min-' + minIdx + '-cnt');
+        if (cntEl) cntEl.textContent = ejs.length + ' ejercicio' + (ejs.length !== 1 ? 's' : '');
     }
 
     function emomBloqueSetReps(minIdx, ejIdx, val) {
-        emomSetPropGenerico('emom-min-' + minIdx + '-lista', ejIdx, 'reps', val, null);
+        const listEl = document.getElementById('emom-min-' + minIdx + '-lista');
+        if (!listEl) return;
+        try { const ejs = JSON.parse(listEl.dataset.ejs || '[]'); if (ejs[ejIdx]) { ejs[ejIdx].reps = val; listEl.dataset.ejs = JSON.stringify(ejs); } } catch(e) {}
     }
 
     function emomBloqueSetUnit(minIdx, ejIdx, val) {
-        emomSetPropGenerico('emom-min-' + minIdx + '-lista', ejIdx, 'unit', val, null);
+        const listEl = document.getElementById('emom-min-' + minIdx + '-lista');
+        if (!listEl) return;
+        try { const ejs = JSON.parse(listEl.dataset.ejs || '[]'); if (ejs[ejIdx]) { ejs[ejIdx].unit = val; listEl.dataset.ejs = JSON.stringify(ejs); } } catch(e) {}
     }
 
     function emomBloqueCopiarMin(minIdx) {
-        const mins = parseInt($el('bp-minutos')?.value) || 1;
-        emomCopiarMinGenerico('emom-min-' + minIdx + '-lista', minIdx, 'bloque', mins, m => 'emom-pegar-' + m, null);
+        const listEl = document.getElementById('emom-min-' + minIdx + '-lista');
+        if (!listEl) return;
+        try { _emomMinCopiado = { ejs: JSON.parse(listEl.dataset.ejs || '[]'), tipo: 'bloque' }; } catch(e) { return; }
+        const mins = parseInt(document.getElementById('bp-minutos')?.value) || 1;
+        for (let m = 0; m < mins; m++) {
+            const btn = document.getElementById('emom-pegar-' + m);
+            if (btn) btn.classList.toggle('hidden', m === minIdx);
+        }
+        toast('Minuto ' + (minIdx + 1) + ' copiado');
     }
 
     function emomBloquePegarMin(minIdx) {
         if (!_emomMinCopiado || _emomMinCopiado.tipo !== 'bloque') return;
-        const listEl = $el('emom-min-' + minIdx + '-lista');
+        const listEl = document.getElementById('emom-min-' + minIdx + '-lista');
         if (!listEl) return;
-        setEjsData(listEl, JSON.parse(JSON.stringify(_emomMinCopiado.ejs)));
+        listEl.dataset.ejs = JSON.stringify(JSON.parse(JSON.stringify(_emomMinCopiado.ejs)));
         actualizarEMOMMinutosConfig();
         toast('Pegado en minuto ' + (minIdx + 1));
     }
 
-    function actualizarEMOMEjSelectores(minIdx) { /* no-op */ }
+    function actualizarEMOMEjSelectores(minIdx) { /* no-op: reemplazado */ }
 
     // ── EMOM Warmup ─────────────────────────────────────────────────────────
 
+    // Persiste el config EMOM del calentamiento en diasData[idx]
     function guardarWarmupEmom(idxOrKey) {
         if (idxOrKey === 'standalone' || !diasData[idxOrKey]) return;
         const suffix = '-' + idxOrKey;
-        const mins = parseInt($el('warmup-minutos' + suffix)?.value) || 1;
-        const config = Array.from({ length: mins }, (_, m) => {
-            const listEl = $el('emow-min-' + idxOrKey + '-' + m + '-lista');
-            const ejs = getEjsData(listEl);
-            return { minuto: m + 1, ejercicios: ejs, ejercicios_cantidad: ejs.length, ejercicios_nombres: ejs.map(e => e.nombre) };
-        });
+        const mins = parseInt(document.getElementById('warmup-minutos' + suffix)?.value) || 1;
+        const config = [];
+        for (let m = 0; m < mins; m++) {
+            const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + m + '-lista');
+            let ejs = [];
+            if (listEl) { try { ejs = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { ejs = []; } }
+            config.push({ minuto: m + 1, ejercicios: ejs, ejercicios_cantidad: ejs.length, ejercicios_nombres: ejs.map(e => e.nombre) });
+        }
         diasData[idxOrKey].warmupEmomConfig = config;
+        // Actualizar badge del dia
         actualizarBadgeDia(idxOrKey);
     }
 
     function actualizarEMOMWarmupMinutosConfig(idxOrKey) {
         const suffix = idxOrKey === 'standalone' ? '' : ('-' + idxOrKey);
-        const minsEl = $el('warmup-minutos' + suffix);
+        const minsEl = document.getElementById('warmup-minutos' + suffix);
         if (!minsEl) return;
         const mins = parseInt(minsEl.value) || 1;
-        const container = $el('emom-warmup-config-' + idxOrKey);
+        const container = document.getElementById('emom-warmup-config-' + idxOrKey);
         if (!container) return;
 
-        // Leer ejercicios: primero diasData (persistido), luego DOM (más reciente)
+        // Preservar ejercicios: primero desde DOM, luego desde diasData como fallback
         const prevEjs = {};
+        // Primero leer desde diasData (persistido)
         const savedConfig = (idxOrKey !== 'standalone' && diasData[idxOrKey]) ? (diasData[idxOrKey].warmupEmomConfig || []) : [];
-        savedConfig.forEach((cfg, m) => { prevEjs[m] = cfg.ejercicios || []; });
+        savedConfig.forEach((minCfg, m) => { prevEjs[m] = minCfg.ejercicios || []; });
+        // Sobreescribir con datos del DOM si existen (más recientes)
         for (let m = 0; m < 60; m++) {
-            const listEl = $el('emow-min-' + idxOrKey + '-' + m + '-lista');
+            const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + m + '-lista');
             if (!listEl) break;
-            prevEjs[m] = getEjsData(listEl);
+            try { prevEjs[m] = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { prevEjs[m] = []; }
         }
 
-        container.innerHTML = Array.from({ length: mins }, (_, m) =>
-            buildEMOMMinutoHtml(m, prevEjs[m] || [], 'warmup', idxOrKey)
-        ).join('');
+        let html = '';
+        for (let m = 0; m < mins; m++) {
+            const ejsGuardados = prevEjs[m] || [];
+            const chipsHtml = ejsGuardados.map((ej, ei) => emomChipHtml(ej, ei, m, 'warmup', idxOrKey)).join('');
+            const cantLabel = ejsGuardados.length + ' ejercicio' + (ejsGuardados.length !== 1 ? 's' : '');
+            html += '<div class="bg-fondo rounded-xl p-3 border border-borde/40 mb-2">' +
+                '<div class="flex items-center gap-2 mb-2">' +
+                '<span class="text-xs font-bold text-amarillo uppercase">Minuto ' + (m+1) + '</span>' +
+                '<span id="emow-min-' + idxOrKey + '-' + m + '-cnt" class="text-xs text-textoSuave">' + cantLabel + '</span>' +
+                '<button onclick="emomWarmupCopiarMin(\'' + idxOrKey + '\',' + m + ')" title="Copiar este minuto"' +
+                ' class="ml-auto text-xs text-azul font-bold px-2 py-0.5 rounded hover:bg-azul/10">📋 Copiar</button>' +
+                '<button id="emow-pegar-' + idxOrKey + '-' + m + '" onclick="emomWarmupPegarMin(\'' + idxOrKey + '\',' + m + ')" title="Pegar minuto copiado"' +
+                ' class="text-xs text-verde font-bold px-2 py-0.5 rounded hover:bg-verde/10 hidden">📋 Pegar</button>' +
+                '</div>' +
+                '<div id="emow-min-' + idxOrKey + '-' + m + '-lista" data-ejs=\'' + JSON.stringify(ejsGuardados).replace(/'/g, '&#39;') + '\' class="mb-2">' + chipsHtml + '</div>' +
+                '<div class="border-t border-borde/30 pt-2 mt-1 space-y-1">' +
+                '<input type="text" id="emow-buscar-' + idxOrKey + '-' + m + '" placeholder="Buscar ejercicio..."' +
+                ' oninput="emomCargarEjsSelect(\'emow-ejsel-' + idxOrKey + '-' + m + '\',\'emow-buscar-' + idxOrKey + '-' + m + '\')"' +
+                ' class="w-full rounded-lg px-2 py-1 text-xs">' +
+                '<select id="emow-ejsel-' + idxOrKey + '-' + m + '" class="w-full rounded-lg px-2 py-1 text-xs">' +
+                '<option value="">-- Ejercicio --</option></select>' +
+                '<div class="flex gap-1 items-center">' +
+                '<input type="text" id="emow-reps-' + idxOrKey + '-' + m + '" placeholder="Reps/Seg" class="rounded-lg px-2 py-1 text-xs w-20">' +
+                '<select id="emow-unit-' + idxOrKey + '-' + m + '" class="rounded-lg px-2 py-1 text-xs"><option>Reps</option><option>Segs</option></select>' +
+                '<button onclick="emomWarmupAgregarEj(\'' + idxOrKey + '\',' + m + ')" class="bg-amarillo/20 text-amarillo text-xs font-bold px-3 py-1 rounded-lg hover:bg-amarillo/30 flex-1">+ Agregar</button>' +
+                '</div></div></div>';
+        }
+        container.innerHTML = html;
 
         for (let m = 0; m < mins; m++) {
             emomCargarEjsSelect('emow-ejsel-' + idxOrKey + '-' + m, 'emow-buscar-' + idxOrKey + '-' + m);
         }
+        // Actualizar el selector de minutos en la barra de agregar del calentamiento
         actualizarWarmupEmomMinSel(idxOrKey);
     }
 
     function emomWarmupAgregarEj(idxOrKey, minIdx) {
-        emomAgregarEjGenerico(
-            'emow-ejsel-' + idxOrKey + '-' + minIdx, 'emow-reps-' + idxOrKey + '-' + minIdx,
-            'emow-unit-' + idxOrKey + '-' + minIdx, 'emow-buscar-' + idxOrKey + '-' + minIdx,
-            'emow-min-' + idxOrKey + '-' + minIdx + '-lista', 'emow-min-' + idxOrKey + '-' + minIdx + '-cnt',
-            minIdx, 'warmup', idxOrKey
-        );
+        const sel = document.getElementById('emow-ejsel-' + idxOrKey + '-' + minIdx);
+        const nombre = sel ? sel.value : '';
+        if (!nombre) return;
+        const reps = document.getElementById('emow-reps-' + idxOrKey + '-' + minIdx)?.value.trim() || '';
+        const unit = document.getElementById('emow-unit-' + idxOrKey + '-' + minIdx)?.value || 'Reps';
+        const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-lista');
+        if (!listEl) return;
+        let ejs = [];
+        try { ejs = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { ejs = []; }
+        ejs.push({ nombre, reps, unit });
+        listEl.dataset.ejs = JSON.stringify(ejs);
+        listEl.innerHTML = ejs.map((ej, ei) => emomChipHtml(ej, ei, minIdx, 'warmup', idxOrKey)).join('');
+        const cntEl = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-cnt');
+        if (cntEl) cntEl.textContent = ejs.length + ' ejercicio' + (ejs.length !== 1 ? 's' : '');
+        const buscarEl = document.getElementById('emow-buscar-' + idxOrKey + '-' + minIdx);
+        if (buscarEl) buscarEl.value = '';
+        const repsEl = document.getElementById('emow-reps-' + idxOrKey + '-' + minIdx);
+        if (repsEl) repsEl.value = '';
+        emomCargarEjsSelect('emow-ejsel-' + idxOrKey + '-' + minIdx, 'emow-buscar-' + idxOrKey + '-' + minIdx);
         guardarWarmupEmom(idxOrKey);
     }
 
     function emomWarmupQuitarEj(idxOrKey, minIdx, ejIdx) {
-        emomQuitarEjGenerico(
-            'emow-min-' + idxOrKey + '-' + minIdx + '-lista',
-            'emow-min-' + idxOrKey + '-' + minIdx + '-cnt',
-            minIdx, ejIdx, 'warmup', idxOrKey
-        );
+        const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-lista');
+        if (!listEl) return;
+        let ejs = [];
+        try { ejs = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { ejs = []; }
+        ejs.splice(ejIdx, 1);
+        listEl.dataset.ejs = JSON.stringify(ejs);
+        listEl.innerHTML = ejs.map((ej, ei) => emomChipHtml(ej, ei, minIdx, 'warmup', idxOrKey)).join('');
+        const cntEl = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-cnt');
+        if (cntEl) cntEl.textContent = ejs.length + ' ejercicio' + (ejs.length !== 1 ? 's' : '');
         guardarWarmupEmom(idxOrKey);
     }
 
     function emomWarmupSetReps(idxOrKey, minIdx, ejIdx, val) {
-        emomSetPropGenerico('emow-min-' + idxOrKey + '-' + minIdx + '-lista', ejIdx, 'reps', val, () => guardarWarmupEmom(idxOrKey));
+        const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-lista');
+        if (!listEl) return;
+        try { const ejs = JSON.parse(listEl.dataset.ejs || '[]'); if (ejs[ejIdx]) { ejs[ejIdx].reps = val; listEl.dataset.ejs = JSON.stringify(ejs); } } catch(e) {}
+        guardarWarmupEmom(idxOrKey);
     }
 
     function emomWarmupSetUnit(idxOrKey, minIdx, ejIdx, val) {
-        emomSetPropGenerico('emow-min-' + idxOrKey + '-' + minIdx + '-lista', ejIdx, 'unit', val, () => guardarWarmupEmom(idxOrKey));
+        const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-lista');
+        if (!listEl) return;
+        try { const ejs = JSON.parse(listEl.dataset.ejs || '[]'); if (ejs[ejIdx]) { ejs[ejIdx].unit = val; listEl.dataset.ejs = JSON.stringify(ejs); } } catch(e) {}
+        guardarWarmupEmom(idxOrKey);
     }
 
     function emomWarmupCopiarMin(idxOrKey, minIdx) {
+        const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-lista');
+        if (!listEl) return;
+        try { _emomMinCopiado = { ejs: JSON.parse(listEl.dataset.ejs || '[]'), tipo: 'warmup', idxOrKey }; } catch(e) { return; }
         const suffix = idxOrKey === 'standalone' ? '' : ('-' + idxOrKey);
-        const mins = parseInt($el('warmup-minutos' + suffix)?.value) || 1;
-        emomCopiarMinGenerico(
-            'emow-min-' + idxOrKey + '-' + minIdx + '-lista', minIdx, 'warmup', mins,
-            m => 'emow-pegar-' + idxOrKey + '-' + m, idxOrKey
-        );
+        const mins = parseInt(document.getElementById('warmup-minutos' + suffix)?.value) || 1;
+        for (let m = 0; m < mins; m++) {
+            const btn = document.getElementById('emow-pegar-' + idxOrKey + '-' + m);
+            if (btn) btn.classList.toggle('hidden', m === minIdx);
+        }
+        toast('Minuto ' + (minIdx + 1) + ' copiado');
     }
 
     function emomWarmupPegarMin(idxOrKey, minIdx) {
         if (!_emomMinCopiado || _emomMinCopiado.tipo !== 'warmup') return;
-        const listEl = $el('emow-min-' + idxOrKey + '-' + minIdx + '-lista');
+        const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-lista');
         if (!listEl) return;
-        setEjsData(listEl, JSON.parse(JSON.stringify(_emomMinCopiado.ejs)));
+        listEl.dataset.ejs = JSON.stringify(JSON.parse(JSON.stringify(_emomMinCopiado.ejs)));
         actualizarEMOMWarmupMinutosConfig(idxOrKey);
         guardarWarmupEmom(idxOrKey);
         toast('Pegado en minuto ' + (minIdx + 1));
     }
 
-    function actualizarEMOMWarmupEjSelectores(idxOrKey, minIdx) { /* no-op */ }
+    function actualizarEMOMWarmupEjSelectores(idxOrKey, minIdx) { /* no-op: reemplazado */ }
 
     function agregarEjBloque() {
         const selEj = document.getElementById('bloque-ej-select');
@@ -3003,6 +2819,60 @@
         actualizarBadgeDia(diaActivoIdx);
     }
 
+    function _renderBloquesLegacy() {
+        const lista = document.getElementById('bloques-lista');
+        const sinBloques = document.getElementById('sin-bloques');
+        if (!lista) return;
+        if (bloquesRutina.length === 0) {
+            lista.innerHTML = '';
+            if (sinBloques) sinBloques.classList.remove('hidden');
+            return;
+        }
+        if (sinBloques) sinBloques.classList.add('hidden');
+
+        const colorMap = {
+            'Circuito': 'azul', 'Circuito por Tiempo': 'azul',
+            'Tabata': 'naranja', 'EMOM': 'amarillo', 'Series': 'verde'
+        };
+
+        lista.innerHTML = bloquesRutina.map((b, i) => {
+            const color = colorMap[b.tipo] || 'purpura';
+            const ejsHtml = (b.ejercicios || []).map(e =>
+                `<span class="text-xs bg-fondoAlt px-2 py-1 rounded">${e.nombre}</span>`
+            ).join(' ');
+            let metaHtml = '';
+            if (b.tipo === 'Circuito') metaHtml = b.vueltas + ' vueltas | Pausa: ' + b.pausa_vuelta + 's';
+            else if (b.tipo === 'Circuito por Tiempo') metaHtml = b.duracion_min + ' min';
+            else if (b.tipo === 'Tabata') metaHtml = b.trabajo + 's/' + b.pausa + 's | ' + b.rondas + ' ronda(s)';
+            else if (b.tipo === 'EMOM') {
+                if (b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
+                    metaHtml = b.minutos_totales + ' min | Config por minuto';
+                } else {
+                    metaHtml = b.minutos_totales + ' min | ' + (b.ejercicios_por_minuto || 1) + ' ej/min';
+                }
+            }
+            else if (b.tipo === 'Series') metaHtml = (b.ejercicios || []).length + ' ejercicios';
+
+            return `<div class="bg-fondoAlt rounded-2xl border border-${color}/30 p-4" draggable="true" data-idx="${i}" data-list="bloques" ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-3">
+                        <span class="drag-handle" title="Arrastrar para reordenar"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
+                        <span class="text-xs font-black text-${color} uppercase tracking-wider bg-${color}/10 px-3 py-1 rounded-lg">${b.tipo}</span>
+                        <span class="text-xs text-textoSuave">${metaHtml}</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="editarBloque(${i})" class="text-azul text-xs font-bold hover:text-blue-300">EDITAR</button>
+                        <button onclick="eliminarBloque(${i})" class="text-rojo text-xs font-bold hover:text-red-400">QUITAR</button>
+                    </div>
+                </div>
+                ${b.descripcion ? '<p class="text-xs text-textoSuave mb-2 italic">' + b.descripcion + '</p>' : ''}
+                <div class="flex flex-wrap gap-1">${ejsHtml}</div>
+            </div>`;
+        }).join('');
+        initTouchDragForList(lista, 'bloques');
+    } // end _renderBloquesLegacy
+    let dragState = { srcIdx: null, listType: null };
+
     function getDataArray(listType) {
         if (listType === 'warmup') return warmupEjercicios;
         if (listType === 'bloque') return bloqueEjsTemp;
@@ -3192,55 +3062,6 @@
     }
 
     // --- Compartir ---
-    // ====================================================================
-    // BUILD WARMUP DETALLE — extrae la configuración del calentamiento del DOM
-    // ====================================================================
-    function buildWarmupDetalle(diaIdx) {
-        const warmupTipo = ($el('warmup-tipo-' + diaIdx) || {}).value || 'Circuito (Vueltas)';
-        const det = { tipo: warmupTipo };
-        if (warmupTipo === 'Circuito (Vueltas)') {
-            det.vueltas     = parseInt($el('warmup-vueltas-' + diaIdx)?.value       || 2);
-            det.pausa_vuelta= parseInt($el('warmup-pausa-vuelta-' + diaIdx)?.value  || 30);
-        } else if (warmupTipo === 'Circuito por Tiempo') {
-            det.duracion_bloque = parseInt($el('warmup-duracion-' + diaIdx)?.value  || 3);
-        } else if (warmupTipo === 'Tabata') {
-            det.trabajo  = parseInt($el('warmup-trabajo-' + diaIdx)?.value  || 20);
-            det.pausa    = parseInt($el('warmup-pausa-' + diaIdx)?.value    || 10);
-            det.cantidad = parseInt($el('warmup-cantidad-' + diaIdx)?.value || 8);
-        } else if (warmupTipo === 'EMOM') {
-            det.minutos = parseInt($el('warmup-minutos-' + diaIdx)?.value || (diasData[diaIdx]?.warmupEmomConfig?.length || 5));
-            const savedCfg = (diasData[diaIdx] && diasData[diaIdx].warmupEmomConfig) || [];
-            det.emom_config_por_minuto = Array.from({ length: det.minutos }, (_, wm) => {
-                const listEl = $el('emow-min-' + diaIdx + '-' + wm + '-lista');
-                let ejs = listEl ? getEjsData(listEl) : [];
-                if (ejs.length === 0 && savedCfg[wm]) ejs = savedCfg[wm].ejercicios || [];
-                return { minuto: wm + 1, ejercicios_cantidad: ejs.length, ejercicios_nombres: ejs.map(e => e.nombre), ejercicios: ejs };
-            });
-        } else if (warmupTipo === 'Series/Reps') {
-            det.series = parseInt($el('warmup-series-' + diaIdx)?.value    || 3);
-            det.reps   = parseInt($el('warmup-reps-val-' + diaIdx)?.value  || 10);
-        }
-        return det;
-    }
-
-    function buildWarmupEjsExport(dia, warmupTipo, warmupDetalle) {
-        let ejs = dia.warmupEjercicios.map(e => {
-            const exp = { nombre: e.nombre, link: e.link, reps: e.reps || '', unit: e.unit || 'Reps', descanso: e.descanso || '', con_carga: e.con_carga || false, elemento: e.elemento || '' };
-            if (e.reps_por_vuelta?.length) exp.reps_por_vuelta = e.reps_por_vuelta;
-            if (e.reps_por_serie?.length)  exp.reps_por_serie  = e.reps_por_serie;
-            if (e.pausa_por_serie?.length) exp.pausa_por_serie = e.pausa_por_serie;
-            return exp;
-        });
-        // EMOM: aplanar ejercicios de todos los minutos para compatibilidad con PDF
-        if (warmupTipo === 'EMOM' && warmupDetalle.emom_config_por_minuto?.length) {
-            const aplanados = warmupDetalle.emom_config_por_minuto.flatMap(mc =>
-                (mc.ejercicios || []).map(ej => ({ nombre: ej.nombre, link: ej.link || '', reps: ej.reps || '', unit: ej.unit || 'Reps', con_carga: ej.con_carga || false, elemento: ej.elemento || '' }))
-            );
-            if (aplanados.length) ejs = aplanados;
-        }
-        return ejs;
-    }
-
     async function compartirRutina() {
         const alumno = (document.getElementById('alumno-nombre')?.value || '').trim() || 'ALUMNO';
         const descGlobal = (document.getElementById('rutina-desc')?.value || '').trim();
@@ -3263,9 +3084,54 @@
         try {
             // ── Construir datos de cada dia ──────────────────────────────────
             function buildDatosDia(dia, diaIdx) {
-                const warmupTipo    = ($el('warmup-tipo-' + diaIdx) || {}).value || 'Circuito (Vueltas)';
-                const warmupDetalle = buildWarmupDetalle(diaIdx);
-                const warmupEjsFinal = buildWarmupEjsExport(dia, warmupTipo, warmupDetalle);
+                const warmupTipo = (document.getElementById('warmup-tipo-' + diaIdx) || {}).value || 'Circuito (Vueltas)';
+                const warmupDetalle = { tipo: warmupTipo };
+                if (warmupTipo === 'Circuito (Vueltas)') {
+                    warmupDetalle.vueltas = parseInt(document.getElementById('warmup-vueltas-' + diaIdx)?.value || 2);
+                    warmupDetalle.pausa_vuelta = parseInt(document.getElementById('warmup-pausa-vuelta-' + diaIdx)?.value || 30);
+                } else if (warmupTipo === 'Circuito por Tiempo') {
+                    warmupDetalle.duracion_bloque = parseInt(document.getElementById('warmup-duracion-' + diaIdx)?.value || 3);
+                } else if (warmupTipo === 'Tabata') {
+                    warmupDetalle.trabajo = parseInt(document.getElementById('warmup-trabajo-' + diaIdx)?.value || 20);
+                    warmupDetalle.pausa = parseInt(document.getElementById('warmup-pausa-' + diaIdx)?.value || 10);
+                    warmupDetalle.cantidad = parseInt(document.getElementById('warmup-cantidad-' + diaIdx)?.value || 8);
+                } else if (warmupTipo === 'EMOM') {
+                    warmupDetalle.minutos = parseInt(document.getElementById('warmup-minutos-' + diaIdx)?.value || (diasData[diaIdx]?.warmupEmomConfig?.length || 5));
+                    // Leer config por minuto del warmup EMOM: primero DOM, luego diasData como fallback
+                    const _savedEmomCfg = (diasData[diaIdx] && diasData[diaIdx].warmupEmomConfig) || [];
+                    warmupDetalle.emom_config_por_minuto = [];
+                    for (let _wm = 0; _wm < warmupDetalle.minutos; _wm++) {
+                        const _listEl = document.getElementById('emow-min-' + diaIdx + '-' + _wm + '-lista');
+                        let _wEjs = [];
+                        if (_listEl) {
+                            try { _wEjs = JSON.parse(_listEl.dataset.ejs || '[]'); } catch(e) { _wEjs = []; }
+                        }
+                        // Fallback a datos persistidos en diasData si el DOM no tiene el elemento
+                        if (_wEjs.length === 0 && _savedEmomCfg[_wm]) {
+                            _wEjs = _savedEmomCfg[_wm].ejercicios || [];
+                        }
+                        warmupDetalle.emom_config_por_minuto.push({
+                            minuto: _wm + 1,
+                            ejercicios_cantidad: _wEjs.length,
+                            ejercicios_nombres: _wEjs.map(e => e.nombre),
+                            ejercicios: _wEjs
+                        });
+                    }
+                } else if (warmupTipo === 'Series/Reps') {
+                    warmupDetalle.series = parseInt(document.getElementById('warmup-series-' + diaIdx)?.value || 3);
+                    warmupDetalle.reps = parseInt(document.getElementById('warmup-reps-val-' + diaIdx)?.value || 10);
+                }
+                const warmupEjsExport = dia.warmupEjercicios.map(e => {
+                    const exp = {
+                        nombre: e.nombre, link: e.link, reps: e.reps || '',
+                        unit: e.unit || 'Reps', descanso: e.descanso || '',
+                        con_carga: e.con_carga || false, elemento: e.elemento || ''
+                    };
+                    if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) exp.reps_por_vuelta = e.reps_por_vuelta;
+                    if (e.reps_por_serie && e.reps_por_serie.length > 0) exp.reps_por_serie = e.reps_por_serie;
+                    if (e.pausa_por_serie && e.pausa_por_serie.length > 0) exp.pausa_por_serie = e.pausa_por_serie;
+                    return exp;
+                });
                 const bloques = dia.bloquesRutina;
 
                 let tipo = 'ENTRENAMIENTO';
@@ -3326,6 +3192,21 @@
                     datos = { bloques: bloques, descripcion: descGlobal };
                 }
 
+                // Para EMOM en calentamiento, warmup_ejercicios se rellena con todos los ejercicios
+                // de todos los minutos (aplanados) para que el PDF y la vista previa los encuentren
+                let warmupEjsFinal = warmupEjsExport;
+                if (warmupTipo === 'EMOM' && warmupDetalle.emom_config_por_minuto && warmupDetalle.emom_config_por_minuto.length > 0) {
+                    const ejsEmomAplanados = [];
+                    warmupDetalle.emom_config_por_minuto.forEach(minCfg => {
+                        (minCfg.ejercicios || []).forEach(ej => {
+                            ejsEmomAplanados.push({
+                                nombre: ej.nombre, link: ej.link || '', reps: ej.reps || '',
+                                unit: ej.unit || 'Reps', con_carga: ej.con_carga || false, elemento: ej.elemento || ''
+                            });
+                        });
+                    });
+                    if (ejsEmomAplanados.length > 0) warmupEjsFinal = ejsEmomAplanados;
+                }
                 datos.warmup_ejercicios = warmupEjsFinal;
                 datos.warmup_tipo = warmupTipo;
                 datos.warmup_vueltas = warmupDetalle.vueltas || 2;
@@ -3353,35 +3234,50 @@
                 payload = { alumno, tipo: 'MULTIDIA', datos: { descripcion: descGlobal }, dias };
             }
 
-            const data = await apiCompartirRutina(payload);
-            $set('modal-codigo-text', (data.codigo || '').toUpperCase());
-            $set('modal-info', 'Rutina asignada a ' + (data.alumno || alumno));
-            const diasInfo = data.es_multidia
-                ? 'Incluye ' + data.total_dias + ' dias de entrenamiento'
-                : 'Incluye Calentamiento + Bloque Principal';
-            $set('modal-dias-info', diasInfo);
-            $html('modal-alumnos-asignados', '');
-            _lastPayload = payload;
-            _alumnosAsignados = [alumno.toUpperCase()];
-            // Poblar select de alumnos extra (silencioso)
-            let dataA = null;
-            try { dataA = await apiGetAlumnos(); } catch(e) {}
-            const selExtra = $el('modal-alumno-extra');
-            if (selExtra && dataA && dataA.alumnos) {
-                selExtra.innerHTML = '<option value="">-- Seleccionar alumno --</option>';
-                dataA.alumnos
-                    .filter(a => a.toUpperCase() !== alumno.toUpperCase())
-                    .forEach(a => {
-                        const opt = document.createElement('option');
-                        opt.value = a;
-                        opt.textContent = a.toUpperCase();
-                        selExtra.appendChild(opt);
-                    });
+            const res = await fetch(API_BASE + '/api/rutina/compartir', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.ok) {
+                document.getElementById('modal-codigo-text').innerText = (data.codigo || '').toUpperCase();
+                document.getElementById('modal-info').innerText = 'Rutina asignada a ' + (data.alumno || alumno);
+                const diasInfo = data.es_multidia
+                    ? 'Incluye ' + data.total_dias + ' dias de entrenamiento'
+                    : 'Incluye Calentamiento + Bloque Principal';
+                const diasInfoEl = document.getElementById('modal-dias-info');
+                if (diasInfoEl) diasInfoEl.innerText = diasInfo;
+                // Resetear sección de alumnos extra
+                const asignadosEl = document.getElementById('modal-alumnos-asignados');
+                if (asignadosEl) asignadosEl.innerHTML = '';
+                _lastPayload = payload;
+                _alumnosAsignados = [alumno.toUpperCase()];
+                // Cargar lista de alumnos en el select extra
+                try {
+                    const resA = await fetch(API_BASE + '/api/alumnos');
+                    const dataA = await resA.json();
+                    const sel = document.getElementById('modal-alumno-extra');
+                    if (!sel) throw new Error('no sel');
+                    sel.innerHTML = '<option value="">-- Seleccionar alumno --</option>';
+                    if (dataA.ok && dataA.alumnos) {
+                        dataA.alumnos
+                            .filter(a => a.toUpperCase() !== alumno.toUpperCase())
+                            .forEach(a => {
+                                const opt = document.createElement('option');
+                                opt.value = a;
+                                opt.textContent = a.toUpperCase();
+                                sel.appendChild(opt);
+                            });
+                    }
+                } catch(e) {}
+                document.getElementById('modal-codigo').classList.remove('hidden');
+                toast('Rutina compartida!');
+            } else {
+                toast('Error: ' + data.error);
             }
-            $el('modal-codigo')?.classList.remove('hidden');
-            toast('Rutina compartida!');
         } catch (e) {
-            toast('Error: ' + e.message);
+            toast('Error de conexion');
         } finally {
             btn.innerText = 'COMPARTIR RUTINA';
             btn.disabled = false;
@@ -3392,31 +3288,47 @@
         navigator.clipboard.writeText(codigo).then(() => toast('Codigo copiado!')).catch(() => {});
     }
 
+    let _lastPayload = null;
+    let _alumnosAsignados = [];
+
     async function asignarRutinaAAlumnoExtra() {
-        const sel = $el('modal-alumno-extra');
+        const sel = document.getElementById('modal-alumno-extra');
         if (!sel) return;
         const alumnoExtra = sel.value.trim();
         if (!alumnoExtra) { toast('Seleccioná un alumno'); return; }
         if (_alumnosAsignados.includes(alumnoExtra.toUpperCase())) {
-            toast('Ya fue asignado a ' + alumnoExtra.toUpperCase()); return;
+            toast('Ya fue asignado a ' + alumnoExtra.toUpperCase());
+            return;
         }
         if (!_lastPayload) { toast('Error: no hay rutina guardada'); return; }
 
+        const payloadExtra = Object.assign({}, _lastPayload, { alumno: alumnoExtra });
         try {
-            const data = await apiCompartirRutina(Object.assign({}, _lastPayload, { alumno: alumnoExtra }));
-            _alumnosAsignados.push(alumnoExtra.toUpperCase());
-            sel.remove(sel.selectedIndex);
-            sel.value = '';
-            const lista = $el('modal-alumnos-asignados');
-            if (lista) {
-                const chip = document.createElement('div');
-                chip.className = 'flex items-center gap-2 bg-verde/10 border border-verde/30 rounded-lg px-3 py-1.5';
-                chip.innerHTML = `<span class="text-verde text-xs">✓</span><span class="text-texto text-xs font-bold flex-1">${alumnoExtra.toUpperCase()}</span><span class="text-textoSuave text-xs font-mono">${(data.codigo||'').toUpperCase()}</span>`;
-                lista.appendChild(chip);
+            const res = await fetch(API_BASE + '/api/rutina/compartir', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payloadExtra)
+            });
+            const data = await res.json();
+            if (data.ok) {
+                _alumnosAsignados.push(alumnoExtra.toUpperCase());
+                // Quitar del select
+                sel.remove(sel.selectedIndex);
+                sel.value = '';
+                // Agregar chip en la lista de asignados
+                const lista = document.getElementById('modal-alumnos-asignados');
+                if (lista) {
+                    const chip = document.createElement('div');
+                    chip.className = 'flex items-center gap-2 bg-verde/10 border border-verde/30 rounded-lg px-3 py-1.5';
+                    chip.innerHTML = '<span class="text-verde text-xs">✓</span><span class="text-texto text-xs font-bold flex-1">' + alumnoExtra.toUpperCase() + '</span><span class="text-textoSuave text-xs font-mono">' + (data.codigo || '').toUpperCase() + '</span>';
+                    lista.appendChild(chip);
+                }
+                toast('Asignado a ' + alumnoExtra.toUpperCase() + ' ✓');
+            } else {
+                toast('Error: ' + (data.error || 'no se pudo asignar'));
             }
-            toast('Asignado a ' + alumnoExtra.toUpperCase() + ' ✓');
         } catch(e) {
-            toast('Error: ' + e.message);
+            toast('Error de conexión');
         }
     }
 
@@ -3466,80 +3378,7 @@
         return datos;
     }
 
-    // ====================================================================
-    // HELPERS DE RENDER — compartidos entre HTML preview y jsPDF
-    // ====================================================================
-
-    // Meta string para un bloque según su tipo
-    function getBloqueMetaStr(b, sep) {
-        sep = sep || ' — ';
-        const tipo = b.tipo || '';
-        if (tipo === 'Tabata')              return (b.trabajo||20) + 's act. / ' + (b.pausa||10) + 's pausa' + sep + (b.rondas||1) + ' ronda(s)';
-        if (tipo === 'Circuito')            return (b.vueltas||b.vueltas_bloque||3) + ' vueltas | Pausa: ' + (b.pausa_vuelta||60) + 's';
-        if (tipo === 'Circuito por Tiempo') return (b.duracion_min||b.tiempo_min||5) + ' min';
-        if (tipo === 'EMOM')                return (b.minutos_totales||10) + ' min';
-        if (tipo === 'Series')              return (b.ejercicios||[]).length + ' ejercicio(s)';
-        return '';
-    }
-
-    // ====================================================================
-    // BUILD EJ META LINES — extrae las líneas de metadata de un ejercicio
-    // normalizado. Devuelve array de strings (texto plano, sin HTML).
-    // Para HTML usar buildEjMetaHtml.
-    // ====================================================================
-    function buildEjMetaLines(e) {
-        const lines = [];
-        const tagParts = [];
-        if (e.elemento) tagParts.push('[' + e.elemento + ']');
-        if (e.con_carga) tagParts.push('[Lleva carga]');
-        if (tagParts.length) lines.push(tagParts.join('  '));
-
-        if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
-            e.reps_por_vuelta.forEach((rv, vi) => {
-                lines.push('V' + (vi+1) + '   ' + rv + (e.unit ? ' ' + e.unit : ' Reps'));
-            });
-            if (e.descanso) lines.push('Pausa por vuelta: ' + e.descanso + 's');
-        } else if (e.reps_por_serie && e.reps_por_serie.length > 0) {
-            e.reps_por_serie.forEach((rs, si) => {
-                const pausa = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
-                lines.push('S' + (si+1) + '   ' + rs + (e.unit ? ' ' + e.unit : ' Reps') + (pausa ? '   |   Pausa: ' + pausa + 's' : ''));
-            });
-        } else {
-            if (e.series) lines.push('Series: ' + e.series + (e.reps ? '   x   ' + e.reps + (e.unit ? ' ' + e.unit : ' Reps') : ''));
-            else if (e.reps) lines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
-            if (e.descanso && !e.series) lines.push('Pausa: ' + e.descanso + 's');
-            else if (e.descanso && e.series && lines.length) lines[lines.length - 1] += '   |   Pausa: ' + e.descanso + 's';
-        }
-        if (e.nota_tecnica) lines.push('Nota: ' + e.nota_tecnica);
-        return lines;
-    }
-
-    // Versión HTML (con tags <strong> para reps por vuelta/serie)
-    function buildEjMetaHtml(e) {
-        const parts = [];
-        if (e.elemento) parts.push('🔧 ' + e.elemento);
-        if (e.con_carga) parts.push('🏋️ Lleva carga');
-        if (e.series) parts.push('Series: ' + e.series);
-        if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
-            parts.push(e.reps_por_vuelta.map((rv, vi) =>
-                'V' + (vi+1) + ': <strong>' + rv + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>'
-            ).join(' &nbsp; '));
-            if (e.descanso) parts.push('Pausa por vuelta: ' + e.descanso + 's');
-        } else if (e.reps_por_serie && e.reps_por_serie.length > 0) {
-            parts.push(e.reps_por_serie.map((rs, si) => {
-                const p = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
-                return 'S' + (si+1) + ': <strong>' + rs + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>' + (p ? ' <span style="color:#e67e22;">| Pausa: ' + p + 's</span>' : '');
-            }).join(' &nbsp; '));
-        } else if (e.reps) {
-            parts.push(e.reps + (e.unit ? ' ' + e.unit : ''));
-            if (e.descanso) parts.push('Pausa: ' + e.descanso + 's');
-        } else if (e.descanso) {
-            parts.push('Pausa: ' + e.descanso + 's');
-        }
-        if (e.nota_tecnica) parts.push('📝 ' + e.nota_tecnica);
-        return parts.join(' &nbsp;|&nbsp; ');
-    }
-
+    // Normaliza cualquier formato de ejercicio a {nombre, link, reps, unit, series, descanso, nota_tecnica}
     function normalizeEj(ej) {
         if (!ej) return { nombre:'', link:'', reps:'', unit:'Reps', series:'', descanso:'', nota_tecnica:'' };
         // Arrays normales: [nombre, link, reps, unit]
@@ -3589,75 +3428,79 @@
     // HISTORIAL
     // ====================================================================
 
-    // Helper: construye la tarjeta HTML de una rutina en el historial
-    function buildRutinaCardHtml(cod, r, nombreAlumno) {
-        const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
-        const tipo  = r.tipo || 'ENTRENAMIENTO';
-        const alumno = r.alumno || nombreAlumno;
-        const c = cod.toUpperCase();
-        const btnClass = 'px-3 py-2 rounded-lg text-xs font-bold transition flex-1 min-w-[100px]';
-        return `<div class="bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-1">
-                <div>
-                    <span class="font-mono font-bold text-amarillo text-sm">${c}</span>
-                    <span class="text-xs text-textoSuave ml-2">${tipo} | ${fecha}</span>
-                </div>
-                <span class="text-xs text-textoSuave">${alumno}</span>
-            </div>
-            <div class="flex flex-wrap gap-2 mt-2">
-                <button onclick="verRutina('${cod}')" class="bg-azul/20 text-azul hover:bg-azul/30 ${btnClass}">Ver Rutina</button>
-                <button onclick="editarRutinaDesdeHistorial('${cod}')" class="bg-verde/20 text-verde hover:bg-verde/30 ${btnClass}">Editar Rutina</button>
-                <button onclick="descargarPDF('${cod}')" class="bg-naranja/20 text-naranja hover:bg-naranja/30 ${btnClass}">Descargar PDF</button>
-                <button onclick="eliminarRutinaHistorial('${cod}')" class="bg-rojo/20 text-rojo hover:bg-rojo/30 ${btnClass}">Eliminar Rutina</button>
-            </div>
-        </div>`;
-    }
-
-    // Helper compartido: carga y pobla un select de alumnos
-    async function cargarSelectAlumnos(selId) {
-        const sel = $el(selId);
-        if (!sel) return;
-        try {
-            const data = await apiGetAlumnos();
-            const current = sel.value;
-            sel.innerHTML = '<option value="">-- Seleccionar alumno --</option>' +
-                (data.alumnos || []).map(a => `<option value="${a}">${a.toUpperCase()}</option>`).join('');
-            if (current) sel.value = current;
-        } catch (e) {
-            console.error('Error cargando alumnos:', e.message);
-        }
-    }
-
     async function cargarListaAlumnos() {
-        await cargarSelectAlumnos('select-alumno');
-        toast('Alumnos cargados');
+        const sel = document.getElementById('select-alumno');
+        try {
+            const res = await fetch(API_BASE + '/api/alumnos');
+            const data = await res.json();
+            if (data.ok && data.alumnos) {
+                sel.innerHTML = '<option value="">-- Seleccionar alumno --</option>' +
+                    data.alumnos.map(a => `<option value="${a}">${a.toUpperCase()}</option>`).join('');
+                toast('Alumnos cargados');
+            }
+        } catch (e) {
+            console.error('Error cargando alumnos:', e);
+        }
     }
 
     async function buscarRutinasAlumno() {
-        const nombre = $el('select-alumno')?.value || '';
-        const lista  = $el('historial-lista');
-        const btnEliminar = $el('btn-eliminar-alumno');
-        if (!lista) return;
+        const nombre = document.getElementById('select-alumno').value;
+        const lista  = document.getElementById('historial-lista');
+        const btnEliminar = document.getElementById('btn-eliminar-alumno');
         if (!nombre) {
             lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">Selecciona un alumno del desplegable</p>';
-            if (btnEliminar) btnEliminar.classList.add('hidden');
+            btnEliminar.classList.add('hidden');
             return;
         }
-        if (btnEliminar) btnEliminar.classList.remove('hidden');
+        btnEliminar.classList.remove('hidden');
         lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">Buscando...</p>';
         try {
-            const data = await apiGetRutinasAlumno(nombre);
-            historialRutinasCache = data.rutinas || {};
-            const keys = Object.keys(historialRutinasCache);
-            if (keys.length === 0) {
-                lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">No se encontraron rutinas</p>';
-                return;
+            const res  = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre));
+            const data = await res.json();
+            if (data.ok) {
+                historialRutinasCache = data.rutinas || {};
+                const keys = Object.keys(historialRutinasCache);
+                if (keys.length === 0) {
+                    lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">No se encontraron rutinas</p>';
+                    return;
+                }
+                lista.innerHTML = keys.sort().reverse().map(cod => {
+                    const r    = historialRutinasCache[cod];
+                    const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
+                    const tipo  = r.tipo || 'ENTRENAMIENTO';
+                    return `<div class="bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-1">
+                            <div>
+                                <span class="font-mono font-bold text-amarillo text-sm">${cod.toUpperCase()}</span>
+                                <span class="text-xs text-textoSuave ml-2">${tipo} | ${fecha}</span>
+                            </div>
+                            <span class="text-xs text-textoSuave">${r.alumno || nombre}</span>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <button onclick="verRutina('${cod}')"
+                                class="bg-azul/20 text-azul px-3 py-2 rounded-lg text-xs font-bold hover:bg-azul/30 transition flex-1 min-w-[100px]">
+                                Ver Rutina
+                            </button>
+                            <button onclick="editarRutinaDesdeHistorial('${cod}')"
+                                class="bg-verde/20 text-verde px-3 py-2 rounded-lg text-xs font-bold hover:bg-verde/30 transition flex-1 min-w-[100px]">
+                                Editar Rutina
+                            </button>
+                            <button onclick="descargarPDF('${cod}')"
+                                class="bg-naranja/20 text-naranja px-3 py-2 rounded-lg text-xs font-bold hover:bg-naranja/30 transition flex-1 min-w-[100px]">
+                                Descargar PDF
+                            </button>
+                            <button onclick="eliminarRutinaHistorial('${cod}')" 
+                                class="bg-rojo/20 text-rojo px-3 py-2 rounded-lg text-xs font-bold hover:bg-rojo/30 transition flex-1 min-w-[100px]">
+                                Eliminar Rutina
+                            </button>
+                        </div>
+                    </div>`;
+                }).join('');
+            } else {
+                lista.innerHTML = '<p class="text-rojo text-sm text-center py-8">Error al buscar rutinas</p>';
             }
-            lista.innerHTML = keys.sort().reverse()
-                .map(cod => buildRutinaCardHtml(cod, historialRutinasCache[cod], nombre))
-                .join('');
-        } catch(e) {
-            lista.innerHTML = '<p class="text-rojo text-sm text-center py-8">Error de conexión: ' + e.message + '</p>';
+        } catch (e) {
+            lista.innerHTML = '<p class="text-rojo text-sm text-center py-8">Error de conexion</p>';
         }
     }
 
@@ -3667,44 +3510,89 @@
 
     async function eliminarRutinaHistorial(codigo) {
         if (!confirm('¿Estas seguro de eliminar la rutina ' + codigo.toUpperCase() + '? Esta accion no se puede deshacer.')) return;
+
         toast('Eliminando rutina...');
         try {
-            await apiDeleteRutina(codigo);
-            toast('Rutina eliminada. Renumerando...');
-            delete historialRutinasCache[codigo];
-            const alumno = $el('select-alumno')?.value || '';
-            if (alumno) await renumerarRutinas(alumno);
-            await buscarRutinasAlumno();
-            toast('Rutina eliminada y renumerada correctamente');
+            const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo), {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'}
+            });
+            const data = await res.json();
+            if (data.ok) {
+                toast('Rutina eliminada. Renumerando...');
+                // Eliminar del cache local
+                delete historialRutinasCache[codigo];
+
+                // Renumerar: obtener el alumno y su prefijo
+                const alumno = document.getElementById('select-alumno').value;
+                if (alumno) {
+                    await renumerarRutinas(alumno);
+                }
+
+                // Recargar la lista
+                await buscarRutinasAlumno();
+                toast('Rutina eliminada y renumerada correctamente');
+            } else {
+                toast('Error al eliminar: ' + (data.error || 'desconocido'));
+            }
         } catch (e) {
             console.error('Error eliminando rutina:', e);
-            toast('Error al eliminar: ' + e.message);
+            toast('Error de conexion al eliminar');
         }
     }
 
     async function eliminarAlumno() {
-        const nombre = $el('select-alumno')?.value || '';
+        const nombre = document.getElementById('select-alumno').value;
         if (!nombre) { toast('Selecciona un alumno primero'); return; }
-        if (!confirm('¿Eliminar al alumno ' + nombre.toUpperCase() + ' y TODAS sus rutinas? Esta accion no se puede deshacer.')) return;
+        const confirmacion = confirm('¿Eliminar al alumno ' + nombre.toUpperCase() + ' y TODAS sus rutinas? Esta accion no se puede deshacer.');
+        if (!confirmacion) return;
         try {
-            await apiDeleteAlumno(nombre);
-            toast('Alumno ' + nombre.toUpperCase() + ' eliminado correctamente');
-            $html('historial-lista', '<p class="text-textoSuave text-sm text-center py-8">Selecciona un alumno del desplegable</p>');
-            $el('btn-eliminar-alumno')?.classList.add('hidden');
-            historialRutinasCache = {};
-            await cargarListaAlumnos();
+            const res = await fetch(API_BASE + '/api/alumnos/' + encodeURIComponent(nombre), {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            if (data.ok) {
+                toast('Alumno ' + nombre.toUpperCase() + ' eliminado correctamente');
+                // Limpiar la vista
+                document.getElementById('historial-lista').innerHTML = '<p class="text-textoSuave text-sm text-center py-8">Selecciona un alumno del desplegable</p>';
+                document.getElementById('btn-eliminar-alumno').classList.add('hidden');
+                historialRutinasCache = {};
+                // Recargar lista de alumnos
+                await cargarListaAlumnos();
+            } else {
+                toast('Error: ' + (data.error || 'No se pudo eliminar'));
+            }
         } catch (e) {
-            toast('Error al eliminar alumno: ' + e.message);
+            toast('Error de conexion al eliminar alumno');
         }
     }
 
-    async function renumerarRutinas(alumno) {
-        await renumerarRutinasManual(alumno);
+        async function renumerarRutinas(alumno) {
+        try {
+            const res = await fetch(API_BASE + '/api/rutinas/renumerar/' + encodeURIComponent(alumno), {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            });
+            const data = await res.json();
+            if (!data.ok) {
+                console.warn('Renumeracion automatica no disponible, intentando manual...');
+                // Fallback: renumerar manualmente en el cliente
+                await renumerarRutinasManual(alumno);
+            }
+        } catch (e) {
+            console.warn('Endpoint de renumeracion no disponible, intentando manual...');
+            await renumerarRutinasManual(alumno);
+        }
     }
 
     async function renumerarRutinasManual(alumno) {
         try {
-            const data = await apiGetRutinasAlumno(alumno);
+            // Recargar rutinas actuales del servidor
+            const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(alumno));
+            const data = await res.json();
+            if (!data.ok) return;
+
             const rutinas = data.rutinas || {};
             const codigos = Object.keys(rutinas).sort();
 
@@ -3728,12 +3616,20 @@
 
             if (!necesitaRenumerar) return;
 
-            // Renumerar: para cada codigo que no coincide, renombrar en Firebase
+            // Renumerar: para cada codigo que no coincide, llamar al endpoint de renombrar
             for (let i = 0; i < codigos.length; i++) {
                 const numNuevo = String(i + 1).padStart(4, '0');
                 const codigoNuevo = prefijo + numNuevo;
                 if (codigos[i] !== codigoNuevo) {
-                    try { await apiRenombrarRutina(codigos[i], codigoNuevo); } catch(e) {}
+                    try {
+                        await fetch(API_BASE + '/api/rutina/renombrar', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ codigo_viejo: codigos[i], codigo_nuevo: codigoNuevo })
+                        });
+                    } catch (err) {
+                        console.warn('No se pudo renombrar ' + codigos[i] + ' a ' + codigoNuevo);
+                    }
                 }
             }
         } catch (e) {
@@ -3745,151 +3641,175 @@
     // EDITAR RUTINA DESDE HISTORIAL
     // ====================================================================
 
-    // Helpers globales de normalización de datos de rutinas (usados en editar y en restaurar)
-    function normEjs(src) {
-        return toArray(src).map(ej => {
-            const e = normalizeEj(ej);
-            return { nombre: e.nombre, link: e.link, reps: e.reps || '12', unit: e.unit || 'Reps', series: parseInt(e.series) || 4, nota_tecnica: e.nota_tecnica || '' };
-        }).filter(e => e.nombre);
-    }
-
-    function _aplicarParamsBloque(bl, b, datosRef) {
-        // Aplica parámetros de configuración al bloque según su tipo
-        // b y datosRef pueden ser el mismo objeto o distintos (bloque vs datos planos)
-        const src = b || datosRef || {};
-        if (bl.tipo === 'Circuito')            { bl.vueltas = src.vueltas || datosRef?.vueltas_bloque || 3; bl.pausa_vuelta = src.pausa_vuelta || datosRef?.pausa_vuelta || 60; }
-        else if (bl.tipo === 'Circuito por Tiempo') { bl.duracion_min = src.duracion_min || src.tiempo_min || datosRef?.duracion_min || 5; }
-        else if (bl.tipo === 'Tabata')          { bl.trabajo = src.trabajo || 20; bl.pausa = src.pausa || 10; bl.rondas = src.rondas || 1; bl.pausa_entre_rondas = src.pausa_entre_rondas || 0; bl.cantidad = src.cantidad || bl.ejercicios.length || 8; }
-        else if (bl.tipo === 'EMOM')            { bl.minutos_totales = src.minutos_totales || 10; bl.ejercicios_por_minuto = src.ejercicios_por_minuto || 1; if (src.emom_config_por_minuto) bl.emom_config_por_minuto = src.emom_config_por_minuto; else if (src.minutos_ciclo) bl.emom_config_por_minuto = toArray(src.minutos_ciclo).map((mc, mi) => ({ minuto: mi+1, ejercicios: mc.ejercicios || [], ejercicios_cantidad: (mc.ejercicios||[]).length, ejercicios_nombres: (mc.ejercicios||[]).map(e=>e.nombre) })); }
-        return bl;
-    }
-
-    function normBloques(bSrc) {
-        return toArray(bSrc).map(b => {
-            const bl = { tipo: b.tipo || 'Circuito', descripcion: b.descripcion || '', ejercicios: normEjs(b.ejercicios || b.rutina || []) };
-            return _aplicarParamsBloque(bl, b, b);
-        });
-    }
-
-    function bloquesDesdePlano(tipoR, datosR) {
-        let ejsFlat = [];
-        if (tipoR === 'Tabata' || tipoR === 'EMOM' || tipoR === 'Series') {
-            ejsFlat = toArray(datosR.rutina || datosR.datos || []);
-        } else if (tipoR === 'Circuito' || tipoR === 'Circuito por Tiempo') {
-            const gruposC = toArray(datosR.datos || datosR.rutina || []);
-            ejsFlat = (gruposC.length && gruposC[0] && gruposC[0].ejercicios !== undefined) ? toArray(gruposC[0].ejercicios) : gruposC;
-        } else {
-            ejsFlat = toArray(datosR.datos || datosR.rutina || []);
-        }
-        if (!ejsFlat.length) return [];
-        const bl = { tipo: (tipoR === 'ENTRENAMIENTO') ? 'Circuito' : tipoR, descripcion: datosR.descripcion || '', ejercicios: normEjs(ejsFlat) };
-        return [_aplicarParamsBloque(bl, datosR, datosR)];
-    }
-
-    function normWarmupEjs(src) {
-        return toArray(src).map(ej => {
-            const e = normalizeEj(ej);
-            return { nombre: e.nombre, link: e.link, reps: e.reps, unit: e.unit || 'Reps', con_carga: ej.con_carga || false, tip1: ej.tip1 || '', tip2: ej.tip2 || '' };
-        }).filter(e => e.nombre);
-    }
-
-    // ── Núcleo compartido: carga un objeto rutina en el editor ──
-    function _aplicarRutinaAlEditor(r, alumnoOverride) {
-        const datos = resolverDatos(r);
-        const alumno = alumnoOverride !== undefined ? alumnoOverride : (r.alumno || datos.alumno || '');
-        const tipo = r.tipo || 'ENTRENAMIENTO';
-
-        diasData = [];
-        warmupEjercicios = [];
-        bloquesRutina = [];
-
-        if (tipo === 'MULTIDIA') {
-            const totalDM = r.total_dias || 0;
-            for (let di = 1; di <= totalDM; di++) {
-                const diaR = r['dia_' + di];
-                if (!diaR || !diaR.datos) continue;
-                const dd = diaR.datos;
-                const dWTipo = dd.warmup_tipo || 'Circuito (Vueltas)';
-                const dWCfg  = dd.warmup_config_detalle || {};
-                const dBloques = toArray(dd.bloques).length > 0
-                    ? normBloques(dd.bloques)
-                    : bloquesDesdePlano(diaR.tipo || 'ENTRENAMIENTO', dd);
-                diasData.push({
-                    titulo: diaR.titulo || ('Dia ' + di),
-                    warmupEjercicios: normWarmupEjs(dd.warmup_ejercicios),
-                    warmupEmomConfig: toArray(dWCfg.emom_config_por_minuto),
-                    bloquesRutina: dBloques,
-                    _wTipo: dWTipo,
-                    _wCfg: dWCfg
-                });
-            }
-        } else {
-            const bloquesDelDia = toArray(datos.bloques).length > 0
-                ? normBloques(datos.bloques)
-                : bloquesDesdePlano(tipo, datos);
-            const _wCfgB = datos.warmup_config_detalle || {};
-            diasData.push({
-                titulo: 'Dia 1',
-                warmupEjercicios: normWarmupEjs(datos.warmup_ejercicios),
-                warmupEmomConfig: toArray(_wCfgB.emom_config_por_minuto),
-                bloquesRutina: bloquesDelDia,
-                _wTipo: datos.warmup_tipo || 'Circuito (Vueltas)',
-                _wCfg:  _wCfgB
-            });
-        }
-
-        document.getElementById('alumno-nombre').value = alumno;
-        document.getElementById('rutina-desc').value = datos.descripcion || '';
-
-        _editandoRutina = true;
-        showTab('rutina');
-        _editandoRutina = false;
-
-        renderDias();
-        if (diasData.length > 0) {
-            diaActivoIdx = 0;
-            bloquesRutina = diasData[0].bloquesRutina;
-        }
-
-        clearTimeout(window._restoreTimer);
-        window._restoreTimer = setTimeout(() => {
-            diasData.forEach((dia, i) => {
-                const wts = $el('warmup-tipo-' + i);
-                if (wts) { wts.value = dia._wTipo || 'Circuito (Vueltas)'; actualizarWarmupUIDia(i); }
-                const cfg = dia._wCfg || {};
-                setTimeout(() => {
-                    if (dia._wTipo === 'Circuito (Vueltas)') {
-                        const v = $el('warmup-vueltas-' + i); if (v) v.value = cfg.vueltas || 2;
-                        const p = $el('warmup-pausa-vuelta-' + i); if (p) p.value = cfg.pausa_vuelta || 30;
-                    } else if (dia._wTipo === 'Circuito por Tiempo') {
-                        const d = $el('warmup-duracion-' + i); if (d) d.value = cfg.duracion_bloque || 3;
-                    } else if (dia._wTipo === 'Tabata') {
-                        const t = $el('warmup-trabajo-' + i); if (t) t.value = cfg.trabajo || 20;
-                        const p = $el('warmup-pausa-' + i); if (p) p.value = cfg.pausa || 10;
-                        const c = $el('warmup-cantidad-' + i); if (c) c.value = cfg.cantidad || 8;
-                    } else if (dia._wTipo === 'EMOM') {
-                        const m = $el('warmup-minutos-' + i); if (m) m.value = cfg.minutos || 5;
-                    } else if (dia._wTipo === 'Series/Reps') {
-                        const s = $el('warmup-series-' + i); if (s) s.value = cfg.series || 3;
-                        const rv = $el('warmup-reps-val-' + i); if (rv) rv.value = cfg.reps || 10;
-                    }
-                    renderWarmupEjsDia(i);
-                    renderBloquesDia(i);
-                }, 50);
-            });
-            toggleDia(0, true);
-        }, 100);
-
-        toast(tipo === 'MULTIDIA' ? 'Rutina multi-día cargada para editar' : 'Rutina cargada para editar');
-    }
-
     async function editarRutinaDesdeHistorial(codigo) {
         toast('Cargando rutina para editar...');
         try {
-            const data = await apiGetRutina(codigo);
+            // Siempre hacer fetch completo para tener todos los datos
+            const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+            const data = await res.json();
+            if (!data.ok) { toast('Error: ' + (data.error || 'No encontrada')); return; }
             const r = data.rutina;
             historialRutinasCache[codigo] = r;
-            _aplicarRutinaAlEditor(r);
+
+            const datos = resolverDatos(r);
+            const alumno = r.alumno || datos.alumno || '';
+            const tipo = r.tipo || 'ENTRENAMIENTO';
+
+            // Limpiar estado global
+            diasData = [];
+            warmupEjercicios = [];
+            bloquesRutina = [];
+
+            // ── Helper: normaliza lista de ejercicios de un bloque ──────────
+            function normEjs(src) {
+                return toArray(src).map(ej => {
+                    const e = normalizeEj(ej);
+                    return { nombre: e.nombre, link: e.link, reps: e.reps || '12', unit: e.unit || 'Reps', series: parseInt(e.series) || 4, nota_tecnica: e.nota_tecnica || '' };
+                }).filter(e => e.nombre);
+            }
+
+            // ── Helper: convierte bloques de Firebase al formato interno ────
+            function normBloques(bSrc) {
+                return toArray(bSrc).map(b => {
+                    const bl = {
+                        tipo: b.tipo || 'Circuito',
+                        descripcion: b.descripcion || '',
+                        ejercicios: normEjs(b.ejercicios || b.rutina || [])
+                    };
+                    if (b.tipo === 'Circuito')            { bl.vueltas = b.vueltas || 3; bl.pausa_vuelta = b.pausa_vuelta || 60; }
+                    else if (b.tipo === 'Circuito por Tiempo') { bl.duracion_min = b.duracion_min || b.tiempo_min || 5; }
+                    else if (b.tipo === 'Tabata')          { bl.trabajo = b.trabajo || 20; bl.pausa = b.pausa || 10; bl.rondas = b.rondas || 1; bl.pausa_entre_rondas = b.pausa_entre_rondas || 0; bl.cantidad = b.cantidad || bl.ejercicios.length || 8; }
+                    else if (b.tipo === 'EMOM')             { bl.minutos_totales = b.minutos_totales || 10; bl.ejercicios_por_minuto = b.ejercicios_por_minuto || 1; if (b.emom_config_por_minuto) bl.emom_config_por_minuto = b.emom_config_por_minuto; }
+                    else if (b.tipo === 'Series')           { /* series por ejercicio */ }
+                    return bl;
+                });
+            }
+
+            // ── Helper: construye bloques desde formato plano (tipo único) ──
+            function bloquesDesdePlano(tipoR, datosR) {
+                let ejsFlat = [];
+                if (tipoR === 'Tabata' || tipoR === 'EMOM' || tipoR === 'Series') {
+                    ejsFlat = toArray(datosR.rutina || datosR.datos || []);
+                } else if (tipoR === 'Circuito' || tipoR === 'Circuito por Tiempo') {
+                    const gruposC = toArray(datosR.datos || datosR.rutina || []);
+                    ejsFlat = (gruposC.length && gruposC[0] && gruposC[0].ejercicios !== undefined)
+                        ? toArray(gruposC[0].ejercicios)
+                        : gruposC;
+                } else {
+                    ejsFlat = toArray(datosR.datos || datosR.rutina || []);
+                }
+                if (!ejsFlat.length) return [];
+                const bl = {
+                    tipo: (tipoR === 'ENTRENAMIENTO') ? 'Circuito' : tipoR,
+                    descripcion: datosR.descripcion || '',
+                    ejercicios: normEjs(ejsFlat)
+                };
+                if (bl.tipo === 'Circuito')            { bl.vueltas = datosR.vueltas_bloque || 3; bl.pausa_vuelta = datosR.pausa_vuelta || 60; }
+                else if (bl.tipo === 'Circuito por Tiempo') { bl.duracion_min = datosR.duracion_min || 5; }
+                else if (bl.tipo === 'Tabata')          { bl.trabajo = datosR.trabajo || 20; bl.pausa = datosR.pausa || 10; bl.rondas = datosR.rondas || 1; bl.pausa_entre_rondas = datosR.pausa_entre_rondas || 0; bl.cantidad = datosR.cantidad || bl.ejercicios.length || 8; }
+                else if (bl.tipo === 'EMOM')             { bl.minutos_totales = datosR.minutos_totales || 10; bl.ejercicios_por_minuto = datosR.ejercicios_por_minuto || 1; if (datosR.minutos_ciclo) bl.emom_config_por_minuto = toArray(datosR.minutos_ciclo).map((mc, mi) => ({ minuto: mi+1, ejercicios: mc.ejercicios || [], ejercicios_cantidad: (mc.ejercicios||[]).length, ejercicios_nombres: (mc.ejercicios||[]).map(e=>e.nombre) })); }
+                return [bl];
+            }
+
+            // ── Helper: normaliza ejercicios de warmup ───────────────────────
+            function normWarmupEjs(src) {
+                return toArray(src).map(ej => {
+                    const e = normalizeEj(ej);
+                    return { nombre: e.nombre, link: e.link, reps: e.reps, unit: e.unit || 'Reps', con_carga: ej.con_carga || false, tip1: ej.tip1 || '', tip2: ej.tip2 || '' };
+                }).filter(e => e.nombre);
+            }
+
+            // ════════════════════════════════════════════════════════════════
+            // CASO A: MULTIDIA
+            // ════════════════════════════════════════════════════════════════
+            if (tipo === 'MULTIDIA') {
+                const totalDM = r.total_dias || 0;
+                for (let di = 1; di <= totalDM; di++) {
+                    const diaR = r['dia_' + di];
+                    if (!diaR || !diaR.datos) continue;
+                    const dd = diaR.datos;
+                    const dWTipo = dd.warmup_tipo || 'Circuito (Vueltas)';
+                    const dWCfg  = dd.warmup_config_detalle || {};
+                    const dBloques = toArray(dd.bloques).length > 0
+                        ? normBloques(dd.bloques)
+                        : bloquesDesdePlano(diaR.tipo || 'ENTRENAMIENTO', dd);
+                    diasData.push({
+                        titulo: diaR.titulo || ('Dia ' + di),
+                        warmupEjercicios: normWarmupEjs(dd.warmup_ejercicios),
+                        warmupEmomConfig: toArray(dWCfg.emom_config_por_minuto),
+                        bloquesRutina: dBloques,
+                        _wTipo: dWTipo,
+                        _wCfg: dWCfg
+                    });
+                }
+
+            // ════════════════════════════════════════════════════════════════
+            // CASO B: Rutina de un solo día (cualquier tipo)
+            // ════════════════════════════════════════════════════════════════
+            } else {
+                const bloquesDelDia = toArray(datos.bloques).length > 0
+                    ? normBloques(datos.bloques)
+                    : bloquesDesdePlano(tipo, datos);
+                const _wCfgB = datos.warmup_config_detalle || {};
+                diasData.push({
+                    titulo: 'Dia 1',
+                    warmupEjercicios: normWarmupEjs(datos.warmup_ejercicios),
+                    warmupEmomConfig: toArray(_wCfgB.emom_config_por_minuto),
+                    bloquesRutina: bloquesDelDia,
+                    _wTipo: datos.warmup_tipo || 'Circuito (Vueltas)',
+                    _wCfg:  _wCfgB
+                });
+            }
+
+            // ── Poblar nombre y descripción ─────────────────────────────────
+            document.getElementById('alumno-nombre').value = alumno;
+            document.getElementById('rutina-desc').value = datos.descripcion || '';
+
+            // ── Navegar a la pestaña rutina con flag activo ─────────────────
+            _editandoRutina = true;
+            showTab('rutina');
+            _editandoRutina = false;
+
+            // ── Renderizar todos los días ────────────────────────────────────
+            renderDias();
+            // Sincronizar bloquesRutina global con el primer día para evitar desincronización
+            if (diasData.length > 0) {
+                diaActivoIdx = 0;
+                bloquesRutina = diasData[0].bloquesRutina;
+            }
+
+            // ── Restaurar config de warmup por día (con delay para el DOM) ──
+            setTimeout(() => {
+                diasData.forEach((dia, i) => {
+                    const wts = document.getElementById('warmup-tipo-' + i);
+                    if (wts) { wts.value = dia._wTipo || 'Circuito (Vueltas)'; actualizarWarmupUIDia(i); }
+                    const cfg = dia._wCfg || {};
+                    setTimeout(() => {
+                        if (dia._wTipo === 'Circuito (Vueltas)') {
+                            const v = document.getElementById('warmup-vueltas-' + i); if (v) v.value = cfg.vueltas || 2;
+                            const p = document.getElementById('warmup-pausa-vuelta-' + i); if (p) p.value = cfg.pausa_vuelta || 30;
+                        } else if (dia._wTipo === 'Circuito por Tiempo') {
+                            const d = document.getElementById('warmup-duracion-' + i); if (d) d.value = cfg.duracion_bloque || 3;
+                        } else if (dia._wTipo === 'Tabata') {
+                            const t = document.getElementById('warmup-trabajo-' + i); if (t) t.value = cfg.trabajo || 20;
+                            const p = document.getElementById('warmup-pausa-' + i); if (p) p.value = cfg.pausa || 10;
+                            const c = document.getElementById('warmup-cantidad-' + i); if (c) c.value = cfg.cantidad || 8;
+                        } else if (dia._wTipo === 'EMOM') {
+                            const m = document.getElementById('warmup-minutos-' + i); if (m) m.value = cfg.minutos || 5;
+                        } else if (dia._wTipo === 'Series/Reps') {
+                            const s = document.getElementById('warmup-series-' + i); if (s) s.value = cfg.series || 3;
+                            const rv = document.getElementById('warmup-reps-val-' + i); if (rv) rv.value = cfg.reps || 10;
+                        }
+                        renderWarmupEjsDia(i);
+                        renderBloquesDia(i);
+                    }, 50);
+                });
+                // Expandir el primer día
+                toggleDia(0, true);
+            }, 100);
+
+            toast(tipo === 'MULTIDIA' ? 'Rutina multi-día cargada para editar' : 'Rutina cargada para editar');
+
         } catch (e) {
             console.error('Error editando rutina:', e);
             toast('Error al cargar rutina para editar');
@@ -3900,30 +3820,32 @@
     // VER RUTINA (MODAL)
     // ====================================================================
 
-    // Helper: carga una rutina desde cache o API
-    async function cargarRutinaCompleta(codigo) {
-        let r = historialRutinasCache[codigo];
-        const tieneData = r && (r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia);
-        if (!tieneData) {
-            const data = await apiGetRutina(codigo);
-            r = data.rutina;
-            historialRutinasCache[codigo] = r;
-        }
-        return r;
-    }
-
     async function verRutina(codigo) {
-        const content = $el('modal-rutina-content');
-        if (!content) return;
+        const content = document.getElementById('modal-rutina-content');
         content.innerHTML = '<p style="text-align:center;color:#888;padding:40px;">Cargando rutina...</p>';
-        $el('modal-ver-rutina')?.classList.remove('hidden');
+        document.getElementById('modal-ver-rutina').classList.remove('hidden');
+
         try {
-            const r = await cargarRutinaCompleta(codigo);
-            currentData       = r;
-            rutinaModalActual = { codigo, ...r };
-            content.innerHTML = generarHTMLRutina(codigo, r);
+            // Primero verificar si ya lo tenemos en cache (con datos completos)
+            let r = historialRutinasCache[codigo];
+            if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia)) {
+                const res  = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+                const data = await res.json();
+                if (!data.ok) {
+                    content.innerHTML = '<p style="text-align:center;color:#EF5350;padding:40px;">Error: ' + (data.error || 'No encontrada') + '</p>';
+                    return;
+                }
+                r = data.rutina;
+                historialRutinasCache[codigo] = r;
+            }
+
+            // Guardar en globales para que el sistema sepa qué rutina estamos viendo
+            currentData        = r;
+            rutinaModalActual  = { codigo, ...r };
+
+            content.innerHTML  = generarHTMLRutina(codigo, r);
         } catch (e) {
-            content.innerHTML = '<p style="text-align:center;color:#EF5350;padding:40px;">Error: ' + e.message + '</p>';
+            content.innerHTML = '<p style="text-align:center;color:#EF5350;padding:40px;">Error de conexion</p>';
         }
     }
 
@@ -3947,48 +3869,34 @@
         const sEjLink     = ff + 'color:#1565C0;font-size:12px;text-decoration:underline;white-space:nowrap;margin-left:10px;';
         const sEjMeta     = ff + 'font-size:11px;color:#555;margin:0;';
 
-        // Construye el HTML de meta para el modal según tipo de bloque
-        function buildHTMLMetaByTipo(e, bloqTipo) {
-            const parts = [];
-            if (e.elemento) parts.push('🔧 ' + e.elemento);
-            if (e.con_carga) parts.push('🏋️ Lleva carga');
-
-            if (bloqTipo === 'Circuito') {
-                if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
-                    e.reps_por_vuelta.forEach(function(rv, vi) {
-                        parts.push('<strong>Vuelta ' + (vi+1) + ':</strong> ' + rv + (e.unit ? ' ' + e.unit : ' Reps'));
-                    });
-                } else if (e.reps) {
-                    parts.push('<strong>' + e.reps + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>');
-                }
-            } else if (bloqTipo === 'Circuito por Tiempo') {
-                if (e.reps) parts.push('<strong>' + e.reps + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>');
-            } else if (bloqTipo === 'EMOM') {
-                if (e.reps) parts.push('<strong>' + e.reps + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>');
-            } else if (bloqTipo === 'Series') {
-                if (e.reps_por_serie && e.reps_por_serie.length > 0) {
-                    e.reps_por_serie.forEach(function(rs, si) {
-                        const p = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
-                        parts.push('<strong>Serie ' + (si+1) + ':</strong> ' + rs + (e.unit ? ' ' + e.unit : ' Reps') + (p ? ' <span style="color:#e67e22;">| Pausa: ' + p + 's</span>' : ''));
-                    });
-                } else {
-                    if (e.series) parts.push('Series: ' + e.series + (e.reps ? ' x <strong>' + e.reps + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>' : ''));
-                    else if (e.reps) parts.push('<strong>' + e.reps + (e.unit ? ' ' + e.unit : '') + '</strong>');
-                    if (e.descanso) parts.push('<span style="color:#e67e22;">Pausa: ' + e.descanso + 's</span>');
-                }
-            } else {
-                // Fallback — usar buildEjMetaHtml original
-                return buildEjMetaHtml(e);
-            }
-            if (e.nota_tecnica) parts.push('📝 ' + e.nota_tecnica);
-            return parts.join(' &nbsp;|&nbsp; ');
-        }
-
         // --- Función interna para renderizar un ejercicio en caja gris ---
-        function ejBox(ej, bloqTipo) {
+        function ejBox(ej) {
             const e = normalizeEj(ej);
             if (!e.nombre) return '';
-            const metaStr = bloqTipo ? buildHTMLMetaByTipo(e, bloqTipo) : buildEjMetaHtml(e);
+            const metaParts = [];
+            if (e.elemento) metaParts.push('🔧 ' + e.elemento);
+            if (e.con_carga) metaParts.push('🏋️ Lleva carga');
+            if (e.series)   metaParts.push('Series: ' + e.series);
+            // Per-vuelta reps: Vuelta 1: 10 Reps, Vuelta 2: 12 Reps
+            if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
+                const vLabels = e.reps_por_vuelta.map((rv, vi) => 'V' + (vi+1) + ': <strong>' + rv + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>').join(' &nbsp; ');
+                metaParts.push(vLabels);
+                if (e.descanso) metaParts.push('Pausa por vuelta: ' + e.descanso + 's');
+            // Per-serie reps: Serie 1: 10 Reps | Pausa: 60s
+            } else if (e.reps_por_serie && e.reps_por_serie.length > 0) {
+                const sLabels = e.reps_por_serie.map((rs, si) => {
+                    const pausaSerie = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
+                    return 'S' + (si+1) + ': <strong>' + rs + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>' + (pausaSerie ? ' <span style="color:#e67e22;">| Pausa: ' + pausaSerie + 's</span>' : '');
+                }).join(' &nbsp; ');
+                metaParts.push(sLabels);
+            } else if (e.reps) {
+                metaParts.push(e.reps + (e.unit ? ' ' + e.unit : ''));
+                if (e.descanso) metaParts.push('Pausa: ' + e.descanso + 's');
+            } else if (e.descanso) {
+                metaParts.push('Pausa: ' + e.descanso + 's');
+            }
+            if (e.nota_tecnica) metaParts.push('📝 ' + e.nota_tecnica);
+            const metaStr = metaParts.join(' &nbsp;|&nbsp; ');
             return `<div style="${sEjBox}">
                 <div style="${sEjTop}">
                     <span style="${sEjNombre}">${e.nombre}</span>
@@ -4042,7 +3950,7 @@
                             if (ejsMin.length === 0) {
                                 html += `<p style="${ff}color:#aaa;font-size:11px;font-style:italic;margin:2px 0 6px 10px;">Sin ejercicios</p>`;
                             } else {
-                                ejsMin.forEach(ej => { html += ejBox(ej, 'EMOM'); });
+                                ejsMin.forEach(ej => { html += ejBox(ej); });
                             }
                         });
                     } else {
@@ -4071,12 +3979,11 @@
                         if (ejsFlat[0] && ejsFlat[0].ejercicios !== undefined) {
                             ejsFlat.forEach((g, gi) => {
                                 const ejsG = toArray(g.ejercicios);
-                                const gTipoLocal = g.tipo || diaTipo;
-                                html += `<div style="${sSubHeader}">Bloque ${gi+1}: ${gTipoLocal}</div>`;
-                                ejsG.forEach(ej => { html += ejBox(ej, gTipoLocal); });
+                                html += `<div style="${sSubHeader}">Bloque ${gi+1}: ${g.tipo || diaTipo}</div>`;
+                                ejsG.forEach(ej => { html += ejBox(ej); });
                             });
                         } else {
-                            ejsFlat.forEach(ej => { html += ejBox(ej, diaTipo); });
+                            ejsFlat.forEach(ej => { html += ejBox(ej); });
                         }
                     }
                 }
@@ -4117,7 +4024,7 @@
                     if (ejsMin.length === 0) {
                         html += `<p style="${ff}color:#aaa;font-size:11px;font-style:italic;margin:2px 0 6px 10px;">Sin ejercicios</p>`;
                     } else {
-                        ejsMin.forEach(ej => { html += ejBox(ej, 'EMOM'); });
+                        ejsMin.forEach(ej => { html += ejBox(ej); });
                     }
                 });
             } else {
@@ -4131,7 +4038,12 @@
             listaBloques.forEach((b, i) => {
                 const ejsB = toArray(b.ejercicios || b.datos || b.rutina || []);
                 const bloqTipo = b.tipo || tipoFallback || 'Bloque';
-                const meta = getBloqueMetaStr(b);
+                let meta = '';
+                if      (bloqTipo === 'Tabata')              meta = (b.trabajo||20) + 's act. / ' + (b.pausa||10) + 's pausa — ' + (b.rondas||1) + ' ronda(s)';
+                else if (bloqTipo === 'Circuito')            meta = (b.vueltas||b.vueltas_bloque||3) + ' vueltas | Pausa: ' + (b.pausa_vuelta||60) + 's';
+                else if (bloqTipo === 'Circuito por Tiempo') meta = (b.duracion_min||b.tiempo_min||5) + ' min';
+                else if (bloqTipo === 'EMOM')                meta = (b.minutos_totales||10) + ' min';
+                else if (bloqTipo === 'Series')              meta = ejsB.length + ' ejercicio(s)';
                 html += `<div style="${sSubHeader}">Bloque ${i+1}: ${bloqTipo}${meta ? ' — ' + meta : ''}</div>`;
                 if (b.descripcion) html += `<p style="${ff}color:#666;font-size:12px;font-style:italic;margin:0 0 8px 2px;">${b.descripcion}</p>`;
                 if (bloqTipo === 'EMOM' && b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
@@ -4140,12 +4052,12 @@
                         const ejsMin = minCfg.ejercicios || [];
                         if (ejsMin.length === 0) {
                             html += `<p style="${ff}color:#aaa;font-size:11px;font-style:italic;margin:2px 0 6px 10px;">Sin ejercicios</p>`;
-                        } else { ejsMin.forEach(ej => { html += ejBox(ej, 'EMOM'); }); }
+                        } else { ejsMin.forEach(ej => { html += ejBox(ej); }); }
                     });
                 } else if (ejsB.length === 0) {
                     html += `<p style="${ff}color:#aaa;font-size:12px;font-style:italic;padding:6px 2px;">Sin ejercicios registrados</p>`;
                 } else {
-                    ejsB.forEach(ej => { html += ejBox(ej, bloqTipo); });
+                    ejsB.forEach(ej => { html += ejBox(ej); });
                 }
             });
         }
@@ -4168,15 +4080,15 @@
                         const ejsMin = minCfg.ejercicios || [];
                         if (ejsMin.length === 0) {
                             html += `<p style="${ff}color:#aaa;font-size:11px;font-style:italic;margin:2px 0 6px 10px;">Sin ejercicios</p>`;
-                        } else { ejsMin.forEach(ej => { html += ejBox(ej, 'EMOM'); }); }
+                        } else { ejsMin.forEach(ej => { html += ejBox(ej); }); }
                     });
                 } else {
-                    ejsFlat.forEach(ej => { html += ejBox(ej, 'EMOM'); });
+                    ejsFlat.forEach(ej => { html += ejBox(ej); });
                 }
             } else if (ejsFlat.length > 0) {
                 let metaInfo = ' — ' + (datos.trabajo||20) + 's / ' + (datos.pausa||10) + 's | ' + (datos.rondas||1) + ' ronda(s)';
                 html += `<div style="${sSubHeader}">Tabata${metaInfo}</div>`;
-                ejsFlat.forEach(ej => { html += ejBox(ej, 'Tabata'); });
+                ejsFlat.forEach(ej => { html += ejBox(ej); });
             }
         } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo') {
             html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — ${tipo}</div>`;
@@ -4193,15 +4105,15 @@
                     if (ejsG.length === 0) {
                         html += `<p style="${ff}color:#aaa;font-size:12px;font-style:italic;padding:6px 2px;">Sin ejercicios registrados</p>`;
                     } else {
-                        ejsG.forEach(ej => { html += ejBox(ej, gTipo); });
+                        ejsG.forEach(ej => { html += ejBox(ej); });
                     }
                 });
             } else {
-                gruposC.forEach(ej => { html += ejBox(ej, tipo); });
+                gruposC.forEach(ej => { html += ejBox(ej); });
             }
         } else if (tipo === 'Series') {
             html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — SERIES</div>`;
-            toArray(datos.datos || datos.rutina || []).forEach(ej => { html += ejBox(ej, 'Series'); });
+            toArray(datos.datos || datos.rutina || []).forEach(ej => { html += ejBox(ej); });
         }
 
         // --- Mapa de Calor Muscular de esta rutina ---
@@ -4234,14 +4146,17 @@
         const jsPDFLib = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
         if (!jsPDFLib) { toast('Libreria PDF no disponible, recarga la pagina'); return; }
 
-        // Obtener datos usando helper de cache/API
+        // Obtener datos (cache o API) - verificar que tenga datos completos
         let r = historialRutinasCache[codigo];
-        const tieneData = r && (r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia);
-        if (!tieneData) {
+        if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia)) {
             toast('Cargando rutina para PDF...');
             try {
-                r = await cargarRutinaCompleta(codigo);
-            } catch (e) { toast('Error cargando rutina: ' + e.message); return; }
+                const res  = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+                const data = await res.json();
+                if (!data.ok) { toast('Error cargando rutina'); return; }
+                r = data.rutina;
+                historialRutinasCache[codigo] = r;
+            } catch (e) { toast('Error de conexion'); return; }
         }
 
         try {
@@ -4286,55 +4201,42 @@
                 y += 10;
             }
 
-            // Construye líneas de detalle para el PDF según tipo de bloque
-            function buildPDFLines(e, bloqTipo) {
-                const tagParts = [];
-                if (e.elemento) tagParts.push('[' + e.elemento + ']');
-                if (e.con_carga) tagParts.push('[Lleva carga]');
-                const lines = tagParts.length ? [tagParts.join('  ')] : [];
-
-                if (bloqTipo === 'Circuito') {
-                    if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
-                        e.reps_por_vuelta.forEach(function(rv, vi) {
-                            lines.push('Vuelta ' + (vi+1) + ': ' + rv + (e.unit ? ' ' + e.unit : ' Reps'));
-                        });
-                    } else if (e.reps) {
-                        lines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
-                    }
-                    // Pausa NO aqui — va en titulo del bloque
-                } else if (bloqTipo === 'Circuito por Tiempo') {
-                    if (e.reps) lines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
-                } else if (bloqTipo === 'EMOM') {
-                    if (e.reps) lines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
-                } else if (bloqTipo === 'Series') {
-                    if (e.reps_por_serie && e.reps_por_serie.length > 0) {
-                        e.reps_por_serie.forEach(function(rs, si) {
-                            const pausa = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
-                            lines.push('Serie ' + (si+1) + ': ' + rs + (e.unit ? ' ' + e.unit : ' Reps') + (pausa ? '   |   Pausa: ' + pausa + 's' : ''));
-                        });
-                    } else {
-                        if (e.series) lines.push('Series: ' + e.series + (e.reps ? '  x  ' + e.reps + (e.unit ? ' ' + e.unit : ' Reps') : ''));
-                        else if (e.reps) lines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
-                        if (e.descanso) lines.push('Pausa: ' + e.descanso + 's');
-                    }
-                } else {
-                    // Fallback (Tabata, warmup, etc.) — usar funcion original
-                    const base = buildEjMetaLines(e);
-                    // Agregar lineas que no estaban ya (por elemento/carga)
-                    base.forEach(function(l) { if (lines.indexOf(l) === -1) lines.push(l); });
-                    return lines;
-                }
-
-                if (e.nota_tecnica) lines.push('Nota: ' + e.nota_tecnica);
-                return lines;
-            }
-
             // Ejercicio en caja gris #F0F0F0 — nombre + video + Series|Reps|Pausa + carga + elemento
-            function ejGris(ej, bloqTipo) {
+            function ejGris(ej) {
                 const e = normalizeEj(ej);
                 if (!e.nombre) return;
 
-                const detLines = bloqTipo ? buildPDFLines(e, bloqTipo) : buildEjMetaLines(e);
+                // Construir líneas de detalle por serie o vuelta
+                const detLines = [];
+
+                // Elemento y carga
+                const tagParts = [];
+                if (e.elemento) tagParts.push('[' + e.elemento + ']');
+                if (e.con_carga) tagParts.push('[Lleva carga]');
+                if (tagParts.length) detLines.push(tagParts.join('  '));
+
+                if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
+                    // Circuito por vueltas: V1  10 Reps
+                    e.reps_por_vuelta.forEach((rv, vi) => {
+                        detLines.push('V' + (vi+1) + '   ' + rv + (e.unit ? ' ' + e.unit : ' Reps'));
+                    });
+                    if (e.descanso) detLines.push('Pausa por vuelta: ' + e.descanso + 's');
+                } else if (e.reps_por_serie && e.reps_por_serie.length > 0) {
+                    // Series individuales: S1  10 Reps  |  Pausa: 60s
+                    e.reps_por_serie.forEach((rs, si) => {
+                        const pausaSerie = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
+                        let linea = 'S' + (si+1) + '   ' + rs + (e.unit ? ' ' + e.unit : ' Reps');
+                        if (pausaSerie) linea += '   |   Pausa: ' + pausaSerie + 's';
+                        detLines.push(linea);
+                    });
+                } else {
+                    // Formato general
+                    if (e.series) detLines.push('Series: ' + e.series + (e.reps ? '   x   ' + e.reps + (e.unit ? ' ' + e.unit : ' Reps') : ''));
+                    else if (e.reps) detLines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
+                    if (e.descanso && !e.series) detLines.push('Pausa: ' + e.descanso + 's');
+                    else if (e.descanso && e.series) detLines[detLines.length - 1] += '   |   Pausa: ' + e.descanso + 's';
+                }
+                if (e.nota_tecnica) detLines.push('Nota: ' + e.nota_tecnica);
 
                 const lineH = 5.5;
                 const boxH = 9 + (detLines.length > 0 ? detLines.length * lineH + 2 : 0);
@@ -4461,7 +4363,7 @@
                                 if (ejsMin.length === 0) {
                                     doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(170,170,170);
                                     doc.text('Sin ejercicios', mL + 4, y); y += 5;
-                                } else { ejsMin.forEach(ej => ejGris(ej, 'EMOM')); }
+                                } else { ejsMin.forEach(ej => ejGris(ej)); }
                             });
                         } else {
                             dWEjs.forEach(ej => ejGris(ej));
@@ -4484,12 +4386,11 @@
                             }
                             if (ejsF[0] && ejsF[0].ejercicios !== undefined) {
                                 ejsF.forEach((g, gi) => {
-                                    const gTipo = g.tipo || diaTipo;
-                                    subBar('Bloque ' + (gi+1) + ': ' + gTipo);
-                                    toArray(g.ejercicios).forEach(ej => ejGris(ej, gTipo));
+                                    subBar('Bloque ' + (gi+1) + ': ' + (g.tipo || diaTipo));
+                                    toArray(g.ejercicios).forEach(ej => ejGris(ej));
                                 });
                             } else {
-                                ejsF.forEach(ej => ejGris(ej, diaTipo));
+                                ejsF.forEach(ej => ejGris(ej));
                             }
                         }
                     }
@@ -4569,7 +4470,7 @@
                         if (ejsMin.length === 0) {
                             doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(170,170,170);
                             doc.text('Sin ejercicios', mL + 4, y); y += 5;
-                        } else { ejsMin.forEach(ej => ejGris(ej, 'EMOM')); }
+                        } else { ejsMin.forEach(ej => ejGris(ej)); }
                     });
                 } else {
                     wEjs.forEach(ej => ejGris(ej));
@@ -4589,7 +4490,12 @@
                 listaBloques.forEach((b, i) => {
                     const ejsB = toArray(b.ejercicios || b.datos || b.rutina || []);
                     const bloqTipo = b.tipo || tipoFallback || 'Bloque';
-                    const meta = getBloqueMetaStr(b);
+                    let meta = '';
+                    if      (bloqTipo === 'Tabata')              meta = (b.trabajo||20) + 's / ' + (b.pausa||10) + 's | ' + (b.rondas||1) + ' ronda(s)';
+                    else if (bloqTipo === 'Circuito')            meta = (b.vueltas||b.vueltas_bloque||3) + ' vueltas | Pausa: ' + (b.pausa_vuelta||60) + 's';
+                    else if (bloqTipo === 'Circuito por Tiempo') meta = (b.duracion_min||b.tiempo_min||5) + ' min';
+                    else if (bloqTipo === 'EMOM')                meta = (b.minutos_totales||10) + ' min';
+                    else if (bloqTipo === 'Series')              meta = ejsB.length + ' ejercicio(s)';
                     subBar('Bloque ' + (i+1) + ': ' + bloqTipo + (meta ? '  —  ' + meta : ''));
                     if (bloqTipo === 'EMOM' && b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
                         b.emom_config_por_minuto.forEach((minCfg, mi) => {
@@ -4600,7 +4506,7 @@
                             if (ejsMin.length === 0) {
                                 doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(170,170,170);
                                 doc.text('Sin ejercicios', mL + 4, y); y += 5;
-                            } else { ejsMin.forEach(ej => ejGris(ej, 'EMOM')); }
+                            } else { ejsMin.forEach(ej => ejGris(ej)); }
                         });
                     } else if (ejsB.length === 0) {
                         chk(8);
@@ -4610,7 +4516,7 @@
                         doc.text('Sin ejercicios registrados', mL + 4, y);
                         y += 8;
                     } else {
-                        ejsB.forEach(ej => ejGris(ej, bloqTipo));
+                        ejsB.forEach(ej => ejGris(ej));
                     }
                 });
             }
@@ -4633,20 +4539,21 @@
                             if (ejsMin.length === 0) {
                                 doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(170,170,170);
                                 doc.text('Sin ejercicios', mL + 4, y); y += 5;
-                            } else { ejsMin.forEach(ej => ejGris(ej, 'EMOM')); }
+                            } else { ejsMin.forEach(ej => ejGris(ej)); }
                         });
                     } else {
-                        toArray(datos.rutina || datos.datos || []).forEach(ej => ejGris(ej, 'EMOM'));
+                        toArray(datos.rutina || datos.datos || []).forEach(ej => ejGris(ej));
                     }
                 } else {
                     let metaInfo = '  —  ' + (datos.trabajo||20) + 's / ' + (datos.pausa||10) + 's | ' + (datos.rondas||1) + ' ronda(s)';
                     subBar('Tabata' + metaInfo);
-                    toArray(datos.rutina || datos.datos || []).forEach(ej => ejGris(ej, 'Tabata'));
+                    toArray(datos.rutina || datos.datos || []).forEach(ej => ejGris(ej));
                 }
             } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo' || tipo === 'Series') {
                 colorBar('2. BLOQUE PRINCIPAL  —  ' + tipo, 206, 147, 216);
                 const flatList = toArray(datos.datos || datos.rutina || []);
                 if (flatList.length && flatList[0] && flatList[0].ejercicios !== undefined) {
+                    // Grupos con ejercicios anidados - usar datos del nivel superior como fallback
                     flatList.forEach((g, gi) => {
                         const ejsG = toArray(g.ejercicios);
                         const gTipo = g.tipo || tipo;
@@ -4662,11 +4569,11 @@
                             doc.text('Sin ejercicios registrados', mL + 4, y);
                             y += 8;
                         } else {
-                            ejsG.forEach(ej => ejGris(ej, gTipo));
+                            ejsG.forEach(ej => ejGris(ej));
                         }
                     });
                 } else {
-                    flatList.forEach(ej => ejGris(ej, tipo));
+                    flatList.forEach(ej => ejGris(ej));
                 }
             }
 
@@ -4756,181 +4663,36 @@
     }
 
     // ====================================================================
-    // REPOSITORIO DE RUTINAS
-    // ====================================================================
-
-    let _repositorioData = {};       // cache { key: {nombre, tipo, fecha, ...payload} }
-    let _repoKeyParaCopiar = null;   // key seleccionada en el modal de copiar
-
-    // ── Carga todos los items del repositorio desde Firebase ──
-    async function cargarRepositorio() {
-        const lista = document.getElementById('repo-lista');
-        if (lista) lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-10">Cargando...</p>';
-        try {
-            const data = await fbGet('/repositorio') || {};
-            _repositorioData = data;
-            renderRepositorio(data);
-        } catch(e) {
-            if (lista) lista.innerHTML = '<p class="text-rojo text-sm text-center py-10">Error al cargar: ' + e.message + '</p>';
-        }
-    }
-
-    // ── Renderiza la lista de rutinas del repositorio ──
-    function renderRepositorio(data) {
-        const lista = document.getElementById('repo-lista');
-        if (!lista) return;
-        const filtro = (document.getElementById('repo-filtro')?.value || '').toLowerCase();
-        const keys = Object.keys(data).filter(k => {
-            if (!filtro) return true;
-            return (data[k].nombre || k).toLowerCase().includes(filtro);
-        }).sort((a, b) => (data[b].fecha || '').localeCompare(data[a].fecha || ''));
-
-        if (keys.length === 0) {
-            lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-10">No hay rutinas en el repositorio' + (filtro ? ' que coincidan con la búsqueda' : '') + '</p>';
-            return;
-        }
-
-        lista.innerHTML = keys.map(k => {
-            const r = data[k];
-            const nombre = r.nombre || k;
-            const tipo = (r.tipo || r.rutina_tipo || 'ENTRENAMIENTO').toUpperCase();
-            const fecha = r.fecha ? new Date(r.fecha).toLocaleDateString('es-AR', { day:'2-digit', month:'short', year:'2-digit' }) : '';
-            const colorTipo = tipo === 'SPINNING' ? 'text-azul' : tipo === 'MULTIDIA' ? 'text-purpura' : 'text-verde';
-            const badgeTipo = tipo === 'SPINNING' ? 'bg-azul/10 text-azul' : tipo === 'MULTIDIA' ? 'bg-purpura/10 text-purpura' : 'bg-verde/10 text-verde';
-            return `<div class="flex items-center justify-between gap-3 bg-fondoAlt border border-borde rounded-xl px-4 py-3">
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <span class="font-bold text-texto text-sm">${escapeHtml(nombre)}</span>
-                        <span class="text-xs font-bold px-2 py-0.5 rounded-full ${badgeTipo}">${tipo}</span>
-                    </div>
-                    ${fecha ? '<p class="text-textoSuave text-xs mt-0.5">Guardado: ' + fecha + '</p>' : ''}
-                </div>
-                <div class="flex gap-2 shrink-0 flex-wrap justify-end">
-                    <button onclick="editarDesdeRepositorio('${k}')" class="bg-amarillo/20 text-amarillo px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-amarillo/30 transition">Editar</button>
-                    <button onclick="abrirModalCopiarRepo('${k}')" class="bg-verde/20 text-verde px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-verde/30 transition">Copiar a alumno</button>
-                    <button onclick="eliminarDelRepositorio('${k}')" class="bg-rojo/20 text-rojo px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition">Eliminar</button>
-                </div>
-            </div>`;
-        }).join('');
-    }
-
-    // ── Filtra la lista según el input de búsqueda ──
-    function filtrarRepositorio() {
-        renderRepositorio(_repositorioData);
-    }
-
-    // ── Guarda la rutina actual (del modal compartir) en el repositorio ──
-    async function guardarEnRepositorio() {
-        const input = document.getElementById('repo-nombre-input');
-        const status = document.getElementById('repo-modal-status');
-        const nombre = (input?.value || '').trim();
-        if (!nombre) { if (status) status.textContent = 'Escribí un nombre para la rutina'; return; }
-        if (!_lastPayload) { if (status) status.textContent = 'Primero compartí la rutina'; return; }
-
-        if (status) status.textContent = 'Guardando...';
-        try {
-            const key = nombre.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') + '_' + Date.now();
-            const tipo = _lastPayload.tipo || 'ENTRENAMIENTO';
-            const entry = Object.assign({}, _lastPayload, { nombre, tipo, fecha: new Date().toISOString(), rutina_tipo: tipo });
-            await fbPut('/repositorio/' + key, entry);
-            if (input) input.value = '';
-            if (status) { status.textContent = '✓ Guardado en repositorio'; status.style.color = '#4CAF50'; }
-            setTimeout(() => { if (status) { status.textContent = ''; status.style.color = ''; } }, 3000);
-            // Actualizar cache
-            _repositorioData[key] = entry;
-        } catch(e) {
-            if (status) status.textContent = 'Error: ' + e.message;
-        }
-    }
-
-    // ── Abre el modal para copiar una rutina del repositorio a un alumno ──
-    async function abrirModalCopiarRepo(key) {
-        _repoKeyParaCopiar = key;
-        const r = _repositorioData[key];
-        const nombreRutina = document.getElementById('modal-repo-rutina-nombre');
-        if (nombreRutina) nombreRutina.textContent = r ? (r.nombre || key) : key;
-
-        // Cargar alumnos en el select
-        const sel = document.getElementById('modal-repo-alumno-sel');
-        if (sel) {
-            sel.innerHTML = '<option value="">-- Seleccionar alumno --</option>';
-            try {
-                const data = await apiGetAlumnos();
-                (data.alumnos || []).forEach(a => {
-                    const opt = document.createElement('option');
-                    opt.value = a;
-                    opt.textContent = a.toUpperCase();
-                    sel.appendChild(opt);
-                });
-            } catch(e) {}
-        }
-        document.getElementById('modal-repo-copiar')?.classList.remove('hidden');
-    }
-
-    // ── Confirma la copia al alumno seleccionado ──
-    async function confirmarCopiarDesdeRepo() {
-        const sel = document.getElementById('modal-repo-alumno-sel');
-        const alumno = sel?.value || '';
-        if (!alumno) { toast('Seleccioná un alumno'); return; }
-        if (!_repoKeyParaCopiar || !_repositorioData[_repoKeyParaCopiar]) { toast('Error: rutina no encontrada'); return; }
-
-        try {
-            toast('Copiando rutina...');
-            const r = _repositorioData[_repoKeyParaCopiar];
-            const payload = Object.assign({}, r, { alumno });
-            const data = await apiCompartirRutina(payload);
-            document.getElementById('modal-repo-copiar')?.classList.add('hidden');
-            toast('Rutina copiada a ' + alumno.toUpperCase() + ' con código ' + (data.codigo || '').toUpperCase());
-        } catch(e) {
-            toast('Error al copiar: ' + e.message);
-        }
-    }
-
-    // ── Carga una rutina del repositorio en el editor para modificarla ──
-    function editarDesdeRepositorio(key) {
-        const r = _repositorioData[key];
-        if (!r) { toast('Rutina no encontrada'); return; }
-        // Precargar en _lastPayload para que "Compartir" funcione al terminar de editar
-        _lastPayload = Object.assign({}, r);
-        // Cargar en el editor con el campo alumno vacío (es una plantilla)
-        _aplicarRutinaAlEditor(r, '');
-        toast('Rutina del repositorio cargada — editá y usá "Compartir Rutina" para asignarla');
-    }
-
-    // ── Elimina una rutina del repositorio ──
-    async function eliminarDelRepositorio(key) {
-        const nombre = (_repositorioData[key]?.nombre || key);
-        if (!confirm('¿Eliminar "' + nombre + '" del repositorio? Esta acción no se puede deshacer.')) return;
-        try {
-            await fbDelete('/repositorio/' + key);
-            delete _repositorioData[key];
-            renderRepositorio(_repositorioData);
-            toast('Rutina eliminada del repositorio');
-        } catch(e) {
-            toast('Error al eliminar: ' + e.message);
-        }
-    }
-
-    // ── Helper para escapar HTML en nombres ──
-    function escapeHtml(s) {
-        return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
-
-    // ====================================================================
     // DASHBOARD
     // ====================================================================
 
+    let dashChartInstance = null;
+    let dashRutinasData = {};
+
     async function cargarAlumnosDash() {
-        await cargarSelectAlumnos('dash-select-alumno');
+        const sel = document.getElementById('dash-select-alumno');
+        if (!sel) return;
+        try {
+            const res = await fetch(API_BASE + '/api/alumnos');
+            const data = await res.json();
+            if (data.ok && data.alumnos) {
+                const current = sel.value;
+                sel.innerHTML = '<option value="">-- Seleccionar alumno --</option>' +
+                    data.alumnos.map(a => `<option value="${a}">${a.toUpperCase()}</option>`).join('');
+                if (current) sel.value = current;
+            }
+        } catch (e) {
+            console.error('Error cargando alumnos para dashboard:', e);
+        }
     }
 
     async function cargarDashboard() {
-        const selDash = $el('dash-select-alumno');
+        const selDash = document.getElementById('dash-select-alumno');
         if (!selDash) return;
         const nombre = selDash.value;
-        const contenido = $el('dash-contenido');
-        const vacio     = $el('dash-vacio');
-        const perfil    = $el('dash-perfil');
+        const contenido = document.getElementById('dash-contenido');
+        const vacio = document.getElementById('dash-vacio');
+        const perfil = document.getElementById('dash-perfil');
         if (!contenido || !vacio || !perfil) return;
 
         if (!nombre) {
@@ -4943,38 +4705,62 @@
         vacio.classList.add('hidden');
         perfil.classList.remove('hidden');
 
-        $set('dash-avatar', nombre.charAt(0).toUpperCase());
-        $set('dash-nombre-alumno', nombre.toUpperCase());
+        // Mostrar perfil
+        const avatarEl = document.getElementById('dash-avatar');
+        const nombreEl = document.getElementById('dash-nombre-alumno');
+        if (avatarEl) avatarEl.textContent = nombre.charAt(0).toUpperCase();
+        if (nombreEl) nombreEl.textContent = nombre.toUpperCase();
 
+        // Mostrar loading
         contenido.classList.remove('hidden');
-        ['kpi-total-rutinas','kpi-metodo-dominante','kpi-ejs-unicos','kpi-frecuencia'].forEach(id => $set(id, '...'));
+        ['kpi-total-rutinas','kpi-metodo-dominante','kpi-ejs-unicos','kpi-frecuencia'].forEach(id => {
+            const el = document.getElementById(id); if (el) el.textContent = '...';
+        });
 
+        // Cargar lista de rutinas del alumno
         try {
-            const data = await apiGetRutinasAlumno(nombre);
-            const rutinasResumen = data.rutinas || {};
-            const codigos = Object.keys(rutinasResumen);
+            const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre));
+            const data = await res.json();
+            if (data.ok) {
+                const rutinasResumen = data.rutinas || {};
+                const codigos = Object.keys(rutinasResumen);
 
-            dashRutinasData = {};
-            // Fetch completo de cada rutina en paralelo, con fallback al resumen
-            await Promise.all(codigos.map(async cod => {
-                try {
-                    const dd = await apiGetRutina(cod);
-                    dashRutinasData[cod] = (dd && dd.rutina) ? dd.rutina : rutinasResumen[cod];
-                } catch(e) { dashRutinasData[cod] = rutinasResumen[cod]; }
-            }));
+                // Fetch FULL data for each routine in parallel
+                dashRutinasData = {};
+                const fetches = codigos.map(async (cod) => {
+                    try {
+                        const rr = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(cod));
+                        const dd = await rr.json();
+                        if (dd.ok && dd.rutina) {
+                            dashRutinasData[cod] = dd.rutina;
+                        } else {
+                            // Fallback: use summary data
+                            dashRutinasData[cod] = rutinasResumen[cod];
+                        }
+                    } catch (err) {
+                        dashRutinasData[cod] = rutinasResumen[cod];
+                    }
+                });
+                await Promise.all(fetches);
 
-            procesarDashboard(nombre);
-            contenido.classList.remove('dash-fade-in');
-            void contenido.offsetWidth;
-            contenido.classList.add('dash-fade-in');
+                procesarDashboard(nombre);
+                // Re-trigger animation
+                contenido.classList.remove('dash-fade-in');
+                void contenido.offsetWidth;
+                contenido.classList.add('dash-fade-in');
+            } else {
+                toast('Error cargando datos del alumno');
+            }
         } catch (e) {
-            toast('Error al cargar dashboard: ' + e.message);
+            toast('Error de conexion');
             console.error(e);
         }
     }
 
     function procesarDashboard(nombre) {
-        // Usar helpers globales $set/$html
+        // Helper para evitar crashes si algún elemento no existe
+        function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+        function setHTML(id, val) { const el = document.getElementById(id); if (el) el.innerHTML = val; }
 
         const rutinas = dashRutinasData;
         const keys = Object.keys(rutinas);
@@ -5580,37 +5366,63 @@
     }
 
     async function verRutinaDash(codigo) {
-        const content   = $el('modal-dash-rutina-content');
-        const modalDash = $el('modal-dash-rutina');
+        const content = document.getElementById('modal-dash-rutina-content');
+        const modalDash = document.getElementById('modal-dash-rutina');
         if (!content || !modalDash) return;
         content.innerHTML = '<p class="text-textoSuave text-center py-8">Cargando...</p>';
         modalDash.classList.remove('hidden');
+
         try {
-            // Usar cache del dashboard si ya está cargado completamente
             let r = dashRutinasData[codigo];
-            const tieneData = r && (r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia);
-            if (!tieneData) {
-                const data = await apiGetRutina(codigo);
+            if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia)) {
+                const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+                const data = await res.json();
+                if (!data.ok) {
+                    content.innerHTML = '<p class="text-rojo text-center py-8">Error: ' + (data.error || 'No encontrada') + '</p>';
+                    return;
+                }
                 r = data.rutina;
                 dashRutinasData[codigo] = r;
             }
+
+            // Reusar la funcion generarHTMLRutina del historial que maneja TODOS los formatos
             content.innerHTML = generarHTMLRutina(codigo, r);
         } catch (e) {
-            content.innerHTML = '<p class="text-rojo text-center py-8">Error: ' + e.message + '</p>';
+            content.innerHTML = '<p class="text-rojo text-center py-8">Error de conexion</p>';
         }
     }
 
     // ====================================================================
     // FLOATING VIDEO PREVIEW (TOOLTIP)
     // ====================================================================
+    let videoPreviewTimer = null;
+    let currentPreviewUrl = '';
 
     function getYouTubeEmbedUrl(url) {
         if (!url) return null;
-        // Extrae el videoId de cualquier formato de URL de YouTube en un solo regex
-        const m = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([^?&#]+)/);
-        if (!m) return null;
-        const videoId = m[1];
-        return 'https://www.youtube.com/embed/' + videoId + '?autoplay=1&mute=1&loop=1&playlist=' + videoId + '&controls=0&modestbranding=1&rel=0';
+        let videoId = null;
+        // youtube.com/watch?v=ID
+        const match1 = url.match(/[?&]v=([^&#]+)/);
+        if (match1) videoId = match1[1];
+        // youtu.be/ID
+        if (!videoId) {
+            const match2 = url.match(/youtu\.be\/([^?&#]+)/);
+            if (match2) videoId = match2[1];
+        }
+        // youtube.com/embed/ID
+        if (!videoId) {
+            const match3 = url.match(/youtube\.com\/embed\/([^?&#]+)/);
+            if (match3) videoId = match3[1];
+        }
+        // youtube.com/shorts/ID
+        if (!videoId) {
+            const match4 = url.match(/youtube\.com\/shorts\/([^?&#]+)/);
+            if (match4) videoId = match4[1];
+        }
+        if (videoId) {
+            return 'https://www.youtube.com/embed/' + videoId + '?autoplay=1&mute=1&loop=1&playlist=' + videoId + '&controls=0&modestbranding=1&rel=0';
+        }
+        return null;
     }
 
     function showVideoPreview(event, el) {
