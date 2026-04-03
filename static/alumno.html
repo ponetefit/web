@@ -4063,7 +4063,7 @@
                 var wPTMarcarBtn = document.createElement('button');
                 wPTMarcarBtn.id = 'warmup-pt-marcar';
                 wPTMarcarBtn.className = 'btn-rest';
-                wPTMarcarBtn.style.cssText = 'margin-top:10px;display:none;background:linear-gradient(135deg,var(--verde),#1a7a4a);font-size:1rem;padding:14px 28px;';
+                wPTMarcarBtn.style.cssText = 'margin-top:10px;display:none;background:linear-gradient(135deg,var(--verde),#1a7a4a);font-size:1.4rem;padding:22px 44px;font-weight:900;min-height:72px;letter-spacing:1px;';
                 wPTMarcarBtn.innerText = '✓ MARCAR VUELTA';
                 tBox.appendChild(wPTMarcarBtn);
 
@@ -4346,9 +4346,10 @@
             var vCounter = document.getElementById('warmup-pt-vcount');
             var vueltasLog = document.getElementById('warmup-pt-vueltas-log');
 
-            if (tBtn) { tBtn.disabled = true; tBtn.innerText = 'En curso...'; }
+            if (tBtn) { tBtn.style.display = 'none'; }
             if (marcarBtn) marcarBtn.style.display = 'block';
             if (tStatus) tStatus.innerText = 'POR TIEMPO — ' + totalVueltas + ' VUELTAS';
+            var _wLaps = [];
 
             // Voz apertura
             hablarCoach('Recordá, son ' + totalVueltas + ' ' + (totalVueltas === 1 ? 'vuelta' : 'vueltas') + '. Dale con todo!');
@@ -4388,6 +4389,7 @@
                     _wPorTiempoLapStart = now;
                     _lastLapOrStart = now;
                     _wPorTiempoVueltas++;
+                    _wLaps.push(lapMs);
 
                     var lapStr = _fmtCrono(lapMs);
                     if (vCounter) vCounter.innerText = 'Vueltas: ' + _wPorTiempoVueltas + ' / ' + _wPorTiempoTotal;
@@ -4415,6 +4417,16 @@
                         if (marcarBtn) { marcarBtn.disabled = true; marcarBtn.innerText = '✓ COMPLETADO'; }
                         if (tStatus) tStatus.innerText = '¡CALENTAMIENTO COMPLETO!';
                         hablarCoach('Excelente! Completaste el calentamiento. Sos un crack!');
+                        // Mostrar mejor vuelta
+                        if (_wLaps.length > 0 && vueltasLog) {
+                            var _wBestMs = Math.min.apply(null, _wLaps);
+                            var _wBestIdx = _wLaps.indexOf(_wBestMs);
+                            var _wBestBanner = document.createElement('div');
+                            _wBestBanner.style.cssText = 'margin-top:12px;background:linear-gradient(135deg,rgba(255,213,79,0.2),rgba(255,213,79,0.05));border:1.5px solid var(--amarillo);border-radius:12px;padding:10px 16px;text-align:center;';
+                            _wBestBanner.innerHTML = '<div style="font-size:0.65rem;font-weight:900;letter-spacing:2px;color:var(--amarillo);text-transform:uppercase;margin-bottom:4px;">MEJOR VUELTA</div>' +
+                                '<div style="font-size:1.4rem;font-weight:900;font-family:Roboto Mono,monospace;color:var(--amarillo);">V' + (_wBestIdx + 1) + ': ' + _fmtCrono(_wBestMs) + '</div>';
+                            vueltasLog.parentNode.insertBefore(_wBestBanner, vueltasLog.nextSibling);
+                        }
                     }
                 };
             }
@@ -5235,9 +5247,14 @@
                 '<button id="' + ptBtnId + '" class="btn-rest" style="background:linear-gradient(135deg,var(--purpura),#7b3fa0);font-size:1.1rem;padding:16px 32px;margin-bottom:12px;" ' +
                 'onclick="iniciarBloquesPorTiempo(\'' + ptUid + '\',\'' + ptClockId + '\',\'' + ptBtnId + '\',\'' + ptVCountId + '\',\'' + ptLogId + '\',\'' + ptMarcarId + '\',' + ptVueltas + ')">' +
                 'EMPEZAR</button><br>' +
-                '<button id="' + ptMarcarId + '" class="btn-rest" style="display:none;background:linear-gradient(135deg,var(--verde),#1a7a4a);font-size:1.1rem;padding:16px 32px;" ' +
+                '<div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">' +
+                '<button id="' + ptMarcarId + '" class="btn-rest" style="display:none;background:linear-gradient(135deg,var(--verde),#1a7a4a);font-size:1.4rem;padding:22px 44px;font-weight:900;min-height:72px;letter-spacing:1px;" ' +
                 'onclick="marcarVueltaPorTiempo(\'' + ptUid + '\',\'' + ptVCountId + '\',\'' + ptLogId + '\',\'' + ptMarcarId + '\',' + ptVueltas + ')">' +
                 '✓ MARCAR VUELTA</button>' +
+                '<button id="' + ptMarcarId + '-reset" style="display:none;background:var(--tarjeta-alt);border:1px solid var(--borde);color:var(--texto-suave);font-size:0.8rem;font-weight:700;padding:10px 14px;border-radius:12px;cursor:pointer;min-height:44px;" ' +
+                'onclick="if(confirm(\'¿Reiniciar vueltas?\')){var el=document.getElementById(\'' + ptMarcarId + '\');if(el){el.style.display=\'none\';}var logE=document.getElementById(\'' + ptLogId + '\');if(logE)logE.innerHTML=\'\';var vcE=document.getElementById(\'' + ptVCountId + '\');if(vcE)vcE.innerText=\'Vueltas: 0 / ' + ptVueltas + '\';var btnE=document.getElementById(\'' + ptBtnId + '\');if(btnE){btnE.style.display=\'\';}var rs=document.getElementById(\'' + ptMarcarId + '-reset\');if(rs)rs.style.display=\'none\';if(window._porTiempoState&&window._porTiempoState[\'' + ptUid + '\']){var s=window._porTiempoState[\'' + ptUid + '\'];if(s.iv)bgClearInterval(s.iv);if(s.motivoIv)bgClearInterval(s.motivoIv);desactivarTimerGlobal();liberarWakeLock();delete window._porTiempoState[\'' + ptUid + '\'];}}">' +
+                '↺ REINICIAR</button>' +
+                '</div>' +
                 '</div>';
             pLista.innerHTML += ptHtml;
         }
@@ -5478,9 +5495,14 @@
                     '<button id="' + ptBtnId + '" class="btn-rest" style="background:linear-gradient(135deg,var(--purpura),#7b3fa0);margin-bottom:10px;" ' +
                     'onclick="iniciarBloquesPorTiempo(\'' + ptUid + '\',\'' + ptClockId + '\',\'' + ptBtnId + '\',\'' + ptVCountId + '\',\'' + ptLogId + '\',\'' + ptMarcarId + '\',' + ptVueltas + ')">' +
                     'EMPEZAR</button><br>' +
-                    '<button id="' + ptMarcarId + '" class="btn-rest" style="display:none;background:linear-gradient(135deg,var(--verde),#1a7a4a);font-size:1rem;padding:14px 28px;" ' +
+                    '<div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">' +
+                    '<button id="' + ptMarcarId + '" class="btn-rest" style="display:none;background:linear-gradient(135deg,var(--verde),#1a7a4a);font-size:1.4rem;padding:22px 44px;font-weight:900;min-height:72px;letter-spacing:1px;" ' +
                     'onclick="marcarVueltaPorTiempo(\'' + ptUid + '\',\'' + ptVCountId + '\',\'' + ptLogId + '\',\'' + ptMarcarId + '\',' + ptVueltas + ')">' +
                     '✓ MARCAR VUELTA</button>' +
+                    '<button id="' + ptMarcarId + '-reset" style="display:none;background:var(--tarjeta-alt);border:1px solid var(--borde);color:var(--texto-suave);font-size:0.8rem;font-weight:700;padding:10px 14px;border-radius:12px;cursor:pointer;min-height:44px;" ' +
+                    'onclick="if(confirm(\'¿Reiniciar vueltas?\')){var el=document.getElementById(\'' + ptMarcarId + '\');if(el){el.style.display=\'none\';}var logE=document.getElementById(\'' + ptLogId + '\');if(logE)logE.innerHTML=\'\';var vcE=document.getElementById(\'' + ptVCountId + '\');if(vcE)vcE.innerText=\'Vueltas: 0 / ' + ptVueltas + '\';var btnE=document.getElementById(\'' + ptBtnId + '\');if(btnE){btnE.style.display=\'\';}var rs=document.getElementById(\'' + ptMarcarId + '-reset\');if(rs)rs.style.display=\'none\';if(window._porTiempoState&&window._porTiempoState[\'' + ptUid + '\']){var s=window._porTiempoState[\'' + ptUid + '\'];if(s.iv)bgClearInterval(s.iv);if(s.motivoIv)bgClearInterval(s.motivoIv);desactivarTimerGlobal();liberarWakeLock();delete window._porTiempoState[\'' + ptUid + '\'];}}">' +
+                    '↺ REINICIAR</button>' +
+                    '</div>' +
                     '</div></div>';
 
                 pLista.innerHTML += htmlPT;
@@ -5634,13 +5656,15 @@
             var logEl = document.getElementById(logId);
             var marcarEl = document.getElementById(marcarId);
 
-            if (btnEl) { btnEl.disabled = true; btnEl.innerText = 'En curso...'; }
+            if (btnEl) { btnEl.style.display = 'none'; }
             if (marcarEl) marcarEl.style.display = 'inline-block';
+            var resetEl = document.getElementById(marcarId + '-reset');
+            if (resetEl) resetEl.style.display = 'inline-block';
 
             var now = Date.now();
             _porTiempoState[uid] = {
                 running: true, total: totalVueltas, vueltas: 0,
-                start: now, lapStart: now, lastLap: now
+                start: now, lapStart: now, lastLap: now, laps: []
             };
 
             // Voz apertura
@@ -5678,6 +5702,8 @@
             st.lapStart = now;
             st.lastLap = now;
             st.vueltas++;
+            if (!st.laps) st.laps = [];
+            st.laps.push(lapMs);
 
             function _fmt(ms) {
                 var tot = Math.floor(ms / 1000);
@@ -5715,6 +5741,16 @@
                 if (marcarEl) { marcarEl.disabled = true; marcarEl.innerText = '✓ BLOQUE COMPLETO'; }
                 hablarCoach('Excelente! Completaste el bloque. Sos un crack!');
                 lanzarDestelloBloque();
+                // Mostrar mejor vuelta
+                if (st.laps && st.laps.length > 0 && logEl) {
+                    var bestMs = Math.min.apply(null, st.laps);
+                    var bestIdx = st.laps.indexOf(bestMs);
+                    var bestBanner = document.createElement('div');
+                    bestBanner.style.cssText = 'margin-top:12px;background:linear-gradient(135deg,rgba(255,213,79,0.2),rgba(255,213,79,0.05));border:1.5px solid var(--amarillo);border-radius:12px;padding:10px 16px;text-align:center;';
+                    bestBanner.innerHTML = '<div style="font-size:0.65rem;font-weight:900;letter-spacing:2px;color:var(--amarillo);text-transform:uppercase;margin-bottom:4px;">MEJOR VUELTA</div>' +
+                        '<div style="font-size:1.4rem;font-weight:900;font-family:Roboto Mono,monospace;color:var(--amarillo);">V' + (bestIdx + 1) + ': ' + _fmt(bestMs) + '</div>';
+                    logEl.parentNode.insertBefore(bestBanner, logEl.nextSibling);
+                }
             }
         }
 
