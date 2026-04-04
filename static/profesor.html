@@ -932,7 +932,7 @@
                     </select>
                 </div>
 
-                <!-- Paneles historial + repositorio colapsados -->
+                <!-- Paneles historial + repositorio -->
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <p class="text-xs text-textoSuave uppercase tracking-wider mb-1 flex items-center gap-1"><span class="text-amarillo">📅</span> Historial</p>
@@ -974,7 +974,6 @@
                     <!-- 2. Tipos de bloque -->
                     <div class="bg-fondoAlt rounded-xl border border-borde p-3">
                         <p class="text-xs font-bold text-purpura mb-2">2. Tipos de Bloque</p>
-                        <!-- Modo selector -->
                         <div class="flex flex-wrap gap-2 mb-3">
                             <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-tipos-modo'); iaTiposModoChange()">
                                 <input type="radio" name="ia-tipos-modo" value="frecuencia" checked class="sr-only">
@@ -989,7 +988,6 @@
                                 <span>🎲 Al azar</span>
                             </label>
                         </div>
-                        <!-- Checkboxes de tipos (solo visibles en modo manual) -->
                         <div id="ia-tipos-manual" class="hidden flex-wrap gap-2">
                             <label class="ia-check-pill"><input type="checkbox" value="Circuito" checked> Circuito</label>
                             <label class="ia-check-pill"><input type="checkbox" value="Circuito por Tiempo"> Circ. Tiempo</label>
@@ -1027,13 +1025,57 @@
                         </div>
                     </div>
 
-                    <!-- 4. Elementos / Equipamiento -->
+                    <!-- 4. Nivel de dificultad -->
                     <div class="bg-fondoAlt rounded-xl border border-borde p-3">
-                        <p class="text-xs font-bold text-purpura mb-2">4. Elementos Disponibles</p>
-                        <p class="text-xs text-textoSuave mb-2">Solo se incluirán ejercicios que usen estos elementos. Si no marcás ninguno, se usan todos.</p>
+                        <p class="text-xs font-bold text-purpura mb-2">4. Nivel de Dificultad</p>
+                        <div class="flex flex-wrap gap-2">
+                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-nivel')">
+                                <input type="radio" name="ia-nivel" value="principiante" class="sr-only">
+                                <span>🌱 Principiante</span>
+                            </label>
+                            <label class="ia-radio-pill active" onclick="iaSelectPill(this,'ia-nivel')">
+                                <input type="radio" name="ia-nivel" value="intermedio" checked class="sr-only">
+                                <span>⚡ Intermedio</span>
+                            </label>
+                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-nivel')">
+                                <input type="radio" name="ia-nivel" value="avanzado" class="sr-only">
+                                <span>🔥 Avanzado</span>
+                            </label>
+                        </div>
+                        <p id="ia-nivel-desc" class="text-xs text-textoSuave mt-2">Reps: 8–18 · Pausa: 45s · Vueltas: 3–4</p>
+                    </div>
+
+                    <!-- 5. Progresión automática -->
+                    <div class="bg-fondoAlt rounded-xl border border-borde p-3">
+                        <p class="text-xs font-bold text-purpura mb-2">5. Progresión Automática</p>
+                        <div class="flex flex-wrap gap-2 mb-2">
+                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-progresion'); iaProgresionChange()">
+                                <input type="radio" name="ia-progresion" value="none" checked class="sr-only">
+                                <span>— Sin progresión</span>
+                            </label>
+                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-progresion'); iaProgresionChange()">
+                                <input type="radio" name="ia-progresion" value="reps" class="sr-only">
+                                <span>📈 +Reps por semana</span>
+                            </label>
+                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-progresion'); iaProgresionChange()">
+                                <input type="radio" name="ia-progresion" value="carga" class="sr-only">
+                                <span>🏋️ +Carga por semana</span>
+                            </label>
+                        </div>
+                        <div id="ia-progresion-config" class="hidden items-center gap-3 mt-2">
+                            <span class="text-xs text-textoSuave">Semana nº</span>
+                            <input type="number" id="ia-semana-num" min="1" max="12" value="1" class="w-16 rounded-lg px-2 py-1.5 text-sm text-center">
+                            <span class="text-xs text-textoSuave" id="ia-progresion-hint">+2 reps vs semana 1</span>
+                        </div>
+                    </div>
+
+                    <!-- 6. Elementos disponibles -->
+                    <div class="bg-fondoAlt rounded-xl border border-borde p-3">
+                        <p class="text-xs font-bold text-purpura mb-1">6. Elementos Disponibles</p>
+                        <p class="text-xs text-textoSuave mb-2">Solo ejercicios con estos elementos. Sin selección = todos.</p>
                         <div id="ia-elementos-checks" class="flex flex-wrap gap-2">
-                            <label class="ia-check-pill"><input type="checkbox" value="" checked> 🚫 Sin elementos</label>
-                            <label class="ia-check-pill"><input type="checkbox" value="mancuerna" checked> 🏋️ Mancuernas</label>
+                            <label class="ia-check-pill"><input type="checkbox" value=""> 🚫 Sin elementos</label>
+                            <label class="ia-check-pill"><input type="checkbox" value="mancuerna"> 🏋️ Mancuernas</label>
                             <label class="ia-check-pill"><input type="checkbox" value="banda"> 🔴 Bandas</label>
                             <label class="ia-check-pill"><input type="checkbox" value="pelota"> ⚽ Pelota</label>
                             <label class="ia-check-pill"><input type="checkbox" value="soga"> 🪢 Soga</label>
@@ -1045,9 +1087,22 @@
                         </div>
                     </div>
 
-                    <!-- 5. Cantidad de ejercicios -->
+                    <!-- 7. Opciones extra -->
                     <div class="bg-fondoAlt rounded-xl border border-borde p-3">
-                        <p class="text-xs font-bold text-purpura mb-2">5. Cantidad de Ejercicios por Bloque</p>
+                        <p class="text-xs font-bold text-purpura mb-2">7. Opciones</p>
+                        <div class="flex flex-wrap gap-2">
+                            <label class="ia-check-pill" id="pill-sin-repetir">
+                                <input type="checkbox" id="ia-sin-repetir" checked> 🔁 Sin repetir ejercicios entre días
+                            </label>
+                            <label class="ia-check-pill">
+                                <input type="checkbox" id="ia-balance-check" checked> ⚖️ Avisar si falta grupo muscular
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 8. Cantidad de ejercicios -->
+                    <div class="bg-fondoAlt rounded-xl border border-borde p-3">
+                        <p class="text-xs font-bold text-purpura mb-2">8. Cantidad de Ejercicios por Bloque</p>
                         <div class="flex flex-wrap gap-2 mb-3">
                             <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-cant-modo'); iaCantModoChange()">
                                 <input type="radio" name="ia-cant-modo" value="promedio" checked class="sr-only">
@@ -1067,13 +1122,46 @@
 
                 <!-- Botones -->
                 <div class="flex gap-3 pt-1">
-                    <button id="ia-btn-generar" onclick="iaConfirmarGenerar()" class="flex-1 py-3 rounded-2xl text-white font-black text-sm uppercase tracking-wider transition" style="background: linear-gradient(135deg, #7c3aed, #4f46e5); box-shadow: 0 8px 24px rgba(124,58,237,0.4);" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                        🤖 Generar Rutina
+                    <button onclick="iaPrevisualizarRutina()" class="flex-1 py-3 rounded-2xl text-white font-black text-sm uppercase tracking-wider transition" style="background: linear-gradient(135deg, #0ea5e9, #0369a1); box-shadow: 0 8px 24px rgba(14,165,233,0.3);" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                        👁️ Previsualizar
                     </button>
-                    <button onclick="document.getElementById('modal-ia-config').classList.add('hidden')" class="flex-1 py-3 rounded-2xl border border-borde text-textoSuave text-sm font-bold hover:text-texto transition">
-                        Cancelar
+                    <button id="ia-btn-generar" onclick="iaConfirmarGenerar()" class="flex-1 py-3 rounded-2xl text-white font-black text-sm uppercase tracking-wider transition" style="background: linear-gradient(135deg, #7c3aed, #4f46e5); box-shadow: 0 8px 24px rgba(124,58,237,0.4);" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                        🤖 Generar
+                    </button>
+                    <button onclick="document.getElementById('modal-ia-config').classList.add('hidden')" class="px-5 py-3 rounded-2xl border border-borde text-textoSuave text-sm font-bold hover:text-texto transition">
+                        ✕
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PREVISUALIZACIÓN IA -->
+    <div id="modal-ia-preview" class="hidden fixed inset-0 bg-black/85 backdrop-blur-sm z-[60] flex items-start justify-center p-4 overflow-y-auto">
+        <div class="bg-tarjeta rounded-3xl border border-borde w-full max-w-2xl my-4" style="border-color: #0ea5e955; box-shadow: 0 0 40px rgba(14,165,233,0.2);">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-borde" style="background: linear-gradient(135deg, rgba(14,165,233,0.12), rgba(3,105,161,0.08)); border-radius: 1.5rem 1.5rem 0 0;">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">👁️</span>
+                    <div>
+                        <h3 class="text-sm font-black text-texto uppercase tracking-widest">Previsualización</h3>
+                        <p class="text-xs text-textoSuave mt-0.5">Revisá la rutina antes de aplicarla</p>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('modal-ia-preview').classList.add('hidden')" class="text-textoSuave hover:text-texto text-2xl leading-none transition">&times;</button>
+            </div>
+            <!-- Balance muscular alert -->
+            <div id="ia-balance-alert" class="hidden mx-6 mt-4 px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-2" style="background: rgba(255,213,79,0.12); border: 1px solid rgba(255,213,79,0.3); color: #FFD54F;"></div>
+            <div id="ia-preview-content" class="p-6 space-y-4 max-h-[65vh] overflow-y-auto"></div>
+            <div class="px-6 pb-6 flex gap-3">
+                <button onclick="iaAplicarPreview()" class="flex-1 py-3 rounded-2xl text-white font-black text-sm uppercase tracking-wider" style="background: linear-gradient(135deg, #7c3aed, #4f46e5); box-shadow: 0 8px 24px rgba(124,58,237,0.4);">
+                    ✅ Aplicar esta rutina
+                </button>
+                <button onclick="iaRegenerarPreview()" class="flex-1 py-3 rounded-2xl text-white font-black text-sm uppercase tracking-wider" style="background: linear-gradient(135deg, #374151, #1f2937);">
+                    🔄 Regenerar
+                </button>
+                <button onclick="document.getElementById('modal-ia-preview').classList.add('hidden')" class="px-5 py-3 rounded-2xl border border-borde text-textoSuave text-sm font-bold hover:text-texto transition">
+                    ✕
+                </button>
             </div>
         </div>
     </div>
@@ -6718,29 +6806,81 @@
         if (panel) panel.style.display = v === 'manual' ? 'flex' : 'none';
     }
 
+    // ── Nivel de dificultad ────────────────────────────────────────────────
+    const IA_NIVELES = {
+        principiante: { repsMin: 8,  repsMax: 12, pausaVuelta: '60', series: '2', vueltas: '3', desc: 'Reps: 8–12 · Pausa: 60s · Vueltas: 3' },
+        intermedio:   { repsMin: 8,  repsMax: 18, pausaVuelta: '45', series: '3', vueltas: '4', desc: 'Reps: 8–18 · Pausa: 45s · Vueltas: 3–4' },
+        avanzado:     { repsMin: 12, repsMax: 20, pausaVuelta: '30', series: '4', vueltas: '5', desc: 'Reps: 12–20 · Pausa: 30s · Vueltas: 4–5' },
+    };
+    document.querySelectorAll('input[name="ia-nivel"]').forEach(r => {
+        r.addEventListener('change', () => {
+            const d = document.getElementById('ia-nivel-desc');
+            if (d) d.textContent = IA_NIVELES[r.value]?.desc || '';
+        });
+    });
+    function iaProgresionChange() {
+        const v = iaGetRadio('ia-progresion');
+        const cfg = document.getElementById('ia-progresion-config');
+        if (cfg) cfg.style.display = v !== 'none' ? 'flex' : 'none';
+        iaActualizarHintProgresion();
+    }
+    function iaActualizarHintProgresion() {
+        const v   = iaGetRadio('ia-progresion');
+        const sem = parseInt(document.getElementById('ia-semana-num')?.value) || 1;
+        const hint = document.getElementById('ia-progresion-hint');
+        if (!hint) return;
+        if (v === 'reps')  hint.textContent = sem <= 1 ? 'Semana base' : `+${(sem-1)*2} reps vs semana 1`;
+        if (v === 'carga') hint.textContent = sem <= 1 ? 'Semana base' : `+${(sem-1)*5}% carga vs semana 1`;
+    }
+    document.addEventListener('input', e => {
+        if (e.target?.id === 'ia-semana-num') iaActualizarHintProgresion();
+    });
+
+    // ── Cache de la última generación para previsualizar/aplicar ──────────
+    let _iaUltimaGeneracion = null;
+
     function _iaGenerarDias(videoteca, patrones, numDias, numBloques) {
         // ── Leer configuración del modal ───────────────────────────────────
-        const cfgEjs       = iaGetRadio('ia-ejs')        || 'no-usados';
-        const cfgTiposModo = iaGetRadio('ia-tipos-modo') || 'frecuencia';
-        const cfgZonas     = iaGetRadio('ia-zonas')      || '33-33-33';
-        const cfgCantModo  = iaGetRadio('ia-cant-modo')  || 'promedio';
-        const cfgCantFija  = parseInt(document.getElementById('ia-cant-fija')?.value) || 4;
-        const cfgTiposSel  = cfgTiposModo === 'manual' ? iaGetChecks('#ia-tipos-manual') : [];
+        const cfgEjs        = iaGetRadio('ia-ejs')         || 'no-usados';
+        const cfgTiposModo  = iaGetRadio('ia-tipos-modo')  || 'frecuencia';
+        const cfgZonas      = iaGetRadio('ia-zonas')       || '33-33-33';
+        const cfgCantModo   = iaGetRadio('ia-cant-modo')   || 'promedio';
+        const cfgNivel      = iaGetRadio('ia-nivel')       || 'intermedio';
+        const cfgProgresion = iaGetRadio('ia-progresion')  || 'none';
+        const cfgCantFija   = parseInt(document.getElementById('ia-cant-fija')?.value) || 4;
+        const cfgTiposSel   = cfgTiposModo === 'manual' ? iaGetChecks('#ia-tipos-manual') : [];
+        const cfgSinRepetir = document.getElementById('ia-sin-repetir')?.checked ?? true;
+        const cfgSemana     = parseInt(document.getElementById('ia-semana-num')?.value) || 1;
 
-        // ── Equipamiento seleccionado ──────────────────────────────────────
+        const nivel = IA_NIVELES[cfgNivel] || IA_NIVELES.intermedio;
+
+        // Modificador por progresión
+        function aplicarProgresion(reps) {
+            if (cfgProgresion === 'none' || cfgSemana <= 1) return reps;
+            if (cfgProgresion === 'reps') return reps + (cfgSemana - 1) * 2;
+            return reps; // carga: no toca reps, lo señalamos en buildEj
+        }
+
+        // Elementos disponibles
         const elementosChecks = document.querySelectorAll('#ia-elementos-checks input[type=checkbox]:checked');
         const elementosSel = Array.from(elementosChecks).map(cb => cb.value.toLowerCase().trim());
-        // Si no hay ninguno marcado => sin filtro
         const filtrarEquipamiento = elementosSel.length > 0;
         function elementoPermitido(e) {
             if (!filtrarEquipamiento) return true;
             const el = (e.elemento || '').toLowerCase().trim();
-            // '' = sin elemento (peso corporal)
             return elementosSel.some(sel => sel === '' ? el === '' : el.includes(sel));
         }
 
         function pickRandom(arr, n) {
             return [...arr].sort(() => Math.random() - 0.5).slice(0, n);
+        }
+        // pickSafe: nunca falla por falta de elementos, repite si es necesario
+        function pickSafe(arr, n) {
+            if (!arr || arr.length === 0) return [];
+            const result = [];
+            const shuffled = [...arr].sort(() => Math.random() - 0.5);
+            while (result.length < n) result.push(shuffled[result.length % shuffled.length]);
+            return result;
         }
 
         // Aplanar videoteca
@@ -6749,27 +6889,23 @@
         );
         if (todosLosEjs.length === 0) return null;
 
-        // ── 1. Selección de ejercicios ─────────────────────────────────────
-        let poolEjs;
+        // ── 1. Pool base por selección ────────────────────────────────────
+        let poolBase;
         if (cfgEjs === 'no-usados') {
             const frescos = todosLosEjs.filter(e => !patrones.ejsUsados.has((e.nombre || e[0] || '').toUpperCase()));
-            poolEjs = frescos.length >= 6 ? frescos : todosLosEjs;
+            poolBase = frescos.length >= 6 ? frescos : todosLosEjs;
         } else if (cfgEjs === 'mas-usados') {
             const usados = todosLosEjs.filter(e => patrones.ejsUsados.has((e.nombre || e[0] || '').toUpperCase()));
-            poolEjs = usados.length >= 6 ? usados : todosLosEjs;
+            poolBase = usados.length >= 6 ? usados : todosLosEjs;
         } else {
-            poolEjs = todosLosEjs;
+            poolBase = todosLosEjs;
         }
 
         // Aplicar filtro de equipamiento
         if (filtrarEquipamiento) {
-            const poolFiltrado = poolEjs.filter(elementoPermitido);
-            if (poolFiltrado.length >= 4) {
-                poolEjs = poolFiltrado;
-            } else {
-                toast('⚠️ Pocos ejercicios con esos elementos — usando toda la videoteca');
-                // poolEjs sin filtrar
-            }
+            const filtrado = poolBase.filter(elementoPermitido);
+            if (filtrado.length >= 4) poolBase = filtrado;
+            else toast('⚠️ Pocos ejercicios con esos elementos — usando toda la videoteca');
         }
 
         // ── 2. Tipos de bloque ─────────────────────────────────────────────
@@ -6787,41 +6923,50 @@
             return tiposPool[Math.floor(Math.random() * tiposPool.length)];
         }
 
-        // ── 4. Cantidad de ejercicios ──────────────────────────────────────
+        // ── Cantidad de ejercicios ─────────────────────────────────────────
         const cantEjsBase = cfgCantModo === 'manual' ? cfgCantFija : Math.max(3, Math.min(patrones.avgEjs, 9));
 
         function buildParams(tipo, cantEjs) {
-            if (tipo === 'Circuito')            return { vueltas: String(Math.floor(Math.random() * 2) + 3), pausa_vuelta: '45' };
+            const pv = nivel.pausaVuelta;
+            const sv = nivel.series;
+            const vv = nivel.vueltas;
+            if (tipo === 'Circuito')            return { vueltas: vv, pausa_vuelta: pv };
             if (tipo === 'Circuito por Tiempo') return { duracion: '3' };
             if (tipo === 'Tabata')              return { trabajo: '20', pausa: '10', cantidad: String(cantEjs) };
             if (tipo === 'EMOM')                return { minutos: String(cantEjs) };
-            if (tipo === 'Series')              return { series: '3', pausa: '60' };
-            if (tipo === 'Por Tiempo')          return { vueltas: '3', pausa_vuelta: '45' };
-            return { vueltas: '3', pausa_vuelta: '45' };
+            if (tipo === 'Series')              return { series: sv, pausa: pv };
+            if (tipo === 'Por Tiempo')          return { vueltas: vv, pausa_vuelta: pv };
+            return { vueltas: vv, pausa_vuelta: pv };
         }
         function buildEj(e, tipo) {
-            const reps = tipo === 'Tabata' ? '20' : String(Math.floor(Math.random() * 10) + 8);
+            const baseReps = Math.floor(Math.random() * (nivel.repsMax - nivel.repsMin + 1)) + nivel.repsMin;
+            const finalReps = aplicarProgresion(baseReps);
+            const reps = tipo === 'Tabata' ? '20' : String(finalReps);
             const unit = tipo === 'Tabata' ? 'Segs' : 'Reps';
-            return { nombre: e.nombre || e[0] || 'Ejercicio', link: e.link || e[1] || '', reps, unit, con_carga: e.con_carga === true, tip1: e.tip1 || '', tip2: e.tip2 || '', elemento: e.elemento || '' };
+            const conCarga = cfgProgresion === 'carga' && cfgSemana > 1 ? true : (e.con_carga === true);
+            return { nombre: e.nombre || e[0] || 'Ejercicio', link: e.link || e[1] || '', reps, unit, con_carga: conCarga, tip1: e.tip1 || '', tip2: e.tip2 || '', elemento: e.elemento || '', _cat: e._cat || '' };
         }
 
-        // ── 3. Zonas musculares ────────────────────────────────────────────
+        // ── Zonas musculares ───────────────────────────────────────────────
         const ZONAS = {
             'Tren Superior': ['Pecho', 'Espalda', 'Hombros', 'Biceps', 'Triceps', 'Trapecio'],
             'Tren Inferior': ['Cuadriceps', 'Isquiotibiales', 'Gluteos', 'Pantorrillas', 'Aductores'],
             'Core':          ['Abdominales', 'Oblicuos', 'Lumbar']
         };
-        function ejsDeZona(zonaKey) {
-            return poolEjs.filter(e => ZONAS[zonaKey].some(m => (e._cat||'').toLowerCase().includes(m.toLowerCase())));
+        function ejsDeZona(zonaKey, pool) {
+            const p = pool || poolBase;
+            return p.filter(e => ZONAS[zonaKey].some(m => (e._cat||'').toLowerCase().includes(m.toLowerCase())));
         }
 
-        // ── Helper: pickRandom con repetición (nunca toma de otro grupo) ──
-        function pickSafe(arr, n) {
-            if (arr.length === 0) return [];
-            const result = [];
-            const shuffled = [...arr].sort(() => Math.random() - 0.5);
-            while (result.length < n) result.push(shuffled[result.length % shuffled.length]);
-            return result;
+        // ── Sin repetir entre días: set global ────────────────────────────
+        const usadosEnRutina = new Set();
+        function poolSinRepetir(arr) {
+            if (!cfgSinRepetir) return arr;
+            const frescos = arr.filter(e => !usadosEnRutina.has((e.nombre || e[0] || '').toUpperCase()));
+            return frescos.length >= 2 ? frescos : arr; // fallback si ya se agotaron
+        }
+        function marcarUsados(ejs) {
+            ejs.forEach(e => usadosEnRutina.add((e.nombre || e[0] || '').toUpperCase()));
         }
 
         function buildBloqueConZona(tipo) {
@@ -6829,68 +6974,65 @@
             let ejsElegidos;
             let avisoPocos = false;
 
+            const pool = () => poolSinRepetir(poolBase);
+
             if (cfgZonas === 'azar') {
-                ejsElegidos = pickRandom(poolEjs, cantEjs);
+                ejsElegidos = pickRandom(pool(), cantEjs);
             } else if (cfgZonas === 'sin-piernas') {
-                // SOLO Tren Superior + Core (50/50) — NUNCA Tren Inferior
-                const mitad = Math.ceil(cantEjs / 2);
-                const poolSup  = ejsDeZona('Tren Superior');
-                const poolCore = ejsDeZona('Core');
+                const mitad    = Math.ceil(cantEjs / 2);
+                const poolSup  = poolSinRepetir(ejsDeZona('Tren Superior'));
+                const poolCore = poolSinRepetir(ejsDeZona('Core'));
+                const noInf    = poolSinRepetir(poolBase.filter(e => !ejsDeZona('Tren Inferior').includes(e)));
                 if (poolSup.length < 2 || poolCore.length < 2) avisoPocos = true;
-                const sup  = pickSafe(poolSup.length > 0 ? poolSup : poolEjs.filter(e => !ejsDeZona('Tren Inferior').includes(e)), mitad);
-                const core = pickSafe(poolCore.length > 0 ? poolCore : poolEjs.filter(e => !ejsDeZona('Tren Inferior').includes(e)), cantEjs - mitad);
+                const sup  = pickSafe(poolSup.length > 0  ? poolSup  : noInf, mitad);
+                const core = pickSafe(poolCore.length > 0 ? poolCore : noInf, cantEjs - mitad);
                 ejsElegidos = [...sup, ...core].sort(() => Math.random() - 0.5);
             } else if (cfgZonas === 'solo-core') {
-                const pool = ejsDeZona('Core');
-                ejsElegidos = pickSafe(pool.length > 0 ? pool : poolEjs, cantEjs);
+                const p = poolSinRepetir(ejsDeZona('Core'));
+                ejsElegidos = pickSafe(p.length > 0 ? p : pool(), cantEjs);
             } else if (cfgZonas === 'mas-piernas') {
-                const cInf  = Math.ceil(cantEjs * 0.5);
-                const cSup  = Math.floor(cantEjs * 0.25);
-                const cCore = cantEjs - cInf - cSup;
-                const inf  = pickSafe(ejsDeZona('Tren Inferior').length > 0 ? ejsDeZona('Tren Inferior') : poolEjs, cInf);
-                const sup  = pickSafe(ejsDeZona('Tren Superior').length > 0 ? ejsDeZona('Tren Superior') : poolEjs, cSup);
-                const core = pickSafe(ejsDeZona('Core').length > 0 ? ejsDeZona('Core') : poolEjs, cCore);
+                const cInf = Math.ceil(cantEjs * 0.5), cSup = Math.floor(cantEjs * 0.25), cCore = cantEjs - cInf - cSup;
+                const inf  = pickSafe(poolSinRepetir(ejsDeZona('Tren Inferior')).length > 0 ? poolSinRepetir(ejsDeZona('Tren Inferior')) : pool(), cInf);
+                const sup  = pickSafe(poolSinRepetir(ejsDeZona('Tren Superior')).length > 0 ? poolSinRepetir(ejsDeZona('Tren Superior')) : pool(), cSup);
+                const core = pickSafe(poolSinRepetir(ejsDeZona('Core')).length > 0           ? poolSinRepetir(ejsDeZona('Core'))           : pool(), cCore);
                 ejsElegidos = [...inf, ...sup, ...core].sort(() => Math.random() - 0.5);
             } else {
-                // 33-33-33 (default)
-                const t = Math.floor(cantEjs / 3);
-                const r = cantEjs - t * 3;
+                const t = Math.floor(cantEjs / 3), r = cantEjs - t * 3;
                 const cSup = t + (r > 0 ? 1 : 0), cInf = t + (r > 1 ? 1 : 0), cCore = cantEjs - cSup - cInf;
-                const sup  = pickSafe(ejsDeZona('Tren Superior').length > 0 ? ejsDeZona('Tren Superior') : poolEjs, cSup);
-                const inf  = pickSafe(ejsDeZona('Tren Inferior').length > 0 ? ejsDeZona('Tren Inferior') : poolEjs, cInf);
-                const core = pickSafe(ejsDeZona('Core').length > 0 ? ejsDeZona('Core') : poolEjs, cCore);
+                const sup  = pickSafe(poolSinRepetir(ejsDeZona('Tren Superior')).length > 0 ? poolSinRepetir(ejsDeZona('Tren Superior')) : pool(), cSup);
+                const inf  = pickSafe(poolSinRepetir(ejsDeZona('Tren Inferior')).length > 0 ? poolSinRepetir(ejsDeZona('Tren Inferior')) : pool(), cInf);
+                const core = pickSafe(poolSinRepetir(ejsDeZona('Core')).length > 0           ? poolSinRepetir(ejsDeZona('Core'))           : pool(), cCore);
                 ejsElegidos = [...sup, ...inf, ...core].sort(() => Math.random() - 0.5);
             }
 
             if (avisoPocos) toast('⚠️ Pocos ejercicios de Superior/Core — se repiten algunos');
+            marcarUsados(ejsElegidos);
 
-            const labelZona = { 'azar': 'Variado', 'sin-piernas': 'Sup + Core', 'solo-core': 'Zona Media', 'mas-piernas': 'Piernas + Sup + Core', '33-33-33': 'Full Body — Sup / Inf / Core' };
+            const labelZona = { 'azar': 'Variado', 'sin-piernas': 'Sup + Core', 'solo-core': 'Zona Media', 'mas-piernas': 'Piernas + Sup + Core', '33-33-33': 'Full Body' };
             return { tipo, params: buildParams(tipo, ejsElegidos.length), ejercicios: ejsElegidos.map(e => buildEj(e, tipo)), desc: labelZona[cfgZonas] || 'Full Body' };
         }
 
         // ── Construir días ─────────────────────────────────────────────────
         const diasGenerados = [];
         for (let d = 0; d < numDias; d++) {
-            // Calentamiento: según zona configurada
             const muscCore = ['Abdominales', 'Oblicuos', 'Lumbar'];
-            const ejsCorePool = poolEjs.filter(e => muscCore.some(m => (e._cat||'').toLowerCase().includes(m.toLowerCase())));
+            const ejsCorePool = poolBase.filter(e => muscCore.some(m => (e._cat||'').toLowerCase().includes(m.toLowerCase())));
             const totalCal = Math.floor(Math.random() * 3) + 3;
 
             let warmupEjercicios;
             if (cfgZonas === 'sin-piernas') {
-                // Solo Core puro en el calentamiento cuando es sin piernas
-                const wuAll = pickSafe(ejsCorePool.length >= 2 ? ejsCorePool : poolEjs.filter(e => !ejsDeZona('Tren Inferior').includes(e)), totalCal);
-                warmupEjercicios = wuAll.map(e => ({
+                const noInf = poolBase.filter(e => !ejsDeZona('Tren Inferior').includes(e));
+                const wuPool = ejsCorePool.length >= 2 ? ejsCorePool : noInf;
+                warmupEjercicios = pickSafe(wuPool, totalCal).map(e => ({
                     nombre: e.nombre || e[0] || 'Ejercicio', link: e.link || e[1] || '',
                     reps: String(Math.floor(Math.random() * 8) + 8), unit: 'Reps',
                     con_carga: false, tip1: e.tip1 || '', tip2: e.tip2 || '', elemento: e.elemento || ''
                 }));
             } else {
-                // Calentamiento estándar: 80% Core, 20% variado
                 const cantCoreWu = Math.ceil(totalCal * 0.8);
                 const cantExtra  = totalCal - cantCoreWu;
-                const wuCore  = pickRandom(ejsCorePool.length >= cantCoreWu ? ejsCorePool : poolEjs, cantCoreWu);
-                const wuExtra = pickRandom(poolEjs.filter(e => !wuCore.includes(e)), cantExtra);
+                const wuCore  = pickRandom(ejsCorePool.length >= cantCoreWu ? ejsCorePool : poolBase, cantCoreWu);
+                const wuExtra = pickRandom(poolBase.filter(e => !wuCore.includes(e)), cantExtra);
                 warmupEjercicios = [...wuCore, ...wuExtra].map(e => ({
                     nombre: e.nombre || e[0] || 'Ejercicio', link: e.link || e[1] || '',
                     reps: String(Math.floor(Math.random() * 8) + 8), unit: 'Reps',
@@ -6899,63 +7041,143 @@
             }
 
             const bloquesRutina = [];
-            for (let b = 0; b < numBloques; b++) {
-                bloquesRutina.push(buildBloqueConZona(elegirTipo()));
-            }
+            for (let b = 0; b < numBloques; b++) bloquesRutina.push(buildBloqueConZona(elegirTipo()));
 
             const titulosDia = { 'sin-piernas': ['Día 1 — Sup + Core', 'Día 2 — Sup + Core', 'Día 3 — Sup + Core'], 'solo-core': ['Día 1 — Zona Media', 'Día 2 — Zona Media', 'Día 3 — Zona Media'], 'mas-piernas': ['Día 1 — Piernas', 'Día 2 — Piernas + Sup', 'Día 3 — Full Body'], '33-33-33': ['Día 1 — Full Body', 'Día 2 — Full Body', 'Día 3 — Full Body'] };
             const titulos = titulosDia[cfgZonas] || ['Día 1', 'Día 2', 'Día 3'];
-            diasGenerados.push({
-                titulo: numDias > 1 ? (titulos[d] || ('Día ' + (d + 1))) : 'Día 1',
-                warmupEjercicios, bloquesRutina, warmupEmomConfig: []
-            });
+            diasGenerados.push({ titulo: numDias > 1 ? (titulos[d] || ('Día ' + (d + 1))) : 'Día 1', warmupEjercicios, bloquesRutina, warmupEmomConfig: [] });
         }
-
         return diasGenerados;
     }
 
-    // Ejecuta la generación real cuando el usuario confirma en el modal
-    async function iaConfirmarGenerar() {
-        const numDias = parseInt(document.getElementById('ia-num-dias')?.value) || 1;
-        const numBloques = parseInt(document.getElementById('ia-num-bloques')?.value) || 1;
+    // ── Balance muscular ───────────────────────────────────────────────────
+    function iaChequearBalance(diasGenerados) {
+        if (!document.getElementById('ia-balance-check')?.checked) return null;
+        const zonaCount = { 'Tren Superior': 0, 'Tren Inferior': 0, 'Core': 0 };
+        const ZONAS_MAP = {
+            'Tren Superior': ['pecho','espalda','hombro','bicep','tricep','trapecio'],
+            'Tren Inferior': ['cuadricep','isquio','glut','pantorrill','aductor'],
+            'Core':          ['abdomin','oblicu','lumbar']
+        };
+        diasGenerados.forEach(dia => {
+            dia.bloquesRutina.forEach(bloque => {
+                (bloque.ejercicios || []).forEach(ej => {
+                    const cat = (ej._cat || '').toLowerCase();
+                    for (const [zona, keywords] of Object.entries(ZONAS_MAP)) {
+                        if (keywords.some(k => cat.includes(k))) { zonaCount[zona]++; break; }
+                    }
+                });
+            });
+        });
+        const total = Object.values(zonaCount).reduce((a, b) => a + b, 0);
+        if (total === 0) return null;
+        const faltantes = Object.entries(zonaCount).filter(([, v]) => v === 0).map(([k]) => k);
+        if (faltantes.length === 0) return null;
+        return `⚠️ Grupos sin ejercicios: ${faltantes.join(', ')}`;
+    }
 
+    // ── Previsualización ───────────────────────────────────────────────────
+    function iaPrevisualizarRutina() {
+        const numDias    = parseInt(document.getElementById('ia-num-dias')?.value) || 1;
+        const numBloques = parseInt(document.getElementById('ia-num-bloques')?.value) || 1;
+        try {
+            const patrones   = _iaExtraerPatrones(_iaHistorialCache, getRepositorio());
+            const nuevaData  = _iaGenerarDias(videotecaCache, patrones, numDias, numBloques);
+            if (!nuevaData) { toast('Sin ejercicios. Revisá la Videoteca.'); return; }
+            _iaUltimaGeneracion = nuevaData;
+            iaRenderPreview(nuevaData);
+            document.getElementById('modal-ia-preview').classList.remove('hidden');
+        } catch(e) { console.error(e); toast('Error al previsualizar.'); }
+    }
+
+    function iaRenderPreview(dias) {
+        const content = document.getElementById('ia-preview-content');
+        const ZONA_COLORS = { 'Tren Superior': '#4FC3F7', 'Tren Inferior': '#69F0AE', 'Core': '#CE93D8', '': '#8a8a9a' };
+        const ZONAS_MAP = { 'Tren Superior': ['pecho','espalda','hombro','bicep','tricep','trapecio'], 'Tren Inferior': ['cuadricep','isquio','glut','pantorrill','aductor'], 'Core': ['abdomin','oblicu','lumbar'] };
+        function getZonaColor(cat) {
+            const c = (cat || '').toLowerCase();
+            for (const [zona, keys] of Object.entries(ZONAS_MAP)) { if (keys.some(k => c.includes(k))) return ZONA_COLORS[zona]; }
+            return ZONA_COLORS[''];
+        }
+        content.innerHTML = dias.map((dia, di) => `
+            <div class="rounded-2xl border border-borde overflow-hidden">
+                <div class="px-4 py-2.5 flex items-center justify-between" style="background: rgba(124,58,237,0.12);">
+                    <span class="text-xs font-black text-purpura uppercase tracking-wider">${dia.titulo}</span>
+                    <span class="text-xs text-textoSuave">${dia.warmupEjercicios.length} warm-up · ${dia.bloquesRutina.reduce((a,b) => a+(b.ejercicios||[]).length,0)} ejs principales</span>
+                </div>
+                ${dia.bloquesRutina.map((bloque, bi) => `
+                    <div class="px-4 py-3 ${bi > 0 ? 'border-t border-borde' : ''}">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background: rgba(79,195,247,0.15); color: #4FC3F7;">${bloque.tipo}</span>
+                            <span class="text-xs text-textoSuave">${bloque.desc}</span>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5">
+                            ${(bloque.ejercicios || []).map(ej => `
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold" style="background: rgba(20,20,24,0.8); border: 1px solid ${getZonaColor(ej._cat)}33; color: ${getZonaColor(ej._cat)};">
+                                    <span style="width:6px;height:6px;border-radius:50%;background:${getZonaColor(ej._cat)};display:inline-block;flex-shrink:0;"></span>
+                                    ${ej.nombre} <span style="opacity:0.6;">${ej.reps} ${ej.unit}</span>
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `).join('');
+
+        // Balance
+        const balanceMsg = iaChequearBalance(dias);
+        const alert = document.getElementById('ia-balance-alert');
+        if (balanceMsg && alert) { alert.textContent = balanceMsg; alert.classList.remove('hidden'); }
+        else if (alert) alert.classList.add('hidden');
+    }
+
+    function iaAplicarPreview() {
+        if (!_iaUltimaGeneracion) return;
+        document.getElementById('modal-ia-preview').classList.add('hidden');
+        diasData = _iaUltimaGeneracion;
+        renderDias();
+        diasData.forEach((_, idx) => toggleDia(idx, true));
+        const fuenteMsg = _iaHistorialCache.length > 0 ? `(basada en ${_iaHistorialCache.length} rutinas de ${_iaAlumnoSeleccionado.toUpperCase()})` : '(basada en repositorio)';
+        toast(`✅ Rutina aplicada ${fuenteMsg}`);
+    }
+
+    function iaRegenerarPreview() {
+        const numDias    = parseInt(document.getElementById('ia-num-dias')?.value) || 1;
+        const numBloques = parseInt(document.getElementById('ia-num-bloques')?.value) || 1;
+        try {
+            const patrones  = _iaExtraerPatrones(_iaHistorialCache, getRepositorio());
+            const nuevaData = _iaGenerarDias(videotecaCache, patrones, numDias, numBloques);
+            if (!nuevaData) { toast('Sin ejercicios.'); return; }
+            _iaUltimaGeneracion = nuevaData;
+            iaRenderPreview(nuevaData);
+        } catch(e) { console.error(e); toast('Error al regenerar.'); }
+    }
+
+    // Ejecuta la generación directa (sin previsualización)
+    async function iaConfirmarGenerar() {
+        const numDias    = parseInt(document.getElementById('ia-num-dias')?.value) || 1;
+        const numBloques = parseInt(document.getElementById('ia-num-bloques')?.value) || 1;
         document.getElementById('modal-ia-config').classList.add('hidden');
 
         const tieneContenido = diasData.some(d => d.warmupEjercicios.length > 0 || d.bloquesRutina.length > 0);
-        if (tieneContenido) {
-            if (!confirm('¿Reemplazar la rutina actual con la generada por IA?')) return;
-        }
+        if (tieneContenido && !confirm('¿Reemplazar la rutina actual con la generada por IA?')) return;
 
-        toast('🤖 Analizando rutinas y generando...');
-
+        toast('🤖 Generando rutina...');
         try {
-            // Extraer patrones de historial + repositorio
-            const patrones = _iaExtraerPatrones(_iaHistorialCache, getRepositorio());
-
-            // Generar los días
+            const patrones  = _iaExtraerPatrones(_iaHistorialCache, getRepositorio());
             const nuevaData = _iaGenerarDias(videotecaCache, patrones, numDias, numBloques);
+            if (!nuevaData || nuevaData.length === 0) { toast('No se pudo generar. Revisá la Videoteca.'); return; }
 
-            if (!nuevaData || nuevaData.length === 0) {
-                toast('No se pudo generar. Revisá la Videoteca.');
-                return;
-            }
+            // Balance muscular
+            const balanceMsg = iaChequearBalance(nuevaData);
+            if (balanceMsg) setTimeout(() => toast('⚠️ ' + balanceMsg.replace('⚠️ ', '')), 1800);
 
             diasData = nuevaData;
             renderDias();
             diasData.forEach((_, idx) => toggleDia(idx, true));
-
-            const totalEjsGen = nuevaData.reduce((acc, d) =>
-                acc + d.warmupEjercicios.length + d.bloquesRutina.reduce((a, b) => a + (b.ejercicios||[]).length, 0), 0
-            );
-
-            const fuenteMsg = _iaHistorialCache.length > 0
-                ? `(basada en ${_iaHistorialCache.length} rutinas de ${_iaAlumnoSeleccionado.toUpperCase()})`
-                : '(basada en repositorio)';
+            const fuenteMsg = _iaHistorialCache.length > 0 ? `(basada en ${_iaHistorialCache.length} rutinas de ${_iaAlumnoSeleccionado.toUpperCase()})` : '(basada en repositorio)';
             toast(`✅ Rutina generada ${fuenteMsg}`);
-        } catch(e) {
-            console.error('iaConfirmarGenerar error:', e);
-            toast('Error al generar la rutina.');
-        }
+        } catch(e) { console.error('iaConfirmarGenerar error:', e); toast('Error al generar la rutina.'); }
     }
 
     // ====================================================================
