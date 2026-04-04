@@ -6936,7 +6936,17 @@
         };
         function ejsDeZona(zonaKey, pool) {
             const p = pool || poolBase;
-            return p.filter(e => ZONAS[zonaKey].some(m => (e._cat||'').toLowerCase().includes(m.toLowerCase())));
+            const keywords = ZONAS[zonaKey];
+            return p.filter(e => {
+                // Buscar en _cat (nombre de categoría), musculo1 y musculo2
+                const cat  = (e._cat     || '').toLowerCase();
+                const m1   = (e.musculo1 || '').toLowerCase();
+                const m2   = (e.musculo2 || '').toLowerCase();
+                return keywords.some(m => {
+                    const mk = m.toLowerCase();
+                    return cat.includes(mk) || m1.includes(mk) || m2.includes(mk);
+                });
+            });
         }
 
         // ── Sin repetir entre días: set global ────────────────────────────
@@ -7024,8 +7034,9 @@
         // ── Construir días ─────────────────────────────────────────────────
         const diasGenerados = [];
         for (let d = 0; d < numDias; d++) {
-            const muscCore = ['Abdominales', 'Oblicuos', 'Lumbar'];
-            const ejsCorePool = poolBase.filter(e => muscCore.some(m => (e._cat||'').toLowerCase().includes(m.toLowerCase())));
+            // Calentamiento: usar la misma lógica de ejsDeZona para Core
+            // (revisa _cat, musculo1 y musculo2 para no perder ejercicios por categoría genérica)
+            const ejsCorePool = ejsDeZona('Core');
             const totalCal = Math.floor(Math.random() * 3) + 3;
 
             // Calentamiento: SOLO zona media (Core). Si no hay, queda vacío — sin fallback.
