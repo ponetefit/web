@@ -3242,8 +3242,19 @@
 
         // Para EMOM: pre-cargar datos de restauración ANTES de actualizarBloqueParams
         // así actualizarEMOMMinutosConfig los encuentra disponibles cuando corre
-        if (b.tipo === 'EMOM' && b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
-            window._emomRestoreData = b.emom_config_por_minuto;
+        if (b.tipo === 'EMOM') {
+            if (b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
+                // Bloque guardado manualmente: restaurar config por minuto
+                window._emomRestoreData = b.emom_config_por_minuto;
+            } else if (b.ejercicios && b.ejercicios.length > 0) {
+                // Bloque generado por IA: tiene lista plana, distribuir 1 ejercicio por minuto
+                window._emomRestoreData = b.ejercicios.map((ej, mi) => ({
+                    minuto: mi + 1,
+                    ejercicios: [{ nombre: ej.nombre || '', reps: ej.reps || '', unit: ej.unit || 'Reps', link: ej.link || '' }],
+                    ejercicios_cantidad: 1,
+                    ejercicios_nombres: [ej.nombre || '']
+                }));
+            }
         }
 
         document.getElementById('bloque-tipo').value = b.tipo;
@@ -3266,8 +3277,11 @@
             const pr = document.getElementById('bp-pausa-rondas'); if(pr) pr.value = b.pausa_entre_rondas || 0;
         } else if (b.tipo === 'EMOM') {
             const _mEl = document.getElementById('bp-minutos');
-            if(_mEl) { _mEl.value = b.minutos_totales || 10; }
-            // _emomRestoreData ya fue seteado antes de actualizarBloqueParams — no necesitamos otro setTimeout
+            if (_mEl) {
+                _mEl.value = b.minutos_totales || (b.emom_config_por_minuto ? b.emom_config_por_minuto.length : 5);
+                // Re-renderizar config EMOM con valor correcto y datos de restauración ya seteados
+                actualizarEMOMMinutosConfig();
+            }
         }
 
         bloqueEjsTemp = JSON.parse(JSON.stringify(b.ejercicios || []));
@@ -6928,24 +6942,36 @@
         }
 
         // ── Zonas musculares ───────────────────────────────────────────────
+        // Mapeo directo a las claves reales de la videoteca:
+        //   '' o 'todo_cuerpo' → Todo el cuerpo
+        //   'piernas'          → Piernas
+        //   'brazos'           → Brazos (tren superior)
+        //   'zona_media'       → Zona media / Core
+        const ZONA_CAT_KEYS = {
+            'Todo el Cuerpo': (cat) => cat === '' || cat === 'todo_cuerpo' || cat === 'todo el cuerpo' || cat === 'full body' || cat === 'funcional' || cat === 'completo',
+            'Tren Inferior':  (cat) => cat === 'piernas',
+            'Tren Superior':  (cat) => cat === 'brazos',
+            'Core':           (cat) => cat === 'zona_media' || cat === 'zona media' || cat === 'core' || cat === 'abdominales' || cat === 'oblicuos' || cat === 'lumbar',
+        };
+        // Keywords de respaldo para ejercicios que no coincidan por _cat exacta
         const ZONAS = {
-            'Tren Superior': ['Pecho', 'Espalda', 'Hombros', 'Biceps', 'Triceps', 'Trapecio'],
-            'Tren Inferior': ['Cuadriceps', 'Isquiotibiales', 'Gluteos', 'Pantorrillas', 'Aductores'],
-            'Core':          ['Abdominales', 'Oblicuos', 'Lumbar'],
-            'Todo el Cuerpo': ['Todo el cuerpo', 'Full Body', 'Funcional', 'Completo']
+            'Tren Superior': ['pecho', 'espalda', 'hombro', 'bicep', 'tricep', 'trapecio', 'brazos'],
+            'Tren Inferior': ['cuadricep', 'isquio', 'glut', 'pantorrill', 'aductor', 'pierna'],
+            'Core':          ['abdomin', 'oblicu', 'lumbar', 'zona_media', 'zona media', 'core'],
+            'Todo el Cuerpo': ['todo', 'full body', 'funcional', 'completo']
         };
         function ejsDeZona(zonaKey, pool) {
             const p = pool || poolBase;
-            const keywords = ZONAS[zonaKey];
+            const catFn = ZONA_CAT_KEYS[zonaKey];
+            const fallbackKeys = ZONAS[zonaKey] || [];
             return p.filter(e => {
-                // Buscar en _cat (nombre de categoría), musculo1 y musculo2
-                const cat  = (e._cat     || '').toLowerCase();
-                const m1   = (e.musculo1 || '').toLowerCase();
-                const m2   = (e.musculo2 || '').toLowerCase();
-                return keywords.some(m => {
-                    const mk = m.toLowerCase();
-                    return cat.includes(mk) || m1.includes(mk) || m2.includes(mk);
-                });
+                const cat = (e._cat || '').toLowerCase().trim();
+                // Primero: coincidencia exacta por clave de categoría
+                if (catFn && catFn(cat)) return true;
+                // Fallback: buscar keywords en cat, musculo1, musculo2
+                const m1 = (e.musculo1 || '').toLowerCase();
+                const m2 = (e.musculo2 || '').toLowerCase();
+                return fallbackKeys.some(k => cat.includes(k) || m1.includes(k) || m2.includes(k));
             });
         }
 
@@ -6975,9 +7001,16 @@
             let ejsElegidos;
 
             if (cfgZonas === 'azar') {
-                // Al azar: cualquier ejercicio, orden aleatorio
-                ejsElegidos = pickStrict(poolSinRepetir(poolBase), cantEjs)
-                    .sort(() => Math.random() - 0.5);
+                // Al azar: orden fijo piernas/todo el cuerpo → brazos → zona media
+                const totalAzar = cantEjs;
+                const cPiernas  = Math.ceil(totalAzar * 0.34);
+                const cBrazos   = Math.ceil(totalAzar * 0.33);
+                const cCore     = totalAzar - cPiernas - cBrazos;
+                const piernasPool = [...ejsDeZona('Tren Inferior'), ...ejsDeZona('Todo el Cuerpo')];
+                const piernasEjs = pickStrict(poolSinRepetir(piernasPool), cPiernas);
+                const brazosEjs  = pickStrict(poolSinRepetir(ejsDeZona('Tren Superior')), cBrazos);
+                const coreEjs    = pickStrict(poolSinRepetir(ejsDeZona('Core')), Math.max(0, cCore));
+                ejsElegidos = [...piernasEjs, ...brazosEjs, ...coreEjs];
             } else if (cfgZonas === 'sin-piernas') {
                 // 70% Tren Superior → 30% Core  (orden fijo, sin mezcla de otras zonas)
                 const cSup  = Math.ceil(cantEjs * 0.7);
@@ -7028,7 +7061,21 @@
             marcarUsados(ejsElegidos);
 
             const labelZona = { 'azar': 'Variado', 'sin-piernas': 'Sup + Core', 'solo-core': 'Zona Media', 'mas-piernas': 'Piernas + Sup + Core', '33-33-33': 'Full Body', 'todo-cuerpo': 'Todo el Cuerpo', '25-25-25-25': '25/25/25/25' };
-            return { tipo, params: buildParams(tipo, ejsElegidos.length), ejercicios: ejsElegidos.map(e => buildEj(e, tipo)), desc: labelZona[cfgZonas] || 'Full Body' };
+            const params = buildParams(tipo, ejsElegidos.length);
+            const ejsBuilt = ejsElegidos.map(e => buildEj(e, tipo));
+            const bloque = { tipo, params, ejercicios: ejsBuilt, desc: labelZona[cfgZonas] || 'Full Body' };
+            // Para EMOM: añadir minutos_totales y emom_config_por_minuto para que sea editable
+            if (tipo === 'EMOM') {
+                bloque.minutos_totales = ejsBuilt.length || parseInt(params.minutos) || 5;
+                bloque.emom_config_por_minuto = ejsBuilt.map((ej, mi) => ({
+                    minuto: mi + 1,
+                    ejercicios: [{ nombre: ej.nombre, reps: ej.reps, unit: ej.unit, link: ej.link || '' }],
+                    ejercicios_cantidad: 1,
+                    ejercicios_nombres: [ej.nombre]
+                }));
+                bloque.ejercicios_por_minuto = 1;
+            }
+            return bloque;
         }
 
         // ── Construir días ─────────────────────────────────────────────────
@@ -7039,12 +7086,12 @@
             const ejsCorePool = ejsDeZona('Core');
             const totalCal = Math.floor(Math.random() * 3) + 3;
 
-            // Calentamiento: SOLO zona media (Core). Si no hay, queda vacío — sin fallback.
+            // Calentamiento: SOLO zona media (Core). Máximo 3. Si no hay, queda vacío — sin fallback.
             const warmupEjercicios = ejsCorePool.map(e => ({
                 nombre: e.nombre || e[0] || 'Ejercicio', link: e.link || e[1] || '',
                 reps: String(Math.floor(Math.random() * 8) + 8), unit: 'Reps',
                 con_carga: false, tip1: e.tip1 || '', tip2: e.tip2 || '', elemento: e.elemento || ''
-            })).sort(() => Math.random() - 0.5).slice(0, totalCal);
+            })).sort(() => Math.random() - 0.5).slice(0, 3);
 
             const bloquesRutina = [];
             for (let b = 0; b < numBloques; b++) bloquesRutina.push(buildBloqueConZona(elegirTipo()));
