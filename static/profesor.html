@@ -719,18 +719,23 @@
                 <!-- Dia 1 se genera dinamicamente en initMultiDia() -->
             </div>
 
-            <!-- Botones Agregar Dia + Guardar Repo + Compartir -->
+            <!-- Botones Agregar Dia + acción principal -->
             <div class="flex flex-col sm:flex-row gap-3 mb-6">
                 <button onclick="agregarDia()" class="flex-1 py-3 rounded-2xl border-2 border-dashed border-verde/40 text-verde font-bold text-sm uppercase tracking-wider hover:border-verde hover:bg-verde/5 transition flex items-center justify-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     Agregar Día
                 </button>
-                <button onclick="abrirGuardarPlantilla()" class="flex-1 py-3 rounded-2xl border-2 border-naranja/50 text-naranja font-bold text-sm uppercase tracking-wider hover:border-naranja hover:bg-naranja/5 transition flex items-center justify-center gap-2">
+                <!-- Modo NORMAL: botón guardar en repo + botón compartir -->
+                <button id="btn-guardar-repo-normal" onclick="abrirGuardarPlantilla()" class="flex-1 py-3 rounded-2xl border-2 border-naranja/50 text-naranja font-bold text-sm uppercase tracking-wider hover:border-naranja hover:bg-naranja/5 transition flex items-center justify-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h8l4 4v12a2 2 0 01-2 2H7a2 2 0 01-2-2V5z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 3v4H9V3"/></svg>
                     Guardar en Repositorio
                 </button>
-                <button onclick="compartirRutina()" id="btn-compartir-rutina" class="btn-primary flex-1 py-3 rounded-2xl text-white font-black text-lg uppercase tracking-wider">
+                <button id="btn-compartir-rutina" onclick="compartirRutina()" class="btn-primary flex-1 py-3 rounded-2xl text-white font-black text-lg uppercase tracking-wider">
                     Compartir Rutina
+                </button>
+                <!-- Modo REPOSITORIO: solo guardar en repositorio (reemplaza los dos de arriba) -->
+                <button id="btn-guardar-repo-modo" onclick="guardarEnRepositorioDirecto()" class="hidden btn-primary flex-1 py-3 rounded-2xl text-white font-black text-lg uppercase tracking-wider">
+                    Guardar en Repositorio
                 </button>
             </div>
 
@@ -771,9 +776,9 @@
             <div class="bg-tarjeta rounded-2xl border border-borde p-6 mb-4">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                     <h2 class="text-lg font-bold text-naranja uppercase tracking-wider">Repositorio de Rutinas</h2>
-                    <button onclick="abrirGuardarPlantilla()" class="btn-primary px-5 py-2.5 rounded-xl text-white font-bold text-sm uppercase tracking-wider flex items-center gap-2 self-start sm:self-auto">
+                    <button onclick="abrirCrearEntrenamiento()" class="btn-primary px-5 py-2.5 rounded-xl text-white font-bold text-sm uppercase tracking-wider flex items-center gap-2 self-start sm:self-auto">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                        Crear Rutina
+                        Crear Entrenamiento
                     </button>
                 </div>
                 <div id="repo-lista" class="space-y-3">
@@ -1047,10 +1052,24 @@
                 ? 'tab-active px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors'
                 : 'tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors';
         });
-        if (tab === 'rutina') inicializarRutina();
+        if (tab === 'rutina') {
+            inicializarRutina();
+            actualizarModoRepositorio();
+        }
         if (tab === 'dashboard') cargarAlumnosDash();
-        if (tab === 'repositorio') renderizarRepositorio();
+        if (tab === 'repositorio') {
+            modoRepositorio = false;
+            renderizarRepositorio();
+        }
     }
+
+    // Cuando el usuario hace click en el tab "Crear Rutina" directamente, salir del modo repositorio
+    document.addEventListener('DOMContentLoaded', () => {
+        const tabRutina = document.getElementById('tab-rutina');
+        if (tabRutina) {
+            tabRutina.addEventListener('click', () => { modoRepositorio = false; });
+        }
+    });
 
     // ====================================================================
     // TOAST
@@ -1466,6 +1485,49 @@
     // CREAR RUTINA
     // ====================================================================
     let _editandoRutina = false; // flag para evitar que inicializarRutina resetee al editar
+
+    // Modo repositorio: cuando se entra desde "Crear Entrenamiento" del Repositorio
+    let modoRepositorio = false;
+
+    function abrirCrearEntrenamiento() {
+        modoRepositorio = true;
+        // Resetear el formulario para empezar desde cero
+        diasData = [];
+        initMultiDia();
+        document.getElementById('alumno-nombre').value = '';
+        document.getElementById('rutina-desc').value = '';
+        showTab('rutina');
+        actualizarModoRepositorio();
+    }
+
+    function actualizarModoRepositorio() {
+        const btnNormal1 = document.getElementById('btn-guardar-repo-normal');
+        const btnNormal2 = document.getElementById('btn-compartir-rutina');
+        const btnRepoModo = document.getElementById('btn-guardar-repo-modo');
+        if (!btnNormal1 || !btnNormal2 || !btnRepoModo) return;
+        if (modoRepositorio) {
+            btnNormal1.classList.add('hidden');
+            btnNormal2.classList.add('hidden');
+            btnRepoModo.classList.remove('hidden');
+        } else {
+            btnNormal1.classList.remove('hidden');
+            btnNormal2.classList.remove('hidden');
+            btnRepoModo.classList.add('hidden');
+        }
+    }
+
+    // Guarda directamente con un prompt de nombre (modo repositorio)
+    function guardarEnRepositorioDirecto() {
+        document.getElementById('repo-status').textContent = '';
+        document.getElementById('repo-nombre-input').value = '';
+        document.getElementById('modal-repo-guardar').classList.remove('hidden');
+        // Al confirmar: desactivar modo repo y volver al repositorio
+        window._repoGuardarCallback = () => {
+            modoRepositorio = false;
+            showTab('repositorio');
+        };
+        setTimeout(() => document.getElementById('repo-nombre-input').focus(), 100);
+    }
 
     function inicializarRutina() {
         if (_editandoRutina) return; // no resetear si estamos cargando una rutina para editar
@@ -5852,7 +5914,13 @@
 
         document.getElementById('repo-status').textContent = '✓ Guardado correctamente';
         document.getElementById('repo-status').className = 'text-xs text-verde text-center min-h-[1.2rem]';
-        setTimeout(() => document.getElementById('modal-repo-guardar').classList.add('hidden'), 1200);
+        setTimeout(() => {
+            document.getElementById('modal-repo-guardar').classList.add('hidden');
+            if (typeof window._repoGuardarCallback === 'function') {
+                window._repoGuardarCallback();
+                window._repoGuardarCallback = null;
+            }
+        }, 1200);
         toast('Rutina guardada en el repositorio');
     }
 
