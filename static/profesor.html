@@ -317,6 +317,7 @@
         <div class="max-w-6xl mx-auto flex gap-0">
             <button onclick="showTab('dashboard')" id="tab-dashboard" class="tab-active px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Dashboard</button>
             <button onclick="showTab('rutina')" id="tab-rutina" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Crear Rutina</button>
+            <button onclick="showTab('repositorio')" id="tab-repositorio" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Repositorio</button>
             <button onclick="showTab('videoteca')" id="tab-videoteca" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Videoteca</button>
             <button onclick="showTab('historial')" id="tab-historial" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Historial</button>
         </div>
@@ -718,11 +719,15 @@
                 <!-- Dia 1 se genera dinamicamente en initMultiDia() -->
             </div>
 
-            <!-- Botones Agregar Dia + Compartir -->
+            <!-- Botones Agregar Dia + Guardar Repo + Compartir -->
             <div class="flex flex-col sm:flex-row gap-3 mb-6">
                 <button onclick="agregarDia()" class="flex-1 py-3 rounded-2xl border-2 border-dashed border-verde/40 text-verde font-bold text-sm uppercase tracking-wider hover:border-verde hover:bg-verde/5 transition flex items-center justify-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     Agregar Día
+                </button>
+                <button onclick="abrirGuardarPlantilla()" class="flex-1 py-3 rounded-2xl border-2 border-naranja/50 text-naranja font-bold text-sm uppercase tracking-wider hover:border-naranja hover:bg-naranja/5 transition flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h8l4 4v12a2 2 0 01-2 2H7a2 2 0 01-2-2V5z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 3v4H9V3"/></svg>
+                    Guardar en Repositorio
                 </button>
                 <button onclick="compartirRutina()" id="btn-compartir-rutina" class="btn-primary flex-1 py-3 rounded-2xl text-white font-black text-lg uppercase tracking-wider">
                     Compartir Rutina
@@ -758,6 +763,80 @@
                 </div>
             </div>
         </section>
+
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- TAB: REPOSITORIO DE RUTINAS -->
+        <!-- ═══════════════════════════════════════════ -->
+        <section id="sec-repositorio" class="hidden">
+            <div class="bg-tarjeta rounded-2xl border border-borde p-6 mb-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                    <h2 class="text-lg font-bold text-naranja uppercase tracking-wider">Repositorio de Rutinas</h2>
+                    <button onclick="abrirGuardarPlantilla()" class="btn-primary px-5 py-2.5 rounded-xl text-white font-bold text-sm uppercase tracking-wider flex items-center gap-2 self-start sm:self-auto">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        Crear Rutina
+                    </button>
+                </div>
+                <div id="repo-lista" class="space-y-3">
+                    <p class="text-textoSuave text-sm text-center py-12">No hay rutinas guardadas en el repositorio aún.<br><span class="text-xs">Andá a "Crear Rutina", armá tu rutina y guardala aquí.</span></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Modal Guardar en Repositorio -->
+        <div id="modal-repo-guardar" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+            <div class="bg-tarjeta rounded-3xl border border-borde p-6 max-w-sm w-full">
+                <h3 class="text-sm font-bold text-naranja uppercase tracking-wider mb-4">Guardar en Repositorio</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Nombre de la Plantilla</label>
+                        <input id="repo-nombre-input" type="text" placeholder="Ej: Rutina Fuerza Tren Superior" class="w-full rounded-lg px-3 py-2.5 text-sm" onkeydown="if(event.key==='Enter')guardarEnRepositorio()">
+                    </div>
+                    <p id="repo-status" class="text-xs text-verde text-center min-h-[1.2rem]"></p>
+                    <div class="flex gap-3">
+                        <button onclick="guardarEnRepositorio()" class="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold text-sm">Guardar</button>
+                        <button onclick="document.getElementById('modal-repo-guardar').classList.add('hidden')" class="flex-1 py-2.5 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Editar Plantilla del Repositorio -->
+        <div id="modal-repo-editar" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+            <div class="bg-tarjeta rounded-3xl border border-borde p-6 max-w-sm w-full">
+                <h3 class="text-sm font-bold text-azul uppercase tracking-wider mb-4">Editar Nombre</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Nuevo Nombre</label>
+                        <input id="repo-editar-nombre" type="text" placeholder="Nombre de la plantilla" class="w-full rounded-lg px-3 py-2.5 text-sm" onkeydown="if(event.key==='Enter')confirmarEditarPlantilla()">
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="confirmarEditarPlantilla()" class="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold text-sm">Guardar</button>
+                        <button onclick="document.getElementById('modal-repo-editar').classList.add('hidden')" class="flex-1 py-2.5 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Copiar a Alumno desde Repositorio -->
+        <div id="modal-repo-copiar" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+            <div class="bg-tarjeta rounded-3xl border border-borde p-6 max-w-sm w-full">
+                <h3 class="text-sm font-bold text-verde uppercase tracking-wider mb-1">Copiar a Alumno</h3>
+                <p id="repo-copiar-nombre-plantilla" class="text-xs text-textoSuave mb-4"></p>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Alumno Destino</label>
+                        <select id="repo-copiar-alumno" class="w-full rounded-lg px-3 py-2.5 text-sm">
+                            <option value="">-- Seleccionar alumno --</option>
+                        </select>
+                    </div>
+                    <p id="repo-copiar-status" class="text-xs text-verde text-center min-h-[1.2rem]"></p>
+                    <div class="flex gap-3">
+                        <button onclick="confirmarCopiarAAlumno()" class="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold text-sm">Copiar y Compartir</button>
+                        <button onclick="document.getElementById('modal-repo-copiar').classList.add('hidden')" class="flex-1 py-2.5 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- ═══════════════════════════════════════════ -->
         <!-- TAB: HISTORIAL -->
@@ -962,7 +1041,7 @@
     // TABS
     // ====================================================================
     function showTab(tab) {
-        ['dashboard', 'videoteca', 'rutina', 'historial'].forEach(t => {
+        ['dashboard', 'videoteca', 'rutina', 'historial', 'repositorio'].forEach(t => {
             document.getElementById('sec-' + t).classList.toggle('hidden', t !== tab);
             document.getElementById('tab-' + t).className = t === tab
                 ? 'tab-active px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors'
@@ -970,6 +1049,7 @@
         });
         if (tab === 'rutina') inicializarRutina();
         if (tab === 'dashboard') cargarAlumnosDash();
+        if (tab === 'repositorio') renderizarRepositorio();
     }
 
     // ====================================================================
@@ -5701,6 +5781,258 @@
                 currentPreviewUrl = '';
             }
         }, 250);
+    }
+
+    // ====================================================================
+    // REPOSITORIO DE RUTINAS (localStorage)
+    // ====================================================================
+    const REPO_KEY = 'ponetefit_repositorio';
+    let repoEditandoIdx = null;
+    let repoCopiarIdx = null;
+
+    function getRepositorio() {
+        try { return JSON.parse(localStorage.getItem(REPO_KEY) || '[]'); } catch(e) { return []; }
+    }
+
+    function setRepositorio(arr) {
+        localStorage.setItem(REPO_KEY, JSON.stringify(arr));
+    }
+
+    // Abre el modal para guardar la rutina actual en el repositorio
+    function abrirGuardarPlantilla() {
+        // Si estamos en la tab de repositorio, redirigir a crear rutina
+        document.getElementById('repo-status').textContent = '';
+        document.getElementById('repo-nombre-input').value = '';
+        document.getElementById('modal-repo-guardar').classList.remove('hidden');
+        setTimeout(() => document.getElementById('repo-nombre-input').focus(), 100);
+    }
+
+    // Captura el estado actual de diasData + DOM y lo guarda en repositorio
+    function guardarEnRepositorio() {
+        const nombre = (document.getElementById('repo-nombre-input').value || '').trim();
+        if (!nombre) {
+            document.getElementById('repo-status').textContent = 'Ingresá un nombre para la plantilla';
+            document.getElementById('repo-status').className = 'text-xs text-rojo text-center min-h-[1.2rem]';
+            return;
+        }
+
+        // Capturar estado actual de diasData incluyendo configuraciones DOM
+        const snapshot = {
+            nombre,
+            fecha: new Date().toLocaleDateString('es-AR'),
+            diasData: JSON.parse(JSON.stringify(diasData)),
+            alumnoNombre: (document.getElementById('alumno-nombre')?.value || '').trim(),
+            rutinaDesc: (document.getElementById('rutina-desc')?.value || '').trim(),
+            // Capturar configs de warmup desde el DOM para cada dia
+            warmupConfigs: diasData.map((_, diaIdx) => {
+                const tipo = document.getElementById('warmup-tipo-' + diaIdx)?.value || 'Circuito (Vueltas)';
+                const cfg = { tipo };
+                if (tipo === 'Circuito (Vueltas)') {
+                    cfg.vueltas = document.getElementById('warmup-vueltas-' + diaIdx)?.value || '2';
+                    cfg.pausa_vuelta = document.getElementById('warmup-pausa-vuelta-' + diaIdx)?.value || '30';
+                } else if (tipo === 'Circuito por Tiempo') {
+                    cfg.duracion_bloque = document.getElementById('warmup-duracion-' + diaIdx)?.value || '3';
+                } else if (tipo === 'Tabata') {
+                    cfg.trabajo = document.getElementById('warmup-trabajo-' + diaIdx)?.value || '20';
+                    cfg.pausa = document.getElementById('warmup-pausa-' + diaIdx)?.value || '10';
+                    cfg.cantidad = document.getElementById('warmup-cantidad-' + diaIdx)?.value || '8';
+                } else if (tipo === 'Series/Reps') {
+                    cfg.series = document.getElementById('warmup-series-' + diaIdx)?.value || '3';
+                    cfg.reps = document.getElementById('warmup-reps-val-' + diaIdx)?.value || '10';
+                } else if (tipo === 'Por Tiempo') {
+                    cfg.vueltas = document.getElementById('warmup-portiempo-vueltas-' + diaIdx)?.value || '3';
+                }
+                return cfg;
+            })
+        };
+
+        const repo = getRepositorio();
+        repo.unshift(snapshot);
+        setRepositorio(repo);
+
+        document.getElementById('repo-status').textContent = '✓ Guardado correctamente';
+        document.getElementById('repo-status').className = 'text-xs text-verde text-center min-h-[1.2rem]';
+        setTimeout(() => document.getElementById('modal-repo-guardar').classList.add('hidden'), 1200);
+        toast('Rutina guardada en el repositorio');
+    }
+
+    function renderizarRepositorio() {
+        const repo = getRepositorio();
+        const lista = document.getElementById('repo-lista');
+        if (!repo.length) {
+            lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-12">No hay rutinas guardadas en el repositorio aún.<br><span class="text-xs">Andá a "Crear Rutina", armá tu rutina y guardala desde el repositorio.</span></p>';
+            return;
+        }
+
+        lista.innerHTML = repo.map((r, idx) => {
+            const totalDias = (r.diasData || []).length;
+            const totalBloques = (r.diasData || []).reduce((acc, d) => acc + (d.bloquesRutina||[]).length, 0);
+            const totalEjs = (r.diasData || []).reduce((acc, d) => {
+                return acc + (d.warmupEjercicios||[]).length + (d.bloquesRutina||[]).reduce((a2, b) => a2 + (b.ejercicios||[]).length, 0);
+            }, 0);
+
+            return `
+            <div class="bg-fondoAlt rounded-xl border border-borde p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1 flex-wrap">
+                        <span class="font-bold text-texto text-sm truncate">${escapeHtml(r.nombre)}</span>
+                        <span class="text-xs text-textoSuave">${r.fecha || ''}</span>
+                    </div>
+                    <div class="flex gap-3 flex-wrap">
+                        ${totalDias > 0 ? `<span class="text-xs text-azul">${totalDias} día${totalDias !== 1 ? 's' : ''}</span>` : ''}
+                        ${totalBloques > 0 ? `<span class="text-xs text-purpura">${totalBloques} bloque${totalBloques !== 1 ? 's' : ''}</span>` : ''}
+                        ${totalEjs > 0 ? `<span class="text-xs text-verde">${totalEjs} ejercicio${totalEjs !== 1 ? 's' : ''}</span>` : ''}
+                        ${r.alumnoNombre ? `<span class="text-xs text-textoSuave">· ${escapeHtml(r.alumnoNombre)}</span>` : ''}
+                    </div>
+                    ${r.rutinaDesc ? `<p class="text-xs text-textoSuave mt-1 truncate">${escapeHtml(r.rutinaDesc)}</p>` : ''}
+                </div>
+                <div class="flex gap-2 flex-shrink-0 flex-wrap">
+                    <button onclick="copiarAAlumnoDesdeRepo(${idx})" class="bg-verde/20 text-verde px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-verde/30 transition whitespace-nowrap">Copiar a Alumno</button>
+                    <button onclick="editarPlantilla(${idx})" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition whitespace-nowrap">Editar</button>
+                    <button onclick="cargarPlantillaEnCrear(${idx})" class="bg-naranja/20 text-naranja px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition whitespace-nowrap">Usar</button>
+                    <button onclick="eliminarDelRepositorio(${idx})" class="bg-rojo/20 text-rojo px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition whitespace-nowrap">Eliminar</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function eliminarDelRepositorio(idx) {
+        if (!confirm('¿Eliminar esta rutina del repositorio?')) return;
+        const repo = getRepositorio();
+        repo.splice(idx, 1);
+        setRepositorio(repo);
+        renderizarRepositorio();
+        toast('Rutina eliminada del repositorio');
+    }
+
+    function editarPlantilla(idx) {
+        const repo = getRepositorio();
+        repoEditandoIdx = idx;
+        document.getElementById('repo-editar-nombre').value = repo[idx].nombre || '';
+        document.getElementById('modal-repo-editar').classList.remove('hidden');
+        setTimeout(() => document.getElementById('repo-editar-nombre').focus(), 100);
+    }
+
+    function confirmarEditarPlantilla() {
+        const nuevoNombre = (document.getElementById('repo-editar-nombre').value || '').trim();
+        if (!nuevoNombre) return;
+        const repo = getRepositorio();
+        if (repoEditandoIdx !== null && repo[repoEditandoIdx]) {
+            repo[repoEditandoIdx].nombre = nuevoNombre;
+            setRepositorio(repo);
+            renderizarRepositorio();
+            toast('Nombre actualizado');
+        }
+        document.getElementById('modal-repo-editar').classList.add('hidden');
+    }
+
+    function copiarAAlumnoDesdeRepo(idx) {
+        repoCopiarIdx = idx;
+        const repo = getRepositorio();
+        const r = repo[idx];
+        document.getElementById('repo-copiar-nombre-plantilla').textContent = r.nombre;
+        document.getElementById('repo-copiar-status').textContent = '';
+        // Poblar select de alumnos
+        const sel = document.getElementById('repo-copiar-alumno');
+        sel.innerHTML = '<option value="">-- Seleccionar alumno --</option>';
+        // Reusar la lista de alumnos cargada
+        const selOrig = document.getElementById('select-alumno');
+        if (selOrig) {
+            Array.from(selOrig.options).forEach(opt => {
+                if (opt.value) {
+                    const o = document.createElement('option');
+                    o.value = opt.value;
+                    o.textContent = opt.textContent;
+                    sel.appendChild(o);
+                }
+            });
+        }
+        document.getElementById('modal-repo-copiar').classList.remove('hidden');
+    }
+
+    async function confirmarCopiarAAlumno() {
+        const alumno = document.getElementById('repo-copiar-alumno').value.trim();
+        if (!alumno) {
+            document.getElementById('repo-copiar-status').textContent = 'Seleccioná un alumno';
+            document.getElementById('repo-copiar-status').className = 'text-xs text-rojo text-center min-h-[1.2rem]';
+            return;
+        }
+        const repo = getRepositorio();
+        const r = repo[repoCopiarIdx];
+        if (!r) return;
+
+        document.getElementById('repo-copiar-status').textContent = 'Compartiendo...';
+        document.getElementById('repo-copiar-status').className = 'text-xs text-textoSuave text-center min-h-[1.2rem]';
+
+        // Cargar la plantilla en la pestaña Crear Rutina y compartirla con el alumno seleccionado
+        try {
+            // Primero cargar la plantilla en el estado global
+            await cargarPlantillaEnEstado(r, alumno);
+            // Luego compartir
+            await compartirRutina();
+            document.getElementById('modal-repo-copiar').classList.add('hidden');
+            toast('Rutina copiada y compartida con ' + alumno);
+        } catch(e) {
+            document.getElementById('repo-copiar-status').textContent = 'Error al compartir. Intentá de nuevo.';
+            document.getElementById('repo-copiar-status').className = 'text-xs text-rojo text-center min-h-[1.2rem]';
+        }
+    }
+
+    async function cargarPlantillaEnEstado(r, alumnoOverride) {
+        // Cargar en el estado global diasData
+        diasData = JSON.parse(JSON.stringify(r.diasData || []));
+        // Inicializar diasData si está vacío
+        if (diasData.length === 0) {
+            diasData = [{ titulo: 'Día 1', warmupEjercicios: [], bloquesRutina: [] }];
+        }
+        // Asegurarse que cada dia tenga warmupEmomConfig
+        diasData.forEach(d => { if (!d.warmupEmomConfig) d.warmupEmomConfig = []; });
+        // Setear alumno
+        const alumnoInput = document.getElementById('alumno-nombre');
+        if (alumnoInput) alumnoInput.value = alumnoOverride || r.alumnoNombre || '';
+        const descInput = document.getElementById('rutina-desc');
+        if (descInput) descInput.value = r.rutinaDesc || '';
+        // Ir a la tab de rutina (inicializarRutina no reseteará porque diasData.length > 0)
+        showTab('rutina');
+        // Renderizar los dias con los datos cargados
+        await new Promise(res => setTimeout(res, 80));
+        renderDias();
+        // Restaurar warmup configs si existen
+        if (r.warmupConfigs) {
+            await new Promise(res => setTimeout(res, 150));
+            r.warmupConfigs.forEach((cfg, diaIdx) => {
+                const tipoEl = document.getElementById('warmup-tipo-' + diaIdx);
+                if (tipoEl && cfg.tipo) {
+                    tipoEl.value = cfg.tipo;
+                    tipoEl.dispatchEvent(new Event('change'));
+                    setTimeout(() => {
+                        const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+                        set('warmup-vueltas-' + diaIdx, cfg.vueltas);
+                        set('warmup-pausa-vuelta-' + diaIdx, cfg.pausa_vuelta);
+                        set('warmup-duracion-' + diaIdx, cfg.duracion_bloque);
+                        set('warmup-trabajo-' + diaIdx, cfg.trabajo);
+                        set('warmup-pausa-' + diaIdx, cfg.pausa);
+                        set('warmup-cantidad-' + diaIdx, cfg.cantidad);
+                        set('warmup-series-' + diaIdx, cfg.series);
+                        set('warmup-reps-val-' + diaIdx, cfg.reps);
+                    }, 120);
+                }
+            });
+        }
+    }
+
+    async function cargarPlantillaEnCrear(idx) {
+        const repo = getRepositorio();
+        const r = repo[idx];
+        if (!r) return;
+        if (!confirm('¿Cargar esta plantilla en "Crear Rutina"? Se reemplazará lo que tengas actualmente.')) return;
+        await cargarPlantillaEnEstado(r, null);
+        toast('Plantilla cargada en Crear Rutina');
     }
 
     // ====================================================================
