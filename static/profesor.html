@@ -6942,36 +6942,34 @@
         }
 
         // ── Zonas musculares ───────────────────────────────────────────────
-        // Mapeo directo a las claves reales de la videoteca:
-        //   '' o 'todo_cuerpo' → Todo el cuerpo
-        //   'piernas'          → Piernas
-        //   'brazos'           → Brazos (tren superior)
-        //   'zona_media'       → Zona media / Core
-        const ZONA_CAT_KEYS = {
-            'Todo el Cuerpo': (cat) => cat === '' || cat === 'todo_cuerpo' || cat === 'todo el cuerpo' || cat === 'full body' || cat === 'funcional' || cat === 'completo',
-            'Tren Inferior':  (cat) => cat === 'piernas',
-            'Tren Superior':  (cat) => cat === 'brazos',
-            'Core':           (cat) => cat === 'zona_media' || cat === 'zona media' || cat === 'core' || cat === 'abdominales' || cat === 'oblicuos' || cat === 'lumbar',
-        };
-        // Keywords de respaldo para ejercicios que no coincidan por _cat exacta
-        const ZONAS = {
-            'Tren Superior': ['pecho', 'espalda', 'hombro', 'bicep', 'tricep', 'trapecio', 'brazos'],
-            'Tren Inferior': ['cuadricep', 'isquio', 'glut', 'pantorrill', 'aductor', 'pierna'],
-            'Core':          ['abdomin', 'oblicu', 'lumbar', 'zona_media', 'zona media', 'core'],
-            'Todo el Cuerpo': ['todo', 'full body', 'funcional', 'completo']
-        };
+        // Las categorías de la videoteca son ESTRICTAMENTE:
+        //   ''  o ausente     → Todo el cuerpo  (categoría vacía en Firebase)
+        //   'piernas'         → Piernas
+        //   'brazos'          → Brazos
+        //   'zona_media'      → Zona media / Core
+        // Cada zona devuelve SOLO ejercicios de esa categoría exacta.
+        // NO hay fallback entre zonas — un ejercicio de piernas nunca entra en brazos ni core.
+        function esCatTodoCuerpo(cat) {
+            return cat === '' || cat === 'todo_cuerpo' || cat === 'todo el cuerpo' || cat === 'full body' || cat === 'funcional' || cat === 'completo';
+        }
+        function esCatPiernas(cat) {
+            return cat === 'piernas';
+        }
+        function esCatBrazos(cat) {
+            return cat === 'brazos';
+        }
+        function esCatCore(cat) {
+            return cat === 'zona_media' || cat === 'zona media' || cat === 'core';
+        }
         function ejsDeZona(zonaKey, pool) {
             const p = pool || poolBase;
-            const catFn = ZONA_CAT_KEYS[zonaKey];
-            const fallbackKeys = ZONAS[zonaKey] || [];
             return p.filter(e => {
                 const cat = (e._cat || '').toLowerCase().trim();
-                // Primero: coincidencia exacta por clave de categoría
-                if (catFn && catFn(cat)) return true;
-                // Fallback: buscar keywords en cat, musculo1, musculo2
-                const m1 = (e.musculo1 || '').toLowerCase();
-                const m2 = (e.musculo2 || '').toLowerCase();
-                return fallbackKeys.some(k => cat.includes(k) || m1.includes(k) || m2.includes(k));
+                if (zonaKey === 'Todo el Cuerpo') return esCatTodoCuerpo(cat);
+                if (zonaKey === 'Tren Inferior')  return esCatPiernas(cat);
+                if (zonaKey === 'Tren Superior')  return esCatBrazos(cat);
+                if (zonaKey === 'Core')           return esCatCore(cat);
+                return false;
             });
         }
 
@@ -7001,42 +6999,44 @@
             let ejsElegidos;
 
             if (cfgZonas === 'azar') {
-                // Al azar: orden fijo piernas/todo el cuerpo → brazos → zona media
+                // Al azar: orden fijo → piernas primero, después brazos, zona media al final
+                // Todo el cuerpo se mezcla con piernas (primer bloque)
                 const totalAzar = cantEjs;
-                const cPiernas  = Math.ceil(totalAzar * 0.34);
-                const cBrazos   = Math.ceil(totalAzar * 0.33);
-                const cCore     = totalAzar - cPiernas - cBrazos;
+                const cPiernas = Math.ceil(totalAzar * 0.34);
+                const cBrazos  = Math.ceil(totalAzar * 0.33);
+                const cCore    = totalAzar - cPiernas - cBrazos;
+                // Piernas + todo el cuerpo van primeros
                 const piernasPool = [...ejsDeZona('Tren Inferior'), ...ejsDeZona('Todo el Cuerpo')];
-                const piernasEjs = pickStrict(poolSinRepetir(piernasPool), cPiernas);
-                const brazosEjs  = pickStrict(poolSinRepetir(ejsDeZona('Tren Superior')), cBrazos);
-                const coreEjs    = pickStrict(poolSinRepetir(ejsDeZona('Core')), Math.max(0, cCore));
+                const piernasEjs  = pickStrict(poolSinRepetir(piernasPool), cPiernas);
+                const brazosEjs   = pickStrict(poolSinRepetir(ejsDeZona('Tren Superior')), cBrazos);
+                const coreEjs     = pickStrict(poolSinRepetir(ejsDeZona('Core')), Math.max(0, cCore));
                 ejsElegidos = [...piernasEjs, ...brazosEjs, ...coreEjs];
             } else if (cfgZonas === 'sin-piernas') {
-                // 70% Tren Superior → 30% Core  (orden fijo, sin mezcla de otras zonas)
+                // 70% brazos → 30% zona media. SIN piernas NI todo el cuerpo.
                 const cSup  = Math.ceil(cantEjs * 0.7);
                 const cCore = cantEjs - cSup;
                 const sup  = pickStrict(poolSinRepetir(ejsDeZona('Tren Superior')), cSup);
                 const core = pickStrict(poolSinRepetir(ejsDeZona('Core')), cCore);
                 ejsElegidos = [...sup, ...core];
             } else if (cfgZonas === 'solo-core') {
-                // 100% Core (orden fijo)
+                // 100% zona media. Si no hay más, no se agregan de otras zonas.
                 ejsElegidos = pickStrict(poolSinRepetir(ejsDeZona('Core')), cantEjs);
             } else if (cfgZonas === 'mas-piernas') {
-                // 50% Tren Inferior → 30% Tren Superior → 20% Core (orden fijo)
+                // 50% piernas → 25% brazos → 25% zona media. SIN todo el cuerpo.
                 const cInf  = Math.ceil(cantEjs * 0.5);
-                const cSup  = Math.floor(cantEjs * 0.3);
+                const cSup  = Math.round(cantEjs * 0.25);
                 const cCore = cantEjs - cInf - cSup;
                 const inf  = pickStrict(poolSinRepetir(ejsDeZona('Tren Inferior')), cInf);
                 const sup  = pickStrict(poolSinRepetir(ejsDeZona('Tren Superior')), cSup);
                 const core = pickStrict(poolSinRepetir(ejsDeZona('Core')), cCore);
                 ejsElegidos = [...inf, ...sup, ...core];
             } else if (cfgZonas === 'todo-cuerpo') {
-                // 100% Todo el Cuerpo (orden fijo)
+                // 100% todo el cuerpo (categoría exacta).
                 ejsElegidos = pickStrict(poolSinRepetir(ejsDeZona('Todo el Cuerpo')), cantEjs);
             } else if (cfgZonas === '25-25-25-25') {
-                // 25% Todo el cuerpo → 25% Tren Inferior → 25% Tren Superior → 25% Core (orden fijo)
-                const c25  = Math.floor(cantEjs / 4);
-                const cRem = cantEjs - c25 * 4;
+                // 25% todo el cuerpo → 25% piernas → 25% brazos → 25% zona media (en ese orden).
+                const c25   = Math.floor(cantEjs / 4);
+                const cRem  = cantEjs - c25 * 4;
                 const cTodo = c25 + (cRem > 0 ? 1 : 0);
                 const cInf  = c25 + (cRem > 1 ? 1 : 0);
                 const cSup  = c25 + (cRem > 2 ? 1 : 0);
@@ -7047,7 +7047,7 @@
                 const core = pickStrict(poolSinRepetir(ejsDeZona('Core')),           cCore);
                 ejsElegidos = [...todo, ...inf, ...sup, ...core];
             } else {
-                // 33/33/33: Tren Inferior → Tren Superior → Core (orden fijo)
+                // 33/33/33: piernas → brazos → zona media. SIN todo el cuerpo.
                 const t    = Math.floor(cantEjs / 3), r = cantEjs - t * 3;
                 const cInf  = t + (r > 0 ? 1 : 0);
                 const cSup  = t + (r > 1 ? 1 : 0);
@@ -7081,17 +7081,16 @@
         // ── Construir días ─────────────────────────────────────────────────
         const diasGenerados = [];
         for (let d = 0; d < numDias; d++) {
-            // Calentamiento: usar la misma lógica de ejsDeZona para Core
-            // (revisa _cat, musculo1 y musculo2 para no perder ejercicios por categoría genérica)
+            // Calentamiento: SOLO zona_media. Máximo 3. Sin fallback a otras categorías.
             const ejsCorePool = ejsDeZona('Core');
-            const totalCal = Math.floor(Math.random() * 3) + 3;
-
-            // Calentamiento: SOLO zona media (Core). Máximo 3. Si no hay, queda vacío — sin fallback.
-            const warmupEjercicios = ejsCorePool.map(e => ({
-                nombre: e.nombre || e[0] || 'Ejercicio', link: e.link || e[1] || '',
-                reps: String(Math.floor(Math.random() * 8) + 8), unit: 'Reps',
-                con_carga: false, tip1: e.tip1 || '', tip2: e.tip2 || '', elemento: e.elemento || ''
-            })).sort(() => Math.random() - 0.5).slice(0, 3);
+            const warmupEjercicios = [...ejsCorePool]
+                .sort(() => Math.random() - 0.5)
+                .slice(0, 3)
+                .map(e => ({
+                    nombre: e.nombre || e[0] || 'Ejercicio', link: e.link || e[1] || '',
+                    reps: String(Math.floor(Math.random() * 8) + 8), unit: 'Reps',
+                    con_carga: false, tip1: e.tip1 || '', tip2: e.tip2 || '', elemento: e.elemento || ''
+                }));
 
             const bloquesRutina = [];
             for (let b = 0; b < numBloques; b++) bloquesRutina.push(buildBloqueConZona(elegirTipo()));
