@@ -3904,28 +3904,53 @@
             const metaParts = [];
             if (e.elemento) metaParts.push('🔧 ' + e.elemento);
             if (e.con_carga) metaParts.push('🏋️ Lleva carga');
-            // Solo mostrar "Series" si el modo del bloque es Series
-            if (modoBloque === 'Series' && e.series) metaParts.push('Series: ' + e.series);
-            // Per-vuelta reps: Vuelta 1: 10 Reps, Vuelta 2: 12 Reps
-            if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
-                const vLabels = e.reps_por_vuelta.map((rv, vi) => 'V' + (vi+1) + ': <strong>' + rv + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>').join(' &nbsp; ');
-                metaParts.push(vLabels);
-                if (e.descanso) metaParts.push('Pausa por vuelta: ' + e.descanso + 's');
-            // Per-serie reps: Serie 1: 10 Reps | Pausa: 60s
-            } else if (e.reps_por_serie && e.reps_por_serie.length > 0) {
-                const sLabels = e.reps_por_serie.map((rs, si) => {
-                    const pausaSerie = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
-                    return 'S' + (si+1) + ': <strong>' + rs + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>' + (pausaSerie ? ' <span style="color:#e67e22;">| Pausa: ' + pausaSerie + 's</span>' : '');
-                }).join(' &nbsp; ');
-                metaParts.push(sLabels);
-            } else if (e.reps) {
-                metaParts.push(e.reps + (e.unit ? ' ' + e.unit : ''));
-                if (e.descanso) metaParts.push('Pausa: ' + e.descanso + 's');
-            } else if (e.descanso) {
-                metaParts.push('Pausa: ' + e.descanso + 's');
+
+            if (modoBloque === 'Tabata' || modoBloque === 'EMOM') {
+                // Tabata y EMOM: sin repeticiones ni pausa
+            } else if (modoBloque === 'Series' || modoBloque === 'Series/Reps') {
+                // Series: mostrar cada serie con sus reps y pausa (sin "Pausa" suelta)
+                if (e.reps_por_serie && e.reps_por_serie.length > 0) {
+                    e.reps_por_serie.forEach((rs, si) => {
+                        const pausaSerie = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
+                        metaParts.push('Serie ' + (si+1) + ': <strong>' + rs + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>' + (pausaSerie ? ' <span style="color:#e67e22;">| Pausa: ' + pausaSerie + 's</span>' : ''));
+                    });
+                } else {
+                    if (e.reps) metaParts.push(e.reps + (e.unit ? ' ' + e.unit : ''));
+                    if (e.descanso) metaParts.push('<span style="color:#e67e22;">Pausa: ' + e.descanso + 's</span>');
+                }
+            } else if (modoBloque === 'Circuito' || modoBloque === 'Circuito (Vueltas)') {
+                // Circuito por vuelta: mostrar vuelta por vuelta, sin pausa por vuelta
+                if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
+                    e.reps_por_vuelta.forEach((rv, vi) => {
+                        metaParts.push('Vuelta ' + (vi+1) + ': <strong>' + rv + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>');
+                    });
+                } else if (e.reps) {
+                    metaParts.push(e.reps + (e.unit ? ' ' + e.unit : ''));
+                }
+            } else if (modoBloque === 'Circuito por Tiempo') {
+                // Circuito por tiempo: solo cantidad de reps, sin pausa
+                if (e.reps) metaParts.push(e.reps + (e.unit ? ' ' + e.unit : ''));
+            } else if (modoBloque === 'Por Tiempo') {
+                // Por tiempo: solo cantidad de reps, sin pausa
+                if (e.reps) metaParts.push(e.reps + (e.unit ? ' ' + e.unit : ''));
+            } else {
+                // Fallback genérico
+                if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
+                    e.reps_por_vuelta.forEach((rv, vi) => {
+                        metaParts.push('Vuelta ' + (vi+1) + ': <strong>' + rv + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>');
+                    });
+                } else if (e.reps_por_serie && e.reps_por_serie.length > 0) {
+                    e.reps_por_serie.forEach((rs, si) => {
+                        const pausaSerie = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
+                        metaParts.push('Serie ' + (si+1) + ': <strong>' + rs + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>' + (pausaSerie ? ' <span style="color:#e67e22;">| Pausa: ' + pausaSerie + 's</span>' : ''));
+                    });
+                } else if (e.reps) {
+                    metaParts.push(e.reps + (e.unit ? ' ' + e.unit : ''));
+                }
             }
+
             if (e.nota_tecnica) metaParts.push('📝 ' + e.nota_tecnica);
-            const metaStr = metaParts.join(' &nbsp;|&nbsp; ');
+            const metaStr = metaParts.join('<br>');
             return `<div style="${sEjBox}">
                 <div style="${sEjTop}">
                     <span style="${sEjNombre}">${e.nombre}</span>
@@ -3965,13 +3990,23 @@
                 const dWCfg  = diaDatos.warmup_config_detalle || {};
                 if (dWEjs.length > 0 || (dWTipo === 'EMOM' && dWCfg.emom_config_por_minuto && dWCfg.emom_config_por_minuto.length > 0)) {
                     html += `<div style="${sSecHeader}background:#4FC3F7;">Calentamiento${dWTipo ? ' — ' + dWTipo.toUpperCase() : ''}</div>`;
-                    const wP = [];
-                    if (dWCfg.vueltas)         wP.push('Vueltas: ' + dWCfg.vueltas);
-                    if (dWCfg.pausa_vuelta)    wP.push('Pausa: ' + dWCfg.pausa_vuelta + 's');
-                    if (dWCfg.duracion_bloque) wP.push('Duración: ' + dWCfg.duracion_bloque + ' min');
-                    if (dWCfg.trabajo)         wP.push('Trabajo: ' + dWCfg.trabajo + 's / Pausa: ' + (dWCfg.pausa||10) + 's');
-                    if (dWCfg.minutos)         wP.push('Minutos: ' + dWCfg.minutos);
-                    if (wP.length) html += `<p style="${ff}color:#555;font-style:italic;font-size:12px;margin:0 0 10px 2px;">${wP.join(' | ')}</p>`;
+                    let wMetaLineD = '';
+                    if (dWTipo === 'Circuito (Vueltas)' || dWTipo === 'Circuito') {
+                        const vv = dWCfg.vueltas || ''; const pv = dWCfg.pausa_vuelta || '';
+                        wMetaLineD = (vv ? vv + ' vueltas' : '') + (pv ? ' | Pausa entre vueltas: ' + pv + ' segundos' : '');
+                    } else if (dWTipo === 'Circuito por Tiempo') {
+                        const db = dWCfg.duracion_bloque || '';
+                        wMetaLineD = (db ? 'Duración: ' + db + ' minutos | ' : '') + 'Entrenamiento continuo, sin pausas entre ejercicios ni vueltas';
+                    } else if (dWTipo === 'Tabata') {
+                        wMetaLineD = 'Actividad: ' + (dWCfg.trabajo||20) + ' segundos | Pausa: ' + (dWCfg.pausa||10) + ' segundos' + (dWCfg.cantidad ? ' | ' + dWCfg.cantidad + ' ejercicios' : '');
+                    } else if (dWTipo === 'EMOM') {
+                        wMetaLineD = (dWCfg.minutos ? dWCfg.minutos + ' minutos totales' : '');
+                    } else if (dWTipo === 'Por Tiempo') {
+                        wMetaLineD = (dWCfg.vueltas ? dWCfg.vueltas + ' vueltas — al terminar cada vuelta marcá el tiempo' : 'Al terminar cada vuelta marcá el tiempo');
+                    } else if (dWTipo === 'Series/Reps') {
+                        wMetaLineD = dWCfg.series ? dWCfg.series + ' series' : '';
+                    }
+                    if (wMetaLineD) html += `<p style="${ff}color:#555;font-style:italic;font-size:12px;margin:0 0 10px 2px;">${wMetaLineD}</p>`;
                     if (dWTipo === 'EMOM' && dWCfg.emom_config_por_minuto && dWCfg.emom_config_por_minuto.length > 0) {
                         dWCfg.emom_config_por_minuto.forEach((minCfg, mi) => {
                             html += `<div style="${ff}background:#FFD54F22;border-left:3px solid #FFD54F;padding:4px 10px;margin:6px 0 2px;border-radius:4px;font-size:11px;font-weight:700;color:#b8860b;">MINUTO ${mi+1}</div>`;
@@ -3998,11 +4033,21 @@
                     if (ejsFlat.length > 0) {
                         html += `<div style="${sSecHeader}background:#CE93D8;">Bloque Principal — ${diaTipo}</div>`;
                         if (diaTipo === 'Tabata') {
-                            const mI = ' — ' + (diaDatos.trabajo||20) + 's / ' + (diaDatos.pausa||10) + 's | ' + (diaDatos.rondas||1) + ' ronda(s)';
-                            html += `<div style="${sSubHeader}">Tabata${mI}</div>`;
+                            const trab = diaDatos.trabajo || 20;
+                            const pau = diaDatos.pausa || 10;
+                            const rnd = diaDatos.rondas || 1;
+                            const cant = ejsFlat.length;
+                            html += `<div style="${sSubHeader}">Tabata: Actividad: ${trab} segundos | Pausa: ${pau} segundos | ${cant} ejercicios | ${rnd} ronda(s)</div>`;
                         } else if (diaTipo === 'EMOM') {
-                            const mI = ' — ' + (diaDatos.minutos_totales||10) + ' min';
-                            html += `<div style="${sSubHeader}">EMOM${mI}</div>`;
+                            html += `<div style="${sSubHeader}">EMOM: ${diaDatos.minutos_totales||10} minutos totales</div>`;
+                        } else if (diaTipo === 'Circuito') {
+                            html += `<div style="${sSubHeader}">Circuito por vuelta: ${diaDatos.vueltas_bloque||3} vueltas | Pausa entre vueltas: ${diaDatos.pausa_vuelta||60} segundos</div>`;
+                        } else if (diaTipo === 'Circuito por Tiempo') {
+                            html += `<div style="${sSubHeader}">Circuito por tiempo: ${diaDatos.duracion_min||5} minutos | Entrenamiento continuo, sin pausas entre ejercicios ni vueltas</div>`;
+                        } else if (diaTipo === 'Por Tiempo') {
+                            html += `<div style="${sSubHeader}">Por tiempo: ${diaDatos.vueltas||1} vuelta(s) — al terminar cada vuelta marcá el tiempo</div>`;
+                        } else if (diaTipo === 'Series') {
+                            html += `<div style="${sSubHeader}">Series: ${ejsFlat.length} ejercicio(s)</div>`;
                         }
                         // Grupos anidados
                         if (ejsFlat[0] && ejsFlat[0].ejercicios !== undefined) {
@@ -4038,14 +4083,31 @@
         const wConfig = datos.warmup_config_detalle || {};
         if (wEjs.length > 0 || (wTipo === 'EMOM' && wConfig.emom_config_por_minuto && wConfig.emom_config_por_minuto.length > 0)) {
             html += `<div style="${sSecHeader}background:#4FC3F7;">1. CALENTAMIENTO${wTipo ? ' — ' + wTipo.toUpperCase() : ''}</div>`;
-            // Metadata del warmup
-            const wParts = [];
-            if (wConfig.vueltas)        wParts.push('Vueltas: ' + wConfig.vueltas);
-            if (wConfig.pausa_vuelta)   wParts.push('Pausa entre vueltas: ' + wConfig.pausa_vuelta + 's');
-            if (wConfig.duracion_bloque) wParts.push('Duracion: ' + wConfig.duracion_bloque + ' min');
-            if (wConfig.trabajo)        wParts.push('Trabajo: ' + wConfig.trabajo + 's / Pausa: ' + (wConfig.pausa||10) + 's');
-            if (wConfig.minutos)        wParts.push('Minutos: ' + wConfig.minutos);
-            if (wParts.length) html += `<p style="${ff}color:#555;font-style:italic;font-size:12px;margin:0 0 10px 2px;">${wParts.join(' | ')}</p>`;
+            // Metadata del warmup según modo
+            let wMetaLine = '';
+            if (wTipo === 'Circuito (Vueltas)' || wTipo === 'Circuito') {
+                const vv = wConfig.vueltas || '';
+                const pv = wConfig.pausa_vuelta || '';
+                wMetaLine = (vv ? vv + ' vueltas' : '') + (pv ? ' | Pausa entre vueltas: ' + pv + ' segundos' : '');
+            } else if (wTipo === 'Circuito por Tiempo') {
+                const db = wConfig.duracion_bloque || '';
+                wMetaLine = (db ? 'Duración: ' + db + ' minutos | Entrenamiento continuo, sin pausas entre ejercicios ni vueltas' : 'Entrenamiento continuo, sin pausas entre ejercicios ni vueltas');
+            } else if (wTipo === 'Tabata') {
+                const trab = wConfig.trabajo || 20;
+                const pau = wConfig.pausa || 10;
+                const cant = wConfig.cantidad || '';
+                wMetaLine = 'Actividad: ' + trab + ' segundos | Pausa: ' + pau + ' segundos' + (cant ? ' | ' + cant + ' ejercicios' : '');
+            } else if (wTipo === 'EMOM') {
+                const mins = wConfig.minutos || '';
+                wMetaLine = (mins ? mins + ' minutos totales' : '');
+            } else if (wTipo === 'Por Tiempo') {
+                const vvt = wConfig.vueltas || '';
+                wMetaLine = (vvt ? vvt + ' vueltas — al terminar cada vuelta marcá el tiempo' : 'Al terminar cada vuelta marcá el tiempo');
+            } else if (wTipo === 'Series/Reps') {
+                const cant = wConfig.series || '';
+                wMetaLine = cant ? cant + ' series' : '';
+            }
+            if (wMetaLine) html += `<p style="${ff}color:#555;font-style:italic;font-size:12px;margin:0 0 10px 2px;">${wMetaLine}</p>`;
             if (wTipo === 'EMOM' && wConfig.emom_config_por_minuto && wConfig.emom_config_por_minuto.length > 0) {
                 wConfig.emom_config_por_minuto.forEach((minCfg, mi) => {
                     html += `<div style="${ff}background:#FFD54F22;border-left:3px solid #FFD54F;padding:4px 10px;margin:6px 0 2px;border-radius:4px;font-size:11px;font-weight:700;color:#b8860b;">MINUTO ${mi+1}</div>`;
@@ -4068,12 +4130,20 @@
                 const ejsB = toArray(b.ejercicios || b.datos || b.rutina || []);
                 const bloqTipo = b.tipo || tipoFallback || 'Bloque';
                 let meta = '';
-                if      (bloqTipo === 'Tabata')              meta = (b.trabajo||20) + 's act. / ' + (b.pausa||10) + 's pausa — ' + (b.rondas||1) + ' ronda(s)';
-                else if (bloqTipo === 'Circuito')            meta = (b.vueltas||b.vueltas_bloque||3) + ' vueltas | Pausa: ' + (b.pausa_vuelta||60) + 's';
-                else if (bloqTipo === 'Circuito por Tiempo') meta = (b.duracion_min||b.tiempo_min||5) + ' min';
-                else if (bloqTipo === 'EMOM')                meta = (b.minutos_totales||10) + ' min';
-                else if (bloqTipo === 'Series')              meta = ejsB.length + ' ejercicio(s)';
-                html += `<div style="${sSubHeader}">Bloque ${i+1}: ${bloqTipo}${meta ? ' — ' + meta : ''}</div>`;
+                if (bloqTipo === 'Tabata') {
+                    meta = 'Actividad: ' + (b.trabajo||20) + ' segundos | Pausa: ' + (b.pausa||10) + ' segundos | ' + ejsB.length + ' ejercicios | ' + (b.rondas||1) + ' ronda(s)';
+                } else if (bloqTipo === 'Circuito') {
+                    meta = 'Circuito por vuelta: ' + (b.vueltas||b.vueltas_bloque||3) + ' vueltas | Pausa entre vueltas: ' + (b.pausa_vuelta||60) + ' segundos';
+                } else if (bloqTipo === 'Circuito por Tiempo') {
+                    meta = 'Circuito por tiempo: ' + (b.duracion_min||b.tiempo_min||5) + ' minutos | Entrenamiento continuo, sin pausas entre ejercicios ni vueltas';
+                } else if (bloqTipo === 'EMOM') {
+                    meta = 'EMOM: ' + (b.minutos_totales||10) + ' minutos totales';
+                } else if (bloqTipo === 'Series') {
+                    meta = 'Series: ' + ejsB.length + ' ejercicio(s)';
+                } else if (bloqTipo === 'Por Tiempo') {
+                    meta = 'Por tiempo: ' + (b.vueltas||1) + ' vueltas — al terminar cada vuelta marcá el tiempo';
+                }
+                html += `<div style="${sSubHeader}">Bloque ${i+1}: ${meta || bloqTipo}</div>`;
                 if (b.descripcion) html += `<p style="${ff}color:#666;font-size:12px;font-style:italic;margin:0 0 8px 2px;">${b.descripcion}</p>`;
                 if (bloqTipo === 'EMOM' && b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
                     b.emom_config_por_minuto.forEach((minCfg, mi) => {
@@ -4100,8 +4170,8 @@
             const ejsFlat = toArray(datos.rutina || datos.datos || []);
             if (tipo === 'EMOM') {
                 const minutosCiclo = toArray(datos.minutos_ciclo);
-                let metaInfo = ' — ' + (datos.minutos_totales||10) + ' min';
-                html += `<div style="${sSubHeader}">EMOM${metaInfo}</div>`;
+                const totalMins = datos.minutos_totales || 10;
+                html += `<div style="${sSubHeader}">EMOM: ${totalMins} minutos totales</div>`;
                 if (datos.descripcion) html += `<p style="${ff}color:#666;font-size:12px;font-style:italic;margin:0 0 8px 2px;">${datos.descripcion}</p>`;
                 if (minutosCiclo.length > 0) {
                     minutosCiclo.forEach((minCfg, mi) => {
@@ -4115,8 +4185,11 @@
                     ejsFlat.forEach(ej => { html += ejBox(ej, 'EMOM'); });
                 }
             } else if (ejsFlat.length > 0) {
-                let metaInfo = ' — ' + (datos.trabajo||20) + 's / ' + (datos.pausa||10) + 's | ' + (datos.rondas||1) + ' ronda(s)';
-                html += `<div style="${sSubHeader}">Tabata${metaInfo}</div>`;
+                const trab = datos.trabajo || 20;
+                const pau = datos.pausa || 10;
+                const rnd = datos.rondas || 1;
+                const cant = ejsFlat.length;
+                html += `<div style="${sSubHeader}">Tabata: Actividad: ${trab} segundos | Pausa: ${pau} segundos | ${cant} ejercicios | ${rnd} ronda(s)</div>`;
                 ejsFlat.forEach(ej => { html += ejBox(ej, 'Tabata'); });
             }
         } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo') {
@@ -4128,9 +4201,15 @@
                     const ejsG = toArray(g.ejercicios);
                     const gTipo = g.tipo || tipo;
                     let gMeta = '';
-                    if (gTipo === 'Circuito')            gMeta = (datos.vueltas_bloque||g.vueltas||3) + ' vueltas | Pausa: ' + (datos.pausa_vuelta||g.pausa_vuelta||60) + 's';
-                    else if (gTipo === 'Circuito por Tiempo') gMeta = (g.tiempo_min||g.duracion_min||datos.duracion_min||5) + ' min';
-                    html += `<div style="${sSubHeader}">Bloque ${gi+1}: ${gTipo}${gMeta ? ' — ' + gMeta : ''}</div>`;
+                    if (gTipo === 'Circuito') {
+                        const vv = datos.vueltas_bloque || g.vueltas || 3;
+                        const pv = datos.pausa_vuelta || g.pausa_vuelta || 60;
+                        gMeta = 'Circuito por vuelta: ' + vv + ' vueltas | Pausa entre vueltas: ' + pv + ' segundos';
+                    } else if (gTipo === 'Circuito por Tiempo') {
+                        const dm = g.tiempo_min || g.duracion_min || datos.duracion_min || 5;
+                        gMeta = 'Circuito por tiempo: ' + dm + ' minutos | Entrenamiento continuo, sin pausas entre ejercicios ni vueltas';
+                    }
+                    html += `<div style="${sSubHeader}">Bloque ${gi+1}: ${gMeta || gTipo}</div>`;
                     if (ejsG.length === 0) {
                         html += `<p style="${ff}color:#aaa;font-size:12px;font-style:italic;padding:6px 2px;">Sin ejercicios registrados</p>`;
                     } else {
@@ -4138,12 +4217,22 @@
                     }
                 });
             } else {
+                // Titulo plano
+                let planMeta = '';
+                if (tipo === 'Circuito') {
+                    const vv = datos.vueltas_bloque || 3;
+                    const pv = datos.pausa_vuelta || 60;
+                    planMeta = 'Circuito por vuelta: ' + vv + ' vueltas | Pausa entre vueltas: ' + pv + ' segundos';
+                } else {
+                    planMeta = 'Circuito por tiempo: ' + (datos.duracion_min || 5) + ' minutos | Entrenamiento continuo, sin pausas entre ejercicios ni vueltas';
+                }
+                html += `<div style="${sSubHeader}">${planMeta}</div>`;
                 gruposC.forEach(ej => { html += ejBox(ej, tipo); });
             }
         } else if (tipo === 'Por Tiempo') {
             html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — POR TIEMPO</div>`;
             const vueltas = datos.vueltas || 1;
-            html += `<p style="${ff}color:#666;font-size:12px;font-style:italic;margin:0 0 8px 2px;">Vueltas: ${vueltas} — Cronómetro, el alumno marca cada vuelta manualmente</p>`;
+            html += `<div style="${sSubHeader}">Por tiempo: ${vueltas} vuelta(s) — al terminar cada vuelta marcá el tiempo</div>`;
             const ejsPT = toArray(datos.ejercicios || datos.datos || datos.rutina || []);
             if (ejsPT.length === 0) {
                 html += `<p style="${ff}color:#aaa;font-size:12px;font-style:italic;padding:6px 2px;">Sin ejercicios registrados</p>`;
@@ -4151,8 +4240,10 @@
                 ejsPT.forEach(ej => { html += ejBox(ej, 'Por Tiempo'); });
             }
         } else if (tipo === 'Series') {
+            const ejsSeries = toArray(datos.datos || datos.rutina || []);
             html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — SERIES</div>`;
-            toArray(datos.datos || datos.rutina || []).forEach(ej => { html += ejBox(ej, 'Series'); });
+            html += `<div style="${sSubHeader}">Series: ${ejsSeries.length} ejercicio(s)</div>`;
+            ejsSeries.forEach(ej => { html += ejBox(ej, 'Series'); });
         }
 
         // --- Mapa de Calor Muscular de esta rutina ---
