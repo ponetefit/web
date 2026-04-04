@@ -4230,7 +4230,7 @@
             }
 
             // Ejercicio en caja gris #F0F0F0 — nombre + video + Series|Reps|Pausa + carga + elemento
-            function ejGris(ej) {
+            function ejGris(ej, modoBloque) {
                 const e = normalizeEj(ej);
                 if (!e.nombre) return;
 
@@ -4258,11 +4258,14 @@
                         detLines.push(linea);
                     });
                 } else {
-                    // Formato general
-                    if (e.series) detLines.push('Series: ' + e.series + (e.reps ? '   x   ' + e.reps + (e.unit ? ' ' + e.unit : ' Reps') : ''));
-                    else if (e.reps) detLines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
-                    if (e.descanso && !e.series) detLines.push('Pausa: ' + e.descanso + 's');
-                    else if (e.descanso && e.series) detLines[detLines.length - 1] += '   |   Pausa: ' + e.descanso + 's';
+                    // Formato general — solo mostrar "Series: X" en modo Series
+                    if (modoBloque === 'Series' && e.series) {
+                        detLines.push('Series: ' + e.series + (e.reps ? '   x   ' + e.reps + (e.unit ? ' ' + e.unit : ' Reps') : ''));
+                        if (e.descanso) detLines[detLines.length - 1] += '   |   Pausa: ' + e.descanso + 's';
+                    } else {
+                        if (e.reps) detLines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
+                        if (e.descanso) detLines.push('Pausa: ' + e.descanso + 's');
+                    }
                 }
                 if (e.nota_tecnica) detLines.push('Nota: ' + e.nota_tecnica);
 
@@ -4391,10 +4394,10 @@
                                 if (ejsMin.length === 0) {
                                     doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(170,170,170);
                                     doc.text('Sin ejercicios', mL + 4, y); y += 5;
-                                } else { ejsMin.forEach(ej => ejGris(ej)); }
+                                } else { ejsMin.forEach(ej => ejGris(ej, dWTipo)); }
                             });
                         } else {
-                            dWEjs.forEach(ej => ejGris(ej));
+                            dWEjs.forEach(ej => ejGris(ej, dWTipo));
                         }
                         chk(6); doc.setDrawColor(210,210,210); doc.setLineWidth(0.4); doc.line(mL, y+2, pw-mR, y+2); y+=8;
                     }
@@ -4414,11 +4417,12 @@
                             }
                             if (ejsF[0] && ejsF[0].ejercicios !== undefined) {
                                 ejsF.forEach((g, gi) => {
-                                    subBar('Bloque ' + (gi+1) + ': ' + (g.tipo || diaTipo));
-                                    toArray(g.ejercicios).forEach(ej => ejGris(ej));
+                                    const gTipoD = g.tipo || diaTipo;
+                                    subBar('Bloque ' + (gi+1) + ': ' + gTipoD);
+                                    toArray(g.ejercicios).forEach(ej => ejGris(ej, gTipoD));
                                 });
                             } else {
-                                ejsF.forEach(ej => ejGris(ej));
+                                ejsF.forEach(ej => ejGris(ej, diaTipo));
                             }
                         }
                     }
@@ -4498,10 +4502,10 @@
                         if (ejsMin.length === 0) {
                             doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(170,170,170);
                             doc.text('Sin ejercicios', mL + 4, y); y += 5;
-                        } else { ejsMin.forEach(ej => ejGris(ej)); }
+                        } else { ejsMin.forEach(ej => ejGris(ej, wTipo)); }
                     });
                 } else {
-                    wEjs.forEach(ej => ejGris(ej));
+                    wEjs.forEach(ej => ejGris(ej, wTipo));
                 }
 
                 // Divisor
@@ -4522,6 +4526,7 @@
                     if      (bloqTipo === 'Tabata')              meta = (b.trabajo||20) + 's / ' + (b.pausa||10) + 's | ' + (b.rondas||1) + ' ronda(s)';
                     else if (bloqTipo === 'Circuito')            meta = (b.vueltas||b.vueltas_bloque||3) + ' vueltas | Pausa: ' + (b.pausa_vuelta||60) + 's';
                     else if (bloqTipo === 'Circuito por Tiempo') meta = (b.duracion_min||b.tiempo_min||5) + ' min';
+                    else if (bloqTipo === 'Por Tiempo')          meta = (b.vueltas||1) + ' vueltas | Cronómetro';
                     else if (bloqTipo === 'EMOM')                meta = (b.minutos_totales||10) + ' min';
                     else if (bloqTipo === 'Series')              meta = ejsB.length + ' ejercicio(s)';
                     subBar('Bloque ' + (i+1) + ': ' + bloqTipo + (meta ? '  —  ' + meta : ''));
@@ -4534,7 +4539,7 @@
                             if (ejsMin.length === 0) {
                                 doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(170,170,170);
                                 doc.text('Sin ejercicios', mL + 4, y); y += 5;
-                            } else { ejsMin.forEach(ej => ejGris(ej)); }
+                            } else { ejsMin.forEach(ej => ejGris(ej, bloqTipo)); }
                         });
                     } else if (ejsB.length === 0) {
                         chk(8);
@@ -4544,7 +4549,7 @@
                         doc.text('Sin ejercicios registrados', mL + 4, y);
                         y += 8;
                     } else {
-                        ejsB.forEach(ej => ejGris(ej));
+                        ejsB.forEach(ej => ejGris(ej, bloqTipo));
                     }
                 });
             }
@@ -4567,17 +4572,17 @@
                             if (ejsMin.length === 0) {
                                 doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(170,170,170);
                                 doc.text('Sin ejercicios', mL + 4, y); y += 5;
-                            } else { ejsMin.forEach(ej => ejGris(ej)); }
+                            } else { ejsMin.forEach(ej => ejGris(ej, tipo)); }
                         });
                     } else {
-                        toArray(datos.rutina || datos.datos || []).forEach(ej => ejGris(ej));
+                        toArray(datos.rutina || datos.datos || []).forEach(ej => ejGris(ej, tipo));
                     }
                 } else {
                     let metaInfo = '  —  ' + (datos.trabajo||20) + 's / ' + (datos.pausa||10) + 's | ' + (datos.rondas||1) + ' ronda(s)';
                     subBar('Tabata' + metaInfo);
-                    toArray(datos.rutina || datos.datos || []).forEach(ej => ejGris(ej));
+                    toArray(datos.rutina || datos.datos || []).forEach(ej => ejGris(ej, tipo));
                 }
-            } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo' || tipo === 'Series') {
+            } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo' || tipo === 'Por Tiempo' || tipo === 'Series') {
                 colorBar('2. BLOQUE PRINCIPAL  —  ' + tipo, 206, 147, 216);
                 const flatList = toArray(datos.datos || datos.rutina || []);
                 if (flatList.length && flatList[0] && flatList[0].ejercicios !== undefined) {
@@ -4588,6 +4593,7 @@
                         let gMeta = '';
                         if (gTipo === 'Circuito')            gMeta = (datos.vueltas_bloque||g.vueltas||3) + ' vueltas | Pausa: ' + (datos.pausa_vuelta||g.pausa_vuelta||60) + 's';
                         else if (gTipo === 'Circuito por Tiempo') gMeta = (g.tiempo_min||g.duracion_min||datos.duracion_min||5) + ' min';
+                        else if (gTipo === 'Por Tiempo') gMeta = (g.vueltas||datos.vueltas||1) + ' vueltas | Cronómetro';
                         subBar('Bloque ' + (gi+1) + ': ' + gTipo + (gMeta ? '  —  ' + gMeta : ''));
                         if (ejsG.length === 0) {
                             chk(8);
@@ -4597,11 +4603,11 @@
                             doc.text('Sin ejercicios registrados', mL + 4, y);
                             y += 8;
                         } else {
-                            ejsG.forEach(ej => ejGris(ej));
+                            ejsG.forEach(ej => ejGris(ej, gTipo));
                         }
                     });
                 } else {
-                    flatList.forEach(ej => ejGris(ej));
+                    flatList.forEach(ej => ejGris(ej, tipo));
                 }
             }
 
