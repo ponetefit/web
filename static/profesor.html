@@ -3898,13 +3898,14 @@
         const sEjMeta     = ff + 'font-size:11px;color:#555;margin:0;';
 
         // --- Función interna para renderizar un ejercicio en caja gris ---
-        function ejBox(ej) {
+        function ejBox(ej, modoBloque) {
             const e = normalizeEj(ej);
             if (!e.nombre) return '';
             const metaParts = [];
             if (e.elemento) metaParts.push('🔧 ' + e.elemento);
             if (e.con_carga) metaParts.push('🏋️ Lleva carga');
-            if (e.series)   metaParts.push('Series: ' + e.series);
+            // Solo mostrar "Series" si el modo del bloque es Series
+            if (modoBloque === 'Series' && e.series) metaParts.push('Series: ' + e.series);
             // Per-vuelta reps: Vuelta 1: 10 Reps, Vuelta 2: 12 Reps
             if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
                 const vLabels = e.reps_por_vuelta.map((rv, vi) => 'V' + (vi+1) + ': <strong>' + rv + (e.unit ? ' ' + e.unit : ' Reps') + '</strong>').join(' &nbsp; ');
@@ -3978,11 +3979,11 @@
                             if (ejsMin.length === 0) {
                                 html += `<p style="${ff}color:#aaa;font-size:11px;font-style:italic;margin:2px 0 6px 10px;">Sin ejercicios</p>`;
                             } else {
-                                ejsMin.forEach(ej => { html += ejBox(ej); });
+                                ejsMin.forEach(ej => { html += ejBox(ej, dWTipo); });
                             }
                         });
                     } else {
-                        dWEjs.forEach(ej => { html += ejBox(ej); });
+                        dWEjs.forEach(ej => { html += ejBox(ej, dWTipo); });
                     }
                     html += '<hr style="border:none;border-top:1px solid #eee;margin:12px 0;">';
                 }
@@ -4008,10 +4009,10 @@
                             ejsFlat.forEach((g, gi) => {
                                 const ejsG = toArray(g.ejercicios);
                                 html += `<div style="${sSubHeader}">Bloque ${gi+1}: ${g.tipo || diaTipo}</div>`;
-                                ejsG.forEach(ej => { html += ejBox(ej); });
+                                ejsG.forEach(ej => { html += ejBox(ej, g.tipo || diaTipo); });
                             });
                         } else {
-                            ejsFlat.forEach(ej => { html += ejBox(ej); });
+                            ejsFlat.forEach(ej => { html += ejBox(ej, diaTipo); });
                         }
                     }
                 }
@@ -4052,11 +4053,11 @@
                     if (ejsMin.length === 0) {
                         html += `<p style="${ff}color:#aaa;font-size:11px;font-style:italic;margin:2px 0 6px 10px;">Sin ejercicios</p>`;
                     } else {
-                        ejsMin.forEach(ej => { html += ejBox(ej); });
+                        ejsMin.forEach(ej => { html += ejBox(ej, wTipo); });
                     }
                 });
             } else {
-                wEjs.forEach(ej => { html += ejBox(ej); });
+                wEjs.forEach(ej => { html += ejBox(ej, wTipo); });
             }
             html += '<hr style="border:none;border-top:2px solid #eee;margin:20px 0;">';
         }
@@ -4080,12 +4081,12 @@
                         const ejsMin = minCfg.ejercicios || [];
                         if (ejsMin.length === 0) {
                             html += `<p style="${ff}color:#aaa;font-size:11px;font-style:italic;margin:2px 0 6px 10px;">Sin ejercicios</p>`;
-                        } else { ejsMin.forEach(ej => { html += ejBox(ej); }); }
+                        } else { ejsMin.forEach(ej => { html += ejBox(ej, bloqTipo); }); }
                     });
                 } else if (ejsB.length === 0) {
                     html += `<p style="${ff}color:#aaa;font-size:12px;font-style:italic;padding:6px 2px;">Sin ejercicios registrados</p>`;
                 } else {
-                    ejsB.forEach(ej => { html += ejBox(ej); });
+                    ejsB.forEach(ej => { html += ejBox(ej, bloqTipo); });
                 }
             });
         }
@@ -4108,15 +4109,15 @@
                         const ejsMin = minCfg.ejercicios || [];
                         if (ejsMin.length === 0) {
                             html += `<p style="${ff}color:#aaa;font-size:11px;font-style:italic;margin:2px 0 6px 10px;">Sin ejercicios</p>`;
-                        } else { ejsMin.forEach(ej => { html += ejBox(ej); }); }
+                        } else { ejsMin.forEach(ej => { html += ejBox(ej, 'EMOM'); }); }
                     });
                 } else {
-                    ejsFlat.forEach(ej => { html += ejBox(ej); });
+                    ejsFlat.forEach(ej => { html += ejBox(ej, 'EMOM'); });
                 }
             } else if (ejsFlat.length > 0) {
                 let metaInfo = ' — ' + (datos.trabajo||20) + 's / ' + (datos.pausa||10) + 's | ' + (datos.rondas||1) + ' ronda(s)';
                 html += `<div style="${sSubHeader}">Tabata${metaInfo}</div>`;
-                ejsFlat.forEach(ej => { html += ejBox(ej); });
+                ejsFlat.forEach(ej => { html += ejBox(ej, 'Tabata'); });
             }
         } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo') {
             html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — ${tipo}</div>`;
@@ -4133,11 +4134,11 @@
                     if (ejsG.length === 0) {
                         html += `<p style="${ff}color:#aaa;font-size:12px;font-style:italic;padding:6px 2px;">Sin ejercicios registrados</p>`;
                     } else {
-                        ejsG.forEach(ej => { html += ejBox(ej); });
+                        ejsG.forEach(ej => { html += ejBox(ej, gTipo); });
                     }
                 });
             } else {
-                gruposC.forEach(ej => { html += ejBox(ej); });
+                gruposC.forEach(ej => { html += ejBox(ej, tipo); });
             }
         } else if (tipo === 'Por Tiempo') {
             html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — POR TIEMPO</div>`;
@@ -4147,11 +4148,11 @@
             if (ejsPT.length === 0) {
                 html += `<p style="${ff}color:#aaa;font-size:12px;font-style:italic;padding:6px 2px;">Sin ejercicios registrados</p>`;
             } else {
-                ejsPT.forEach(ej => { html += ejBox(ej); });
+                ejsPT.forEach(ej => { html += ejBox(ej, 'Por Tiempo'); });
             }
         } else if (tipo === 'Series') {
             html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — SERIES</div>`;
-            toArray(datos.datos || datos.rutina || []).forEach(ej => { html += ejBox(ej); });
+            toArray(datos.datos || datos.rutina || []).forEach(ej => { html += ejBox(ej, 'Series'); });
         }
 
         // --- Mapa de Calor Muscular de esta rutina ---
