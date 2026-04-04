@@ -885,6 +885,98 @@
         </div>
     </main>
 
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- MODAL: CONFIGURAR RUTINA CON IA                                -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <div id="modal-ia-config" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-tarjeta rounded-3xl border border-borde w-full max-w-lg my-4" style="border-color: #7c3aed55; box-shadow: 0 0 40px rgba(124,58,237,0.25);">
+            <!-- Header -->
+            <div class="flex items-center justify-between px-6 py-4 border-b border-borde" style="background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(79,70,229,0.1)); border-radius: 1.5rem 1.5rem 0 0;">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">🤖</span>
+                    <div>
+                        <h3 class="text-sm font-black text-texto uppercase tracking-widest">Armar Rutina con IA</h3>
+                        <p class="text-xs text-textoSuave mt-0.5">Analiza historial + repositorio para generar una rutina inteligente</p>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('modal-ia-config').classList.add('hidden')" class="text-textoSuave hover:text-texto text-2xl leading-none transition">&times;</button>
+            </div>
+
+            <div class="p-6 space-y-5">
+
+                <!-- Configuración básica -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de Días</label>
+                        <select id="ia-num-dias" class="w-full rounded-lg px-3 py-2.5 text-sm">
+                            <option value="1">1 Día</option>
+                            <option value="2">2 Días</option>
+                            <option value="3">3 Días</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Bloques por Día</label>
+                        <select id="ia-num-bloques" class="w-full rounded-lg px-3 py-2.5 text-sm">
+                            <option value="1">1 Bloque</option>
+                            <option value="2" selected>2 Bloques</option>
+                            <option value="3">3 Bloques</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Selector de alumno -->
+                <div>
+                    <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Analizar historial de alumno <span class="text-textoSuave/60">(opcional)</span></label>
+                    <select id="ia-alumno-select" onchange="iaCargarHistorialAlumno()" class="w-full rounded-lg px-3 py-2.5 text-sm">
+                        <option value="">-- Sin alumno (solo repositorio) --</option>
+                    </select>
+                    <p class="text-xs text-textoSuave mt-1">La IA usará las rutinas del alumno para evitar repetir ejercicios y respetar sus métodos preferidos.</p>
+                </div>
+
+                <!-- Panel historial del alumno -->
+                <div>
+                    <p class="text-xs text-textoSuave uppercase tracking-wider mb-2 flex items-center gap-2">
+                        <span class="text-amarillo">📅</span> Historial del Alumno
+                    </p>
+                    <div id="ia-historial-preview" class="bg-fondoAlt rounded-xl border border-borde p-3 max-h-36 overflow-y-auto text-xs">
+                        <p class="text-textoSuave italic">Seleccioná un alumno para ver su historial.</p>
+                    </div>
+                </div>
+
+                <!-- Panel repositorio -->
+                <div>
+                    <p class="text-xs text-textoSuave uppercase tracking-wider mb-2 flex items-center gap-2">
+                        <span class="text-naranja">📋</span> Plantillas del Repositorio
+                    </p>
+                    <div id="ia-repo-preview" class="bg-fondoAlt rounded-xl border border-borde p-3 max-h-36 overflow-y-auto text-xs">
+                        <p class="text-textoSuave italic">Cargando...</p>
+                    </div>
+                </div>
+
+                <!-- Lógica que aplica -->
+                <div class="bg-fondoAlt rounded-xl border border-borde/50 p-3" style="border-color: rgba(124,58,237,0.3);">
+                    <p class="text-xs font-bold text-texto mb-2 flex items-center gap-2"><span>⚙️</span> Lógica aplicada</p>
+                    <ul class="text-xs text-textoSuave space-y-1 list-none">
+                        <li class="flex items-start gap-2"><span class="text-verde mt-0.5">✓</span> Prioriza ejercicios <strong class="text-texto">no usados</strong> en las últimas rutinas</li>
+                        <li class="flex items-start gap-2"><span class="text-verde mt-0.5">✓</span> Elige tipos de bloque según los <strong class="text-texto">más frecuentes</strong> en el historial</li>
+                        <li class="flex items-start gap-2"><span class="text-verde mt-0.5">✓</span> Varía zonas musculares entre días: <strong class="text-texto">Sup / Inf / Core</strong></li>
+                        <li class="flex items-start gap-2"><span class="text-verde mt-0.5">✓</span> Respeta la cantidad promedio de ejercicios del repositorio</li>
+                    </ul>
+                </div>
+
+                <!-- Botones -->
+                <div class="flex gap-3 pt-1">
+                    <button id="ia-btn-generar" onclick="iaConfirmarGenerar()" class="flex-1 py-3 rounded-2xl text-white font-black text-sm uppercase tracking-wider transition" style="background: linear-gradient(135deg, #7c3aed, #4f46e5); box-shadow: 0 8px 24px rgba(124,58,237,0.4);" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                        🤖 Generar Rutina
+                    </button>
+                    <button onclick="document.getElementById('modal-ia-config').classList.add('hidden')" class="flex-1 py-3 rounded-2xl border border-borde text-textoSuave text-sm font-bold hover:text-texto transition">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- VIDEO PREVIEW TOOLTIP -->
     <div id="video-preview-tooltip">
         <div class="vpt-inner">
@@ -6306,100 +6398,279 @@
     // IA: GENERAR RUTINA AUTOMÁTICA
     // ====================================================================
 
-    /**
-     * Punto de extensión futuro: reemplazá el cuerpo de esta función
-     * con una llamada real a tu API de IA (OpenAI, Claude, etc.) pasándole
-     * `ejerciciosDisponibles` y `plantillasGuardadas` como contexto.
-     * Debe devolver un array con el mismo formato que `diasData`.
-     */
-    async function llamarAPIdeIA(ejerciciosDisponibles, plantillasGuardadas) {
-        // ── SIMULACIÓN LOCAL ──────────────────────────────────────────────
-        // Cuando conectes una API real, reemplazá todo este bloque.
+    // Cache de rutinas del historial cargadas para la IA
+    let _iaHistorialCache = [];
+    let _iaAlumnoSeleccionado = '';
 
-        function pickRandom(arr, n) {
-            const shuffled = [...arr].sort(() => Math.random() - 0.5);
-            return shuffled.slice(0, n);
+    // Abre el modal de configuración de la IA
+    async function generarRutinaIA() {
+        const totalEjs = Object.values(videotecaCache || {}).flat().length;
+        if (totalEjs === 0) {
+            toast('⚠️ La Videoteca está vacía. Cargá ejercicios primero.');
+            return;
+        }
+        // Poblar el select de alumnos en el modal IA
+        const selIA = document.getElementById('ia-alumno-select');
+        if (selIA) {
+            const selOrig = document.getElementById('select-alumno');
+            selIA.innerHTML = '<option value="">-- Sin alumno (solo repositorio) --</option>';
+            if (selOrig) {
+                Array.from(selOrig.options).forEach(opt => {
+                    if (opt.value) {
+                        const o = document.createElement('option');
+                        o.value = opt.value;
+                        o.textContent = opt.textContent;
+                        selIA.appendChild(o);
+                    }
+                });
+            }
+        }
+        // Poblar repositorio preview
+        _iaActualizarPreviewFuentes();
+        document.getElementById('modal-ia-config').classList.remove('hidden');
+    }
+
+    // Actualiza el panel de fuentes en el modal IA
+    function _iaActualizarPreviewFuentes() {
+        const repo = getRepositorio();
+        const panelRepo = document.getElementById('ia-repo-preview');
+        if (!panelRepo) return;
+        if (repo.length === 0) {
+            panelRepo.innerHTML = '<p class="text-textoSuave text-xs italic">No hay plantillas en el repositorio.</p>';
+        } else {
+            panelRepo.innerHTML = repo.map(r => {
+                const dias = (r.diasData || []).length;
+                const bloques = (r.diasData || []).reduce((a, d) => a + (d.bloquesRutina||[]).length, 0);
+                const tiposBloques = [...new Set((r.diasData || []).flatMap(d => (d.bloquesRutina||[]).map(b => b.tipo)).filter(Boolean))].join(', ') || '—';
+                return `<div class="flex items-start gap-2 py-1.5 border-b border-borde/30 last:border-0">
+                    <span class="text-naranja text-xs mt-0.5">📋</span>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xs font-bold text-texto truncate">${escapeHtml(r.nombre)}</p>
+                        <p class="text-xs text-textoSuave">${dias} día(s) · ${bloques} bloque(s) · ${tiposBloques}</p>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+    }
+
+    // Carga el historial del alumno seleccionado en el modal IA
+    async function iaCargarHistorialAlumno() {
+        const sel = document.getElementById('ia-alumno-select');
+        const alumno = sel ? sel.value.trim() : '';
+        const panelHist = document.getElementById('ia-historial-preview');
+        const btnGenerar = document.getElementById('ia-btn-generar');
+        _iaHistorialCache = [];
+        _iaAlumnoSeleccionado = alumno;
+
+        if (!alumno) {
+            if (panelHist) panelHist.innerHTML = '<p class="text-textoSuave text-xs italic">Seleccioná un alumno para ver su historial.</p>';
+            if (btnGenerar) btnGenerar.textContent = '🤖 Generar Rutina';
+            return;
         }
 
-        // Aplanar todos los ejercicios de la videoteca
-        const todosLosEjs = Object.entries(ejerciciosDisponibles).flatMap(([cat, ejs]) =>
+        if (panelHist) panelHist.innerHTML = '<p class="text-textoSuave text-xs">Cargando historial...</p>';
+        try {
+            const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(alumno));
+            const data = await res.json();
+            if (!data.ok || !data.rutinas) {
+                if (panelHist) panelHist.innerHTML = '<p class="text-rojo text-xs">No se pudo cargar el historial.</p>';
+                return;
+            }
+            const rutinas = data.rutinas;
+            const codigos = Object.keys(rutinas).sort().reverse();
+            _iaHistorialCache = codigos.map(cod => ({ codigo: cod, ...rutinas[cod] }));
+
+            if (panelHist) {
+                if (codigos.length === 0) {
+                    panelHist.innerHTML = '<p class="text-textoSuave text-xs italic">Este alumno no tiene rutinas guardadas.</p>';
+                } else {
+                    panelHist.innerHTML = codigos.slice(0, 8).map(cod => {
+                        const r = rutinas[cod];
+                        const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleDateString('es-AR') : '';
+                        const tipo = r.tipo || 'ENTRENAMIENTO';
+                        return `<div class="flex items-start gap-2 py-1.5 border-b border-borde/30 last:border-0">
+                            <span class="text-amarillo text-xs mt-0.5">📅</span>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs font-bold text-amarillo font-mono">${cod.toUpperCase()}</p>
+                                <p class="text-xs text-textoSuave">${tipo} · ${fecha}</p>
+                            </div>
+                        </div>`;
+                    }).join('') + (codigos.length > 8 ? `<p class="text-xs text-textoSuave italic pt-1">+${codigos.length - 8} más...</p>` : '');
+                }
+            }
+            if (btnGenerar) btnGenerar.textContent = '🤖 Generar Rutina (' + codigos.length + ' rutinas analizadas)';
+        } catch(e) {
+            if (panelHist) panelHist.innerHTML = '<p class="text-rojo text-xs">Error de conexión.</p>';
+        }
+    }
+
+    // ── MOTOR DE GENERACIÓN INTELIGENTE ──────────────────────────────────────
+
+    function _iaExtraerPatrones(historialRutinas, repositorio) {
+        // Recolectar todos los bloques de ambas fuentes
+        const todosLosBloques = [];
+
+        // Desde repositorio (formato diasData)
+        repositorio.forEach(p => {
+            (p.diasData || []).forEach(d => {
+                (d.bloquesRutina || []).forEach(b => { if (b.tipo) todosLosBloques.push(b); });
+            });
+        });
+
+        // Desde historial (formato Firebase: tipo en raíz, bloques en datos.bloques o similares)
+        historialRutinas.forEach(r => {
+            const tipo = r.tipo || 'Circuito';
+            // Bloques explícitos
+            if (r.datos && typeof r.datos === 'object' && !Array.isArray(r.datos) && r.datos.bloques) {
+                toArray(r.datos.bloques).forEach(b => { if (b.tipo) todosLosBloques.push(b); });
+            } else if (r.bloques) {
+                toArray(r.bloques).forEach(b => { if (b.tipo) todosLosBloques.push(b); });
+            } else {
+                // Rutina de tipo único → crear bloque sintético
+                todosLosBloques.push({ tipo: tipo === 'ENTRENAMIENTO' ? 'Circuito' : tipo, _sintetico: true });
+            }
+        });
+
+        // Frecuencia de tipos
+        const freqTipos = {};
+        todosLosBloques.forEach(b => { freqTipos[b.tipo] = (freqTipos[b.tipo] || 0) + 1; });
+
+        // Promedio de ejercicios por bloque
+        const ejsPorBloque = todosLosBloques
+            .filter(b => b.ejercicios && b.ejercicios.length > 0)
+            .map(b => b.ejercicios.length);
+        const avgEjs = ejsPorBloque.length > 0
+            ? Math.round(ejsPorBloque.reduce((a, b) => a + b, 0) / ejsPorBloque.length)
+            : 4;
+
+        // Promedio de dias por rutina (repositorio)
+        const diasPorRutina = repositorio.map(p => (p.diasData || []).length).filter(n => n > 0);
+        const avgDias = diasPorRutina.length > 0
+            ? Math.round(diasPorRutina.reduce((a, b) => a + b, 0) / diasPorRutina.length)
+            : 1;
+
+        // Ejercicios más usados en historial (para evitar repetición)
+        const ejsUsados = new Set();
+        historialRutinas.slice(0, 3).forEach(r => {
+            const datos = resolverDatos(r);
+            toArray(datos.warmup_ejercicios || []).forEach(e => {
+                const n = (e.nombre || e[0] || '').toUpperCase();
+                if (n) ejsUsados.add(n);
+            });
+            toArray(datos.bloques || datos.rutina || datos.datos || []).forEach(item => {
+                const ejsItem = item.ejercicios ? toArray(item.ejercicios) : [item];
+                ejsItem.forEach(e => {
+                    const n = (e.nombre || e[0] || '').toUpperCase();
+                    if (n) ejsUsados.add(n);
+                });
+            });
+        });
+
+        return { freqTipos, avgEjs: Math.max(3, Math.min(avgEjs, 6)), avgDias: Math.max(1, Math.min(avgDias, 3)), ejsUsados };
+    }
+
+    function _iaGenerarDias(videoteca, patrones, numDias, numBloques) {
+        function pickRandom(arr, n) {
+            return [...arr].sort(() => Math.random() - 0.5).slice(0, n);
+        }
+
+        // Aplanar videoteca con metadatos
+        const todosLosEjs = Object.entries(videoteca).flatMap(([cat, ejs]) =>
             (ejs || []).map(e => ({ ...e, _cat: cat }))
         );
-
         if (todosLosEjs.length === 0) return null;
 
-        // Analizar las estructuras de rutinas pasadas para imitar su forma
-        const tiposUsados = ['Circuito', 'Tabata', 'EMOM', 'Series'];
-        const tiposFromRepo = plantillasGuardadas.flatMap(p =>
-            (p.diasData || []).flatMap(d =>
-                (d.bloquesRutina || []).map(b => b.tipo).filter(Boolean)
-            )
-        );
-        const poolTipos = tiposFromRepo.length > 0 ? tiposFromRepo : tiposUsados;
+        // Preferir ejercicios no usados recientemente
+        const ejsFrescos = todosLosEjs.filter(e => !patrones.ejsUsados.has((e.nombre || e[0] || '').toUpperCase()));
+        const poolEjs = ejsFrescos.length >= 6 ? ejsFrescos : todosLosEjs;
 
-        // Generar entre 1 y 2 días
-        const numDias = plantillasGuardadas.length > 0
-            ? Math.min(2, Math.max(1, Math.round((plantillasGuardadas[0]?.diasData?.length || 1))))
-            : 1;
+        // Seleccionar tipo de bloque con peso según frecuencia histórica
+        const tiposPool = Object.entries(patrones.freqTipos).length > 0
+            ? Object.entries(patrones.freqTipos).flatMap(([tipo, freq]) => Array(freq).fill(tipo))
+            : ['Circuito', 'Circuito', 'Tabata', 'EMOM', 'Series'];
+
+        function elegirTipo() {
+            return tiposPool[Math.floor(Math.random() * tiposPool.length)];
+        }
+
+        function buildParams(tipo, cantEjs) {
+            if (tipo === 'Circuito')            return { vueltas: String(Math.floor(Math.random() * 2) + 3), pausa_vuelta: '45' };
+            if (tipo === 'Circuito por Tiempo') return { duracion: '3' };
+            if (tipo === 'Tabata')              return { trabajo: '20', pausa: '10', cantidad: String(cantEjs) };
+            if (tipo === 'EMOM')                return { minutos: String(cantEjs) };
+            if (tipo === 'Series')              return { series: '3', pausa: '60' };
+            return { vueltas: '3', pausa_vuelta: '45' };
+        }
+
+        function buildEj(e, tipo) {
+            const reps = tipo === 'Tabata' ? '20 seg' : (tipo === 'EMOM' ? String(Math.floor(Math.random() * 8) + 8) : String(Math.floor(Math.random() * 10) + 8));
+            const unit = tipo === 'Tabata' ? 'Segs' : 'Reps';
+            return {
+                nombre: e.nombre || e[0] || 'Ejercicio',
+                link: e.link || e[1] || '',
+                reps,
+                unit,
+                con_carga: e.con_carga === true,
+                tip1: e.tip1 || '',
+                tip2: e.tip2 || '',
+                elemento: e.elemento || ''
+            };
+        }
+
+        // Dividir el pool en zonas musculares para variar entre días
+        const ZONAS = {
+            'Tren Superior': ['Pecho', 'Espalda', 'Hombros', 'Biceps', 'Triceps'],
+            'Tren Inferior': ['Cuadriceps', 'Isquiotibiales', 'Gluteos', 'Pantorrillas', 'Aductores'],
+            'Core':          ['Abdominales', 'Oblicuos', 'Lumbar'],
+        };
+        const zonasKeys = Object.keys(ZONAS);
 
         const diasGenerados = [];
 
         for (let d = 0; d < numDias; d++) {
-            const ejsCalentamiento = pickRandom(todosLosEjs, Math.floor(Math.random() * 3) + 2);
-            const warmupEjercicios = ejsCalentamiento.map(e => ({
+            // Calentamiento: 3-5 ejercicios variados
+            const ejsCal = pickRandom(poolEjs, Math.floor(Math.random() * 3) + 3);
+            const warmupEjercicios = ejsCal.map(e => ({
                 nombre: e.nombre || e[0] || 'Ejercicio',
                 link: e.link || e[1] || '',
-                reps: String(Math.floor(Math.random() * 10) + 8),
+                reps: String(Math.floor(Math.random() * 8) + 8),
                 unit: 'Reps',
-                con_carga: e.con_carga === true,
+                con_carga: false,
                 tip1: e.tip1 || '',
                 tip2: e.tip2 || '',
                 elemento: e.elemento || ''
             }));
 
-            // Generar 1 o 2 bloques principales
-            const numBloques = Math.floor(Math.random() * 2) + 1;
+            // Bloques: tratar de variar zona muscular por día
             const bloquesRutina = [];
-
             for (let b = 0; b < numBloques; b++) {
-                const tipoBloque = poolTipos[Math.floor(Math.random() * poolTipos.length)];
-                const ejsBloque = pickRandom(todosLosEjs, Math.floor(Math.random() * 4) + 3);
+                // Intentar usar una zona diferente por bloque
+                const zonaIdx = (d * numBloques + b) % zonasKeys.length;
+                const zonaKey = zonasKeys[zonaIdx];
+                const muscZona = ZONAS[zonaKey];
 
-                const ejerciciosBloque = ejsBloque.map(e => ({
-                    nombre: e.nombre || e[0] || 'Ejercicio',
-                    link: e.link || e[1] || '',
-                    reps: String(Math.floor(Math.random() * 12) + 8),
-                    unit: 'Reps',
-                    con_carga: e.con_carga === true,
-                    tip1: e.tip1 || '',
-                    tip2: e.tip2 || '',
-                    elemento: e.elemento || ''
-                }));
+                // Filtrar ejercicios por zona (por categoría aproximada)
+                const ejsZona = poolEjs.filter(e => {
+                    const cat = (e._cat || '').toLowerCase();
+                    return muscZona.some(m => cat.includes(m.toLowerCase()));
+                });
+                const poolBloque = ejsZona.length >= 3 ? ejsZona : poolEjs;
 
-                // Armar parámetros del bloque según el tipo
-                let params = {};
-                if (tipoBloque === 'Circuito') {
-                    params = { vueltas: String(Math.floor(Math.random() * 2) + 2), pausa_vuelta: '45' };
-                } else if (tipoBloque === 'Tabata') {
-                    params = { trabajo: '20', pausa: '10', cantidad: String(ejerciciosBloque.length) };
-                } else if (tipoBloque === 'EMOM') {
-                    params = { minutos: String(ejerciciosBloque.length) };
-                } else if (tipoBloque === 'Series') {
-                    params = { series: '3', pausa: '60' };
-                } else {
-                    params = { vueltas: '3', pausa_vuelta: '45' };
-                }
+                const tipo = elegirTipo();
+                const cantEjs = patrones.avgEjs;
+                const ejsElegidos = pickRandom(poolBloque, cantEjs);
 
                 bloquesRutina.push({
-                    tipo: tipoBloque,
-                    params,
-                    ejercicios: ejerciciosBloque,
-                    desc: ''
+                    tipo,
+                    params: buildParams(tipo, cantEjs),
+                    ejercicios: ejsElegidos.map(e => buildEj(e, tipo)),
+                    desc: zonaKey
                 });
             }
 
+            const titulosDia = ['Día 1 — Tren Superior', 'Día 2 — Tren Inferior', 'Día 3 — Full Body'];
             diasGenerados.push({
-                titulo: 'Día ' + (d + 1),
+                titulo: numDias > 1 ? (titulosDia[d] || ('Día ' + (d + 1))) : 'Día 1',
                 warmupEjercicios,
                 bloquesRutina,
                 warmupEmomConfig: []
@@ -6407,59 +6678,50 @@
         }
 
         return diasGenerados;
-        // ── FIN SIMULACIÓN ────────────────────────────────────────────────
     }
 
-    async function generarRutinaIA() {
-        // 1. Validar que haya ejercicios en la videoteca
-        const ejerciciosDisponibles = videotecaCache || {};
-        const totalEjs = Object.values(ejerciciosDisponibles).flat().length;
+    // Ejecuta la generación real cuando el usuario confirma en el modal
+    async function iaConfirmarGenerar() {
+        const numDias = parseInt(document.getElementById('ia-num-dias')?.value) || 1;
+        const numBloques = parseInt(document.getElementById('ia-num-bloques')?.value) || 1;
 
-        if (totalEjs === 0) {
-            toast('⚠️ La Videoteca está vacía. Cargá ejercicios primero.');
-            return;
-        }
+        document.getElementById('modal-ia-config').classList.add('hidden');
 
-        // 2. Leer plantillas del repositorio para imitar estructuras previas
-        const plantillasGuardadas = getRepositorio();
-
-        // 3. Feedback visual
-        toast('🤖 Generando rutina con IA...');
-
-        // 4. Llamar a la función de IA (simulada o real en el futuro)
-        let nuevaData;
-        try {
-            nuevaData = await llamarAPIdeIA(ejerciciosDisponibles, plantillasGuardadas);
-        } catch (e) {
-            toast('Error al generar la rutina. Intentá de nuevo.');
-            console.error('generarRutinaIA error:', e);
-            return;
-        }
-
-        if (!nuevaData || nuevaData.length === 0) {
-            toast('No se pudo generar la rutina. Revisá la Videoteca.');
-            return;
-        }
-
-        // 5. Confirmar antes de reemplazar lo que hay en pantalla
-        const tieneContenido = diasData.some(d =>
-            d.warmupEjercicios.length > 0 || d.bloquesRutina.length > 0
-        );
+        const tieneContenido = diasData.some(d => d.warmupEjercicios.length > 0 || d.bloquesRutina.length > 0);
         if (tieneContenido) {
             if (!confirm('¿Reemplazar la rutina actual con la generada por IA?')) return;
         }
 
-        // 6. Inyectar en diasData y renderizar
-        diasData = nuevaData;
-        renderDias();
+        toast('🤖 Analizando rutinas y generando...');
 
-        // 7. Expandir todos los días para que el profesor vea el resultado
-        diasData.forEach((_, idx) => toggleDia(idx, true));
+        try {
+            // Extraer patrones de historial + repositorio
+            const patrones = _iaExtraerPatrones(_iaHistorialCache, getRepositorio());
 
-        const totalEjsGen = nuevaData.reduce((acc, d) =>
-            acc + d.warmupEjercicios.length + d.bloquesRutina.reduce((a, b) => a + (b.ejercicios||[]).length, 0), 0
-        );
-        toast('✅ Rutina generada: ' + nuevaData.length + ' día(s), ' + totalEjsGen + ' ejercicios');
+            // Generar los días
+            const nuevaData = _iaGenerarDias(videotecaCache, patrones, numDias, numBloques);
+
+            if (!nuevaData || nuevaData.length === 0) {
+                toast('No se pudo generar. Revisá la Videoteca.');
+                return;
+            }
+
+            diasData = nuevaData;
+            renderDias();
+            diasData.forEach((_, idx) => toggleDia(idx, true));
+
+            const totalEjsGen = nuevaData.reduce((acc, d) =>
+                acc + d.warmupEjercicios.length + d.bloquesRutina.reduce((a, b) => a + (b.ejercicios||[]).length, 0), 0
+            );
+
+            const fuenteMsg = _iaHistorialCache.length > 0
+                ? `(basada en ${_iaHistorialCache.length} rutinas de ${_iaAlumnoSeleccionado.toUpperCase()})`
+                : '(basada en repositorio)';
+            toast(`✅ Rutina generada ${fuenteMsg}`);
+        } catch(e) {
+            console.error('iaConfirmarGenerar error:', e);
+            toast('Error al generar la rutina.');
+        }
     }
 
     // ====================================================================
