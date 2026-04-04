@@ -888,15 +888,15 @@
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- MODAL: CONFIGURAR RUTINA CON IA                                -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
-    <div id="modal-ia-config" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-        <div class="bg-tarjeta rounded-3xl border border-borde w-full max-w-lg my-4" style="border-color: #7c3aed55; box-shadow: 0 0 40px rgba(124,58,237,0.25);">
+    <div id="modal-ia-config" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
+        <div class="bg-tarjeta rounded-3xl border border-borde w-full max-w-xl my-4" style="border-color: #7c3aed55; box-shadow: 0 0 40px rgba(124,58,237,0.25);">
             <!-- Header -->
             <div class="flex items-center justify-between px-6 py-4 border-b border-borde" style="background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(79,70,229,0.1)); border-radius: 1.5rem 1.5rem 0 0;">
                 <div class="flex items-center gap-3">
                     <span class="text-2xl">🤖</span>
                     <div>
                         <h3 class="text-sm font-black text-texto uppercase tracking-widest">Armar Rutina con IA</h3>
-                        <p class="text-xs text-textoSuave mt-0.5">Analiza historial + repositorio para generar una rutina inteligente</p>
+                        <p class="text-xs text-textoSuave mt-0.5">Configurá la lógica y generá una rutina inteligente</p>
                     </div>
                 </div>
                 <button onclick="document.getElementById('modal-ia-config').classList.add('hidden')" class="text-textoSuave hover:text-texto text-2xl leading-none transition">&times;</button>
@@ -904,7 +904,7 @@
 
             <div class="p-6 space-y-5">
 
-                <!-- Configuración básica -->
+                <!-- Días y Bloques -->
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de Días</label>
@@ -926,42 +926,125 @@
 
                 <!-- Selector de alumno -->
                 <div>
-                    <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Analizar historial de alumno <span class="text-textoSuave/60">(opcional)</span></label>
+                    <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Historial de alumno <span class="text-textoSuave/60">(opcional)</span></label>
                     <select id="ia-alumno-select" onchange="iaCargarHistorialAlumno()" class="w-full rounded-lg px-3 py-2.5 text-sm">
                         <option value="">-- Sin alumno (solo repositorio) --</option>
                     </select>
-                    <p class="text-xs text-textoSuave mt-1">La IA usará las rutinas del alumno para evitar repetir ejercicios y respetar sus métodos preferidos.</p>
                 </div>
 
-                <!-- Panel historial del alumno -->
-                <div>
-                    <p class="text-xs text-textoSuave uppercase tracking-wider mb-2 flex items-center gap-2">
-                        <span class="text-amarillo">📅</span> Historial del Alumno
-                    </p>
-                    <div id="ia-historial-preview" class="bg-fondoAlt rounded-xl border border-borde p-3 max-h-36 overflow-y-auto text-xs">
-                        <p class="text-textoSuave italic">Seleccioná un alumno para ver su historial.</p>
+                <!-- Paneles historial + repositorio colapsados -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <p class="text-xs text-textoSuave uppercase tracking-wider mb-1 flex items-center gap-1"><span class="text-amarillo">📅</span> Historial</p>
+                        <div id="ia-historial-preview" class="bg-fondoAlt rounded-xl border border-borde p-2.5 max-h-28 overflow-y-auto text-xs">
+                            <p class="text-textoSuave italic">Seleccioná un alumno.</p>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-xs text-textoSuave uppercase tracking-wider mb-1 flex items-center gap-1"><span class="text-naranja">📋</span> Repositorio</p>
+                        <div id="ia-repo-preview" class="bg-fondoAlt rounded-xl border border-borde p-2.5 max-h-28 overflow-y-auto text-xs">
+                            <p class="text-textoSuave italic">Cargando...</p>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Panel repositorio -->
-                <div>
-                    <p class="text-xs text-textoSuave uppercase tracking-wider mb-2 flex items-center gap-2">
-                        <span class="text-naranja">📋</span> Plantillas del Repositorio
-                    </p>
-                    <div id="ia-repo-preview" class="bg-fondoAlt rounded-xl border border-borde p-3 max-h-36 overflow-y-auto text-xs">
-                        <p class="text-textoSuave italic">Cargando...</p>
-                    </div>
-                </div>
+                <!-- ══ LÓGICA CONFIGURABLE ══ -->
+                <div class="space-y-3" style="border-top: 1px solid rgba(124,58,237,0.25); padding-top: 1rem;">
+                    <p class="text-xs font-black text-texto uppercase tracking-widest flex items-center gap-2">⚙️ Lógica Aplicada</p>
 
-                <!-- Lógica que aplica -->
-                <div class="bg-fondoAlt rounded-xl border border-borde/50 p-3" style="border-color: rgba(124,58,237,0.3);">
-                    <p class="text-xs font-bold text-texto mb-2 flex items-center gap-2"><span>⚙️</span> Lógica aplicada</p>
-                    <ul class="text-xs text-textoSuave space-y-1 list-none">
-                        <li class="flex items-start gap-2"><span class="text-verde mt-0.5">✓</span> Prioriza ejercicios <strong class="text-texto">no usados</strong> en las últimas rutinas</li>
-                        <li class="flex items-start gap-2"><span class="text-verde mt-0.5">✓</span> Elige tipos de bloque según los <strong class="text-texto">más frecuentes</strong> en el historial</li>
-                        <li class="flex items-start gap-2"><span class="text-verde mt-0.5">✓</span> Varía zonas musculares entre días: <strong class="text-texto">Sup / Inf / Core</strong></li>
-                        <li class="flex items-start gap-2"><span class="text-verde mt-0.5">✓</span> Respeta la cantidad promedio de ejercicios del repositorio</li>
-                    </ul>
+                    <!-- 1. Priorizar ejercicios -->
+                    <div class="bg-fondoAlt rounded-xl border border-borde p-3">
+                        <p class="text-xs font-bold text-purpura mb-2">1. Selección de Ejercicios</p>
+                        <div class="flex flex-wrap gap-2">
+                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-ejs')">
+                                <input type="radio" name="ia-ejs" value="no-usados" checked class="sr-only">
+                                <span>🆕 No usados</span>
+                            </label>
+                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-ejs')">
+                                <input type="radio" name="ia-ejs" value="mas-usados" class="sr-only">
+                                <span>🔥 Más usados</span>
+                            </label>
+                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-ejs')">
+                                <input type="radio" name="ia-ejs" value="azar" class="sr-only">
+                                <span>🎲 Al azar</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 2. Tipos de bloque -->
+                    <div class="bg-fondoAlt rounded-xl border border-borde p-3">
+                        <p class="text-xs font-bold text-purpura mb-2">2. Tipos de Bloque</p>
+                        <!-- Modo selector -->
+                        <div class="flex flex-wrap gap-2 mb-3">
+                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-tipos-modo'); iaTiposModoChange()">
+                                <input type="radio" name="ia-tipos-modo" value="frecuencia" checked class="sr-only">
+                                <span>📊 Por frecuencia histórica</span>
+                            </label>
+                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-tipos-modo'); iaTiposModoChange()">
+                                <input type="radio" name="ia-tipos-modo" value="manual" class="sr-only">
+                                <span>✋ Elegir manualmente</span>
+                            </label>
+                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-tipos-modo'); iaTiposModoChange()">
+                                <input type="radio" name="ia-tipos-modo" value="azar" class="sr-only">
+                                <span>🎲 Al azar</span>
+                            </label>
+                        </div>
+                        <!-- Checkboxes de tipos (solo visibles en modo manual) -->
+                        <div id="ia-tipos-manual" class="hidden flex-wrap gap-2">
+                            <label class="ia-check-pill"><input type="checkbox" value="Circuito" checked> Circuito</label>
+                            <label class="ia-check-pill"><input type="checkbox" value="Circuito por Tiempo"> Circ. Tiempo</label>
+                            <label class="ia-check-pill"><input type="checkbox" value="Tabata" checked> Tabata</label>
+                            <label class="ia-check-pill"><input type="checkbox" value="EMOM"> EMOM</label>
+                            <label class="ia-check-pill"><input type="checkbox" value="Series"> Series</label>
+                            <label class="ia-check-pill"><input type="checkbox" value="Por Tiempo"> Por Tiempo</label>
+                        </div>
+                    </div>
+
+                    <!-- 3. Zonas musculares -->
+                    <div class="bg-fondoAlt rounded-xl border border-borde p-3">
+                        <p class="text-xs font-bold text-purpura mb-2">3. Zonas Musculares (Bloque Principal)</p>
+                        <div class="flex flex-wrap gap-2">
+                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-zonas')">
+                                <input type="radio" name="ia-zonas" value="33-33-33" checked class="sr-only">
+                                <span>⚖️ 33 / 33 / 33</span>
+                            </label>
+                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-zonas')">
+                                <input type="radio" name="ia-zonas" value="azar" class="sr-only">
+                                <span>🎲 Al azar</span>
+                            </label>
+                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-zonas')">
+                                <input type="radio" name="ia-zonas" value="sin-piernas" class="sr-only">
+                                <span>💪 Sin piernas</span>
+                            </label>
+                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-zonas')">
+                                <input type="radio" name="ia-zonas" value="solo-core" class="sr-only">
+                                <span>🎯 Solo zona media</span>
+                            </label>
+                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-zonas')">
+                                <input type="radio" name="ia-zonas" value="mas-piernas" class="sr-only">
+                                <span>🦵 Más piernas</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 4. Cantidad de ejercicios -->
+                    <div class="bg-fondoAlt rounded-xl border border-borde p-3">
+                        <p class="text-xs font-bold text-purpura mb-2">4. Cantidad de Ejercicios por Bloque</p>
+                        <div class="flex flex-wrap gap-2 mb-3">
+                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-cant-modo'); iaCantModoChange()">
+                                <input type="radio" name="ia-cant-modo" value="promedio" checked class="sr-only">
+                                <span>📊 Respetar promedio</span>
+                            </label>
+                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-cant-modo'); iaCantModoChange()">
+                                <input type="radio" name="ia-cant-modo" value="manual" class="sr-only">
+                                <span>✏️ Cantidad fija</span>
+                            </label>
+                        </div>
+                        <div id="ia-cant-manual" class="hidden items-center gap-3">
+                            <input type="number" id="ia-cant-fija" min="2" max="10" value="4" class="w-20 rounded-lg px-3 py-2 text-sm text-center">
+                            <span class="text-xs text-textoSuave">ejercicios por bloque</span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Botones -->
@@ -976,6 +1059,29 @@
             </div>
         </div>
     </div>
+
+    <style>
+        .ia-radio-pill { cursor: pointer; }
+        .ia-radio-pill span {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 700;
+            border: 1.5px solid #2a2a35; color: #8a8a9a;
+            transition: all 0.15s; user-select: none; white-space: nowrap;
+        }
+        .ia-radio-pill.active span, .ia-radio-pill input:checked ~ span {
+            border-color: #7c3aed; color: #fff;
+            background: rgba(124,58,237,0.2);
+        }
+        .ia-check-pill { cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+            padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 700;
+            border: 1.5px solid #2a2a35; color: #8a8a9a;
+            transition: all 0.15s; user-select: none; white-space: nowrap;
+        }
+        .ia-check-pill:has(input:checked) {
+            border-color: #7c3aed; color: #fff; background: rgba(124,58,237,0.2);
+        }
+        .ia-check-pill input { display: none; }
+    </style>
 
     <!-- VIDEO PREVIEW TOOLTIP -->
     <div id="video-preview-tooltip">
@@ -6569,29 +6675,80 @@
         return { freqTipos, avgEjs: Math.max(3, Math.min(avgEjs, 6)), avgDias: Math.max(1, Math.min(avgDias, 3)), ejsUsados };
     }
 
+    // Helpers para leer las pills del modal
+    function iaGetRadio(name) {
+        const el = document.querySelector('input[name="' + name + '"]:checked');
+        return el ? el.value : null;
+    }
+    function iaGetChecks(containerSelector) {
+        return Array.from(document.querySelectorAll(containerSelector + ' input[type=checkbox]:checked')).map(c => c.value);
+    }
+    function iaSelectPill(label, name) {
+        document.querySelectorAll('[data-ia-group="' + name + '"]').forEach(l => l.classList.remove('active'));
+        label.setAttribute('data-ia-group', name);
+        document.querySelectorAll('input[name="' + name + '"]').forEach(r => r.closest('.ia-radio-pill')?.setAttribute('data-ia-group', name));
+        label.classList.add('active');
+    }
+    function iaTiposModoChange() {
+        const v = iaGetRadio('ia-tipos-modo');
+        const panel = document.getElementById('ia-tipos-manual');
+        if (panel) panel.style.display = v === 'manual' ? 'flex' : 'none';
+    }
+    function iaCantModoChange() {
+        const v = iaGetRadio('ia-cant-modo');
+        const panel = document.getElementById('ia-cant-manual');
+        if (panel) panel.style.display = v === 'manual' ? 'flex' : 'none';
+    }
+
     function _iaGenerarDias(videoteca, patrones, numDias, numBloques) {
+        // ── Leer configuración del modal ───────────────────────────────────
+        const cfgEjs       = iaGetRadio('ia-ejs')        || 'no-usados';
+        const cfgTiposModo = iaGetRadio('ia-tipos-modo') || 'frecuencia';
+        const cfgZonas     = iaGetRadio('ia-zonas')      || '33-33-33';
+        const cfgCantModo  = iaGetRadio('ia-cant-modo')  || 'promedio';
+        const cfgCantFija  = parseInt(document.getElementById('ia-cant-fija')?.value) || 4;
+        const cfgTiposSel  = cfgTiposModo === 'manual' ? iaGetChecks('#ia-tipos-manual') : [];
+
         function pickRandom(arr, n) {
             return [...arr].sort(() => Math.random() - 0.5).slice(0, n);
         }
 
-        // Aplanar videoteca con metadatos
+        // Aplanar videoteca
         const todosLosEjs = Object.entries(videoteca).flatMap(([cat, ejs]) =>
             (ejs || []).map(e => ({ ...e, _cat: cat }))
         );
         if (todosLosEjs.length === 0) return null;
 
-        // Preferir ejercicios no usados recientemente
-        const ejsFrescos = todosLosEjs.filter(e => !patrones.ejsUsados.has((e.nombre || e[0] || '').toUpperCase()));
-        const poolEjs = ejsFrescos.length >= 6 ? ejsFrescos : todosLosEjs;
+        // ── 1. Selección de ejercicios ─────────────────────────────────────
+        let poolEjs;
+        if (cfgEjs === 'no-usados') {
+            const frescos = todosLosEjs.filter(e => !patrones.ejsUsados.has((e.nombre || e[0] || '').toUpperCase()));
+            poolEjs = frescos.length >= 6 ? frescos : todosLosEjs;
+        } else if (cfgEjs === 'mas-usados') {
+            // Invertir: priorizar los que SÍ están en ejsUsados
+            const usados = todosLosEjs.filter(e => patrones.ejsUsados.has((e.nombre || e[0] || '').toUpperCase()));
+            poolEjs = usados.length >= 6 ? usados : todosLosEjs;
+        } else {
+            poolEjs = todosLosEjs; // azar: toda la videoteca
+        }
 
-        // Seleccionar tipo de bloque con peso según frecuencia histórica
-        const tiposPool = Object.entries(patrones.freqTipos).length > 0
-            ? Object.entries(patrones.freqTipos).flatMap(([tipo, freq]) => Array(freq).fill(tipo))
-            : ['Circuito', 'Circuito', 'Tabata', 'EMOM', 'Series'];
-
+        // ── 2. Tipos de bloque ─────────────────────────────────────────────
+        let tiposPool;
+        if (cfgTiposModo === 'frecuencia') {
+            tiposPool = Object.entries(patrones.freqTipos).length > 0
+                ? Object.entries(patrones.freqTipos).flatMap(([tipo, freq]) => Array(freq).fill(tipo))
+                : ['Circuito', 'Circuito', 'Tabata', 'EMOM', 'Series'];
+        } else if (cfgTiposModo === 'manual' && cfgTiposSel.length > 0) {
+            tiposPool = cfgTiposSel;
+        } else {
+            tiposPool = ['Circuito', 'Circuito por Tiempo', 'Tabata', 'EMOM', 'Series', 'Por Tiempo'];
+        }
         function elegirTipo() {
             return tiposPool[Math.floor(Math.random() * tiposPool.length)];
         }
+
+        // ── 4. Cantidad de ejercicios ──────────────────────────────────────
+        const cantEjsBase = cfgCantModo === 'manual' ? cfgCantFija : Math.max(3, Math.min(patrones.avgEjs, 9));
 
         function buildParams(tipo, cantEjs) {
             if (tipo === 'Circuito')            return { vueltas: String(Math.floor(Math.random() * 2) + 3), pausa_vuelta: '45' };
@@ -6599,94 +6756,91 @@
             if (tipo === 'Tabata')              return { trabajo: '20', pausa: '10', cantidad: String(cantEjs) };
             if (tipo === 'EMOM')                return { minutos: String(cantEjs) };
             if (tipo === 'Series')              return { series: '3', pausa: '60' };
+            if (tipo === 'Por Tiempo')          return { vueltas: '3', pausa_vuelta: '45' };
             return { vueltas: '3', pausa_vuelta: '45' };
         }
-
         function buildEj(e, tipo) {
-            const reps = tipo === 'Tabata' ? '20 seg' : (tipo === 'EMOM' ? String(Math.floor(Math.random() * 8) + 8) : String(Math.floor(Math.random() * 10) + 8));
+            const reps = tipo === 'Tabata' ? '20' : String(Math.floor(Math.random() * 10) + 8);
             const unit = tipo === 'Tabata' ? 'Segs' : 'Reps';
-            return {
-                nombre: e.nombre || e[0] || 'Ejercicio',
-                link: e.link || e[1] || '',
-                reps,
-                unit,
-                con_carga: e.con_carga === true,
-                tip1: e.tip1 || '',
-                tip2: e.tip2 || '',
-                elemento: e.elemento || ''
-            };
+            return { nombre: e.nombre || e[0] || 'Ejercicio', link: e.link || e[1] || '', reps, unit, con_carga: e.con_carga === true, tip1: e.tip1 || '', tip2: e.tip2 || '', elemento: e.elemento || '' };
         }
 
-        // Dividir el pool en zonas musculares para variar entre días
+        // ── 3. Zonas musculares ────────────────────────────────────────────
         const ZONAS = {
-            'Tren Superior': ['Pecho', 'Espalda', 'Hombros', 'Biceps', 'Triceps'],
+            'Tren Superior': ['Pecho', 'Espalda', 'Hombros', 'Biceps', 'Triceps', 'Trapecio'],
             'Tren Inferior': ['Cuadriceps', 'Isquiotibiales', 'Gluteos', 'Pantorrillas', 'Aductores'],
-            'Core':          ['Abdominales', 'Oblicuos', 'Lumbar'],
+            'Core':          ['Abdominales', 'Oblicuos', 'Lumbar']
         };
-        const zonasKeys = Object.keys(ZONAS);
+        function ejsDeZona(zonaKey) {
+            return poolEjs.filter(e => ZONAS[zonaKey].some(m => (e._cat||'').toLowerCase().includes(m.toLowerCase())));
+        }
 
-        const diasGenerados = [];
+        function buildBloqueConZona(tipo) {
+            const cantEjs = cantEjsBase;
+            let ejsElegidos;
 
-        for (let d = 0; d < numDias; d++) {
-            // Calentamiento: mayoría zona media (Core), completado con variados
-            const muscCore = ['Abdominales', 'Oblicuos', 'Lumbar'];
-            const ejsCore = poolEjs.filter(e => {
-                const cat = (e._cat || '').toLowerCase();
-                return muscCore.some(m => cat.includes(m.toLowerCase()));
-            });
-            const totalCal = Math.floor(Math.random() * 3) + 3; // 3-5 ejercicios
-            const cantCore = Math.ceil(totalCal * 0.8); // ~80% zona media
-            const cantVariado = totalCal - cantCore;
-            const ejsCalCore  = pickRandom(ejsCore.length >= cantCore ? ejsCore : poolEjs, cantCore);
-            const ejsCalExtra = pickRandom(poolEjs.filter(e => !ejsCalCore.includes(e)), cantVariado);
-            const ejsCal = [...ejsCalCore, ...ejsCalExtra];
-            const warmupEjercicios = ejsCal.map(e => ({
-                nombre: e.nombre || e[0] || 'Ejercicio',
-                link: e.link || e[1] || '',
-                reps: String(Math.floor(Math.random() * 8) + 8),
-                unit: 'Reps',
-                con_carga: false,
-                tip1: e.tip1 || '',
-                tip2: e.tip2 || '',
-                elemento: e.elemento || ''
-            }));
-
-            // Bloques: cada bloque 33% Tren Superior + 33% Tren Inferior + 33% Core
-            const ejsPorZona = {
-                'Tren Superior': poolEjs.filter(e => ZONAS['Tren Superior'].some(m => (e._cat||'').toLowerCase().includes(m.toLowerCase()))),
-                'Tren Inferior': poolEjs.filter(e => ZONAS['Tren Inferior'].some(m => (e._cat||'').toLowerCase().includes(m.toLowerCase()))),
-                'Core':          poolEjs.filter(e => ZONAS['Core'].some(m => (e._cat||'').toLowerCase().includes(m.toLowerCase())))
-            };
-            const bloquesRutina = [];
-            for (let b = 0; b < numBloques; b++) {
-                const tipo = elegirTipo();
-                const cantEjs = patrones.avgEjs;
-                const porTercio = Math.floor(cantEjs / 3);
-                const resto = cantEjs - porTercio * 3;
-                const cantSup  = porTercio + (resto > 0 ? 1 : 0);
-                const cantInf  = porTercio + (resto > 1 ? 1 : 0);
-                const cantCore = cantEjs - cantSup - cantInf;
-
-                const ejsSup  = pickRandom(ejsPorZona['Tren Superior'].length >= cantSup  ? ejsPorZona['Tren Superior'] : poolEjs, cantSup);
-                const ejsInf  = pickRandom(ejsPorZona['Tren Inferior'].length >= cantInf  ? ejsPorZona['Tren Inferior'] : poolEjs, cantInf);
-                const ejsCore = pickRandom(ejsPorZona['Core'].length >= cantCore           ? ejsPorZona['Core']          : poolEjs, cantCore);
-
-                const ejsElegidos = [...ejsSup, ...ejsInf, ...ejsCore].sort(() => Math.random() - 0.5);
-
-                bloquesRutina.push({
-                    tipo,
-                    params: buildParams(tipo, ejsElegidos.length),
-                    ejercicios: ejsElegidos.map(e => buildEj(e, tipo)),
-                    desc: 'Full Body — Sup / Inf / Core'
-                });
+            if (cfgZonas === 'azar') {
+                ejsElegidos = pickRandom(poolEjs, cantEjs);
+            } else if (cfgZonas === 'sin-piernas') {
+                // Solo Tren Superior + Core (50/50)
+                const mitad = Math.ceil(cantEjs / 2);
+                const sup  = pickRandom(ejsDeZona('Tren Superior').length >= mitad ? ejsDeZona('Tren Superior') : poolEjs, mitad);
+                const core = pickRandom(ejsDeZona('Core').length >= (cantEjs - mitad) ? ejsDeZona('Core') : poolEjs, cantEjs - mitad);
+                ejsElegidos = [...sup, ...core].sort(() => Math.random() - 0.5);
+            } else if (cfgZonas === 'solo-core') {
+                const pool = ejsDeZona('Core');
+                ejsElegidos = pickRandom(pool.length >= cantEjs ? pool : poolEjs, cantEjs);
+            } else if (cfgZonas === 'mas-piernas') {
+                // 50% Tren Inferior, 25% Superior, 25% Core
+                const cInf  = Math.ceil(cantEjs * 0.5);
+                const cSup  = Math.floor(cantEjs * 0.25);
+                const cCore = cantEjs - cInf - cSup;
+                const inf  = pickRandom(ejsDeZona('Tren Inferior').length >= cInf  ? ejsDeZona('Tren Inferior') : poolEjs, cInf);
+                const sup  = pickRandom(ejsDeZona('Tren Superior').length >= cSup  ? ejsDeZona('Tren Superior') : poolEjs, cSup);
+                const core = pickRandom(ejsDeZona('Core').length >= cCore           ? ejsDeZona('Core')          : poolEjs, cCore);
+                ejsElegidos = [...inf, ...sup, ...core].sort(() => Math.random() - 0.5);
+            } else {
+                // 33-33-33 (default)
+                const t = Math.floor(cantEjs / 3);
+                const r = cantEjs - t * 3;
+                const cSup = t + (r > 0 ? 1 : 0), cInf = t + (r > 1 ? 1 : 0), cCore = cantEjs - cSup - cInf;
+                const sup  = pickRandom(ejsDeZona('Tren Superior').length >= cSup  ? ejsDeZona('Tren Superior') : poolEjs, cSup);
+                const inf  = pickRandom(ejsDeZona('Tren Inferior').length >= cInf  ? ejsDeZona('Tren Inferior') : poolEjs, cInf);
+                const core = pickRandom(ejsDeZona('Core').length >= cCore           ? ejsDeZona('Core')          : poolEjs, cCore);
+                ejsElegidos = [...sup, ...inf, ...core].sort(() => Math.random() - 0.5);
             }
 
-            const titulosDia = ['Día 1 — Tren Superior', 'Día 2 — Tren Inferior', 'Día 3 — Full Body'];
+            const labelZona = { 'azar': 'Variado', 'sin-piernas': 'Sup + Core', 'solo-core': 'Zona Media', 'mas-piernas': 'Piernas + Sup + Core', '33-33-33': 'Full Body — Sup / Inf / Core' };
+            return { tipo, params: buildParams(tipo, ejsElegidos.length), ejercicios: ejsElegidos.map(e => buildEj(e, tipo)), desc: labelZona[cfgZonas] || 'Full Body' };
+        }
+
+        // ── Construir días ─────────────────────────────────────────────────
+        const diasGenerados = [];
+        for (let d = 0; d < numDias; d++) {
+            // Calentamiento: 80% Core, 20% variado
+            const muscCore = ['Abdominales', 'Oblicuos', 'Lumbar'];
+            const ejsCorePool = poolEjs.filter(e => muscCore.some(m => (e._cat||'').toLowerCase().includes(m.toLowerCase())));
+            const totalCal = Math.floor(Math.random() * 3) + 3;
+            const cantCoreWu = Math.ceil(totalCal * 0.8);
+            const cantExtra  = totalCal - cantCoreWu;
+            const wuCore  = pickRandom(ejsCorePool.length >= cantCoreWu ? ejsCorePool : poolEjs, cantCoreWu);
+            const wuExtra = pickRandom(poolEjs.filter(e => !wuCore.includes(e)), cantExtra);
+            const warmupEjercicios = [...wuCore, ...wuExtra].map(e => ({
+                nombre: e.nombre || e[0] || 'Ejercicio', link: e.link || e[1] || '',
+                reps: String(Math.floor(Math.random() * 8) + 8), unit: 'Reps',
+                con_carga: false, tip1: e.tip1 || '', tip2: e.tip2 || '', elemento: e.elemento || ''
+            }));
+
+            const bloquesRutina = [];
+            for (let b = 0; b < numBloques; b++) {
+                bloquesRutina.push(buildBloqueConZona(elegirTipo()));
+            }
+
+            const titulosDia = { 'sin-piernas': ['Día 1 — Sup + Core', 'Día 2 — Sup + Core', 'Día 3 — Sup + Core'], 'solo-core': ['Día 1 — Zona Media', 'Día 2 — Zona Media', 'Día 3 — Zona Media'], 'mas-piernas': ['Día 1 — Piernas', 'Día 2 — Piernas + Sup', 'Día 3 — Full Body'], '33-33-33': ['Día 1 — Full Body', 'Día 2 — Full Body', 'Día 3 — Full Body'] };
+            const titulos = titulosDia[cfgZonas] || ['Día 1', 'Día 2', 'Día 3'];
             diasGenerados.push({
-                titulo: numDias > 1 ? (titulosDia[d] || ('Día ' + (d + 1))) : 'Día 1',
-                warmupEjercicios,
-                bloquesRutina,
-                warmupEmomConfig: []
+                titulo: numDias > 1 ? (titulos[d] || ('Día ' + (d + 1))) : 'Día 1',
+                warmupEjercicios, bloquesRutina, warmupEmomConfig: []
             });
         }
 
