@@ -3905,8 +3905,11 @@
             if (e.elemento) metaParts.push('🔧 ' + e.elemento);
             if (e.con_carga) metaParts.push('🏋️ Lleva carga');
 
-            if (modoBloque === 'Tabata' || modoBloque === 'EMOM') {
-                // Tabata y EMOM: sin repeticiones ni pausa
+            if (modoBloque === 'Tabata') {
+                // Tabata: sin repeticiones ni pausa
+            } else if (modoBloque === 'EMOM') {
+                // EMOM: mostrar repeticiones pero sin pausa
+                if (e.reps) metaParts.push(e.reps + (e.unit ? ' ' + e.unit : ''));
             } else if (modoBloque === 'Series' || modoBloque === 'Series/Reps') {
                 // Series: mostrar cada serie con sus reps y pausa (sin "Pausa" suelta)
                 if (e.reps_por_serie && e.reps_por_serie.length > 0) {
@@ -4345,30 +4348,58 @@
                 if (e.con_carga) tagParts.push('[Lleva carga]');
                 if (tagParts.length) detLines.push(tagParts.join('  '));
 
-                if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
-                    // Circuito por vueltas: V1  10 Reps
-                    e.reps_por_vuelta.forEach((rv, vi) => {
-                        detLines.push('V' + (vi+1) + '   ' + rv + (e.unit ? ' ' + e.unit : ' Reps'));
-                    });
-                    if (e.descanso) detLines.push('Pausa por vuelta: ' + e.descanso + 's');
-                } else if (e.reps_por_serie && e.reps_por_serie.length > 0) {
-                    // Series individuales: S1  10 Reps  |  Pausa: 60s
-                    e.reps_por_serie.forEach((rs, si) => {
-                        const pausaSerie = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
-                        let linea = 'S' + (si+1) + '   ' + rs + (e.unit ? ' ' + e.unit : ' Reps');
-                        if (pausaSerie) linea += '   |   Pausa: ' + pausaSerie + 's';
-                        detLines.push(linea);
-                    });
+                if (modoBloque === 'Tabata') {
+                    // Tabata: sin repeticiones ni pausa
+                } else if (modoBloque === 'EMOM') {
+                    // EMOM: mostrar reps, sin pausa
+                    if (e.reps) detLines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
+                } else if (modoBloque === 'Circuito' || modoBloque === 'Circuito (Vueltas)') {
+                    // Circuito por vuelta: Vuelta 1  10 Reps, sin pausa por vuelta
+                    if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
+                        e.reps_por_vuelta.forEach((rv, vi) => {
+                            detLines.push('Vuelta ' + (vi+1) + ':   ' + rv + (e.unit ? ' ' + e.unit : ' Reps'));
+                        });
+                    } else if (e.reps) {
+                        detLines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
+                    }
+                } else if (modoBloque === 'Circuito por Tiempo') {
+                    // Solo reps, sin pausa
+                    if (e.reps) detLines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
+                } else if (modoBloque === 'Por Tiempo') {
+                    // Solo reps, sin pausa
+                    if (e.reps) detLines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
+                } else if (modoBloque === 'Series' || modoBloque === 'Series/Reps') {
+                    // Series: Serie 1  X Reps  |  Pausa: Xs
+                    if (e.reps_por_serie && e.reps_por_serie.length > 0) {
+                        e.reps_por_serie.forEach((rs, si) => {
+                            const pausaSerie = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
+                            let linea = 'Serie ' + (si+1) + ':   ' + rs + (e.unit ? ' ' + e.unit : ' Reps');
+                            if (pausaSerie) linea += '   |   Pausa: ' + pausaSerie + 's';
+                            detLines.push(linea);
+                        });
+                    } else {
+                        if (e.reps) detLines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
+                        if (e.descanso) detLines.push('Pausa: ' + e.descanso + 's');
+                    }
                 } else {
-                    // Formato general — solo mostrar "Series: X" en modo Series
-                    if (modoBloque === 'Series' && e.series) {
-                        detLines.push('Series: ' + e.series + (e.reps ? '   x   ' + e.reps + (e.unit ? ' ' + e.unit : ' Reps') : ''));
-                        if (e.descanso) detLines[detLines.length - 1] += '   |   Pausa: ' + e.descanso + 's';
+                    // Fallback genérico
+                    if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
+                        e.reps_por_vuelta.forEach((rv, vi) => {
+                            detLines.push('Vuelta ' + (vi+1) + ':   ' + rv + (e.unit ? ' ' + e.unit : ' Reps'));
+                        });
+                    } else if (e.reps_por_serie && e.reps_por_serie.length > 0) {
+                        e.reps_por_serie.forEach((rs, si) => {
+                            const pausaSerie = (e.pausa_por_serie && e.pausa_por_serie[si] !== undefined && e.pausa_por_serie[si] !== '') ? e.pausa_por_serie[si] : (e.descanso || '');
+                            let linea = 'Serie ' + (si+1) + ':   ' + rs + (e.unit ? ' ' + e.unit : ' Reps');
+                            if (pausaSerie) linea += '   |   Pausa: ' + pausaSerie + 's';
+                            detLines.push(linea);
+                        });
                     } else {
                         if (e.reps) detLines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
                         if (e.descanso) detLines.push('Pausa: ' + e.descanso + 's');
                     }
                 }
+
                 if (e.nota_tecnica) detLines.push('Nota: ' + e.nota_tecnica);
 
                 const lineH = 5.5;
