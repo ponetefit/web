@@ -1027,9 +1027,27 @@
                         </div>
                     </div>
 
-                    <!-- 4. Cantidad de ejercicios -->
+                    <!-- 4. Elementos / Equipamiento -->
                     <div class="bg-fondoAlt rounded-xl border border-borde p-3">
-                        <p class="text-xs font-bold text-purpura mb-2">4. Cantidad de Ejercicios por Bloque</p>
+                        <p class="text-xs font-bold text-purpura mb-2">4. Elementos Disponibles</p>
+                        <p class="text-xs text-textoSuave mb-2">Solo se incluirán ejercicios que usen estos elementos. Si no marcás ninguno, se usan todos.</p>
+                        <div id="ia-elementos-checks" class="flex flex-wrap gap-2">
+                            <label class="ia-check-pill"><input type="checkbox" value="" checked> 🚫 Sin elementos</label>
+                            <label class="ia-check-pill"><input type="checkbox" value="mancuerna" checked> 🏋️ Mancuernas</label>
+                            <label class="ia-check-pill"><input type="checkbox" value="banda"> 🔴 Bandas</label>
+                            <label class="ia-check-pill"><input type="checkbox" value="pelota"> ⚽ Pelota</label>
+                            <label class="ia-check-pill"><input type="checkbox" value="soga"> 🪢 Soga</label>
+                            <label class="ia-check-pill"><input type="checkbox" value="barra"> 🏗️ Barra</label>
+                            <label class="ia-check-pill"><input type="checkbox" value="step"> 🪜 Step</label>
+                            <label class="ia-check-pill"><input type="checkbox" value="pesa"> ⚖️ Pesas</label>
+                            <label class="ia-check-pill"><input type="checkbox" value="bosu"> 🔵 Bosu</label>
+                            <label class="ia-check-pill"><input type="checkbox" value="trx"> 🪝 TRX</label>
+                        </div>
+                    </div>
+
+                    <!-- 5. Cantidad de ejercicios -->
+                    <div class="bg-fondoAlt rounded-xl border border-borde p-3">
+                        <p class="text-xs font-bold text-purpura mb-2">5. Cantidad de Ejercicios por Bloque</p>
                         <div class="flex flex-wrap gap-2 mb-3">
                             <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-cant-modo'); iaCantModoChange()">
                                 <input type="radio" name="ia-cant-modo" value="promedio" checked class="sr-only">
@@ -6709,6 +6727,18 @@
         const cfgCantFija  = parseInt(document.getElementById('ia-cant-fija')?.value) || 4;
         const cfgTiposSel  = cfgTiposModo === 'manual' ? iaGetChecks('#ia-tipos-manual') : [];
 
+        // ── Equipamiento seleccionado ──────────────────────────────────────
+        const elementosChecks = document.querySelectorAll('#ia-elementos-checks input[type=checkbox]:checked');
+        const elementosSel = Array.from(elementosChecks).map(cb => cb.value.toLowerCase().trim());
+        // Si no hay ninguno marcado => sin filtro
+        const filtrarEquipamiento = elementosSel.length > 0;
+        function elementoPermitido(e) {
+            if (!filtrarEquipamiento) return true;
+            const el = (e.elemento || '').toLowerCase().trim();
+            // '' = sin elemento (peso corporal)
+            return elementosSel.some(sel => sel === '' ? el === '' : el.includes(sel));
+        }
+
         function pickRandom(arr, n) {
             return [...arr].sort(() => Math.random() - 0.5).slice(0, n);
         }
@@ -6725,11 +6755,21 @@
             const frescos = todosLosEjs.filter(e => !patrones.ejsUsados.has((e.nombre || e[0] || '').toUpperCase()));
             poolEjs = frescos.length >= 6 ? frescos : todosLosEjs;
         } else if (cfgEjs === 'mas-usados') {
-            // Invertir: priorizar los que SÍ están en ejsUsados
             const usados = todosLosEjs.filter(e => patrones.ejsUsados.has((e.nombre || e[0] || '').toUpperCase()));
             poolEjs = usados.length >= 6 ? usados : todosLosEjs;
         } else {
-            poolEjs = todosLosEjs; // azar: toda la videoteca
+            poolEjs = todosLosEjs;
+        }
+
+        // Aplicar filtro de equipamiento
+        if (filtrarEquipamiento) {
+            const poolFiltrado = poolEjs.filter(elementoPermitido);
+            if (poolFiltrado.length >= 4) {
+                poolEjs = poolFiltrado;
+            } else {
+                toast('⚠️ Pocos ejercicios con esos elementos — usando toda la videoteca');
+                // poolEjs sin filtrar
+            }
         }
 
         // ── 2. Tipos de bloque ─────────────────────────────────────────────
@@ -6775,40 +6815,54 @@
             return poolEjs.filter(e => ZONAS[zonaKey].some(m => (e._cat||'').toLowerCase().includes(m.toLowerCase())));
         }
 
+        // ── Helper: pickRandom con repetición (nunca toma de otro grupo) ──
+        function pickSafe(arr, n) {
+            if (arr.length === 0) return [];
+            const result = [];
+            const shuffled = [...arr].sort(() => Math.random() - 0.5);
+            while (result.length < n) result.push(shuffled[result.length % shuffled.length]);
+            return result;
+        }
+
         function buildBloqueConZona(tipo) {
             const cantEjs = cantEjsBase;
             let ejsElegidos;
+            let avisoPocos = false;
 
             if (cfgZonas === 'azar') {
                 ejsElegidos = pickRandom(poolEjs, cantEjs);
             } else if (cfgZonas === 'sin-piernas') {
-                // Solo Tren Superior + Core (50/50)
+                // SOLO Tren Superior + Core (50/50) — NUNCA Tren Inferior
                 const mitad = Math.ceil(cantEjs / 2);
-                const sup  = pickRandom(ejsDeZona('Tren Superior').length >= mitad ? ejsDeZona('Tren Superior') : poolEjs, mitad);
-                const core = pickRandom(ejsDeZona('Core').length >= (cantEjs - mitad) ? ejsDeZona('Core') : poolEjs, cantEjs - mitad);
+                const poolSup  = ejsDeZona('Tren Superior');
+                const poolCore = ejsDeZona('Core');
+                if (poolSup.length < 2 || poolCore.length < 2) avisoPocos = true;
+                const sup  = pickSafe(poolSup.length > 0 ? poolSup : poolEjs.filter(e => !ejsDeZona('Tren Inferior').includes(e)), mitad);
+                const core = pickSafe(poolCore.length > 0 ? poolCore : poolEjs.filter(e => !ejsDeZona('Tren Inferior').includes(e)), cantEjs - mitad);
                 ejsElegidos = [...sup, ...core].sort(() => Math.random() - 0.5);
             } else if (cfgZonas === 'solo-core') {
                 const pool = ejsDeZona('Core');
-                ejsElegidos = pickRandom(pool.length >= cantEjs ? pool : poolEjs, cantEjs);
+                ejsElegidos = pickSafe(pool.length > 0 ? pool : poolEjs, cantEjs);
             } else if (cfgZonas === 'mas-piernas') {
-                // 50% Tren Inferior, 25% Superior, 25% Core
                 const cInf  = Math.ceil(cantEjs * 0.5);
                 const cSup  = Math.floor(cantEjs * 0.25);
                 const cCore = cantEjs - cInf - cSup;
-                const inf  = pickRandom(ejsDeZona('Tren Inferior').length >= cInf  ? ejsDeZona('Tren Inferior') : poolEjs, cInf);
-                const sup  = pickRandom(ejsDeZona('Tren Superior').length >= cSup  ? ejsDeZona('Tren Superior') : poolEjs, cSup);
-                const core = pickRandom(ejsDeZona('Core').length >= cCore           ? ejsDeZona('Core')          : poolEjs, cCore);
+                const inf  = pickSafe(ejsDeZona('Tren Inferior').length > 0 ? ejsDeZona('Tren Inferior') : poolEjs, cInf);
+                const sup  = pickSafe(ejsDeZona('Tren Superior').length > 0 ? ejsDeZona('Tren Superior') : poolEjs, cSup);
+                const core = pickSafe(ejsDeZona('Core').length > 0 ? ejsDeZona('Core') : poolEjs, cCore);
                 ejsElegidos = [...inf, ...sup, ...core].sort(() => Math.random() - 0.5);
             } else {
                 // 33-33-33 (default)
                 const t = Math.floor(cantEjs / 3);
                 const r = cantEjs - t * 3;
                 const cSup = t + (r > 0 ? 1 : 0), cInf = t + (r > 1 ? 1 : 0), cCore = cantEjs - cSup - cInf;
-                const sup  = pickRandom(ejsDeZona('Tren Superior').length >= cSup  ? ejsDeZona('Tren Superior') : poolEjs, cSup);
-                const inf  = pickRandom(ejsDeZona('Tren Inferior').length >= cInf  ? ejsDeZona('Tren Inferior') : poolEjs, cInf);
-                const core = pickRandom(ejsDeZona('Core').length >= cCore           ? ejsDeZona('Core')          : poolEjs, cCore);
+                const sup  = pickSafe(ejsDeZona('Tren Superior').length > 0 ? ejsDeZona('Tren Superior') : poolEjs, cSup);
+                const inf  = pickSafe(ejsDeZona('Tren Inferior').length > 0 ? ejsDeZona('Tren Inferior') : poolEjs, cInf);
+                const core = pickSafe(ejsDeZona('Core').length > 0 ? ejsDeZona('Core') : poolEjs, cCore);
                 ejsElegidos = [...sup, ...inf, ...core].sort(() => Math.random() - 0.5);
             }
+
+            if (avisoPocos) toast('⚠️ Pocos ejercicios de Superior/Core — se repiten algunos');
 
             const labelZona = { 'azar': 'Variado', 'sin-piernas': 'Sup + Core', 'solo-core': 'Zona Media', 'mas-piernas': 'Piernas + Sup + Core', '33-33-33': 'Full Body — Sup / Inf / Core' };
             return { tipo, params: buildParams(tipo, ejsElegidos.length), ejercicios: ejsElegidos.map(e => buildEj(e, tipo)), desc: labelZona[cfgZonas] || 'Full Body' };
@@ -6817,19 +6871,32 @@
         // ── Construir días ─────────────────────────────────────────────────
         const diasGenerados = [];
         for (let d = 0; d < numDias; d++) {
-            // Calentamiento: 80% Core, 20% variado
+            // Calentamiento: según zona configurada
             const muscCore = ['Abdominales', 'Oblicuos', 'Lumbar'];
             const ejsCorePool = poolEjs.filter(e => muscCore.some(m => (e._cat||'').toLowerCase().includes(m.toLowerCase())));
             const totalCal = Math.floor(Math.random() * 3) + 3;
-            const cantCoreWu = Math.ceil(totalCal * 0.8);
-            const cantExtra  = totalCal - cantCoreWu;
-            const wuCore  = pickRandom(ejsCorePool.length >= cantCoreWu ? ejsCorePool : poolEjs, cantCoreWu);
-            const wuExtra = pickRandom(poolEjs.filter(e => !wuCore.includes(e)), cantExtra);
-            const warmupEjercicios = [...wuCore, ...wuExtra].map(e => ({
-                nombre: e.nombre || e[0] || 'Ejercicio', link: e.link || e[1] || '',
-                reps: String(Math.floor(Math.random() * 8) + 8), unit: 'Reps',
-                con_carga: false, tip1: e.tip1 || '', tip2: e.tip2 || '', elemento: e.elemento || ''
-            }));
+
+            let warmupEjercicios;
+            if (cfgZonas === 'sin-piernas') {
+                // Solo Core puro en el calentamiento cuando es sin piernas
+                const wuAll = pickSafe(ejsCorePool.length >= 2 ? ejsCorePool : poolEjs.filter(e => !ejsDeZona('Tren Inferior').includes(e)), totalCal);
+                warmupEjercicios = wuAll.map(e => ({
+                    nombre: e.nombre || e[0] || 'Ejercicio', link: e.link || e[1] || '',
+                    reps: String(Math.floor(Math.random() * 8) + 8), unit: 'Reps',
+                    con_carga: false, tip1: e.tip1 || '', tip2: e.tip2 || '', elemento: e.elemento || ''
+                }));
+            } else {
+                // Calentamiento estándar: 80% Core, 20% variado
+                const cantCoreWu = Math.ceil(totalCal * 0.8);
+                const cantExtra  = totalCal - cantCoreWu;
+                const wuCore  = pickRandom(ejsCorePool.length >= cantCoreWu ? ejsCorePool : poolEjs, cantCoreWu);
+                const wuExtra = pickRandom(poolEjs.filter(e => !wuCore.includes(e)), cantExtra);
+                warmupEjercicios = [...wuCore, ...wuExtra].map(e => ({
+                    nombre: e.nombre || e[0] || 'Ejercicio', link: e.link || e[1] || '',
+                    reps: String(Math.floor(Math.random() * 8) + 8), unit: 'Reps',
+                    con_carga: false, tip1: e.tip1 || '', tip2: e.tip2 || '', elemento: e.elemento || ''
+                }));
+            }
 
             const bloquesRutina = [];
             for (let b = 0; b < numBloques; b++) {
