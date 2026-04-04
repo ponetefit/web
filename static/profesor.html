@@ -808,15 +808,22 @@
         <!-- Modal Editar Plantilla del Repositorio -->
         <div id="modal-repo-editar" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
             <div class="bg-tarjeta rounded-3xl border border-borde p-6 max-w-sm w-full">
-                <h3 class="text-sm font-bold text-azul uppercase tracking-wider mb-4">Editar Nombre</h3>
+                <h3 class="text-sm font-bold text-azul uppercase tracking-wider mb-4">Editar Plantilla</h3>
                 <div class="space-y-4">
                     <div>
-                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Nuevo Nombre</label>
+                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Nombre de la Plantilla</label>
                         <input id="repo-editar-nombre" type="text" placeholder="Nombre de la plantilla" class="w-full rounded-lg px-3 py-2.5 text-sm" onkeydown="if(event.key==='Enter')confirmarEditarPlantilla()">
                     </div>
                     <div class="flex gap-3">
-                        <button onclick="confirmarEditarPlantilla()" class="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold text-sm">Guardar</button>
+                        <button onclick="confirmarEditarPlantilla()" class="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold text-sm">Guardar Nombre</button>
                         <button onclick="document.getElementById('modal-repo-editar').classList.add('hidden')" class="flex-1 py-2.5 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
+                    </div>
+                    <div class="border-t border-borde/50 pt-3">
+                        <p class="text-xs text-textoSuave mb-2">Para editar los ejercicios y bloques de la rutina, cargala en el editor:</p>
+                        <button onclick="editarRutinaCompleta()" class="w-full py-2.5 rounded-xl border-2 border-azul/50 text-azul font-bold text-sm hover:border-azul hover:bg-azul/5 transition flex items-center justify-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            Editar Rutina Completa
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1491,6 +1498,7 @@
 
     function abrirCrearEntrenamiento() {
         modoRepositorio = true;
+        window._repoEditandoIdx = null; // no estamos editando un ítem existente
         // Resetear el formulario para empezar desde cero
         diasData = [];
         initMultiDia();
@@ -1519,11 +1527,19 @@
     // Guarda directamente con un prompt de nombre (modo repositorio)
     function guardarEnRepositorioDirecto() {
         document.getElementById('repo-status').textContent = '';
-        document.getElementById('repo-nombre-input').value = '';
+        // Si venimos de "editar rutina completa", pre-rellenar el nombre del ítem original
+        if (window._repoEditandoIdx !== undefined && window._repoEditandoIdx !== null) {
+            const repo = getRepositorio();
+            const r = repo[window._repoEditandoIdx];
+            document.getElementById('repo-nombre-input').value = r ? (r.nombre || '') : '';
+        } else {
+            document.getElementById('repo-nombre-input').value = '';
+        }
         document.getElementById('modal-repo-guardar').classList.remove('hidden');
         // Al confirmar: desactivar modo repo y volver al repositorio
         window._repoGuardarCallback = () => {
             modoRepositorio = false;
+            window._repoEditandoIdx = null;
             showTab('repositorio');
         };
         setTimeout(() => document.getElementById('repo-nombre-input').focus(), 100);
@@ -4859,9 +4875,12 @@
                 colorBar('2. BLOQUE PRINCIPAL  —  ' + tipo, 206, 147, 216);
                 if (tipo === 'EMOM') {
                     const minutosCiclo = toArray(datos.minutos_ciclo);
+                    // Fallback: si no hay minutos_ciclo, intentar emom_config_por_minuto (nuevo formato)
+                    const emomCfgFallback = toArray(datos.emom_config_por_minuto);
+                    const emomSrc = minutosCiclo.length > 0 ? minutosCiclo : emomCfgFallback;
                     subBar('EMOM  —  ' + (datos.minutos_totales||10) + ' min');
-                    if (minutosCiclo.length > 0) {
-                        minutosCiclo.forEach((minCfg, mi) => {
+                    if (emomSrc.length > 0) {
+                        emomSrc.forEach((minCfg, mi) => {
                             chk(8);
                             doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(180, 130, 0);
                             doc.text('MINUTO ' + (mi + 1), mL + 2, y); y += 5;
@@ -5513,8 +5532,8 @@
                 }
             });
         } else {
-            // Formatos simples
-            const ejsFlat = toArray(datos.rutina || datos.datos || []);
+            // Formatos simples (incluye "Por Tiempo" que guarda en datos.ejercicios)
+            const ejsFlat = toArray(datos.rutina || datos.datos || datos.ejercicios || []);
             ejsFlat.forEach(item => {
                 if (item && item.ejercicios) {
                     toArray(item.ejercicios).forEach(ej => {
@@ -5909,7 +5928,12 @@
         };
 
         const repo = getRepositorio();
-        repo.unshift(snapshot);
+        // Si venimos de "editar rutina completa", reemplazar el ítem existente en vez de agregar uno nuevo
+        if (window._repoEditandoIdx !== undefined && window._repoEditandoIdx !== null && repo[window._repoEditandoIdx]) {
+            repo[window._repoEditandoIdx] = snapshot;
+        } else {
+            repo.unshift(snapshot);
+        }
         setRepositorio(repo);
 
         document.getElementById('repo-status').textContent = '✓ Guardado correctamente';
@@ -6120,6 +6144,31 @@
             toast('Nombre actualizado');
         }
         document.getElementById('modal-repo-editar').classList.add('hidden');
+    }
+
+    async function editarRutinaCompleta() {
+        const repo = getRepositorio();
+        if (repoEditandoIdx === null || !repo[repoEditandoIdx]) return;
+        const r = repo[repoEditandoIdx];
+        document.getElementById('modal-repo-editar').classList.add('hidden');
+
+        // Guardar nombre actualizado antes de cargar
+        const nuevoNombre = (document.getElementById('repo-editar-nombre').value || '').trim();
+        if (nuevoNombre && nuevoNombre !== r.nombre) {
+            r.nombre = nuevoNombre;
+            setRepositorio(repo);
+        }
+
+        // Cargar la plantilla en el editor (Crear Rutina) en modo repositorio
+        await cargarPlantillaEnEstado(r, null);
+
+        // Activar modo "guardar en repo" para que al guardar se actualice el índice correcto
+        window._repoEditandoIdx = repoEditandoIdx;
+        document.getElementById('btn-guardar-repo-normal').classList.add('hidden');
+        document.getElementById('btn-compartir-rutina').classList.add('hidden');
+        document.getElementById('btn-guardar-repo-modo').classList.remove('hidden');
+
+        toast('Plantilla cargada — editá y guardá en Repositorio');
     }
 
     function copiarAAlumnoDesdeRepo(idx) {
