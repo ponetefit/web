@@ -1022,30 +1022,18 @@
                                 <input type="radio" name="ia-zonas" value="mas-piernas" class="sr-only">
                                 <span>🦵 Más piernas</span>
                             </label>
+                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-zonas')">
+                                <input type="radio" name="ia-zonas" value="todo-cuerpo" class="sr-only">
+                                <span>🌐 Todo el cuerpo</span>
+                            </label>
+                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-zonas')">
+                                <input type="radio" name="ia-zonas" value="25-25-25-25" class="sr-only">
+                                <span>🔢 25 / 25 / 25 / 25</span>
+                            </label>
                         </div>
                     </div>
 
-                    <!-- 4. Nivel de dificultad -->
-                    <div class="bg-fondoAlt rounded-xl border border-borde p-3">
-                        <p class="text-xs font-bold text-purpura mb-2">4. Nivel de Dificultad</p>
-                        <div class="flex flex-wrap gap-2">
-                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-nivel')">
-                                <input type="radio" name="ia-nivel" value="principiante" class="sr-only">
-                                <span>🌱 Principiante</span>
-                            </label>
-                            <label class="ia-radio-pill active" onclick="iaSelectPill(this,'ia-nivel')">
-                                <input type="radio" name="ia-nivel" value="intermedio" checked class="sr-only">
-                                <span>⚡ Intermedio</span>
-                            </label>
-                            <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-nivel')">
-                                <input type="radio" name="ia-nivel" value="avanzado" class="sr-only">
-                                <span>🔥 Avanzado</span>
-                            </label>
-                        </div>
-                        <p id="ia-nivel-desc" class="text-xs text-textoSuave mt-2">Reps: 8–18 · Pausa: 45s · Vueltas: 3–4</p>
-                    </div>
-
-                    <!-- 5. Progresión automática -->
+                    <!-- 4. Progresión automática -->
                     <div class="bg-fondoAlt rounded-xl border border-borde p-3">
                         <p class="text-xs font-bold text-purpura mb-2">5. Progresión Automática</p>
                         <div class="flex flex-wrap gap-2 mb-2">
@@ -2705,12 +2693,23 @@
         const container = document.getElementById('emom-minutos-config');
         if (!container) return;
 
-        // Preservar ejercicios ya cargados
+        // Preservar ejercicios ya cargados en el DOM (data-ejs) o restaurar desde _emomRestoreData
         const prevEjs = {};
+
+        // Primero intentar leer desde el DOM existente
         for (let m = 0; m < 60; m++) {
             const listEl = document.getElementById('emom-min-' + m + '-lista');
             if (!listEl) break;
             try { prevEjs[m] = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { prevEjs[m] = []; }
+        }
+
+        // Si hay datos de restauración pendientes (al editar un bloque EMOM guardado), usarlos
+        if (window._emomRestoreData && window._emomRestoreData.length > 0) {
+            window._emomRestoreData.forEach(function(minCfg, mi) {
+                const ejsList = minCfg.ejercicios || (minCfg.ejercicios_nombres || []).map(n => ({ nombre: n, reps: '', unit: 'Reps' }));
+                prevEjs[mi] = ejsList;
+            });
+            window._emomRestoreData = null;
         }
 
         let html = '';
@@ -3240,6 +3239,13 @@
         // Asegurar que bloquesRutina apunta al día activo
         if (diasData[diaActivoIdx]) bloquesRutina = diasData[diaActivoIdx].bloquesRutina;
         const b = bloquesRutina[idx];
+
+        // Para EMOM: pre-cargar datos de restauración ANTES de actualizarBloqueParams
+        // así actualizarEMOMMinutosConfig los encuentra disponibles cuando corre
+        if (b.tipo === 'EMOM' && b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
+            window._emomRestoreData = b.emom_config_por_minuto;
+        }
+
         document.getElementById('bloque-tipo').value = b.tipo;
         document.getElementById('bloque-desc').value = b.descripcion || '';
         actualizarBloqueParams();
@@ -3261,35 +3267,7 @@
         } else if (b.tipo === 'EMOM') {
             const _mEl = document.getElementById('bp-minutos');
             if(_mEl) { _mEl.value = b.minutos_totales || 10; }
-            // Pre-cargar ejercicios por minuto para que actualizarEMOMMinutosConfig los preserve
-            if (b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
-                // Los datos se restauran via actualizarEMOMMinutosConfig al renderizar
-                // Guardar temporalmente en una variable global para que el render los use
-                window._emomRestoreData = b.emom_config_por_minuto;
-            }
-            setTimeout(() => {
-                // Inyectar datos previos en los list elements antes de renderizar
-                if (window._emomRestoreData) {
-                    // Crear el HTML con los datos del bloque guardado
-                    const container = document.getElementById('emom-minutos-config');
-                    if (container) {
-                        // Crear temporalmente los data-ejs para que actualizarEMOMMinutosConfig los preserve
-                        window._emomRestoreData.forEach(function(minCfg, mi) {
-                            const ejsList = minCfg.ejercicios || (minCfg.ejercicios_nombres || []).map(n => ({nombre: n, reps: '', unit: 'Reps'}));
-                            // Crear un placeholder para que la funcion lo lea
-                            let placeholder = document.getElementById('emom-min-' + mi + '-lista');
-                            if (!placeholder) {
-                                placeholder = document.createElement('div');
-                                placeholder.id = 'emom-min-' + mi + '-lista';
-                                container.appendChild(placeholder);
-                            }
-                            placeholder.dataset.ejs = JSON.stringify(ejsList);
-                        });
-                    }
-                    window._emomRestoreData = null;
-                }
-                actualizarEMOMMinutosConfig();
-            }, 100);
+            // _emomRestoreData ya fue seteado antes de actualizarBloqueParams — no necesitamos otro setTimeout
         }
 
         bloqueEjsTemp = JSON.parse(JSON.stringify(b.ejercicios || []));
@@ -6867,8 +6845,10 @@
         const filtrarEquipamiento = elementosSel.length > 0;
         function elementoPermitido(e) {
             if (!filtrarEquipamiento) return true;
+            // Ejercicios sin elemento asignado se consideran "sin elemento"
             const el = (e.elemento || '').toLowerCase().trim();
-            return elementosSel.some(sel => sel === '' ? el === '' : el.includes(sel));
+            // Si el valor es '' (sin elemento) en la selección, incluir ejercicios sin elemento
+            return elementosSel.some(sel => sel === '' ? (el === '' || !el) : el.includes(sel));
         }
 
         function pickRandom(arr, n) {
@@ -6951,7 +6931,8 @@
         const ZONAS = {
             'Tren Superior': ['Pecho', 'Espalda', 'Hombros', 'Biceps', 'Triceps', 'Trapecio'],
             'Tren Inferior': ['Cuadriceps', 'Isquiotibiales', 'Gluteos', 'Pantorrillas', 'Aductores'],
-            'Core':          ['Abdominales', 'Oblicuos', 'Lumbar']
+            'Core':          ['Abdominales', 'Oblicuos', 'Lumbar'],
+            'Todo el Cuerpo': ['Todo el cuerpo', 'Full Body', 'Funcional', 'Completo']
         };
         function ejsDeZona(zonaKey, pool) {
             const p = pool || poolBase;
@@ -6969,46 +6950,74 @@
             ejs.forEach(e => usadosEnRutina.add((e.nombre || e[0] || '').toUpperCase()));
         }
 
+        // pickStrict: toma N del pool dado con shuffle. Si no hay suficientes, repite del mismo pool.
+        // NUNCA cae a otra zona — si el pool está vacío devuelve [].
+        function pickStrict(zonaPool, n) {
+            if (!zonaPool || zonaPool.length === 0 || n <= 0) return [];
+            const shuffled = [...zonaPool].sort(() => Math.random() - 0.5);
+            const result = [];
+            while (result.length < n) result.push(shuffled[result.length % shuffled.length]);
+            return result;
+        }
+
         function buildBloqueConZona(tipo) {
             const cantEjs = cantEjsBase;
             let ejsElegidos;
-            let avisoPocos = false;
-
-            const pool = () => poolSinRepetir(poolBase);
 
             if (cfgZonas === 'azar') {
-                ejsElegidos = pickRandom(pool(), cantEjs);
+                // Al azar: cualquier ejercicio, orden aleatorio
+                ejsElegidos = pickStrict(poolSinRepetir(poolBase), cantEjs)
+                    .sort(() => Math.random() - 0.5);
             } else if (cfgZonas === 'sin-piernas') {
-                const mitad    = Math.ceil(cantEjs / 2);
-                const poolSup  = poolSinRepetir(ejsDeZona('Tren Superior'));
-                const poolCore = poolSinRepetir(ejsDeZona('Core'));
-                const noInf    = poolSinRepetir(poolBase.filter(e => !ejsDeZona('Tren Inferior').includes(e)));
-                if (poolSup.length < 2 || poolCore.length < 2) avisoPocos = true;
-                const sup  = pickSafe(poolSup.length > 0  ? poolSup  : noInf, mitad);
-                const core = pickSafe(poolCore.length > 0 ? poolCore : noInf, cantEjs - mitad);
-                ejsElegidos = [...sup, ...core].sort(() => Math.random() - 0.5);
+                // 70% Tren Superior → 30% Core  (orden fijo, sin mezcla de otras zonas)
+                const cSup  = Math.ceil(cantEjs * 0.7);
+                const cCore = cantEjs - cSup;
+                const sup  = pickStrict(poolSinRepetir(ejsDeZona('Tren Superior')), cSup);
+                const core = pickStrict(poolSinRepetir(ejsDeZona('Core')), cCore);
+                ejsElegidos = [...sup, ...core];
             } else if (cfgZonas === 'solo-core') {
-                const p = poolSinRepetir(ejsDeZona('Core'));
-                ejsElegidos = pickSafe(p.length > 0 ? p : pool(), cantEjs);
+                // 100% Core (orden fijo)
+                ejsElegidos = pickStrict(poolSinRepetir(ejsDeZona('Core')), cantEjs);
             } else if (cfgZonas === 'mas-piernas') {
-                const cInf = Math.ceil(cantEjs * 0.5), cSup = Math.floor(cantEjs * 0.25), cCore = cantEjs - cInf - cSup;
-                const inf  = pickSafe(poolSinRepetir(ejsDeZona('Tren Inferior')).length > 0 ? poolSinRepetir(ejsDeZona('Tren Inferior')) : pool(), cInf);
-                const sup  = pickSafe(poolSinRepetir(ejsDeZona('Tren Superior')).length > 0 ? poolSinRepetir(ejsDeZona('Tren Superior')) : pool(), cSup);
-                const core = pickSafe(poolSinRepetir(ejsDeZona('Core')).length > 0           ? poolSinRepetir(ejsDeZona('Core'))           : pool(), cCore);
-                ejsElegidos = [...inf, ...sup, ...core].sort(() => Math.random() - 0.5);
+                // 50% Tren Inferior → 30% Tren Superior → 20% Core (orden fijo)
+                const cInf  = Math.ceil(cantEjs * 0.5);
+                const cSup  = Math.floor(cantEjs * 0.3);
+                const cCore = cantEjs - cInf - cSup;
+                const inf  = pickStrict(poolSinRepetir(ejsDeZona('Tren Inferior')), cInf);
+                const sup  = pickStrict(poolSinRepetir(ejsDeZona('Tren Superior')), cSup);
+                const core = pickStrict(poolSinRepetir(ejsDeZona('Core')), cCore);
+                ejsElegidos = [...inf, ...sup, ...core];
+            } else if (cfgZonas === 'todo-cuerpo') {
+                // 100% Todo el Cuerpo (orden fijo)
+                ejsElegidos = pickStrict(poolSinRepetir(ejsDeZona('Todo el Cuerpo')), cantEjs);
+            } else if (cfgZonas === '25-25-25-25') {
+                // 25% Todo el cuerpo → 25% Tren Inferior → 25% Tren Superior → 25% Core (orden fijo)
+                const c25  = Math.floor(cantEjs / 4);
+                const cRem = cantEjs - c25 * 4;
+                const cTodo = c25 + (cRem > 0 ? 1 : 0);
+                const cInf  = c25 + (cRem > 1 ? 1 : 0);
+                const cSup  = c25 + (cRem > 2 ? 1 : 0);
+                const cCore = cantEjs - cTodo - cInf - cSup;
+                const todo = pickStrict(poolSinRepetir(ejsDeZona('Todo el Cuerpo')), cTodo);
+                const inf  = pickStrict(poolSinRepetir(ejsDeZona('Tren Inferior')),  cInf);
+                const sup  = pickStrict(poolSinRepetir(ejsDeZona('Tren Superior')),  cSup);
+                const core = pickStrict(poolSinRepetir(ejsDeZona('Core')),           cCore);
+                ejsElegidos = [...todo, ...inf, ...sup, ...core];
             } else {
-                const t = Math.floor(cantEjs / 3), r = cantEjs - t * 3;
-                const cSup = t + (r > 0 ? 1 : 0), cInf = t + (r > 1 ? 1 : 0), cCore = cantEjs - cSup - cInf;
-                const sup  = pickSafe(poolSinRepetir(ejsDeZona('Tren Superior')).length > 0 ? poolSinRepetir(ejsDeZona('Tren Superior')) : pool(), cSup);
-                const inf  = pickSafe(poolSinRepetir(ejsDeZona('Tren Inferior')).length > 0 ? poolSinRepetir(ejsDeZona('Tren Inferior')) : pool(), cInf);
-                const core = pickSafe(poolSinRepetir(ejsDeZona('Core')).length > 0           ? poolSinRepetir(ejsDeZona('Core'))           : pool(), cCore);
-                ejsElegidos = [...sup, ...inf, ...core].sort(() => Math.random() - 0.5);
+                // 33/33/33: Tren Inferior → Tren Superior → Core (orden fijo)
+                const t    = Math.floor(cantEjs / 3), r = cantEjs - t * 3;
+                const cInf  = t + (r > 0 ? 1 : 0);
+                const cSup  = t + (r > 1 ? 1 : 0);
+                const cCore = cantEjs - cInf - cSup;
+                const inf  = pickStrict(poolSinRepetir(ejsDeZona('Tren Inferior')), cInf);
+                const sup  = pickStrict(poolSinRepetir(ejsDeZona('Tren Superior')), cSup);
+                const core = pickStrict(poolSinRepetir(ejsDeZona('Core')),          cCore);
+                ejsElegidos = [...inf, ...sup, ...core];
             }
 
-            if (avisoPocos) toast('⚠️ Pocos ejercicios de Superior/Core — se repiten algunos');
             marcarUsados(ejsElegidos);
 
-            const labelZona = { 'azar': 'Variado', 'sin-piernas': 'Sup + Core', 'solo-core': 'Zona Media', 'mas-piernas': 'Piernas + Sup + Core', '33-33-33': 'Full Body' };
+            const labelZona = { 'azar': 'Variado', 'sin-piernas': 'Sup + Core', 'solo-core': 'Zona Media', 'mas-piernas': 'Piernas + Sup + Core', '33-33-33': 'Full Body', 'todo-cuerpo': 'Todo el Cuerpo', '25-25-25-25': '25/25/25/25' };
             return { tipo, params: buildParams(tipo, ejsElegidos.length), ejercicios: ejsElegidos.map(e => buildEj(e, tipo)), desc: labelZona[cfgZonas] || 'Full Body' };
         }
 
@@ -7019,31 +7028,17 @@
             const ejsCorePool = poolBase.filter(e => muscCore.some(m => (e._cat||'').toLowerCase().includes(m.toLowerCase())));
             const totalCal = Math.floor(Math.random() * 3) + 3;
 
-            let warmupEjercicios;
-            if (cfgZonas === 'sin-piernas') {
-                const noInf = poolBase.filter(e => !ejsDeZona('Tren Inferior').includes(e));
-                const wuPool = ejsCorePool.length >= 2 ? ejsCorePool : noInf;
-                warmupEjercicios = pickSafe(wuPool, totalCal).map(e => ({
-                    nombre: e.nombre || e[0] || 'Ejercicio', link: e.link || e[1] || '',
-                    reps: String(Math.floor(Math.random() * 8) + 8), unit: 'Reps',
-                    con_carga: false, tip1: e.tip1 || '', tip2: e.tip2 || '', elemento: e.elemento || ''
-                }));
-            } else {
-                const cantCoreWu = Math.ceil(totalCal * 0.8);
-                const cantExtra  = totalCal - cantCoreWu;
-                const wuCore  = pickRandom(ejsCorePool.length >= cantCoreWu ? ejsCorePool : poolBase, cantCoreWu);
-                const wuExtra = pickRandom(poolBase.filter(e => !wuCore.includes(e)), cantExtra);
-                warmupEjercicios = [...wuCore, ...wuExtra].map(e => ({
-                    nombre: e.nombre || e[0] || 'Ejercicio', link: e.link || e[1] || '',
-                    reps: String(Math.floor(Math.random() * 8) + 8), unit: 'Reps',
-                    con_carga: false, tip1: e.tip1 || '', tip2: e.tip2 || '', elemento: e.elemento || ''
-                }));
-            }
+            // Calentamiento: SOLO zona media (Core). Si no hay, queda vacío — sin fallback.
+            const warmupEjercicios = ejsCorePool.map(e => ({
+                nombre: e.nombre || e[0] || 'Ejercicio', link: e.link || e[1] || '',
+                reps: String(Math.floor(Math.random() * 8) + 8), unit: 'Reps',
+                con_carga: false, tip1: e.tip1 || '', tip2: e.tip2 || '', elemento: e.elemento || ''
+            })).sort(() => Math.random() - 0.5).slice(0, totalCal);
 
             const bloquesRutina = [];
             for (let b = 0; b < numBloques; b++) bloquesRutina.push(buildBloqueConZona(elegirTipo()));
 
-            const titulosDia = { 'sin-piernas': ['Día 1 — Sup + Core', 'Día 2 — Sup + Core', 'Día 3 — Sup + Core'], 'solo-core': ['Día 1 — Zona Media', 'Día 2 — Zona Media', 'Día 3 — Zona Media'], 'mas-piernas': ['Día 1 — Piernas', 'Día 2 — Piernas + Sup', 'Día 3 — Full Body'], '33-33-33': ['Día 1 — Full Body', 'Día 2 — Full Body', 'Día 3 — Full Body'] };
+            const titulosDia = { 'sin-piernas': ['Día 1 — Sup + Core', 'Día 2 — Sup + Core', 'Día 3 — Sup + Core'], 'solo-core': ['Día 1 — Zona Media', 'Día 2 — Zona Media', 'Día 3 — Zona Media'], 'mas-piernas': ['Día 1 — Piernas', 'Día 2 — Piernas + Sup', 'Día 3 — Full Body'], '33-33-33': ['Día 1 — Full Body', 'Día 2 — Full Body', 'Día 3 — Full Body'], 'todo-cuerpo': ['Día 1 — Todo el Cuerpo', 'Día 2 — Todo el Cuerpo', 'Día 3 — Todo el Cuerpo'], '25-25-25-25': ['Día 1 — 25/25/25/25', 'Día 2 — 25/25/25/25', 'Día 3 — 25/25/25/25'] };
             const titulos = titulosDia[cfgZonas] || ['Día 1', 'Día 2', 'Día 3'];
             diasGenerados.push({ titulo: numDias > 1 ? (titulos[d] || ('Día ' + (d + 1))) : 'Día 1', warmupEjercicios, bloquesRutina, warmupEmomConfig: [] });
         }
