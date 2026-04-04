@@ -725,6 +725,9 @@
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     Agregar Día
                 </button>
+                <button onclick="generarRutinaIA()" class="flex-1 py-3 rounded-2xl font-bold text-sm uppercase tracking-wider transition flex items-center justify-center gap-2" style="background: linear-gradient(135deg, #7c3aed, #4f46e5); box-shadow: 0 8px 24px rgba(124,58,237,0.35); color: #fff;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                    🤖 Armar Rutina con IA
+                </button>
                 <!-- Modo NORMAL: botón guardar en repo + botón compartir -->
                 <button id="btn-guardar-repo-normal" onclick="abrirGuardarPlantilla()" class="flex-1 py-3 rounded-2xl border-2 border-naranja/50 text-naranja font-bold text-sm uppercase tracking-wider hover:border-naranja hover:bg-naranja/5 transition flex items-center justify-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h8l4 4v12a2 2 0 01-2 2H7a2 2 0 01-2-2V5z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 3v4H9V3"/></svg>
@@ -6297,6 +6300,166 @@
         if (!confirm('¿Cargar esta plantilla en "Crear Rutina"? Se reemplazará lo que tengas actualmente.')) return;
         await cargarPlantillaEnEstado(r, null);
         toast('Plantilla cargada en Crear Rutina');
+    }
+
+    // ====================================================================
+    // IA: GENERAR RUTINA AUTOMÁTICA
+    // ====================================================================
+
+    /**
+     * Punto de extensión futuro: reemplazá el cuerpo de esta función
+     * con una llamada real a tu API de IA (OpenAI, Claude, etc.) pasándole
+     * `ejerciciosDisponibles` y `plantillasGuardadas` como contexto.
+     * Debe devolver un array con el mismo formato que `diasData`.
+     */
+    async function llamarAPIdeIA(ejerciciosDisponibles, plantillasGuardadas) {
+        // ── SIMULACIÓN LOCAL ──────────────────────────────────────────────
+        // Cuando conectes una API real, reemplazá todo este bloque.
+
+        function pickRandom(arr, n) {
+            const shuffled = [...arr].sort(() => Math.random() - 0.5);
+            return shuffled.slice(0, n);
+        }
+
+        // Aplanar todos los ejercicios de la videoteca
+        const todosLosEjs = Object.entries(ejerciciosDisponibles).flatMap(([cat, ejs]) =>
+            (ejs || []).map(e => ({ ...e, _cat: cat }))
+        );
+
+        if (todosLosEjs.length === 0) return null;
+
+        // Analizar las estructuras de rutinas pasadas para imitar su forma
+        const tiposUsados = ['Circuito', 'Tabata', 'EMOM', 'Series'];
+        const tiposFromRepo = plantillasGuardadas.flatMap(p =>
+            (p.diasData || []).flatMap(d =>
+                (d.bloquesRutina || []).map(b => b.tipo).filter(Boolean)
+            )
+        );
+        const poolTipos = tiposFromRepo.length > 0 ? tiposFromRepo : tiposUsados;
+
+        // Generar entre 1 y 2 días
+        const numDias = plantillasGuardadas.length > 0
+            ? Math.min(2, Math.max(1, Math.round((plantillasGuardadas[0]?.diasData?.length || 1))))
+            : 1;
+
+        const diasGenerados = [];
+
+        for (let d = 0; d < numDias; d++) {
+            const ejsCalentamiento = pickRandom(todosLosEjs, Math.floor(Math.random() * 3) + 2);
+            const warmupEjercicios = ejsCalentamiento.map(e => ({
+                nombre: e.nombre || e[0] || 'Ejercicio',
+                link: e.link || e[1] || '',
+                reps: String(Math.floor(Math.random() * 10) + 8),
+                unit: 'Reps',
+                con_carga: e.con_carga === true,
+                tip1: e.tip1 || '',
+                tip2: e.tip2 || '',
+                elemento: e.elemento || ''
+            }));
+
+            // Generar 1 o 2 bloques principales
+            const numBloques = Math.floor(Math.random() * 2) + 1;
+            const bloquesRutina = [];
+
+            for (let b = 0; b < numBloques; b++) {
+                const tipoBloque = poolTipos[Math.floor(Math.random() * poolTipos.length)];
+                const ejsBloque = pickRandom(todosLosEjs, Math.floor(Math.random() * 4) + 3);
+
+                const ejerciciosBloque = ejsBloque.map(e => ({
+                    nombre: e.nombre || e[0] || 'Ejercicio',
+                    link: e.link || e[1] || '',
+                    reps: String(Math.floor(Math.random() * 12) + 8),
+                    unit: 'Reps',
+                    con_carga: e.con_carga === true,
+                    tip1: e.tip1 || '',
+                    tip2: e.tip2 || '',
+                    elemento: e.elemento || ''
+                }));
+
+                // Armar parámetros del bloque según el tipo
+                let params = {};
+                if (tipoBloque === 'Circuito') {
+                    params = { vueltas: String(Math.floor(Math.random() * 2) + 2), pausa_vuelta: '45' };
+                } else if (tipoBloque === 'Tabata') {
+                    params = { trabajo: '20', pausa: '10', cantidad: String(ejerciciosBloque.length) };
+                } else if (tipoBloque === 'EMOM') {
+                    params = { minutos: String(ejerciciosBloque.length) };
+                } else if (tipoBloque === 'Series') {
+                    params = { series: '3', pausa: '60' };
+                } else {
+                    params = { vueltas: '3', pausa_vuelta: '45' };
+                }
+
+                bloquesRutina.push({
+                    tipo: tipoBloque,
+                    params,
+                    ejercicios: ejerciciosBloque,
+                    desc: ''
+                });
+            }
+
+            diasGenerados.push({
+                titulo: 'Día ' + (d + 1),
+                warmupEjercicios,
+                bloquesRutina,
+                warmupEmomConfig: []
+            });
+        }
+
+        return diasGenerados;
+        // ── FIN SIMULACIÓN ────────────────────────────────────────────────
+    }
+
+    async function generarRutinaIA() {
+        // 1. Validar que haya ejercicios en la videoteca
+        const ejerciciosDisponibles = videotecaCache || {};
+        const totalEjs = Object.values(ejerciciosDisponibles).flat().length;
+
+        if (totalEjs === 0) {
+            toast('⚠️ La Videoteca está vacía. Cargá ejercicios primero.');
+            return;
+        }
+
+        // 2. Leer plantillas del repositorio para imitar estructuras previas
+        const plantillasGuardadas = getRepositorio();
+
+        // 3. Feedback visual
+        toast('🤖 Generando rutina con IA...');
+
+        // 4. Llamar a la función de IA (simulada o real en el futuro)
+        let nuevaData;
+        try {
+            nuevaData = await llamarAPIdeIA(ejerciciosDisponibles, plantillasGuardadas);
+        } catch (e) {
+            toast('Error al generar la rutina. Intentá de nuevo.');
+            console.error('generarRutinaIA error:', e);
+            return;
+        }
+
+        if (!nuevaData || nuevaData.length === 0) {
+            toast('No se pudo generar la rutina. Revisá la Videoteca.');
+            return;
+        }
+
+        // 5. Confirmar antes de reemplazar lo que hay en pantalla
+        const tieneContenido = diasData.some(d =>
+            d.warmupEjercicios.length > 0 || d.bloquesRutina.length > 0
+        );
+        if (tieneContenido) {
+            if (!confirm('¿Reemplazar la rutina actual con la generada por IA?')) return;
+        }
+
+        // 6. Inyectar en diasData y renderizar
+        diasData = nuevaData;
+        renderDias();
+
+        // 7. Expandir todos los días para que el profesor vea el resultado
+        diasData.forEach((_, idx) => toggleDia(idx, true));
+
+        const totalEjsGen = nuevaData.reduce((acc, d) =>
+            acc + d.warmupEjercicios.length + d.bloquesRutina.reduce((a, b) => a + (b.ejercicios||[]).length, 0), 0
+        );
+        toast('✅ Rutina generada: ' + nuevaData.length + ' día(s), ' + totalEjsGen + ' ejercicios');
     }
 
     // ====================================================================
