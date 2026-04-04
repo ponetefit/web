@@ -6803,15 +6803,16 @@
                 ejsElegidos = pickRandom(poolEjs, cantEjs);
 
             } else if (cfgZonas === 'sin-piernas') {
-                // Orden: Tren Superior → Core
-                const mitad   = Math.ceil(cantEjs / 2);
+                // Orden: Tren Superior (70%) → Core (30%)
+                const cSup  = Math.round(cantEjs * 0.7);
+                const cCore = cantEjs - cSup;
                 const noInf   = poolEjs.filter(e => !ejsDeZona('Tren Inferior').some(x => x === e));
                 const poolSup = ejsDeZona('Tren Superior');
                 const poolCore= ejsDeZona('Core');
                 if (poolSup.length < 2 || poolCore.length < 2) toast('⚠️ Pocos ejercicios de Superior/Core — se repiten algunos');
-                const sup  = pickSafe(poolSup.length  > 0 ? poolSup  : noInf, mitad);
-                const core = pickSafe(poolCore.length > 0 ? poolCore : noInf, cantEjs - mitad);
-                ejsElegidos = [...sup, ...core]; // Superior primero, luego Core
+                const sup  = pickSafe(poolSup.length  > 0 ? poolSup  : noInf, cSup);
+                const core = pickSafe(poolCore.length > 0 ? poolCore : noInf, cCore);
+                ejsElegidos = [...sup, ...core]; // Superior primero (70%), luego Core (30%)
 
             } else if (cfgZonas === 'solo-core') {
                 const pool = ejsDeZona('Core');
@@ -6828,19 +6829,9 @@
                 ejsElegidos = [...inf, ...sup, ...core];
 
             } else if (cfgZonas === 'todo-cuerpo') {
-                // 25/25/25/25: Todo Cuerpo → Tren Inferior → Tren Superior → Core
-                const c = Math.floor(cantEjs / 4);
-                const r = cantEjs - c * 4;
-                const cTodo = c + (r > 0 ? 1 : 0);
-                const cInf  = c + (r > 1 ? 1 : 0);
-                const cSup  = c + (r > 2 ? 1 : 0);
-                const cCore = cantEjs - cTodo - cInf - cSup;
+                // 100% Todo Cuerpo
                 const poolTodo = ejsTodoCuerpo();
-                const todo = pickSafe(poolTodo.length > 0 ? poolTodo : poolEjs, cTodo);
-                const inf  = pickSafe(ejsDeZona('Tren Inferior').length > 0 ? ejsDeZona('Tren Inferior') : poolEjs, cInf);
-                const sup  = pickSafe(ejsDeZona('Tren Superior').length > 0 ? ejsDeZona('Tren Superior') : poolEjs, cSup);
-                const core = pickSafe(ejsDeZona('Core').length > 0           ? ejsDeZona('Core')          : poolEjs, cCore);
-                ejsElegidos = [...todo, ...inf, ...sup, ...core];
+                ejsElegidos = pickSafe(poolTodo.length > 0 ? poolTodo : poolEjs, cantEjs);
 
             } else {
                 // 33-33-33: Tren Inferior → Tren Superior → Core
@@ -6858,7 +6849,7 @@
             const labelZona = {
                 'azar': 'Variado', 'sin-piernas': 'Sup → Core', 'solo-core': 'Zona Media',
                 'mas-piernas': 'Inf → Sup → Core', '33-33-33': 'Inf → Sup → Core',
-                'todo-cuerpo': 'Todo → Inf → Sup → Core'
+                'todo-cuerpo': 'Todo el Cuerpo'
             };
             return { tipo, params: buildParams(tipo, ejsElegidos.length), ejercicios: ejsElegidos.map(e => buildEj(e, tipo)), desc: labelZona[cfgZonas] || 'Full Body' };
         }
