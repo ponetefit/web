@@ -4139,6 +4139,16 @@
             } else {
                 gruposC.forEach(ej => { html += ejBox(ej); });
             }
+        } else if (tipo === 'Por Tiempo') {
+            html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — POR TIEMPO</div>`;
+            const vueltas = datos.vueltas || 1;
+            html += `<p style="${ff}color:#666;font-size:12px;font-style:italic;margin:0 0 8px 2px;">Vueltas: ${vueltas} — Cronómetro, el alumno marca cada vuelta manualmente</p>`;
+            const ejsPT = toArray(datos.ejercicios || datos.datos || datos.rutina || []);
+            if (ejsPT.length === 0) {
+                html += `<p style="${ff}color:#aaa;font-size:12px;font-style:italic;padding:6px 2px;">Sin ejercicios registrados</p>`;
+            } else {
+                ejsPT.forEach(ej => { html += ejBox(ej); });
+            }
         } else if (tipo === 'Series') {
             html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — SERIES</div>`;
             toArray(datos.datos || datos.rutina || []).forEach(ej => { html += ejBox(ej); });
@@ -4378,11 +4388,16 @@
                     if (dWEjs.length > 0 || (dWTipo === 'EMOM' && dWCfg.emom_config_por_minuto && dWCfg.emom_config_por_minuto.length > 0)) {
                         colorBar('Calentamiento' + (dWTipo ? '  —  ' + dWTipo.toUpperCase() : ''), 79, 195, 247);
                         const wP2 = [];
-                        if (dWCfg.vueltas)         wP2.push('Vueltas: ' + dWCfg.vueltas);
-                        if (dWCfg.pausa_vuelta)    wP2.push('Pausa: ' + dWCfg.pausa_vuelta + 's');
-                        if (dWCfg.duracion_bloque) wP2.push('Duración: ' + dWCfg.duracion_bloque + ' min');
-                        if (dWCfg.trabajo)         wP2.push('Trabajo: ' + dWCfg.trabajo + 's / Pausa: ' + (dWCfg.pausa||10) + 's');
-                        if (dWCfg.minutos)         wP2.push('Minutos: ' + dWCfg.minutos);
+                        if (dWTipo === 'Por Tiempo') {
+                            if (dWCfg.vueltas) wP2.push('Vueltas: ' + dWCfg.vueltas);
+                            wP2.push('Cronómetro — el alumno marca cada vuelta manualmente');
+                        } else {
+                            if (dWCfg.vueltas)         wP2.push('Vueltas: ' + dWCfg.vueltas);
+                            if (dWCfg.pausa_vuelta)    wP2.push('Pausa: ' + dWCfg.pausa_vuelta + 's');
+                            if (dWCfg.duracion_bloque) wP2.push('Duración: ' + dWCfg.duracion_bloque + ' min');
+                            if (dWCfg.trabajo)         wP2.push('Trabajo: ' + dWCfg.trabajo + 's / Pausa: ' + (dWCfg.pausa||10) + 's');
+                            if (dWCfg.minutos)         wP2.push('Minutos: ' + dWCfg.minutos);
+                        }
                         if (wP2.length) { chk(6); doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(110,110,110); doc.text(wP2.join('   |   '), mL+2, y); y+=6; }
                         if (dWTipo === 'EMOM' && dWCfg.emom_config_por_minuto && dWCfg.emom_config_por_minuto.length > 0) {
                             dWCfg.emom_config_por_minuto.forEach((minCfg, mi) => {
@@ -4407,13 +4422,24 @@
                     colorBar('Bloque Principal  —  ' + diaTipo, 206, 147, 216);
                     if (dBloques.length > 0) {
                         renderBloquePDFList(dBloques, diaTipo);
+                    } else if (diaTipo === 'Por Tiempo' && diaDatos.ejercicios && !diaDatos.datos && !diaDatos.rutina) {
+                        // Modo Por Tiempo plano (single bloque): ejercicios en diaDatos.ejercicios
+                        const vD = diaDatos.vueltas || 1;
+                        chk(6);
+                        doc.setFont('helvetica', 'italic'); doc.setFontSize(9); doc.setTextColor(110, 110, 110);
+                        doc.text('Vueltas: ' + vD + '   |   Cronómetro — el alumno marca cada vuelta manualmente', mL + 2, y); y += 6;
+                        toArray(diaDatos.ejercicios).forEach(ej => ejGris(ej, diaTipo));
                     } else {
-                        const ejsF = toArray(diaDatos.rutina || diaDatos.datos || []);
+                        const ejsF = toArray(diaDatos.rutina || diaDatos.datos || diaDatos.ejercicios || []);
                         if (ejsF.length > 0) {
                             if (diaTipo === 'Tabata') {
                                 subBar('Tabata  —  ' + (diaDatos.trabajo||20) + 's / ' + (diaDatos.pausa||10) + 's | ' + (diaDatos.rondas||1) + ' ronda(s)');
                             } else if (diaTipo === 'EMOM') {
                                 subBar('EMOM  —  ' + (diaDatos.minutos_totales||10) + ' min');
+                            } else if (diaTipo === 'Por Tiempo') {
+                                chk(6);
+                                doc.setFont('helvetica', 'italic'); doc.setFontSize(9); doc.setTextColor(110, 110, 110);
+                                doc.text('Vueltas: ' + (diaDatos.vueltas||1) + '   |   Cronómetro', mL + 2, y); y += 6;
                             }
                             if (ejsF[0] && ejsF[0].ejercicios !== undefined) {
                                 ejsF.forEach((g, gi) => {
@@ -4479,11 +4505,17 @@
 
                 // Metadata warmup
                 const wParts = [];
-                if (wConfig.vueltas)        wParts.push('Vueltas: '    + wConfig.vueltas);
-                if (wConfig.pausa_vuelta)   wParts.push('Pausa vuelta: ' + wConfig.pausa_vuelta + 's');
-                if (wConfig.duracion_bloque) wParts.push('Duracion: '  + wConfig.duracion_bloque + ' min');
-                if (wConfig.trabajo)        wParts.push('Trabajo: '    + wConfig.trabajo + 's / Pausa: ' + (wConfig.pausa||10) + 's');
-                if (wConfig.minutos)        wParts.push('Minutos: '    + wConfig.minutos);
+                if (wTipo === 'Por Tiempo') {
+                    // Modo Por Tiempo: mostrar vueltas + indicación de cronómetro
+                    if (wConfig.vueltas) wParts.push('Vueltas: ' + wConfig.vueltas);
+                    wParts.push('Cronómetro — el alumno marca cada vuelta manualmente');
+                } else {
+                    if (wConfig.vueltas)        wParts.push('Vueltas: '    + wConfig.vueltas);
+                    if (wConfig.pausa_vuelta)   wParts.push('Pausa vuelta: ' + wConfig.pausa_vuelta + 's');
+                    if (wConfig.duracion_bloque) wParts.push('Duracion: '  + wConfig.duracion_bloque + ' min');
+                    if (wConfig.trabajo)        wParts.push('Trabajo: '    + wConfig.trabajo + 's / Pausa: ' + (wConfig.pausa||10) + 's');
+                    if (wConfig.minutos)        wParts.push('Minutos: '    + wConfig.minutos);
+                }
                 if (wParts.length) {
                     chk(8);
                     doc.setFont('helvetica', 'italic');
@@ -4584,8 +4616,19 @@
                 }
             } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo' || tipo === 'Por Tiempo' || tipo === 'Series') {
                 colorBar('2. BLOQUE PRINCIPAL  —  ' + tipo, 206, 147, 216);
-                const flatList = toArray(datos.datos || datos.rutina || []);
-                if (flatList.length && flatList[0] && flatList[0].ejercicios !== undefined) {
+                // "Por Tiempo" guarda ejercicios en datos.ejercicios (no en datos.datos ni datos.rutina)
+                const flatList = toArray(datos.datos || datos.rutina || datos.ejercicios || []);
+                if (tipo === 'Por Tiempo' && datos.ejercicios && !datos.datos && !datos.rutina) {
+                    // Modo Por Tiempo plano: mostrar vueltas y ejercicios directamente
+                    const vueltas = datos.vueltas || 1;
+                    chk(6);
+                    doc.setFont('helvetica', 'italic');
+                    doc.setFontSize(9);
+                    doc.setTextColor(110, 110, 110);
+                    doc.text('Vueltas: ' + vueltas + '   |   Cronómetro — el alumno marca cada vuelta manualmente', mL + 2, y);
+                    y += 6;
+                    toArray(datos.ejercicios).forEach(ej => ejGris(ej, tipo));
+                } else if (flatList.length && flatList[0] && flatList[0].ejercicios !== undefined) {
                     // Grupos con ejercicios anidados - usar datos del nivel superior como fallback
                     flatList.forEach((g, gi) => {
                         const ejsG = toArray(g.ejercicios);
