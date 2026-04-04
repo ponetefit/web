@@ -3321,21 +3321,31 @@
                         // Usar emom_config_por_minuto si existe (nueva configuración por minuto)
                         if (b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
                             b.emom_config_por_minuto.forEach(minCfg => {
-                                const ejsMin = [];
-                                (minCfg.ejercicios_nombres || []).forEach(ejNombre => {
-                                    // Buscar el ejercicio en la lista de ejercicios del bloque
-                                    let ejData = (b.ejercicios||[]).find(e => e.nombre === ejNombre);
-                                    if (!ejData) {
-                                        // Buscar en la videoteca
-                                        let found = null;
-                                        for (const cat of Object.keys(videotecaCache || {})) {
-                                            found = (videotecaCache[cat] || []).find(e => (e.nombre||e[0]) === ejNombre);
-                                            if (found) break;
+                                // Usar directamente minCfg.ejercicios (tiene reps por minuto guardadas)
+                                // Solo como fallback reconstruir desde ejercicios_nombres
+                                let ejsMin = [];
+                                if (minCfg.ejercicios && minCfg.ejercicios.length > 0) {
+                                    ejsMin = minCfg.ejercicios.map(ej => ({
+                                        nombre: ej.nombre,
+                                        link: ej.link || '',
+                                        reps: ej.reps || repsDict[ej.nombre] || '',
+                                        unit: ej.unit || unitsDict[ej.nombre] || 'Reps',
+                                        con_carga: ej.con_carga || cargaDict[ej.nombre] || false
+                                    }));
+                                } else {
+                                    (minCfg.ejercicios_nombres || []).forEach(ejNombre => {
+                                        let ejData = (b.ejercicios||[]).find(e => e.nombre === ejNombre);
+                                        if (!ejData) {
+                                            let found = null;
+                                            for (const cat of Object.keys(videotecaCache || {})) {
+                                                found = (videotecaCache[cat] || []).find(e => (e.nombre||e[0]) === ejNombre);
+                                                if (found) break;
+                                            }
+                                            ejData = found ? { nombre: ejNombre, link: found.link || found[1] || '', reps: '', unit: 'Reps', con_carga: found.con_carga || false } : { nombre: ejNombre, link: '', reps: '', unit: 'Reps', con_carga: false };
                                         }
-                                        ejData = found ? { nombre: ejNombre, link: found.link || found[1] || '', reps: '', unit: 'Reps', con_carga: found.con_carga || false } : { nombre: ejNombre, link: '', reps: '', unit: 'Reps', con_carga: false };
-                                    }
-                                    ejsMin.push({ nombre: ejData.nombre, link: ejData.link || '', reps: ejData.reps || repsDict[ejNombre] || '', unit: ejData.unit || unitsDict[ejNombre] || 'Reps', con_carga: ejData.con_carga || cargaDict[ejNombre] || false });
-                                });
+                                        ejsMin.push({ nombre: ejData.nombre, link: ejData.link || '', reps: ejData.reps || repsDict[ejNombre] || '', unit: ejData.unit || unitsDict[ejNombre] || 'Reps', con_carga: ejData.con_carga || cargaDict[ejNombre] || false });
+                                    });
+                                }
                                 ciclo.push({ ejercicios: ejsMin, es_descanso: ejsMin.length === 0 });
                             });
                         } else {
@@ -6028,7 +6038,21 @@
                     const ciclo = [];
                     if (b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
                         b.emom_config_por_minuto.forEach(minCfg => {
-                            const ejsMin = (minCfg.ejercicios || []).map(ej => ({ nombre: ej.nombre, link: ej.link || '', reps: ej.reps || repsDict[ej.nombre] || '', unit: ej.unit || 'Reps', con_carga: ej.con_carga || false }));
+                            let ejsMin = [];
+                            if (minCfg.ejercicios && minCfg.ejercicios.length > 0) {
+                                ejsMin = minCfg.ejercicios.map(ej => ({
+                                    nombre: ej.nombre,
+                                    link: ej.link || '',
+                                    reps: ej.reps || repsDict[ej.nombre] || '',
+                                    unit: ej.unit || unitsDict[ej.nombre] || 'Reps',
+                                    con_carga: ej.con_carga || cargaDict[ej.nombre] || false
+                                }));
+                            } else {
+                                (minCfg.ejercicios_nombres || []).forEach(ejNombre => {
+                                    const ejData = (b.ejercicios||[]).find(e => e.nombre === ejNombre) || { nombre: ejNombre, link: '', reps: '', unit: 'Reps', con_carga: false };
+                                    ejsMin.push({ nombre: ejData.nombre, link: ejData.link || '', reps: ejData.reps || repsDict[ejNombre] || '', unit: ejData.unit || unitsDict[ejNombre] || 'Reps', con_carga: ejData.con_carga || cargaDict[ejNombre] || false });
+                                });
+                            }
                             ciclo.push({ ejercicios: ejsMin, es_descanso: ejsMin.length === 0 });
                         });
                     }
