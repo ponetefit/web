@@ -6628,8 +6628,18 @@
         const diasGenerados = [];
 
         for (let d = 0; d < numDias; d++) {
-            // Calentamiento: 3-5 ejercicios variados
-            const ejsCal = pickRandom(poolEjs, Math.floor(Math.random() * 3) + 3);
+            // Calentamiento: mayoría zona media (Core), completado con variados
+            const muscCore = ['Abdominales', 'Oblicuos', 'Lumbar'];
+            const ejsCore = poolEjs.filter(e => {
+                const cat = (e._cat || '').toLowerCase();
+                return muscCore.some(m => cat.includes(m.toLowerCase()));
+            });
+            const totalCal = Math.floor(Math.random() * 3) + 3; // 3-5 ejercicios
+            const cantCore = Math.ceil(totalCal * 0.8); // ~80% zona media
+            const cantVariado = totalCal - cantCore;
+            const ejsCalCore  = pickRandom(ejsCore.length >= cantCore ? ejsCore : poolEjs, cantCore);
+            const ejsCalExtra = pickRandom(poolEjs.filter(e => !ejsCalCore.includes(e)), cantVariado);
+            const ejsCal = [...ejsCalCore, ...ejsCalExtra];
             const warmupEjercicios = ejsCal.map(e => ({
                 nombre: e.nombre || e[0] || 'Ejercicio',
                 link: e.link || e[1] || '',
