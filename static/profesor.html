@@ -6651,30 +6651,33 @@
                 elemento: e.elemento || ''
             }));
 
-            // Bloques: tratar de variar zona muscular por día
+            // Bloques: cada bloque 33% Tren Superior + 33% Tren Inferior + 33% Core
+            const ejsPorZona = {
+                'Tren Superior': poolEjs.filter(e => ZONAS['Tren Superior'].some(m => (e._cat||'').toLowerCase().includes(m.toLowerCase()))),
+                'Tren Inferior': poolEjs.filter(e => ZONAS['Tren Inferior'].some(m => (e._cat||'').toLowerCase().includes(m.toLowerCase()))),
+                'Core':          poolEjs.filter(e => ZONAS['Core'].some(m => (e._cat||'').toLowerCase().includes(m.toLowerCase())))
+            };
             const bloquesRutina = [];
             for (let b = 0; b < numBloques; b++) {
-                // Intentar usar una zona diferente por bloque
-                const zonaIdx = (d * numBloques + b) % zonasKeys.length;
-                const zonaKey = zonasKeys[zonaIdx];
-                const muscZona = ZONAS[zonaKey];
-
-                // Filtrar ejercicios por zona (por categoría aproximada)
-                const ejsZona = poolEjs.filter(e => {
-                    const cat = (e._cat || '').toLowerCase();
-                    return muscZona.some(m => cat.includes(m.toLowerCase()));
-                });
-                const poolBloque = ejsZona.length >= 3 ? ejsZona : poolEjs;
-
                 const tipo = elegirTipo();
                 const cantEjs = patrones.avgEjs;
-                const ejsElegidos = pickRandom(poolBloque, cantEjs);
+                const porTercio = Math.floor(cantEjs / 3);
+                const resto = cantEjs - porTercio * 3;
+                const cantSup  = porTercio + (resto > 0 ? 1 : 0);
+                const cantInf  = porTercio + (resto > 1 ? 1 : 0);
+                const cantCore = cantEjs - cantSup - cantInf;
+
+                const ejsSup  = pickRandom(ejsPorZona['Tren Superior'].length >= cantSup  ? ejsPorZona['Tren Superior'] : poolEjs, cantSup);
+                const ejsInf  = pickRandom(ejsPorZona['Tren Inferior'].length >= cantInf  ? ejsPorZona['Tren Inferior'] : poolEjs, cantInf);
+                const ejsCore = pickRandom(ejsPorZona['Core'].length >= cantCore           ? ejsPorZona['Core']          : poolEjs, cantCore);
+
+                const ejsElegidos = [...ejsSup, ...ejsInf, ...ejsCore].sort(() => Math.random() - 0.5);
 
                 bloquesRutina.push({
                     tipo,
-                    params: buildParams(tipo, cantEjs),
+                    params: buildParams(tipo, ejsElegidos.length),
                     ejercicios: ejsElegidos.map(e => buildEj(e, tipo)),
-                    desc: zonaKey
+                    desc: 'Full Body — Sup / Inf / Core'
                 });
             }
 
