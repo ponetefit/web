@@ -5955,6 +5955,7 @@
                     ${r.rutinaDesc ? `<p class="text-xs text-textoSuave mt-1 truncate">${escapeHtml(r.rutinaDesc)}</p>` : ''}
                 </div>
                 <div class="flex gap-2 flex-shrink-0 flex-wrap">
+                    <button onclick="verEntrenamientoRepo(${idx})" class="bg-purpura/20 text-purpura px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition whitespace-nowrap">Ver Entrenamiento</button>
                     <button onclick="copiarAAlumnoDesdeRepo(${idx})" class="bg-verde/20 text-verde px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-verde/30 transition whitespace-nowrap">Copiar a Alumno</button>
                     <button onclick="editarPlantilla(${idx})" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition whitespace-nowrap">Editar</button>
                     <button onclick="cargarPlantillaEnCrear(${idx})" class="bg-naranja/20 text-naranja px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition whitespace-nowrap">Usar</button>
@@ -5967,6 +5968,128 @@
     function escapeHtml(str) {
         if (!str) return '';
         return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // Convierte los datos del repositorio (diasData format) al formato que entiende generarHTMLRutina
+    function convertirRepoARutinaFormat(r) {
+        const diasArr = r.diasData || [];
+        const alumno = r.alumnoNombre || '';
+        const warmupConfigs = r.warmupConfigs || [];
+
+        function buildDatosDiaRepo(dia, diaIdx) {
+            const cfg = warmupConfigs[diaIdx] || {};
+            const warmupTipo = cfg.tipo || 'Circuito (Vueltas)';
+            const warmupDetalle = { tipo: warmupTipo };
+            if (warmupTipo === 'Circuito (Vueltas)') {
+                warmupDetalle.vueltas = parseInt(cfg.vueltas || 2);
+                warmupDetalle.pausa_vuelta = parseInt(cfg.pausa_vuelta || 30);
+            } else if (warmupTipo === 'Circuito por Tiempo') {
+                warmupDetalle.duracion_bloque = parseInt(cfg.duracion_bloque || 3);
+            } else if (warmupTipo === 'Tabata') {
+                warmupDetalle.trabajo = parseInt(cfg.trabajo || 20);
+                warmupDetalle.pausa = parseInt(cfg.pausa || 10);
+                warmupDetalle.cantidad = parseInt(cfg.cantidad || 8);
+            } else if (warmupTipo === 'EMOM') {
+                warmupDetalle.minutos = parseInt(cfg.minutos || (dia.warmupEmomConfig || []).length || 5);
+            } else if (warmupTipo === 'Series/Reps') {
+                warmupDetalle.series = parseInt(cfg.series || 3);
+                warmupDetalle.reps = parseInt(cfg.reps || 10);
+            } else if (warmupTipo === 'Por Tiempo') {
+                warmupDetalle.vueltas = parseInt(cfg.vueltas || 3);
+            }
+
+            const warmupEjsExport = (dia.warmupEjercicios || []).map(e => {
+                const exp = { nombre: e.nombre, link: e.link, reps: e.reps || '', unit: e.unit || 'Reps', descanso: e.descanso || '', con_carga: e.con_carga || false, elemento: e.elemento || '' };
+                if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) exp.reps_por_vuelta = e.reps_por_vuelta;
+                if (e.reps_por_serie && e.reps_por_serie.length > 0) exp.reps_por_serie = e.reps_por_serie;
+                if (e.pausa_por_serie && e.pausa_por_serie.length > 0) exp.pausa_por_serie = e.pausa_por_serie;
+                return exp;
+            });
+
+            const bloques = dia.bloquesRutina || [];
+            const descGlobal = r.rutinaDesc || '';
+            let tipo = 'ENTRENAMIENTO';
+            let datos = {};
+
+            if (bloques.length === 1) {
+                const b = bloques[0];
+                tipo = b.tipo;
+                if (tipo === 'Circuito') {
+                    datos = { datos: [{ id: 1, ejercicios: b.ejercicios }], vueltas_bloque: b.vueltas, pausa_vuelta: b.pausa_vuelta, descripcion: b.descripcion || descGlobal };
+                } else if (tipo === 'Por Tiempo') {
+                    datos = { ejercicios: b.ejercicios, vueltas: b.vueltas, descripcion: b.descripcion || descGlobal };
+                } else if (tipo === 'Circuito por Tiempo') {
+                    datos = { datos: [{ id: 1, ejercicios: b.ejercicios, tiempo_min: b.duracion_min }], descripcion: b.descripcion || descGlobal };
+                } else if (tipo === 'Tabata') {
+                    datos = { rutina: (b.ejercicios||[]).map(e => [e.nombre, e.link]), trabajo: b.trabajo, pausa: b.pausa, rondas: b.rondas, cantidad: b.cantidad || (b.ejercicios||[]).length || 8, pausa_entre_rondas: b.pausa_entre_rondas, descripcion: b.descripcion || descGlobal };
+                } else if (tipo === 'EMOM') {
+                    const repsDict = {}; const unitsDict = {}; const cargaDict = {};
+                    (b.ejercicios||[]).forEach(e => { repsDict[e.nombre] = e.reps; unitsDict[e.nombre] = e.unit || 'Reps'; cargaDict[e.nombre] = e.con_carga || false; });
+                    const ciclo = [];
+                    if (b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
+                        b.emom_config_por_minuto.forEach(minCfg => {
+                            const ejsMin = (minCfg.ejercicios || []).map(ej => ({ nombre: ej.nombre, link: ej.link || '', reps: ej.reps || repsDict[ej.nombre] || '', unit: ej.unit || 'Reps', con_carga: ej.con_carga || false }));
+                            ciclo.push({ ejercicios: ejsMin, es_descanso: ejsMin.length === 0 });
+                        });
+                    }
+                    const rutinaObjs = (b.ejercicios||[]).map(e => ({ nombre: e.nombre, link: e.link, con_carga: e.con_carga || false }));
+                    datos = { rutina: rutinaObjs, minutos_totales: b.minutos_totales, ejercicios_por_minuto: b.ejercicios_por_minuto || 1, reps_por_ejercicio: repsDict, units_por_ejercicio: unitsDict, carga_por_ejercicio: cargaDict, minutos_ciclo: ciclo, descripcion: b.descripcion || descGlobal };
+                } else if (tipo === 'Series') {
+                    datos = { datos: b.ejercicios, descripcion: b.descripcion || descGlobal };
+                }
+            } else if (bloques.length > 1) {
+                tipo = 'ENTRENAMIENTO';
+                datos = { bloques: bloques, descripcion: descGlobal };
+            }
+
+            datos.warmup_ejercicios = warmupEjsExport;
+            datos.warmup_tipo = warmupTipo;
+            datos.warmup_vueltas = warmupDetalle.vueltas || 2;
+            datos.warmup_config_detalle = warmupDetalle;
+
+            return { tipo, datos };
+        }
+
+        const codigo = r.nombre ? r.nombre.toUpperCase().replace(/\s+/g, '-').substring(0, 12) : 'REPO';
+
+        if (diasArr.length <= 1) {
+            const dia = diasArr[0] || { warmupEjercicios: [], bloquesRutina: [] };
+            const { tipo, datos } = buildDatosDiaRepo(dia, 0);
+            return { codigo, obj: { alumno, tipo, datos } };
+        } else {
+            const dias = diasArr.map((dia, i) => {
+                const { tipo, datos } = buildDatosDiaRepo(dia, i);
+                return { titulo: dia.titulo || ('Día ' + (i+1)), tipo, datos };
+            });
+            // Armar formato multidia que entiende generarHTMLRutina
+            const obj = {
+                alumno,
+                tipo: 'MULTIDIA',
+                es_multidia: true,
+                total_dias: diasArr.length,
+                datos: { descripcion: r.rutinaDesc || '' }
+            };
+            dias.forEach((dia, i) => {
+                obj['dia_' + (i+1)] = { titulo: dia.titulo, tipo: dia.tipo, datos: dia.datos };
+            });
+            return { codigo, obj };
+        }
+    }
+
+    function verEntrenamientoRepo(idx) {
+        const repo = getRepositorio();
+        const r = repo[idx];
+        if (!r) return;
+
+        const { codigo, obj } = convertirRepoARutinaFormat(r);
+        const content = document.getElementById('modal-rutina-content');
+        content.innerHTML = generarHTMLRutina(codigo, obj);
+
+        // Guardar para poder descargar el PDF
+        currentData = obj;
+        rutinaModalActual = { codigo, ...obj };
+
+        document.getElementById('modal-ver-rutina').classList.remove('hidden');
     }
 
     function eliminarDelRepositorio(idx) {
