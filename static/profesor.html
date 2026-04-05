@@ -6761,6 +6761,18 @@
         });
 
         // Desde historial (formato Firebase: tipo en raíz, bloques en datos.bloques o similares)
+        // DEBUG TEMPORAL — ver estructura real de cada rutina del historial
+        console.log('[IA DEBUG] historialRutinas total:', historialRutinas.length);
+        historialRutinas.forEach((r, idx) => {
+            console.log('[IA DEBUG] rutina[' + idx + '] tipo:', r.tipo, '| keys:', Object.keys(r).join(', '));
+            if (r.tipo === 'MULTIDIA') {
+                console.log('[IA DEBUG] MULTIDIA total_dias:', r.total_dias);
+                for (let di = 1; di <= (r.total_dias || 5); di++) {
+                    const d = r['dia_' + di];
+                    if (d) console.log('[IA DEBUG]   dia_' + di + ' tipo:', d.tipo, '| keys:', Object.keys(d).join(', '), '| datos keys:', d.datos ? Object.keys(d.datos).join(', ') : 'SIN DATOS');
+                }
+            }
+        });
         historialRutinas.forEach(r => {
             const tipo = r.tipo || 'Circuito';
 
