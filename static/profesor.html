@@ -6763,7 +6763,29 @@
         // Desde historial (formato Firebase: tipo en raíz, bloques en datos.bloques o similares)
         historialRutinas.forEach(r => {
             const tipo = r.tipo || 'Circuito';
-            // Bloques explícitos
+
+            // MULTIDIA: leer los tipos y bloques de cada día interno, no usar 'MULTIDIA' como tipo
+            if (tipo === 'MULTIDIA') {
+                const diasR = toArray(r.dias || []);
+                if (diasR.length > 0) {
+                    diasR.forEach(dia => {
+                        const tipoD = dia.tipo || '';
+                        const datosD = dia.datos || {};
+                        if (datosD.bloques) {
+                            // Día con múltiples bloques
+                            toArray(datosD.bloques).forEach(b => { if (b.tipo) todosLosBloques.push(b); });
+                        } else if (tipoD && tipoD !== 'MULTIDIA' && tipoD !== 'ENTRENAMIENTO') {
+                            // Día de tipo único → bloque sintético con el tipo real del día
+                            todosLosBloques.push({ tipo: tipoD, _sintetico: true });
+                        } else if (tipoD === 'ENTRENAMIENTO') {
+                            todosLosBloques.push({ tipo: 'Circuito', _sintetico: true });
+                        }
+                    });
+                }
+                return; // ya procesado, no caer al else
+            }
+
+            // Rutina de un solo día: bloques explícitos
             if (r.datos && typeof r.datos === 'object' && !Array.isArray(r.datos) && r.datos.bloques) {
                 toArray(r.datos.bloques).forEach(b => { if (b.tipo) todosLosBloques.push(b); });
             } else if (r.bloques) {
@@ -6774,9 +6796,14 @@
             }
         });
 
-        // Frecuencia de tipos
+        // Frecuencia de tipos — filtrar tipos inválidos que no son modos de bloque reales
+        const TIPOS_INVALIDOS = new Set(['MULTIDIA', 'ENTRENAMIENTO', 'multidia', 'entrenamiento', '']);
         const freqTipos = {};
-        todosLosBloques.forEach(b => { freqTipos[b.tipo] = (freqTipos[b.tipo] || 0) + 1; });
+        todosLosBloques.forEach(b => {
+            if (b.tipo && !TIPOS_INVALIDOS.has(b.tipo)) {
+                freqTipos[b.tipo] = (freqTipos[b.tipo] || 0) + 1;
+            }
+        });
 
         // Promedio de ejercicios por bloque
         const ejsPorBloque = todosLosBloques
