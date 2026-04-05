@@ -2076,22 +2076,27 @@
         const tipo = sel.value;
         const container = document.getElementById('warmup-params-container-' + idx);
         if (!container) return;
+        // Leer cfg guardada en diasData para restaurar valores editados por el usuario
+        const _cfg = (diasData[idx] && diasData[idx]._warmupCfg) || {};
         let html = '';
         if (tipo === 'Circuito (Vueltas)') {
-            html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Vueltas</label><input id="warmup-vueltas-' + idx + '" type="number" value="2" min="1" oninput="renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre vueltas (seg)</label><input id="warmup-pausa-vuelta-' + idx + '" type="number" value="30" min="0" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
+            const vueltas = _cfg.vueltas || 2;
+            const pausa   = _cfg.pausa_vuelta || 30;
+            html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Vueltas</label><input id="warmup-vueltas-' + idx + '" type="number" value="' + vueltas + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ');renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre vueltas (seg)</label><input id="warmup-pausa-vuelta-' + idx + '" type="number" value="' + pausa + '" min="0" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
         } else if (tipo === 'Circuito por Tiempo') {
-            html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Duracion (minutos)</label><input id="warmup-duracion-' + idx + '" type="number" value="3" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>';
+            const dur = _cfg.duracion_bloque || 3;
+            html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Duracion (minutos)</label><input id="warmup-duracion-' + idx + '" type="number" value="' + dur + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>';
         } else if (tipo === 'Tabata') {
-            html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Trabajo (seg)</label><input id="warmup-trabajo-' + idx + '" type="number" value="20" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label><input id="warmup-pausa-' + idx + '" type="number" value="10" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de ejercicios</label><input id="warmup-cantidad-' + idx + '" type="number" value="' + (diasData[idx] ? diasData[idx].warmupEjercicios.length : 0) + '" min="0" readonly class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondo/50 text-textoSuave cursor-not-allowed"></div></div><p class="text-xs text-textoSuave mt-1">Se actualiza automáticamente según los ejercicios agregados abajo</p>';
+            html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Trabajo (seg)</label><input id="warmup-trabajo-' + idx + '" type="number" value="' + (_cfg.trabajo||20) + '" min="5" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label><input id="warmup-pausa-' + idx + '" type="number" value="' + (_cfg.pausa||10) + '" min="5" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de ejercicios</label><input id="warmup-cantidad-' + idx + '" type="number" value="' + (diasData[idx] ? diasData[idx].warmupEjercicios.length : 0) + '" min="0" readonly class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondo/50 text-textoSuave cursor-not-allowed"></div></div><p class="text-xs text-textoSuave mt-1">Se actualiza automáticamente según los ejercicios agregados abajo</p>';
         } else if (tipo === 'EMOM') {
-            html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Minutos</label><input id="warmup-minutos-' + idx + '" type="number" value="5" min="1" oninput="actualizarEMOMWarmupMinutosConfig(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>' +
+            html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Minutos</label><input id="warmup-minutos-' + idx + '" type="number" value="' + (_cfg.minutos||5) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ');actualizarEMOMWarmupMinutosConfig(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>' +
                    '<p class="text-xs text-textoSuave mt-2">En cada minuto, buscá y agregá los ejercicios con sus repeticiones</p>' +
                    '<div id="emom-warmup-config-' + idx + '" class="mt-3 space-y-2"></div>';
             setTimeout(() => actualizarEMOMWarmupMinutosConfig(idx), 0);
         } else if (tipo === 'Series/Reps') {
-            html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Series</label><input id="warmup-series-' + idx + '" type="number" value="3" min="1" oninput="renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones (default)</label><input id="warmup-reps-val-' + idx + '" type="number" value="10" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
+            html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Series</label><input id="warmup-series-' + idx + '" type="number" value="' + (_cfg.series||3) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ');renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones (default)</label><input id="warmup-reps-val-' + idx + '" type="number" value="' + (_cfg.reps||10) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
         } else if (tipo === 'Por Tiempo') {
-            html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de Vueltas</label><input id="warmup-portiempo-vueltas-' + idx + '" type="number" value="3" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><p class="text-xs text-textoSuave mt-2">Cronómetro cuenta hacia arriba. El alumno marca cada vuelta manualmente.</p>';
+            html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de Vueltas</label><input id="warmup-portiempo-vueltas-' + idx + '" type="number" value="' + (_cfg.vueltas||3) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><p class="text-xs text-textoSuave mt-2">Cronómetro cuenta hacia arriba. El alumno marca cada vuelta manualmente.</p>';
         }
         container.innerHTML = html;
         // Mostrar/ocultar el panel de búsqueda general según el tipo
@@ -2102,6 +2107,31 @@
         if (emomMinRow) emomMinRow.style.display = 'none'; // siempre oculto (ya no se usa)
         // Re-render exercise chips when warmup type changes
         renderWarmupEjsDia(idx);
+    }
+
+    // Persiste los valores actuales del warmup en diasData para que no se pierdan al re-renderizar
+    function guardarWarmupCfgDia(idx) {
+        if (!diasData[idx]) return;
+        const tipo = document.getElementById('warmup-tipo-' + idx)?.value || 'Circuito (Vueltas)';
+        const cfg = { tipo };
+        if (tipo === 'Circuito (Vueltas)') {
+            cfg.vueltas     = parseInt(document.getElementById('warmup-vueltas-' + idx)?.value) || 2;
+            cfg.pausa_vuelta = parseInt(document.getElementById('warmup-pausa-vuelta-' + idx)?.value) || 30;
+        } else if (tipo === 'Circuito por Tiempo') {
+            cfg.duracion_bloque = parseInt(document.getElementById('warmup-duracion-' + idx)?.value) || 3;
+        } else if (tipo === 'Tabata') {
+            cfg.trabajo  = parseInt(document.getElementById('warmup-trabajo-' + idx)?.value) || 20;
+            cfg.pausa    = parseInt(document.getElementById('warmup-pausa-' + idx)?.value) || 10;
+            cfg.cantidad = parseInt(document.getElementById('warmup-cantidad-' + idx)?.value) || 0;
+        } else if (tipo === 'EMOM') {
+            cfg.minutos = parseInt(document.getElementById('warmup-minutos-' + idx)?.value) || 5;
+        } else if (tipo === 'Series/Reps') {
+            cfg.series = parseInt(document.getElementById('warmup-series-' + idx)?.value) || 3;
+            cfg.reps   = parseInt(document.getElementById('warmup-reps-val-' + idx)?.value) || 10;
+        } else if (tipo === 'Por Tiempo') {
+            cfg.vueltas = parseInt(document.getElementById('warmup-portiempo-vueltas-' + idx)?.value) || 3;
+        }
+        diasData[idx]._warmupCfg = cfg;
     }
 
     function cargarEjsWarmupDia(idx) {
@@ -3624,18 +3654,24 @@
             // ── Construir datos de cada dia ──────────────────────────────────
             function buildDatosDia(dia, diaIdx) {
                 const warmupTipo = (document.getElementById('warmup-tipo-' + diaIdx) || {}).value || 'Circuito (Vueltas)';
+                // Usar _warmupCfg persistido en diasData como fuente de verdad, con fallback al DOM
+                const _saved = (diasData[diaIdx] && diasData[diaIdx]._warmupCfg) || {};
+                function domVal(id, fallback) {
+                    const el = document.getElementById(id);
+                    return el ? (parseInt(el.value) || fallback) : (_saved[id.replace('warmup-','').replace('-'+diaIdx,'')] || fallback);
+                }
                 const warmupDetalle = { tipo: warmupTipo };
                 if (warmupTipo === 'Circuito (Vueltas)') {
-                    warmupDetalle.vueltas = parseInt(document.getElementById('warmup-vueltas-' + diaIdx)?.value || 2);
-                    warmupDetalle.pausa_vuelta = parseInt(document.getElementById('warmup-pausa-vuelta-' + diaIdx)?.value || 30);
+                    warmupDetalle.vueltas      = parseInt(document.getElementById('warmup-vueltas-' + diaIdx)?.value)      || _saved.vueltas      || 2;
+                    warmupDetalle.pausa_vuelta = parseInt(document.getElementById('warmup-pausa-vuelta-' + diaIdx)?.value) || _saved.pausa_vuelta || 30;
                 } else if (warmupTipo === 'Circuito por Tiempo') {
-                    warmupDetalle.duracion_bloque = parseInt(document.getElementById('warmup-duracion-' + diaIdx)?.value || 3);
+                    warmupDetalle.duracion_bloque = parseInt(document.getElementById('warmup-duracion-' + diaIdx)?.value) || _saved.duracion_bloque || 3;
                 } else if (warmupTipo === 'Tabata') {
-                    warmupDetalle.trabajo = parseInt(document.getElementById('warmup-trabajo-' + diaIdx)?.value || 20);
-                    warmupDetalle.pausa = parseInt(document.getElementById('warmup-pausa-' + diaIdx)?.value || 10);
-                    warmupDetalle.cantidad = parseInt(document.getElementById('warmup-cantidad-' + diaIdx)?.value || 8);
+                    warmupDetalle.trabajo  = parseInt(document.getElementById('warmup-trabajo-' + diaIdx)?.value)  || _saved.trabajo  || 20;
+                    warmupDetalle.pausa    = parseInt(document.getElementById('warmup-pausa-' + diaIdx)?.value)    || _saved.pausa    || 10;
+                    warmupDetalle.cantidad = parseInt(document.getElementById('warmup-cantidad-' + diaIdx)?.value) || _saved.cantidad || 8;
                 } else if (warmupTipo === 'EMOM') {
-                    warmupDetalle.minutos = parseInt(document.getElementById('warmup-minutos-' + diaIdx)?.value || (diasData[diaIdx]?.warmupEmomConfig?.length || 5));
+                    warmupDetalle.minutos = parseInt(document.getElementById('warmup-minutos-' + diaIdx)?.value) || _saved.minutos || (diasData[diaIdx]?.warmupEmomConfig?.length || 5);
                     // Leer config por minuto del warmup EMOM: primero DOM, luego diasData como fallback
                     const _savedEmomCfg = (diasData[diaIdx] && diasData[diaIdx].warmupEmomConfig) || [];
                     warmupDetalle.emom_config_por_minuto = [];
@@ -3657,10 +3693,10 @@
                         });
                     }
                 } else if (warmupTipo === 'Series/Reps') {
-                    warmupDetalle.series = parseInt(document.getElementById('warmup-series-' + diaIdx)?.value || 3);
-                    warmupDetalle.reps = parseInt(document.getElementById('warmup-reps-val-' + diaIdx)?.value || 10);
+                    warmupDetalle.series = parseInt(document.getElementById('warmup-series-' + diaIdx)?.value)    || _saved.series || 3;
+                    warmupDetalle.reps   = parseInt(document.getElementById('warmup-reps-val-' + diaIdx)?.value)  || _saved.reps   || 10;
                 } else if (warmupTipo === 'Por Tiempo') {
-                    warmupDetalle.vueltas = parseInt(document.getElementById('warmup-portiempo-vueltas-' + diaIdx)?.value || 3);
+                    warmupDetalle.vueltas = parseInt(document.getElementById('warmup-portiempo-vueltas-' + diaIdx)?.value) || _saved.vueltas || 3;
                 }
                 const warmupEjsExport = dia.warmupEjercicios.map(e => {
                     const exp = {
@@ -6278,23 +6314,25 @@
             alumnoNombre: (document.getElementById('alumno-nombre')?.value || '').trim(),
             rutinaDesc: (document.getElementById('rutina-desc')?.value || '').trim(),
             // Capturar configs de warmup desde el DOM para cada dia
-            warmupConfigs: diasData.map((_, diaIdx) => {
+            warmupConfigs: diasData.map((dia, diaIdx) => {
                 const tipo = document.getElementById('warmup-tipo-' + diaIdx)?.value || 'Circuito (Vueltas)';
+                // Usar _warmupCfg persistido en diasData como fuente de verdad
+                const _saved = (dia._warmupCfg) || {};
                 const cfg = { tipo };
                 if (tipo === 'Circuito (Vueltas)') {
-                    cfg.vueltas = document.getElementById('warmup-vueltas-' + diaIdx)?.value || '2';
-                    cfg.pausa_vuelta = document.getElementById('warmup-pausa-vuelta-' + diaIdx)?.value || '30';
+                    cfg.vueltas      = parseInt(document.getElementById('warmup-vueltas-' + diaIdx)?.value)      || _saved.vueltas      || 2;
+                    cfg.pausa_vuelta = parseInt(document.getElementById('warmup-pausa-vuelta-' + diaIdx)?.value) || _saved.pausa_vuelta || 30;
                 } else if (tipo === 'Circuito por Tiempo') {
-                    cfg.duracion_bloque = document.getElementById('warmup-duracion-' + diaIdx)?.value || '3';
+                    cfg.duracion_bloque = parseInt(document.getElementById('warmup-duracion-' + diaIdx)?.value) || _saved.duracion_bloque || 3;
                 } else if (tipo === 'Tabata') {
-                    cfg.trabajo = document.getElementById('warmup-trabajo-' + diaIdx)?.value || '20';
-                    cfg.pausa = document.getElementById('warmup-pausa-' + diaIdx)?.value || '10';
-                    cfg.cantidad = document.getElementById('warmup-cantidad-' + diaIdx)?.value || '8';
+                    cfg.trabajo  = parseInt(document.getElementById('warmup-trabajo-' + diaIdx)?.value)  || _saved.trabajo  || 20;
+                    cfg.pausa    = parseInt(document.getElementById('warmup-pausa-' + diaIdx)?.value)    || _saved.pausa    || 10;
+                    cfg.cantidad = parseInt(document.getElementById('warmup-cantidad-' + diaIdx)?.value) || _saved.cantidad || 8;
                 } else if (tipo === 'Series/Reps') {
-                    cfg.series = document.getElementById('warmup-series-' + diaIdx)?.value || '3';
-                    cfg.reps = document.getElementById('warmup-reps-val-' + diaIdx)?.value || '10';
+                    cfg.series = parseInt(document.getElementById('warmup-series-' + diaIdx)?.value)    || _saved.series || 3;
+                    cfg.reps   = parseInt(document.getElementById('warmup-reps-val-' + diaIdx)?.value)  || _saved.reps   || 10;
                 } else if (tipo === 'Por Tiempo') {
-                    cfg.vueltas = document.getElementById('warmup-portiempo-vueltas-' + diaIdx)?.value || '3';
+                    cfg.vueltas = parseInt(document.getElementById('warmup-portiempo-vueltas-' + diaIdx)?.value) || _saved.vueltas || 3;
                 }
                 return cfg;
             })
