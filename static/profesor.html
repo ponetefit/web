@@ -6721,7 +6721,30 @@
             }
             const rutinas = data.rutinas;
             const codigos = Object.keys(rutinas).sort().reverse();
-            _iaHistorialCache = codigos.map(cod => ({ codigo: cod, ...rutinas[cod] }));
+
+            // Construir cache base con los datos del listado
+            let cache = codigos.map(cod => ({ codigo: cod, ...rutinas[cod] }));
+
+            // Para rutinas MULTIDIA: el listado solo trae tipo/alumno/timestamp.
+            // Hay que pedir el detalle completo para obtener dia_1, dia_2, total_dias.
+            const multiCods = codigos.filter(cod => rutinas[cod].tipo === 'MULTIDIA');
+            if (multiCods.length > 0) {
+                const detalles = await Promise.all(
+                    multiCods.map(cod =>
+                        fetch(API_BASE + '/api/rutina/' + encodeURIComponent(cod))
+                            .then(r => r.json())
+                            .then(d => d.ok && d.rutina ? { cod, detalle: d.rutina } : null)
+                            .catch(() => null)
+                    )
+                );
+                detalles.forEach(item => {
+                    if (!item) return;
+                    const idx = cache.findIndex(r => r.codigo === item.cod);
+                    if (idx !== -1) cache[idx] = { ...cache[idx], ...item.detalle };
+                });
+            }
+
+            _iaHistorialCache = cache;
 
             if (panelHist) {
                 if (codigos.length === 0) {
@@ -6761,18 +6784,6 @@
         });
 
         // Desde historial (formato Firebase: tipo en raíz, bloques en datos.bloques o similares)
-        // DEBUG TEMPORAL — ver estructura real de cada rutina del historial
-        console.log('[IA DEBUG] historialRutinas total:', historialRutinas.length);
-        historialRutinas.forEach((r, idx) => {
-            console.log('[IA DEBUG] rutina[' + idx + '] tipo:', r.tipo, '| keys:', Object.keys(r).join(', '));
-            if (r.tipo === 'MULTIDIA') {
-                console.log('[IA DEBUG] MULTIDIA total_dias:', r.total_dias);
-                for (let di = 1; di <= (r.total_dias || 5); di++) {
-                    const d = r['dia_' + di];
-                    if (d) console.log('[IA DEBUG]   dia_' + di + ' tipo:', d.tipo, '| keys:', Object.keys(d).join(', '), '| datos keys:', d.datos ? Object.keys(d.datos).join(', ') : 'SIN DATOS');
-                }
-            }
-        });
         historialRutinas.forEach(r => {
             const tipo = r.tipo || 'Circuito';
 
