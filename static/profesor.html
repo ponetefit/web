@@ -4457,7 +4457,17 @@
 
         // Estilos reutilizables
         const sSecHeader  = ff + 'font-weight:700;font-size:14px;color:#fff;padding:9px 16px;border-radius:6px;margin:0 0 10px;';
-        const sSubHeader  = ff + 'background:#FF6B35;color:#fff;font-weight:700;font-size:13px;padding:7px 14px;border-radius:5px;margin:14px 0 6px;';
+        function subHeaderStyle(bloqTipo) {
+            const t = (bloqTipo || '').toLowerCase();
+            let bg = '#FF6B35'; let color = '#fff'; // naranja default — Circuito, Por Tiempo... espera abajo
+            if      (t === 'circuito por tiempo')            { bg = '#19548B'; }  // azul oscuro
+            else if (t === 'tabata')                          { bg = '#D32F2F'; }  // rojo
+            else if (t === 'emom')                            { bg = '#FFD54F'; color = '#1E1E1E'; } // amarillo texto negro
+            else if (t === 'series' || t === 'series/reps')  { bg = '#388150'; }  // verde
+            else if (t === 'por tiempo')                      { bg = '#7B1FA2'; }  // morado oscuro
+            // Circuito → naranja (default)
+            return ff + 'background:' + bg + ';color:' + color + ';font-weight:700;font-size:13px;padding:7px 14px;border-radius:5px;margin:14px 0 6px;';
+        }
         const sEjBox      = 'background:#F0F0F0;border-radius:6px;padding:10px 14px;margin-bottom:8px;';
         const sEjTop      = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;';
         const sEjNombre   = ff + 'font-weight:700;font-size:13px;color:#111;';
@@ -4607,23 +4617,23 @@
                             const pau = diaDatos.pausa || 10;
                             const rnd = diaDatos.rondas || 1;
                             const cant = ejsFlat.length;
-                            html += `<div style="${sSubHeader}">Tabata: Actividad: ${trab} segundos | Pausa: ${pau} segundos | ${cant} ejercicios | ${rnd} ronda(s)</div>`;
+                            html += `<div style="${subHeaderStyle('Tabata')}">Tabata: Actividad: ${trab} segundos | Pausa: ${pau} segundos | ${cant} ejercicios | ${rnd} ronda(s)</div>`;
                         } else if (diaTipo === 'EMOM') {
-                            html += `<div style="${sSubHeader}">EMOM: ${diaDatos.minutos_totales||10} minutos totales</div>`;
+                            html += `<div style="${subHeaderStyle('EMOM')}">EMOM: ${diaDatos.minutos_totales||10} minutos totales</div>`;
                         } else if (diaTipo === 'Circuito') {
-                            html += `<div style="${sSubHeader}">Circuito por vuelta: ${diaDatos.vueltas_bloque||3} vueltas | Pausa entre vueltas: ${diaDatos.pausa_vuelta||60} segundos</div>`;
+                            html += `<div style="${subHeaderStyle('Circuito')}">Circuito por vuelta: ${diaDatos.vueltas_bloque||3} vueltas | Pausa entre vueltas: ${diaDatos.pausa_vuelta||60} segundos</div>`;
                         } else if (diaTipo === 'Circuito por Tiempo') {
-                            html += `<div style="${sSubHeader}">Circuito por tiempo: ${diaDatos.duracion_min||5} minutos | Entrenamiento continuo, sin pausas entre ejercicios ni vueltas</div>`;
+                            html += `<div style="${subHeaderStyle('Circuito por Tiempo')}">Circuito por tiempo: ${diaDatos.duracion_min||5} minutos | Entrenamiento continuo, sin pausas entre ejercicios ni vueltas</div>`;
                         } else if (diaTipo === 'Por Tiempo') {
-                            html += `<div style="${sSubHeader}">Por tiempo: ${diaDatos.vueltas||1} vuelta(s) — al terminar cada vuelta marcá el tiempo</div>`;
+                            html += `<div style="${subHeaderStyle('Por Tiempo')}">Por tiempo: ${diaDatos.vueltas||1} vuelta(s) — al terminar cada vuelta marcá el tiempo</div>`;
                         } else if (diaTipo === 'Series') {
-                            html += `<div style="${sSubHeader}">Series: ${ejsFlat.length} ejercicio(s)</div>`;
+                            html += `<div style="${subHeaderStyle('Series')}">Series: ${ejsFlat.length} ejercicio(s)</div>`;
                         }
                         // Grupos anidados
                         if (ejsFlat[0] && ejsFlat[0].ejercicios !== undefined) {
                             ejsFlat.forEach((g, gi) => {
                                 const ejsG = toArray(g.ejercicios);
-                                html += `<div style="${sSubHeader}">Bloque ${gi+1}: ${g.tipo || diaTipo}</div>`;
+                                html += `<div style="${subHeaderStyle(g.tipo || diaTipo)}">Bloque ${gi+1}: ${g.tipo || diaTipo}</div>`;
                                 ejsG.forEach(ej => { html += ejBox(ej, g.tipo || diaTipo); });
                             });
                         } else {
@@ -4713,7 +4723,7 @@
                 } else if (bloqTipo === 'Por Tiempo') {
                     meta = 'Por tiempo: ' + (b.vueltas||1) + ' vueltas — al terminar cada vuelta marcá el tiempo';
                 }
-                html += `<div style="${sSubHeader}">Bloque ${i+1}: ${meta || bloqTipo}</div>`;
+                html += `<div style="${subHeaderStyle(bloqTipo)}">Bloque ${i+1}: ${meta || bloqTipo}</div>`;
                 if (b.descripcion) html += `<p style="${ff}color:#666;font-size:12px;font-style:italic;margin:0 0 8px 2px;">${b.descripcion}</p>`;
                 if (bloqTipo === 'EMOM' && b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
                     b.emom_config_por_minuto.forEach((minCfg, mi) => {
@@ -4741,7 +4751,7 @@
             if (tipo === 'EMOM') {
                 const minutosCiclo = toArray(datos.minutos_ciclo);
                 const totalMins = datos.minutos_totales || 10;
-                html += `<div style="${sSubHeader}">EMOM: ${totalMins} minutos totales</div>`;
+                html += `<div style="${subHeaderStyle('EMOM')}">EMOM: ${totalMins} minutos totales</div>`;
                 if (datos.descripcion) html += `<p style="${ff}color:#666;font-size:12px;font-style:italic;margin:0 0 8px 2px;">${datos.descripcion}</p>`;
                 if (minutosCiclo.length > 0) {
                     minutosCiclo.forEach((minCfg, mi) => {
@@ -4759,7 +4769,7 @@
                 const pau = datos.pausa || 10;
                 const rnd = datos.rondas || 1;
                 const cant = ejsFlat.length;
-                html += `<div style="${sSubHeader}">Tabata: Actividad: ${trab} segundos | Pausa: ${pau} segundos | ${cant} ejercicios | ${rnd} ronda(s)</div>`;
+                html += `<div style="${subHeaderStyle('Tabata')}">Tabata: Actividad: ${trab} segundos | Pausa: ${pau} segundos | ${cant} ejercicios | ${rnd} ronda(s)</div>`;
                 ejsFlat.forEach(ej => { html += ejBox(ej, 'Tabata'); });
             }
         } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo') {
@@ -4779,7 +4789,7 @@
                         const dm = g.tiempo_min || g.duracion_min || datos.duracion_min || 5;
                         gMeta = 'Circuito por tiempo: ' + dm + ' minutos | Entrenamiento continuo, sin pausas entre ejercicios ni vueltas';
                     }
-                    html += `<div style="${sSubHeader}">Bloque ${gi+1}: ${gMeta || gTipo}</div>`;
+                    html += `<div style="${subHeaderStyle(gTipo)}">Bloque ${gi+1}: ${gMeta || gTipo}</div>`;
                     if (ejsG.length === 0) {
                         html += `<p style="${ff}color:#aaa;font-size:12px;font-style:italic;padding:6px 2px;">Sin ejercicios registrados</p>`;
                     } else {
@@ -4796,13 +4806,13 @@
                 } else {
                     planMeta = 'Circuito por tiempo: ' + (datos.duracion_min || 5) + ' minutos | Entrenamiento continuo, sin pausas entre ejercicios ni vueltas';
                 }
-                html += `<div style="${sSubHeader}">${planMeta}</div>`;
+                html += `<div style="${subHeaderStyle(tipo)}">${planMeta}</div>`;
                 gruposC.forEach(ej => { html += ejBox(ej, tipo); });
             }
         } else if (tipo === 'Por Tiempo') {
             html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — POR TIEMPO</div>`;
             const vueltas = datos.vueltas || 1;
-            html += `<div style="${sSubHeader}">Por tiempo: ${vueltas} vuelta(s) — al terminar cada vuelta marcá el tiempo</div>`;
+            html += `<div style="${subHeaderStyle('Por Tiempo')}">Por tiempo: ${vueltas} vuelta(s) — al terminar cada vuelta marcá el tiempo</div>`;
             const ejsPT = toArray(datos.ejercicios || datos.datos || datos.rutina || []);
             if (ejsPT.length === 0) {
                 html += `<p style="${ff}color:#aaa;font-size:12px;font-style:italic;padding:6px 2px;">Sin ejercicios registrados</p>`;
@@ -4812,7 +4822,7 @@
         } else if (tipo === 'Series') {
             const ejsSeries = toArray(datos.datos || datos.rutina || []);
             html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — SERIES</div>`;
-            html += `<div style="${sSubHeader}">Series: ${ejsSeries.length} ejercicio(s)</div>`;
+            html += `<div style="${subHeaderStyle('Series')}">Series: ${ejsSeries.length} ejercicio(s)</div>`;
             ejsSeries.forEach(ej => { html += ejBox(ej, 'Series'); });
         }
 
@@ -4898,7 +4908,7 @@
                 else if (t === 'tabata')                { r=211; g=47;  b=47;  }  // rojo
                 else if (t === 'emom')                  { r=255; g=213; b=79;  txtR=30; txtG=30; txtB=30; } // amarillo, texto negro
                 else if (t === 'series' || t === 'series/reps') { r=56; g=161; b=80; } // verde
-                // Circuito, Por Tiempo → naranja (default)
+                else if (t === 'por tiempo')            { r=123; g=31;  b=162; } // morado oscuro
                 doc.setFillColor(r, g, b);
                 doc.roundedRect(mL, y, cW, 7, 2, 2, 'F');
                 doc.setFont('helvetica', 'bold');
