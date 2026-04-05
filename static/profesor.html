@@ -4889,14 +4889,21 @@
                 y += h + 4;
             }
 
-            // Sub-barra naranja (bloque)
-            function subBar(text) {
+            // Sub-barra coloreada según tipo de bloque
+            function subBarTipo(text, bloqTipo) {
                 chk(8);
-                doc.setFillColor(255, 107, 53);
+                let r = 255, g = 107, b = 53, txtR = 255, txtG = 255, txtB = 255; // naranja default (Circuito)
+                const t = (bloqTipo || '').toLowerCase();
+                if (t === 'circuito por tiempo')       { r=25;  g=84;  b=163; }  // azul oscuro
+                else if (t === 'tabata')                { r=211; g=47;  b=47;  }  // rojo
+                else if (t === 'emom')                  { r=255; g=213; b=79;  txtR=30; txtG=30; txtB=30; } // amarillo, texto negro
+                else if (t === 'series' || t === 'series/reps') { r=56; g=161; b=80; } // verde
+                // Circuito, Por Tiempo → naranja (default)
+                doc.setFillColor(r, g, b);
                 doc.roundedRect(mL, y, cW, 7, 2, 2, 'F');
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(10);
-                doc.setTextColor(255, 255, 255);
+                doc.setTextColor(txtR, txtG, txtB);
                 doc.text(text, mL + 4, y + 4.8);
                 y += 10;
             }
@@ -5123,9 +5130,9 @@
                         const ejsF = toArray(diaDatos.rutina || diaDatos.datos || diaDatos.ejercicios || []);
                         if (ejsF.length > 0) {
                             if (diaTipo === 'Tabata') {
-                                subBar('Tabata  —  ' + (diaDatos.trabajo||20) + 's / ' + (diaDatos.pausa||10) + 's | ' + (diaDatos.rondas||1) + ' ronda(s)');
+                                subBarTipo('Tabata  —  ' + (diaDatos.trabajo||20) + 's / ' + (diaDatos.pausa||10) + 's | ' + (diaDatos.rondas||1) + ' ronda(s)', 'Tabata');
                             } else if (diaTipo === 'EMOM') {
-                                subBar('EMOM  —  ' + (diaDatos.minutos_totales||10) + ' min');
+                                subBarTipo('EMOM  —  ' + (diaDatos.minutos_totales||10) + ' min', 'EMOM');
                             } else if (diaTipo === 'Por Tiempo') {
                                 chk(6);
                                 doc.setFont('helvetica', 'italic'); doc.setFontSize(9); doc.setTextColor(110, 110, 110);
@@ -5134,7 +5141,7 @@
                             if (ejsF[0] && ejsF[0].ejercicios !== undefined) {
                                 ejsF.forEach((g, gi) => {
                                     const gTipoD = g.tipo || diaTipo;
-                                    subBar('Bloque ' + (gi+1) + ': ' + gTipoD);
+                                    subBarTipo('Bloque ' + (gi+1) + ': ' + gTipoD, gTipoD);
                                     toArray(g.ejercicios).forEach(ej => ejGris(ej, gTipoD));
                                 });
                             } else {
@@ -5251,7 +5258,7 @@
                     else if (bloqTipo === 'Por Tiempo')          meta = (b.vueltas||1) + ' vueltas | Cronómetro';
                     else if (bloqTipo === 'EMOM')                meta = (b.minutos_totales||10) + ' min';
                     else if (bloqTipo === 'Series')              meta = ejsB.length + ' ejercicio(s)';
-                    subBar('Bloque ' + (i+1) + ': ' + bloqTipo + (meta ? '  —  ' + meta : ''));
+                    subBarTipo('Bloque ' + (i+1) + ': ' + bloqTipo + (meta ? '  —  ' + meta : ''), bloqTipo);
                     if (bloqTipo === 'EMOM' && b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
                         b.emom_config_por_minuto.forEach((minCfg, mi) => {
                             chk(8);
@@ -5287,7 +5294,7 @@
                     // Fallback: si no hay minutos_ciclo, intentar emom_config_por_minuto (nuevo formato)
                     const emomCfgFallback = toArray(datos.emom_config_por_minuto);
                     const emomSrc = minutosCiclo.length > 0 ? minutosCiclo : emomCfgFallback;
-                    subBar('EMOM  —  ' + (datos.minutos_totales||10) + ' min');
+                    subBarTipo('EMOM  —  ' + (datos.minutos_totales||10) + ' min', 'EMOM');
                     if (emomSrc.length > 0) {
                         emomSrc.forEach((minCfg, mi) => {
                             chk(8);
@@ -5304,7 +5311,7 @@
                     }
                 } else {
                     let metaInfo = '  —  ' + (datos.trabajo||20) + 's / ' + (datos.pausa||10) + 's | ' + (datos.rondas||1) + ' ronda(s)';
-                    subBar('Tabata' + metaInfo);
+                    subBarTipo('Tabata' + metaInfo, 'Tabata');
                     toArray(datos.rutina || datos.datos || []).forEach(ej => ejGris(ej, tipo));
                 }
             } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo' || tipo === 'Por Tiempo' || tipo === 'Series') {
@@ -5330,7 +5337,7 @@
                         if (gTipo === 'Circuito')            gMeta = (datos.vueltas_bloque||g.vueltas||3) + ' vueltas | Pausa: ' + (datos.pausa_vuelta||g.pausa_vuelta||60) + 's';
                         else if (gTipo === 'Circuito por Tiempo') gMeta = (g.tiempo_min||g.duracion_min||datos.duracion_min||5) + ' min';
                         else if (gTipo === 'Por Tiempo') gMeta = (g.vueltas||datos.vueltas||1) + ' vueltas | Cronómetro';
-                        subBar('Bloque ' + (gi+1) + ': ' + gTipo + (gMeta ? '  —  ' + gMeta : ''));
+                        subBarTipo('Bloque ' + (gi+1) + ': ' + gTipo + (gMeta ? '  —  ' + gMeta : ''), gTipo);
                         if (ejsG.length === 0) {
                             chk(8);
                             doc.setFont('helvetica', 'italic');
