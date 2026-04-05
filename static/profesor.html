@@ -6764,25 +6764,25 @@
         historialRutinas.forEach(r => {
             const tipo = r.tipo || 'Circuito';
 
-            // MULTIDIA: leer los tipos y bloques de cada día interno, no usar 'MULTIDIA' como tipo
+            // MULTIDIA: estructura real en Firebase es r.dia_1, r.dia_2 ... r.dia_N + r.total_dias
             if (tipo === 'MULTIDIA') {
-                const diasR = toArray(r.dias || []);
-                if (diasR.length > 0) {
-                    diasR.forEach(dia => {
-                        const tipoD = dia.tipo || '';
-                        const datosD = dia.datos || {};
-                        if (datosD.bloques) {
-                            // Día con múltiples bloques
-                            toArray(datosD.bloques).forEach(b => { if (b.tipo) todosLosBloques.push(b); });
-                        } else if (tipoD && tipoD !== 'MULTIDIA' && tipoD !== 'ENTRENAMIENTO') {
-                            // Día de tipo único → bloque sintético con el tipo real del día
-                            todosLosBloques.push({ tipo: tipoD, _sintetico: true });
-                        } else if (tipoD === 'ENTRENAMIENTO') {
-                            todosLosBloques.push({ tipo: 'Circuito', _sintetico: true });
-                        }
-                    });
+                const totalDM = r.total_dias || 0;
+                for (let di = 1; di <= totalDM; di++) {
+                    const diaR = r['dia_' + di];
+                    if (!diaR) continue;
+                    const tipoD  = diaR.tipo  || '';
+                    const datosD = diaR.datos  || {};
+                    // Si el día tiene bloques explícitos, usarlos
+                    if (datosD.bloques && toArray(datosD.bloques).length > 0) {
+                        toArray(datosD.bloques).forEach(b => { if (b.tipo) todosLosBloques.push(b); });
+                    } else if (tipoD && tipoD !== 'MULTIDIA' && tipoD !== 'ENTRENAMIENTO') {
+                        // Día de tipo único → bloque sintético con el tipo real del día
+                        todosLosBloques.push({ tipo: tipoD, _sintetico: true });
+                    } else if (tipoD === 'ENTRENAMIENTO') {
+                        todosLosBloques.push({ tipo: 'Circuito', _sintetico: true });
+                    }
                 }
-                return; // ya procesado, no caer al else
+                return; // ya procesado, no caer al bloque de un solo día
             }
 
             // Rutina de un solo día: bloques explícitos
@@ -6813,6 +6813,34 @@
             ? Math.round(ejsPorBloque.reduce((a, b) => a + b, 0) / ejsPorBloque.length)
             : 4;
 
+        // Promedio de reps reales del historial (para que la IA genere reps similares)
+        const repsNums = [];
+        todosLosBloques.forEach(b => {
+            toArray(b.ejercicios || []).forEach(e => {
+                const r = parseInt(e.reps || e[2] || '');
+                if (!isNaN(r) && r > 0 && r <= 120) repsNums.push(r);
+            });
+        });
+        // También leer reps del historial MULTIDIA via dia_N
+        historialRutinas.slice(0, 5).forEach(r => {
+            if (r.tipo === 'MULTIDIA') {
+                const totalDM = r.total_dias || 0;
+                for (let di = 1; di <= totalDM; di++) {
+                    const diaR = r['dia_' + di];
+                    if (!diaR || !diaR.datos) continue;
+                    toArray(diaR.datos.bloques || []).forEach(b => {
+                        toArray(b.ejercicios || []).forEach(e => {
+                            const rv = parseInt(e.reps || '');
+                            if (!isNaN(rv) && rv > 0 && rv <= 120) repsNums.push(rv);
+                        });
+                    });
+                }
+            }
+        });
+        const avgReps = repsNums.length >= 3
+            ? Math.round(repsNums.reduce((a, b) => a + b, 0) / repsNums.length)
+            : null; // null = usar rango del nivel
+
         // Promedio de dias por rutina (repositorio)
         const diasPorRutina = repositorio.map(p => (p.diasData || []).length).filter(n => n > 0);
         const avgDias = diasPorRutina.length > 0
@@ -6836,7 +6864,7 @@
             });
         });
 
-        return { freqTipos, avgEjs: Math.max(3, Math.min(avgEjs, 6)), avgDias: Math.max(1, Math.min(avgDias, 3)), ejsUsados };
+        return { freqTipos, avgEjs: Math.max(3, Math.min(avgEjs, 6)), avgDias: Math.max(1, Math.min(avgDias, 3)), ejsUsados, avgReps };
     }
 
     // Helpers para leer las pills del modal
@@ -7125,7 +7153,14 @@
             return { vueltas: vv, pausa_vuelta: pv };
         }
         function buildEj(e, tipo) {
-            const baseReps = Math.floor(Math.random() * (nivel.repsMax - nivel.repsMin + 1)) + nivel.repsMin;
+            let baseReps;
+            if (patrones.avgReps && cfgProgresion === 'none') {
+                // Usar reps similares a las del historial: avgReps ± variación pequeña
+                const variacion = Math.floor(Math.random() * 5) - 2; // -2 a +2
+                baseReps = Math.max(nivel.repsMin, Math.min(nivel.repsMax, patrones.avgReps + variacion));
+            } else {
+                baseReps = Math.floor(Math.random() * (nivel.repsMax - nivel.repsMin + 1)) + nivel.repsMin;
+            }
             const finalReps = aplicarProgresion(baseReps);
             const reps = tipo === 'Tabata' ? '20' : String(finalReps);
             const unit = tipo === 'Tabata' ? 'Segs' : 'Reps';
