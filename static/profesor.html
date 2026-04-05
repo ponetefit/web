@@ -915,13 +915,52 @@
                         </select>
                     </div>
                     <div>
-                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Bloques por Día</label>
+                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Bloques por Día <span id="ia-bloques-auto-badge" class="hidden ml-1 text-amarillo text-xs font-bold">· auto</span></label>
                         <select id="ia-num-bloques" class="w-full rounded-lg px-3 py-2.5 text-sm">
                             <option value="1">1 Bloque</option>
                             <option value="2" selected>2 Bloques</option>
                             <option value="3">3 Bloques</option>
                         </select>
                     </div>
+                </div>
+
+                <!-- Duración total -->
+                <div class="bg-fondoAlt rounded-xl border border-borde p-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="text-xs font-bold text-amarillo">⏱️ Duración por Día</p>
+                        <span id="ia-duracion-estimada" class="text-xs text-textoSuave hidden"></span>
+                    </div>
+                    <div class="flex flex-wrap gap-2 mb-2" id="ia-duracion-pills">
+                        <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-duracion'); iaDuracionChange()">
+                            <input type="radio" name="ia-duracion" value="libre" checked class="sr-only">
+                            <span>— Libre</span>
+                        </label>
+                        <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-duracion'); iaDuracionChange()">
+                            <input type="radio" name="ia-duracion" value="30" class="sr-only">
+                            <span>30 min</span>
+                        </label>
+                        <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-duracion'); iaDuracionChange()">
+                            <input type="radio" name="ia-duracion" value="45" class="sr-only">
+                            <span>45 min</span>
+                        </label>
+                        <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-duracion'); iaDuracionChange()">
+                            <input type="radio" name="ia-duracion" value="60" class="sr-only">
+                            <span>60 min</span>
+                        </label>
+                        <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-duracion'); iaDuracionChange()">
+                            <input type="radio" name="ia-duracion" value="90" class="sr-only">
+                            <span>90 min</span>
+                        </label>
+                        <label class="ia-radio-pill" onclick="iaSelectPill(this,'ia-duracion'); iaDuracionChange()">
+                            <input type="radio" name="ia-duracion" value="custom" class="sr-only">
+                            <span>✏️ Otro</span>
+                        </label>
+                    </div>
+                    <div id="ia-duracion-custom" class="hidden items-center gap-2 mt-1">
+                        <input type="number" id="ia-duracion-custom-val" min="10" max="180" value="50" oninput="iaDuracionChange()" class="w-20 rounded-lg px-2 py-1.5 text-sm text-center">
+                        <span class="text-xs text-textoSuave">minutos por día</span>
+                    </div>
+                    <p id="ia-duracion-hint" class="text-xs text-textoSuave mt-2 hidden"></p>
                 </div>
 
                 <!-- Selector de alumno -->
@@ -6828,6 +6867,132 @@
         if (e.target?.id === 'ia-semana-num') iaActualizarHintProgresion();
     });
 
+    // ── Duración total ─────────────────────────────────────────────────────
+
+    function iaDuracionChange() {
+        const val = iaGetRadio('ia-duracion') || 'libre';
+        const customBox = document.getElementById('ia-duracion-custom');
+        const hint      = document.getElementById('ia-duracion-hint');
+        const badge     = document.getElementById('ia-bloques-auto-badge');
+        if (customBox) customBox.style.display = val === 'custom' ? 'flex' : 'none';
+        if (val === 'libre') {
+            if (hint)  { hint.classList.add('hidden'); }
+            if (badge) { badge.classList.add('hidden'); }
+            return;
+        }
+        const mins = val === 'custom'
+            ? (parseInt(document.getElementById('ia-duracion-custom-val')?.value) || 45)
+            : parseInt(val);
+        const nivel    = iaGetRadio('ia-nivel') || 'intermedio';
+        const tiposModo = iaGetRadio('ia-tipos-modo') || 'frecuencia';
+        // Usar circuito como referencia de cálculo de bloques
+        const minsPorBloque = _iaEstimarMinsPorBloque('Circuito', 4, nivel);
+        const minsWarmup    = 5;
+        const minsDisponibles = Math.max(5, mins - minsWarmup);
+        const bloquesCalculados = Math.max(1, Math.min(4, Math.round(minsDisponibles / minsPorBloque)));
+        if (hint) {
+            hint.textContent = `~${minsPorBloque} min/bloque estimado → ${bloquesCalculados} bloque${bloquesCalculados !== 1 ? 's' : ''} + ~${minsWarmup} min calentamiento`;
+            hint.classList.remove('hidden');
+        }
+        if (badge) badge.classList.remove('hidden');
+        // Actualizar select de bloques automáticamente
+        const selBloques = document.getElementById('ia-num-bloques');
+        if (selBloques) {
+            // Agregar opción 4 si no existe
+            if (!selBloques.querySelector('option[value="4"]')) {
+                const o = document.createElement('option');
+                o.value = '4'; o.textContent = '4 Bloques'; selBloques.appendChild(o);
+            }
+            selBloques.value = String(bloquesCalculados);
+        }
+    }
+
+    // Estima los minutos reales de un bloque según tipo, cantidad de ejercicios y nivel
+    function _iaEstimarMinsPorBloque(tipo, cantEjs, nivelKey) {
+        const niv = IA_NIVELES[nivelKey] || IA_NIVELES.intermedio;
+        const vueltas     = parseInt(niv.vueltas) || 3;
+        const pausaVuelta = parseInt(niv.pausaVuelta) || 45;
+        const series      = parseInt(niv.series) || 3;
+        // Tiempo promedio de ejecución por ejercicio (seg) según nivel
+        const segsEj = nivelKey === 'principiante' ? 35 : nivelKey === 'avanzado' ? 50 : 40;
+
+        if (tipo === 'Circuito') {
+            // vueltas × (ejercicios × segsEj + pausaVuelta) / 60
+            return Math.round((vueltas * (cantEjs * segsEj + pausaVuelta)) / 60);
+        }
+        if (tipo === 'Circuito por Tiempo') {
+            return 3; // duración fija de 3 min
+        }
+        if (tipo === 'Tabata') {
+            // (trabajo + pausa) × cantidad × rondas / 60
+            return Math.round(((20 + 10) * cantEjs) / 60) + 1;
+        }
+        if (tipo === 'EMOM') {
+            // 1 minuto por ejercicio
+            return cantEjs;
+        }
+        if (tipo === 'Series') {
+            // series × ejercicios × (segsEj + pausaVuelta) / 60
+            return Math.round((series * cantEjs * (segsEj + pausaVuelta)) / 60);
+        }
+        if (tipo === 'Por Tiempo') {
+            return Math.round((vueltas * (cantEjs * segsEj + pausaVuelta)) / 60);
+        }
+        return Math.round((vueltas * (cantEjs * segsEj + pausaVuelta)) / 60);
+    }
+
+    // Ajusta vueltas/series/cantidad dentro de un bloque para aproximarse a targetMins
+    function _iaAjustarParamsParaDuracion(bloque, targetMins, nivelKey) {
+        const niv   = IA_NIVELES[nivelKey] || IA_NIVELES.intermedio;
+        const cantEjs = (bloque.ejercicios || []).length || 4;
+        const segsEj  = nivelKey === 'principiante' ? 35 : nivelKey === 'avanzado' ? 50 : 40;
+        const tipo    = bloque.tipo;
+
+        if (tipo === 'Circuito' || tipo === 'Por Tiempo') {
+            const pausaVuelta = parseInt(niv.pausaVuelta) || 45;
+            const segsTarget  = targetMins * 60;
+            // vueltas = segsTarget / (cantEjs × segsEj + pausaVuelta)
+            let vueltas = Math.round(segsTarget / (cantEjs * segsEj + pausaVuelta));
+            vueltas = Math.max(1, Math.min(8, vueltas));
+            bloque.params = { ...bloque.params, vueltas: String(vueltas), pausa_vuelta: String(pausaVuelta) };
+            bloque.vueltas = vueltas;
+            bloque.pausa_vuelta = pausaVuelta;
+        } else if (tipo === 'Series') {
+            const pausaVuelta = parseInt(niv.pausaVuelta) || 45;
+            const segsTarget  = targetMins * 60;
+            let series = Math.round(segsTarget / (cantEjs * (segsEj + pausaVuelta)));
+            series = Math.max(1, Math.min(6, series));
+            bloque.params = { ...bloque.params, series: String(series), pausa: String(pausaVuelta) };
+            bloque.series = series;
+            bloque.pausa  = pausaVuelta;
+        } else if (tipo === 'Tabata') {
+            // Tabata: ajustar cantidad de intervalos
+            let cantidad = Math.round((targetMins * 60) / 30);
+            cantidad = Math.max(4, Math.min(20, cantidad));
+            bloque.params = { ...bloque.params, cantidad: String(cantidad) };
+            bloque.cantidad = cantidad;
+        } else if (tipo === 'EMOM') {
+            // EMOM: los minutos = cantidad de ejercicios, ya está seteado
+        } else if (tipo === 'Circuito por Tiempo') {
+            // Ajustar duración en minutos
+            const dur = Math.max(1, Math.min(30, targetMins));
+            bloque.params = { ...bloque.params, duracion: String(dur) };
+            bloque.duracion_min = dur;
+        }
+        return bloque;
+    }
+
+    function _iaGetDuracionTarget() {
+        const val = iaGetRadio('ia-duracion') || 'libre';
+        if (val === 'libre') return null;
+        if (val === 'custom') return parseInt(document.getElementById('ia-duracion-custom-val')?.value) || null;
+        return parseInt(val);
+    }
+
+    function _iaGetNivelKey() {
+        return iaGetRadio('ia-nivel') || 'intermedio';
+    }
+
     // ── Cache de la última generación para previsualizar/aplicar ──────────
     let _iaUltimaGeneracion = null;
 
@@ -7079,6 +7244,9 @@
         }
 
         // ── Construir días ─────────────────────────────────────────────────
+        const duracionTarget = _iaGetDuracionTarget();    // null = libre
+        const nivelKeyGen    = _iaGetNivelKey();
+        const minsWarmupFijo = 5;                          // tiempo fijo calentamiento
         const diasGenerados = [];
         for (let d = 0; d < numDias; d++) {
             // Calentamiento: SOLO zona_media. Máximo 3. Sin fallback a otras categorías.
@@ -7093,11 +7261,24 @@
                 }));
 
             const bloquesRutina = [];
-            for (let b = 0; b < numBloques; b++) bloquesRutina.push(buildBloqueConZona(elegirTipo()));
+            for (let b = 0; b < numBloques; b++) {
+                const bl = buildBloqueConZona(elegirTipo());
+                if (duracionTarget) {
+                    // Minutos disponibles para bloques (descontando warmup)
+                    const minsParaBloques = Math.max(5, duracionTarget - minsWarmupFijo);
+                    const minsPorBloque   = Math.max(3, Math.round(minsParaBloques / numBloques));
+                    _iaAjustarParamsParaDuracion(bl, minsPorBloque, nivelKeyGen);
+                    bl._duracionEstimada = _iaEstimarMinsPorBloque(bl.tipo, (bl.ejercicios||[]).length, nivelKeyGen);
+                } else {
+                    bl._duracionEstimada = _iaEstimarMinsPorBloque(bl.tipo, (bl.ejercicios||[]).length, nivelKeyGen);
+                }
+                bloquesRutina.push(bl);
+            }
 
             const titulosDia = { 'sin-piernas': ['Día 1 — Sup + Core', 'Día 2 — Sup + Core', 'Día 3 — Sup + Core'], 'solo-core': ['Día 1 — Zona Media', 'Día 2 — Zona Media', 'Día 3 — Zona Media'], 'mas-piernas': ['Día 1 — Piernas', 'Día 2 — Piernas + Sup', 'Día 3 — Full Body'], '33-33-33': ['Día 1 — Full Body', 'Día 2 — Full Body', 'Día 3 — Full Body'], 'todo-cuerpo': ['Día 1 — Todo el Cuerpo', 'Día 2 — Todo el Cuerpo', 'Día 3 — Todo el Cuerpo'], '25-25-25-25': ['Día 1 — 25/25/25/25', 'Día 2 — 25/25/25/25', 'Día 3 — 25/25/25/25'] };
             const titulos = titulosDia[cfgZonas] || ['Día 1', 'Día 2', 'Día 3'];
-            diasGenerados.push({ titulo: numDias > 1 ? (titulos[d] || ('Día ' + (d + 1))) : 'Día 1', warmupEjercicios, bloquesRutina, warmupEmomConfig: [] });
+            const totalMinsEstimado = minsWarmupFijo + bloquesRutina.reduce((s, b) => s + (b._duracionEstimada || 0), 0);
+            diasGenerados.push({ titulo: numDias > 1 ? (titulos[d] || ('Día ' + (d + 1))) : 'Día 1', warmupEjercicios, bloquesRutina, warmupEmomConfig: [], _duracionTarget: duracionTarget, _totalMinsEstimado: totalMinsEstimado });
         }
         return diasGenerados;
     }
@@ -7151,17 +7332,26 @@
             for (const [zona, keys] of Object.entries(ZONAS_MAP)) { if (keys.some(k => c.includes(k))) return ZONA_COLORS[zona]; }
             return ZONA_COLORS[''];
         }
-        content.innerHTML = dias.map((dia, di) => `
+        content.innerHTML = dias.map((dia, di) => {
+            const totalMins  = dia._totalMinsEstimado || 0;
+            const targetMins = dia._duracionTarget;
+            const tiempoTag  = totalMins ? `<span class="text-xs font-bold" style="color:#FFD54F;">⏱ ~${totalMins} min</span>` : '';
+            const targetTag  = targetMins ? `<span class="text-xs text-textoSuave">/ objetivo ${targetMins} min</span>` : '';
+            return `
             <div class="rounded-2xl border border-borde overflow-hidden">
                 <div class="px-4 py-2.5 flex items-center justify-between" style="background: rgba(124,58,237,0.12);">
                     <span class="text-xs font-black text-purpura uppercase tracking-wider">${dia.titulo}</span>
-                    <span class="text-xs text-textoSuave">${dia.warmupEjercicios.length} warm-up · ${dia.bloquesRutina.reduce((a,b) => a+(b.ejercicios||[]).length,0)} ejs principales</span>
+                    <div class="flex items-center gap-2">
+                        ${tiempoTag} ${targetTag}
+                        <span class="text-xs text-textoSuave">${dia.warmupEjercicios.length} warm-up · ${dia.bloquesRutina.reduce((a,b) => a+(b.ejercicios||[]).length,0)} ejs</span>
+                    </div>
                 </div>
                 ${dia.bloquesRutina.map((bloque, bi) => `
                     <div class="px-4 py-3 ${bi > 0 ? 'border-t border-borde' : ''}">
                         <div class="flex items-center gap-2 mb-2">
                             <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background: rgba(79,195,247,0.15); color: #4FC3F7;">${bloque.tipo}</span>
                             <span class="text-xs text-textoSuave">${bloque.desc}</span>
+                            ${bloque._duracionEstimada ? `<span class="ml-auto text-xs font-bold" style="color:#FFD54F80;">⏱ ~${bloque._duracionEstimada} min</span>` : ''}
                         </div>
                         <div class="flex flex-wrap gap-1.5">
                             ${(bloque.ejercicios || []).map(ej => `
@@ -7173,8 +7363,8 @@
                         </div>
                     </div>
                 `).join('')}
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
 
         // Balance
         const balanceMsg = iaChequearBalance(dias);
