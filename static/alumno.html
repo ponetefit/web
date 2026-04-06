@@ -798,6 +798,19 @@
             background: rgba(255,255,255,0.15);
         }
         
+        /* Lista de ejercicios en fullscreen Circuito por Tiempo */
+        #fs-ejercicios-lista {
+            width: 80vw;
+            max-width: 480px;
+            max-height: 30vh;
+            overflow-y: auto;
+        }
+        
+        /* Cuando hay ejercicios, reducir un poco el clock */
+        #overlay-fullscreen.has-exercises .fs-clock {
+            font-size: clamp(6rem, 24vw, 14rem);
+        }
+        
         .btn-fullscreen {
             background: rgba(255,255,255,0.06);
             color: var(--texto-suave);
@@ -1623,6 +1636,8 @@
         <div class="fs-progress-bar">
             <div class="fs-progress-fill" id="fs-progress-fill"></div>
         </div>
+        <!-- Lista de ejercicios para Circuito por Tiempo fullscreen -->
+        <div id="fs-ejercicios-lista" style="display:none; margin: 0 0 20px; width:80vw; max-width:480px; text-align:left;"></div>
         <button class="fs-btn-salir" onclick="salirFullscreen()">✕ SALIR</button>
     </div>
 
@@ -2585,14 +2600,19 @@
         // PANTALLA COMPLETA (FULLSCREEN MODE)
         // ====================================================================
         var _fsActivo = false;
-        var _fsTipo = ''; // 'tabata', 'emom', 'inline-tabata', 'inline-emom'
+        var _fsTipo = ''; // 'tabata', 'emom', 'inline-tabata', 'inline-emom', 'ct'
         var _fsSyncInterval = null;
         var _fsInlineIds = null; // para inline timers: {status, ej, info, clock}
+        var _fsCTEjercicios = []; // ejercicios para fullscreen Circuito por Tiempo
+        var _fsCTBloqueLabel = ''; // etiqueta de bloque para CT
 
         function entrarFullscreen(tipo, inlineIds) {
             _fsTipo = tipo;
             _fsInlineIds = inlineIds || null;
             _fsActivo = true;
+            // Ocultar lista de ejercicios CT si no aplica
+            var fsEjsLista = document.getElementById('fs-ejercicios-lista');
+            if (fsEjsLista) fsEjsLista.style.display = 'none';
             document.getElementById('overlay-fullscreen').classList.add('visible');
 
             // Intentar Fullscreen API nativa
@@ -2607,11 +2627,59 @@
             _syncFullscreen(); // sync inmediato
         }
 
+        // Pantalla completa para Circuito por Tiempo — muestra ejercicios del bloque
+        function entrarFullscreenCT(timerId, bloqueLabel, ejercicios) {
+            _fsTipo = 'ct';
+            _fsInlineIds = { clock: timerId };
+            _fsCTEjercicios = ejercicios || [];
+            _fsCTBloqueLabel = bloqueLabel || '';
+            _fsActivo = true;
+
+            // Renderizar lista de ejercicios en el overlay
+            var fsEjsLista = document.getElementById('fs-ejercicios-lista');
+            if (fsEjsLista) {
+                if (_fsCTEjercicios.length > 0) {
+                    var html = '';
+                    _fsCTEjercicios.forEach(function(ej) {
+                        var ejU = (ej.unit || 'Reps').toUpperCase();
+                        var meta = ej.reps ? ej.reps + ' ' + ejU : '';
+                        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,0.05);border-radius:10px;margin-bottom:6px;">' +
+                            '<span style="font-size:0.95rem;font-weight:700;color:var(--texto);">' + ej.nombre + '</span>' +
+                            (meta ? '<span style="font-size:0.85rem;font-weight:700;color:var(--amarillo);">' + meta + '</span>' : '') +
+                            '</div>';
+                    });
+                    fsEjsLista.innerHTML = html;
+                    fsEjsLista.style.display = 'block';
+                    document.getElementById('overlay-fullscreen').classList.add('has-exercises');
+                } else {
+                    fsEjsLista.style.display = 'none';
+                    document.getElementById('overlay-fullscreen').classList.remove('has-exercises');
+                }
+            }
+
+            document.getElementById('overlay-fullscreen').classList.add('visible');
+
+            try {
+                var el = document.documentElement;
+                if (el.requestFullscreen) el.requestFullscreen().catch(function(){});
+                else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+            } catch (e) {}
+
+            _fsSyncInterval = setInterval(_syncFullscreen, 200);
+            _syncFullscreen();
+        }
+
         function salirFullscreen() {
             _fsActivo = false;
             _fsTipo = '';
             _fsInlineIds = null;
+            _fsCTEjercicios = [];
+            _fsCTBloqueLabel = '';
             document.getElementById('overlay-fullscreen').classList.remove('visible');
+            // Ocultar lista de ejercicios CT
+            var fsEjsLista = document.getElementById('fs-ejercicios-lista');
+            if (fsEjsLista) fsEjsLista.style.display = 'none';
+            document.getElementById('overlay-fullscreen').classList.remove('has-exercises');
 
             if (_fsSyncInterval) {
                 clearInterval(_fsSyncInterval);
@@ -2718,6 +2786,23 @@
                 fsClock.textContent = wClock ? wClock.textContent : '--';
                 fsFill.style.width = '0%';
                 fsClock.style.color = 'var(--azul)';
+
+            } else if (_fsTipo === 'ct' && _fsInlineIds) {
+                // Circuito por Tiempo — timer de bloque
+                var ctClock = document.getElementById(_fsInlineIds.clock);
+                var ctVal = ctClock ? ctClock.textContent : '--';
+                fsStatus.textContent = 'CIRCUITO POR TIEMPO';
+                fsEj.textContent = _fsCTBloqueLabel ? 'BLOQUE ' + _fsCTBloqueLabel : '';
+                fsInfo.textContent = 'EN CURSO';
+                fsClock.textContent = ctVal;
+                fsFill.style.width = '0%';
+                // Color: amarillo en curso, verde al terminar
+                if (ctVal === 'TIEMPO!' || ctVal === 'PREPARATE...') {
+                    fsClock.style.color = 'var(--verde)';
+                    if (ctVal === 'TIEMPO!') fsInfo.textContent = '¡TIEMPO!';
+                } else {
+                    fsClock.style.color = 'var(--amarillo)';
+                }
             }
 
             // Sincronizar barra de progreso general de rutina
@@ -3724,6 +3809,8 @@
                 metaText = "";
             } else if (tipo === "EMOM") {
                 metaText = "";
+            } else if (tipo === "Por Tiempo") {
+                metaText = (det.vueltas || 3) + " VUELTA" + ((det.vueltas || 3) > 1 ? "S" : "") + " — ⏱ FOR TIME";
             } else if (tipo === "Series/Reps") {
                 var wUnit = (det.unit || "Reps").toUpperCase();
                 metaText = (det.series || 3) + " SERIES × " + (det.reps || 10) + " " + wUnit;
@@ -4034,42 +4121,48 @@
                 wSeriesContainer.innerHTML = wSeriesHtml;
                 tBox.appendChild(wSeriesContainer);
             } else if (tipo === "Por Tiempo") {
-                // ─── WARMUP POR TIEMPO ───
-                const totalVueltas = det.vueltas || data.warmup_vueltas || 3;
+                var ptWVueltas = data.warmup_vueltas || det.vueltas || 3;
+                var wPtUid = 'wup-ft';
+                var wPtClockId = wPtUid + '-clock';
+                var wPtStartId = wPtUid + '-start';
+                var wPtLapId = wPtUid + '-lap';
+                var wPtPausaId = wPtUid + '-pausa';
+                var wPtStatusId = wPtUid + '-status';
+                var wPtLapsId = wPtUid + '-laps';
+
                 tBox.style.display = "block";
-                tStatus.innerText = "POR TIEMPO — " + totalVueltas + " VUELTAS";
-                tClock.style.display = "block";
-                tClock.style.fontSize = "clamp(4rem, 18vw, 7rem)";
-                tClock.style.color = "var(--purpura)";
-                tClock.style.fontFamily = "Roboto Mono, monospace";
-                tClock.innerText = "00:00";
-                tBtn.innerText = "EMPEZAR";
-                tBtn.style.background = "linear-gradient(135deg,var(--purpura),#7b3fa0)";
+                tStatus.innerText = "FOR TIME — " + ptWVueltas + " VUELTA" + (ptWVueltas > 1 ? "S" : "");
+                tEj.innerText = "Cronómetro ascendente desde 00:00";
+                tClock.style.display = "none";
+                tBtn.style.display = "none";
 
-                // Registro de vueltas
-                var wPTVueltasLog = document.createElement('div');
-                wPTVueltasLog.id = 'warmup-pt-vueltas-log';
-                wPTVueltasLog.style.cssText = 'margin:10px 0;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:28px;';
-                tBox.insertBefore(wPTVueltasLog, tBtn);
+                var wPtContainer = document.createElement('div');
+                wPtContainer.id = 'warmup-ft-box';
+                wPtContainer.innerHTML =
+                    '<div style="padding:16px;background:rgba(179,136,255,0.06);border:1px solid rgba(179,136,255,0.2);border-radius:14px;text-align:center;margin-top:10px;">' +
+                        '<div id="' + wPtStatusId + '" style="font-size:0.65rem;font-weight:900;letter-spacing:2px;color:var(--purpura);margin-bottom:8px;">LISTO PARA ARRANCAR</div>' +
+                        '<div id="' + wPtClockId + '" style="font-size:3rem;font-family:Roboto Mono,monospace;font-weight:700;color:var(--amarillo);margin:8px 0;text-shadow:0 0 16px rgba(255,193,7,0.4);">00:00</div>' +
+                        '<div style="display:flex;flex-direction:column;gap:8px;max-width:260px;margin:0 auto;">' +
+                            '<button id="' + wPtStartId + '" class="btn-rest" style="background:linear-gradient(135deg,var(--purpura),#7b1fa2);" ' +
+                                'onclick="iniciarForTime('' + wPtClockId + '','' + wPtStartId + '','' + wPtLapId + '','' + wPtStatusId + '','' + wPtLapsId + '',' + ptWVueltas + ')">▶ EMPEZAR</button>' +
+                            '<button id="' + wPtLapId + '" class="btn-rest" style="display:none;background:linear-gradient(135deg,var(--verde),#2e7d32);" ' +
+                                'onclick="marcarVueltaForTime('' + wPtClockId + '','' + wPtLapId + '','' + wPtStatusId + '','' + wPtLapsId + '',' + ptWVueltas + ')">🏁 MARCAR VUELTA</button>' +
+                            '<button id="' + wPtPausaId + '" class="btn-pausa" style="display:none;" ' +
+                                'onclick="togglePausaForTime('' + wPtClockId + '',this,'' + wPtLapId + '')">⏸ PAUSAR</button>' +
+                        '</div>' +
+                        '<div id="' + wPtLapsId + '" style="margin-top:12px;text-align:left;"></div>' +
+                    '</div>';
+                tBox.appendChild(wPtContainer);
 
-                // Contador de vueltas restantes
-                var wPTVCounter = document.createElement('div');
-                wPTVCounter.id = 'warmup-pt-vcount';
-                wPTVCounter.style.cssText = 'font-size:1.2rem;font-weight:900;color:var(--amarillo);text-align:center;margin:8px 0;';
-                wPTVCounter.innerText = 'Vueltas: 0 / ' + totalVueltas;
-                tBox.insertBefore(wPTVCounter, wPTVueltasLog);
-
-                // Botón marcar vuelta
-                var wPTMarcarBtn = document.createElement('button');
-                wPTMarcarBtn.id = 'warmup-pt-marcar';
-                wPTMarcarBtn.className = 'btn-rest';
-                wPTMarcarBtn.style.cssText = 'margin-top:10px;display:none;background:linear-gradient(135deg,var(--verde),#1a7a4a);font-size:1.4rem;padding:22px 44px;font-weight:900;min-height:72px;letter-spacing:1px;';
-                wPTMarcarBtn.innerText = '✓ MARCAR VUELTA';
-                tBox.appendChild(wPTMarcarBtn);
-
-                tBtn.onclick = function() {
-                    iniciarWarmupPorTiempo(totalVueltas);
-                };
+                // Mostrar pausa tras arranque
+                var _wptObs = setInterval(function() {
+                    var _wBtnL = document.getElementById(wPtLapId);
+                    var _wBtnP = document.getElementById(wPtPausaId);
+                    if (_wBtnL && _wBtnL.style.display !== 'none') {
+                        if (_wBtnP) _wBtnP.style.display = 'block';
+                        clearInterval(_wptObs);
+                    }
+                }, 500);
             }
         }
 
@@ -4079,6 +4172,7 @@
             const det = (dataGlobal && dataGlobal.warmup_config_detalle) ? dataGlobal.warmup_config_detalle : {};
             const ejsW = (dataGlobal && dataGlobal.warmup_ejercicios) ? dataGlobal.warmup_ejercicios : [];
 
+            if (tipo === "Por Tiempo") { return; } // Por Tiempo usa UI inline, no necesita este botón
             if (tipo === "Tabata" || tipo === "EMOM" || tipo === "Circuito por Tiempo") {
                 if (warmupRunning) return;
                 if (hayTimerActivo()) return;
@@ -4319,117 +4413,6 @@
             var reiniciarBtn = document.getElementById('warmup-emom-reiniciar');
             if (reiniciarBtn) reiniciarBtn.style.display = 'none';
             liberarWakeLock();
-        }
-
-        // ─── WARMUP POR TIEMPO (cronómetro ascendente con vueltas) ───
-        var _wPorTiempoIv = null;
-        var _wPorTiempoRunning = false;
-        var _wPorTiempoStart = 0;
-        var _wPorTiempoVueltas = 0;
-        var _wPorTiempoTotal = 0;
-        var _wPorTiempoLapStart = 0;
-        var _wPorTiempoMotivoIv = null;
-
-        function iniciarWarmupPorTiempo(totalVueltas) {
-            if (_wPorTiempoRunning) return;
-            if (hayTimerActivo()) return;
-            _wPorTiempoRunning = true;
-            _wPorTiempoTotal = totalVueltas;
-            _wPorTiempoVueltas = 0;
-            activarTimerGlobal();
-            solicitarWakeLock();
-
-            var tBtn = document.getElementById('warmup-btn');
-            var tClock = document.getElementById('warmup-clock');
-            var tStatus = document.getElementById('warmup-status');
-            var marcarBtn = document.getElementById('warmup-pt-marcar');
-            var vCounter = document.getElementById('warmup-pt-vcount');
-            var vueltasLog = document.getElementById('warmup-pt-vueltas-log');
-
-            if (tBtn) { tBtn.style.display = 'none'; }
-            if (marcarBtn) marcarBtn.style.display = 'block';
-            if (tStatus) tStatus.innerText = 'POR TIEMPO — ' + totalVueltas + ' VUELTAS';
-            var _wLaps = [];
-
-            // Voz apertura
-            hablarCoach('Recordá, son ' + totalVueltas + ' ' + (totalVueltas === 1 ? 'vuelta' : 'vueltas') + '. Dale con todo!');
-
-            _wPorTiempoStart = Date.now();
-            _wPorTiempoLapStart = Date.now();
-
-            function _fmtCrono(ms) {
-                var tot = Math.floor(ms / 1000);
-                var m = Math.floor(tot / 60);
-                var s = tot % 60;
-                return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
-            }
-
-            _wPorTiempoIv = bgSetInterval(function() {
-                if (!_wPorTiempoRunning) return;
-                var elapsed = Date.now() - _wPorTiempoStart;
-                if (tClock) tClock.innerText = _fmtCrono(elapsed);
-            }, 500);
-
-            // Frase motivacional cada 15s si no marcó vuelta
-            var _lastLapOrStart = Date.now();
-            _wPorTiempoMotivoIv = bgSetInterval(function() {
-                if (!_wPorTiempoRunning) return;
-                if (Date.now() - _lastLapOrStart >= 15000) {
-                    _lastLapOrStart = Date.now();
-                    try { hablarCoach(_fraseRandom(_frasesMotivacionales)); } catch(e) {}
-                }
-            }, 15000);
-
-            // Marcar vuelta
-            if (marcarBtn) {
-                marcarBtn.onclick = function() {
-                    if (!_wPorTiempoRunning) return;
-                    var now = Date.now();
-                    var lapMs = now - _wPorTiempoLapStart;
-                    _wPorTiempoLapStart = now;
-                    _lastLapOrStart = now;
-                    _wPorTiempoVueltas++;
-                    _wLaps.push(lapMs);
-
-                    var lapStr = _fmtCrono(lapMs);
-                    if (vCounter) vCounter.innerText = 'Vueltas: ' + _wPorTiempoVueltas + ' / ' + _wPorTiempoTotal;
-                    if (vueltasLog) {
-                        var chip = document.createElement('span');
-                        chip.style.cssText = 'background:rgba(105,240,174,0.15);border:1px solid rgba(105,240,174,0.4);border-radius:8px;padding:4px 10px;font-size:0.75rem;font-weight:700;color:var(--verde);';
-                        chip.innerText = 'V' + _wPorTiempoVueltas + ': ' + lapStr;
-                        vueltasLog.appendChild(chip);
-                    }
-                    beep(800);
-                    incrementarProgreso(1);
-
-                    var restantes = _wPorTiempoTotal - _wPorTiempoVueltas;
-                    if (restantes > 0) {
-                        hablarCoach(restantes === 1 ? 'Última vuelta. No aflojes!' : 'Quedan ' + restantes + ' vueltas. Vamos!');
-                    }
-
-                    if (_wPorTiempoVueltas >= _wPorTiempoTotal) {
-                        // Completado
-                        _wPorTiempoRunning = false;
-                        bgClearInterval(_wPorTiempoIv);
-                        bgClearInterval(_wPorTiempoMotivoIv);
-                        desactivarTimerGlobal();
-                        liberarWakeLock();
-                        if (marcarBtn) { marcarBtn.disabled = true; marcarBtn.innerText = '✓ COMPLETADO'; }
-                        if (tStatus) tStatus.innerText = '¡CALENTAMIENTO COMPLETO!';
-                        hablarCoach('Excelente! Completaste el calentamiento. Sos un crack!');
-                        // Mostrar mejor vuelta
-                        if (_wLaps.length > 0 && vueltasLog) {
-                            var _wBestMs = Math.min.apply(null, _wLaps);
-                            var _wBestIdx = _wLaps.indexOf(_wBestMs);
-                            var _wBestBanner = document.createElement('div');
-                            _wBestBanner.style.cssText = 'margin-top:12px;background:linear-gradient(135deg,rgba(255,213,79,0.2),rgba(255,213,79,0.05));border:1.5px solid var(--amarillo);border-radius:12px;padding:10px 16px;text-align:center;';
-                            _wBestBanner.innerHTML = '<div style="font-size:0.65rem;font-weight:900;letter-spacing:2px;color:var(--amarillo);text-transform:uppercase;margin-bottom:4px;">MEJOR VUELTA</div>' +
-                                '<div style="font-size:1.4rem;font-weight:900;font-family:Roboto Mono,monospace;color:var(--amarillo);">V' + (_wBestIdx + 1) + ': ' + _fmtCrono(_wBestMs) + '</div>';
-                            vueltasLog.parentNode.insertBefore(_wBestBanner, vueltasLog.nextSibling);
-                        }
-                    }
-                };
-            }
         }
 
         let warmupEmomInterval = null;
@@ -4920,7 +4903,7 @@
             else if (data.tipo === "Tabata") renderTabata(data, pTitulo, pLista, ejerciciosPrincipales);
             else if (data.tipo === "Circuito por Tiempo") renderCircuitoTiempo(data, pTitulo, pLista, ejerciciosPrincipales);
             else if (data.tipo === "EMOM") renderEmom(data, pTitulo, pLista);
-            else if (data.tipo === "Por Tiempo") renderPorTiempoStandalone(data, pTitulo, pLista);
+            else if (data.tipo === "Por Tiempo") renderForTime(data, pTitulo, pLista);
             else if (data.tipo === "ENTRENAMIENTO") renderMix(data, pTitulo, pLista);
             else {
                 pTitulo.innerText = "ENTRENAMIENTO";
@@ -5031,6 +5014,198 @@
             if (pausaVuelta > 0) iniciarDescansoCircuito(pausaVuelta);
         }
 
+        // ─── MODO POR TIEMPO (FOR TIME) ───
+        var _forTimeIntervalId = null;
+        var _forTimeSecs = 0;
+        var _forTimeRunning = false;
+        var _forTimePaused = false;
+        var _forTimeLaps = [];      // milisegundos de cada vuelta
+        var _forTimeLapStart = 0;   // tiempo de inicio de la vuelta actual
+        var _forTimeMotivId = null; // intervalo de frases motivacionales
+        var _forTimeTotalVueltas = 0;
+        var _forTimeVueltasHechas = 0;
+
+        function _forTimeFmt(secs) {
+            var m = Math.floor(secs / 60);
+            var s = secs % 60;
+            return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+        }
+
+        function _forTimeLapFmt(secs) {
+            var m = Math.floor(secs / 60);
+            var s = secs % 60;
+            return (m > 0 ? m + 'm ' : '') + s + 's';
+        }
+
+        function iniciarForTime(clockId, btnStartId, btnLapId, statusId, lapsId, totalVueltas, nombreAlumno) {
+            if (_forTimeRunning) return;
+            _forTimeRunning = true;
+            _forTimePaused = false;
+            _forTimeSecs = 0;
+            _forTimeLaps = [];
+            _forTimeLapStart = 0;
+            _forTimeVueltasHechas = 0;
+            _forTimeTotalVueltas = totalVueltas;
+
+            var clockEl = document.getElementById(clockId);
+            var btnStart = document.getElementById(btnStartId);
+            var btnLap = document.getElementById(btnLapId);
+            var statusEl = document.getElementById(statusId);
+            var lapsEl = document.getElementById(lapsId);
+
+            if (btnStart) { btnStart.style.display = 'none'; }
+            if (btnLap) { btnLap.style.display = 'block'; }
+            if (statusEl) { statusEl.innerText = 'ARRANCANDO...'; }
+            if (lapsEl) { lapsEl.innerHTML = ''; }
+
+            // Voz: recordatorio de vueltas
+            var msg = 'Arrancamos. Recordá, son ' + totalVueltas + ' ' + (totalVueltas === 1 ? 'vuelta' : 'vueltas') + '. ' + _fraseRandom(_frasesMotivacionales);
+            hablarCoach(msg);
+
+            setTimeout(function() {
+                if (statusEl) statusEl.innerText = 'EN CURSO — Vuelta 1 de ' + totalVueltas;
+            }, 1500);
+
+            // Crono ascendente
+            _forTimeIntervalId = setInterval(function() {
+                if (_forTimePaused) return;
+                _forTimeSecs++;
+                if (clockEl) clockEl.innerText = _forTimeFmt(_forTimeSecs);
+            }, 1000);
+
+            // Frases motivacionales cada 15 segundos
+            _forTimeMotivId = setInterval(function() {
+                if (_forTimePaused) return;
+                if (_forTimeVueltasHechas < _forTimeTotalVueltas) {
+                    hablarCoach(_fraseRandom(_frasesMotivacionales));
+                }
+            }, 15000);
+
+            incrementarProgreso(1);
+        }
+
+        function marcarVueltaForTime(clockId, btnLapId, statusId, lapsId, totalVueltas) {
+            if (!_forTimeRunning || _forTimePaused) return;
+            if (_forTimeVueltasHechas >= _forTimeTotalVueltas) return;
+
+            _forTimeVueltasHechas++;
+            var lapSecs = _forTimeSecs - _forTimeLapStart;
+            _forTimeLapStart = _forTimeSecs;
+            _forTimeLaps.push(lapSecs);
+
+            var lapsEl = document.getElementById(lapsId);
+            var statusEl = document.getElementById(statusId);
+            var btnLap = document.getElementById(btnLapId);
+
+            // Mostrar split
+            if (lapsEl) {
+                var mejor = Math.min.apply(null, _forTimeLaps);
+                var lapHtml = '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(179,136,255,0.1);border:1px solid rgba(179,136,255,0.25);border-radius:10px;margin-bottom:6px;">' +
+                    '<span style="color:var(--purpura);font-weight:900;font-size:0.8rem;min-width:70px;">Vuelta ' + _forTimeVueltasHechas + '</span>' +
+                    '<span style="color:var(--amarillo);font-family:Roboto Mono,monospace;font-weight:700;font-size:1.1rem;">' + _forTimeLapFmt(lapSecs) + '</span>' +
+                    (lapSecs === mejor && _forTimeLaps.length > 1 ? '<span style="color:var(--verde);font-size:0.7rem;font-weight:900;">⚡ MEJOR</span>' : '') +
+                    '</div>';
+                lapsEl.innerHTML = lapHtml + lapsEl.innerHTML;
+            }
+
+            // Voz: cuántas vueltas quedan
+            var quedan = _forTimeTotalVueltas - _forTimeVueltasHechas;
+            if (quedan > 0) {
+                var vozMsg = quedan === 1 ? '¡Última vuelta! ' + _fraseRandom(_frasesMotivacionales) : 'Quedan ' + quedan + ' ' + (quedan === 1 ? 'vuelta' : 'vueltas') + '. ' + _fraseRandom(_frasesMotivacionales);
+                hablarCoach(vozMsg);
+                if (statusEl) statusEl.innerText = 'EN CURSO — Vuelta ' + (_forTimeVueltasHechas + 1) + ' de ' + _forTimeTotalVueltas;
+                incrementarProgreso(1);
+            } else {
+                // Terminó — última vuelta completada
+                hablarCoach('¡Terminaste! Tiempo total: ' + _forTimeLapFmt(_forTimeSecs) + '. ' + _fraseRandom(_frasesMotivacionales));
+                clearInterval(_forTimeIntervalId);
+                clearInterval(_forTimeMotivId);
+                _forTimeRunning = false;
+                if (statusEl) statusEl.innerText = '✅ COMPLETADO — Total: ' + _forTimeFmt(_forTimeSecs);
+                if (btnLap) { btnLap.disabled = true; btnLap.innerText = '✅ COMPLETADO'; }
+                incrementarProgreso(1);
+            }
+        }
+
+        function togglePausaForTime(clockId, btnPausaEl, btnLapId) {
+            if (!_forTimeRunning) return;
+            _forTimePaused = !_forTimePaused;
+            if (btnPausaEl) btnPausaEl.innerText = _forTimePaused ? '▶ CONTINUAR' : '⏸ PAUSAR';
+            var btnLap = document.getElementById(btnLapId);
+            if (btnLap) btnLap.disabled = _forTimePaused;
+            if (_forTimePaused) {
+                clearInterval(_forTimeMotivId);
+            } else {
+                _forTimeMotivId = setInterval(function() {
+                    if (!_forTimePaused && _forTimeVueltasHechas < _forTimeTotalVueltas) {
+                        hablarCoach(_fraseRandom(_frasesMotivacionales));
+                    }
+                }, 15000);
+            }
+        }
+
+        function renderForTime(data, pTitulo, pLista) {
+            pTitulo.innerText = 'POR TIEMPO';
+            _tipoEntrenamientoGlobal = 'Por Tiempo';
+            var totalVueltas = data.vueltas || 3;
+            var ejercicios = toArray(data.rutina || data.datos || []);
+
+            if (data.descripcion) {
+                pLista.innerHTML += '<div class="bloque-descripcion">' + data.descripcion + '</div>';
+            }
+
+            // Info block
+            pLista.innerHTML += '<div class="info-block" style="border-color:var(--purpura);">' +
+                '<span class="info-block-titulo" style="color:var(--purpura)">⏱ FOR TIME — ' + totalVueltas + ' VUELTA' + (totalVueltas > 1 ? 'S' : '') + '</span>' +
+                '<span class="info-block-subtitulo">Cronómetro desde 00:00 — Marcá el tiempo de cada vuelta</span></div>';
+
+            // Cards de ejercicios
+            ejercicios.forEach(function(ej, i) {
+                var n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || '');
+                var l = Array.isArray(ej) ? ej[1] : (ej.link || '');
+                var r = Array.isArray(ej) ? (ej[2] || '') : (ej.reps || '');
+                var u = Array.isArray(ej) ? (ej[3] || 'Reps') : (ej.unit || 'Reps');
+                var cc = Array.isArray(ej) ? false : (ej.con_carga || false);
+                var metaStr = r ? r + ' ' + u.toUpperCase() : '';
+                pLista.innerHTML += crearCard(n, l, metaStr, cc);
+            });
+
+            // IDs únicos
+            var uid = 'ft-main';
+            var clockId = uid + '-clock';
+            var btnStartId = uid + '-start';
+            var btnLapId = uid + '-lap';
+            var btnPausaId = uid + '-pausa';
+            var statusId = uid + '-status';
+            var lapsId = uid + '-laps';
+
+            pLista.innerHTML +=
+                '<div style="margin-top:20px;padding:20px;background:var(--tarjeta-alt);border:2px solid var(--purpura);border-radius:18px;text-align:center;">' +
+                    '<div id="' + statusId + '" style="font-size:0.7rem;font-weight:900;letter-spacing:3px;color:var(--purpura);margin-bottom:10px;">LISTO PARA ARRANCAR</div>' +
+                    '<div id="' + clockId + '" style="font-size:4rem;font-family:Roboto Mono,monospace;font-weight:700;color:var(--amarillo);margin:10px 0;text-shadow:0 0 20px rgba(255,193,7,0.4);">00:00</div>' +
+                    '<div style="font-size:0.75rem;color:var(--texto-suave);margin-bottom:16px;">' + totalVueltas + ' vuelta' + (totalVueltas > 1 ? 's' : '') + ' — hacé todos los ejercicios por vuelta</div>' +
+                    '<div style="display:flex;flex-direction:column;gap:10px;max-width:320px;margin:0 auto;">' +
+                        '<button id="' + btnStartId + '" class="btn-rest" style="background:linear-gradient(135deg,var(--purpura),#7b1fa2);font-size:1rem;padding:14px;" ' +
+                            'onclick="iniciarForTime('' + clockId + '','' + btnStartId + '','' + btnLapId + '','' + statusId + '','' + lapsId + '',' + totalVueltas + ')">▶ EMPEZAR</button>' +
+                        '<button id="' + btnLapId + '" class="btn-rest" style="display:none;background:linear-gradient(135deg,var(--verde),#2e7d32);font-size:1rem;padding:14px;" ' +
+                            'onclick="marcarVueltaForTime('' + clockId + '','' + btnLapId + '','' + statusId + '','' + lapsId + '',' + totalVueltas + ')">🏁 MARCAR VUELTA</button>' +
+                        '<button id="' + btnPausaId + '" class="btn-pausa" style="display:none;" ' +
+                            'onclick="togglePausaForTime('' + clockId + '',this,'' + btnLapId + '')">⏸ PAUSAR</button>' +
+                    '</div>' +
+                    '<div id="' + lapsId + '" style="margin-top:16px;text-align:left;"></div>' +
+                '</div>';
+
+            // Mostrar boton pausa cuando arranca
+            var _ftObserver = setInterval(function() {
+                var btnP = document.getElementById(btnPausaId);
+                var btnL = document.getElementById(btnLapId);
+                if (btnL && btnL.style.display !== 'none') {
+                    if (btnP) btnP.style.display = 'block';
+                    clearInterval(_ftObserver);
+                }
+            }, 500);
+        }
+
         // ─── MODO CIRCUITO POR TIEMPO ───
         function renderCircuitoTiempo(data, pTitulo, pLista, ejercicios) {
             pTitulo.innerText = "CIRCUITO POR TIEMPO";
@@ -5061,6 +5236,7 @@
                     });
                     html += '<div id="' + timerId + '" style="font-size:3rem; font-family:Roboto Mono,monospace; font-weight:700; color:var(--amarillo); text-align:center; margin:12px 0; text-shadow:0 0 20px var(--amarillo-glow);">' + tiempoMin + ':00</div>' +
                         '<button id="' + btnId + '" class="btn-rest" onclick="iniciarBloqueTiempoConDescuento(\'' + timerId + '\',\'' + btnId + '\',' + tiempoSeg + ')">Iniciar Bloque</button>' +
+                        '<button class="btn-fullscreen" style="margin-top:10px;width:100%;" onclick="entrarFullscreenCT(\'' + timerId + '\',\'' + (bloque.id || (bIdx + 1)) + '\',' + JSON.stringify((bloque.ejercicios || []).map(function(e){ return {nombre: e.nombre||e[0]||'', reps: e.reps||e[2]||'', unit: e.unit||'Reps'}; })) + ')">⛶ PANTALLA COMPLETA</button>' +
                         '</div>';
                     pLista.innerHTML += html;
                 });
@@ -5214,51 +5390,6 @@
             document.getElementById('btnStartEmom').style.display = "block";
         }
 
-        // ─── MODO POR TIEMPO (standalone) ───
-        function renderPorTiempoStandalone(data, pTitulo, pLista) {
-            pTitulo.innerText = "POR TIEMPO";
-            _tipoEntrenamientoGlobal = 'Por Tiempo';
-            var ptVueltas = data.vueltas || 3;
-            var ptEjs = toArray(data.ejercicios || []);
-            var ptUid = 'pt-main';
-            var ptClockId = 'pt-main-clock';
-            var ptBtnId = 'pt-main-btn';
-            var ptVCountId = 'pt-main-vcount';
-            var ptLogId = 'pt-main-log';
-            var ptMarcarId = 'pt-main-marcar';
-
-            if (data.descripcion) {
-                pLista.innerHTML += '<div class="bloque-descripcion">' + data.descripcion + '</div>';
-            }
-
-            ptEjs.forEach(function(ej) {
-                var n = ej.nombre || ej[0] || '';
-                var l = ej.link || ej[1] || '';
-                var r = ej.reps || ej[2] || '';
-                var u = (ej.unit || 'Reps').toUpperCase();
-                var cc = (ej.con_carga === true) || _obtenerConCarga(n);
-                pLista.innerHTML += crearCard(n, l, r ? r + ' ' + u + ' c/vuelta' : '', cc);
-            });
-
-            var ptHtml = '<div style="text-align:center;margin-top:18px;">' +
-                '<div id="' + ptVCountId + '" style="font-size:1.2rem;font-weight:900;color:var(--amarillo);margin-bottom:8px;">Vueltas: 0 / ' + ptVueltas + '</div>' +
-                '<div id="' + ptLogId + '" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:26px;margin-bottom:12px;"></div>' +
-                '<div id="' + ptClockId + '" style="font-size:clamp(4rem,20vw,8rem);font-family:Roboto Mono,monospace;font-weight:700;color:var(--purpura);text-shadow:0 0 30px rgba(167,139,250,0.6);margin:10px 0;">00:00</div>' +
-                '<button id="' + ptBtnId + '" class="btn-rest" style="background:linear-gradient(135deg,var(--purpura),#7b3fa0);font-size:1.1rem;padding:16px 32px;margin-bottom:12px;" ' +
-                'onclick="iniciarBloquesPorTiempo(\'' + ptUid + '\',\'' + ptClockId + '\',\'' + ptBtnId + '\',\'' + ptVCountId + '\',\'' + ptLogId + '\',\'' + ptMarcarId + '\',' + ptVueltas + ')">' +
-                'EMPEZAR</button><br>' +
-                '<div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">' +
-                '<button id="' + ptMarcarId + '" class="btn-rest" style="display:none;background:linear-gradient(135deg,var(--verde),#1a7a4a);font-size:1.4rem;padding:22px 44px;font-weight:900;min-height:72px;letter-spacing:1px;" ' +
-                'onclick="marcarVueltaPorTiempo(\'' + ptUid + '\',\'' + ptVCountId + '\',\'' + ptLogId + '\',\'' + ptMarcarId + '\',' + ptVueltas + ')">' +
-                '✓ MARCAR VUELTA</button>' +
-                '<button id="' + ptMarcarId + '-reset" style="display:none;background:var(--tarjeta-alt);border:1px solid var(--borde);color:var(--texto-suave);font-size:0.8rem;font-weight:700;padding:10px 14px;border-radius:12px;cursor:pointer;min-height:44px;" ' +
-                'onclick="if(confirm(\'¿Reiniciar vueltas?\')){var el=document.getElementById(\'' + ptMarcarId + '\');if(el){el.style.display=\'none\';}var logE=document.getElementById(\'' + ptLogId + '\');if(logE)logE.innerHTML=\'\';var vcE=document.getElementById(\'' + ptVCountId + '\');if(vcE)vcE.innerText=\'Vueltas: 0 / ' + ptVueltas + '\';var btnE=document.getElementById(\'' + ptBtnId + '\');if(btnE){btnE.style.display=\'\';}var rs=document.getElementById(\'' + ptMarcarId + '-reset\');if(rs)rs.style.display=\'none\';if(window._porTiempoState&&window._porTiempoState[\'' + ptUid + '\']){var s=window._porTiempoState[\'' + ptUid + '\'];if(s.iv)bgClearInterval(s.iv);if(s.motivoIv)bgClearInterval(s.motivoIv);desactivarTimerGlobal();liberarWakeLock();delete window._porTiempoState[\'' + ptUid + '\'];}}">' +
-                '↺ REINICIAR</button>' +
-                '</div>' +
-                '</div>';
-            pLista.innerHTML += ptHtml;
-        }
-
         // ─── MODO MIX ───
         var bloquesMix = [];
 
@@ -5314,8 +5445,10 @@
                         if (ej.descanso && parseInt(ej.descanso) > 0) metaStr += ' | Pausa: ' + ej.descanso + 's';
                         html += crearCard(ej.nombre, ej.link, metaStr, ej.con_carga);
                     });
+                    var _oldCtEjs = b.ejercicios.map(function(ej){ return {nombre:ej.nombre||'', reps:ej.reps||'', unit:ej.unit||'Reps'}; });
                     html += '<div id="' + timerIdVal + '" style="font-size:2.5rem; font-family:Roboto Mono,monospace; font-weight:700; color:var(--amarillo); text-align:center; margin:8px 0;">' + tiempo + ':00</div>' +
-                        '<button id="' + btnIdVal + '" class="btn-rest" onclick="iniciarBloqueTiempoConDescuento(\'' + timerIdVal + '\',\'' + btnIdVal + '\',' + (tiempo * 60) + ')">Iniciar Bloque</button></div>';
+                        '<button id="' + btnIdVal + '" class="btn-rest" onclick="iniciarBloqueTiempoConDescuento(\'' + timerIdVal + '\',\'' + btnIdVal + '\',' + (tiempo * 60) + ')">Iniciar Bloque</button>' +
+                        '<button class="btn-fullscreen" style="margin-top:8px;width:100%;" onclick="entrarFullscreenCT(\'' + timerIdVal + '\',\'' + (b.id||bIdx+1) + '\',' + JSON.stringify(_oldCtEjs) + ')">⛶ PANTALLA COMPLETA</button></div>';
                 });
                 html += '</div>';
                 pLista.innerHTML += html;
@@ -5452,9 +5585,11 @@
                         html += crearCard(ej.nombre || ej[0] || "", ej.link || ej[1] || "", metaStr, ej.con_carga);
                     });
                     var pId = uid + "-ct-pausa-" + bIdx;
+                    var _ctMixEjs = (b.ejercicios || []).map(function(ej){ return {nombre:ej.nombre||ej[0]||'', reps:ej.reps||ej[2]||'', unit:ej.unit||'Reps'}; });
                     html += '<div id="' + tId + '" style="font-size:2.5rem; font-family:Roboto Mono,monospace; font-weight:700; color:var(--amarillo); text-align:center; margin:10px 0;">' + tiempo + ':00</div>' +
                         '<button id="' + bId + '" class="btn-rest" onclick="iniciarBloqueTiempoConDescuento(\'' + tId + '\',\'' + bId + '\',' + (tiempo * 60) + ')">Iniciar Bloque</button>' +
-                        '<button id="' + pId + '" class="btn-pausa" style="margin-top:8px; display:none;" onclick="togglePausaBloqueTiempo(\'' + tId + '\', document.getElementById(\'' + pId + '\'))">' + '\u23f8 PAUSAR</button></div>';
+                        '<button id="' + pId + '" class="btn-pausa" style="margin-top:8px; display:none;" onclick="togglePausaBloqueTiempo(\'' + tId + '\', document.getElementById(\'' + pId + '\'))">\u23f8 PAUSAR</button>' +
+                        '<button class="btn-fullscreen" style="margin-top:8px;width:100%;" onclick="entrarFullscreenCT(\'' + tId + '\',\'' + (b.id || (bIdx+1)) + '\',' + JSON.stringify(_ctMixEjs) + ')">⛶ PANTALLA COMPLETA</button></div>';
                 });
                 if (bloque.descripcion) {
                     html = html.replace('<div class="bloque-mix-titulo" style="color:' + color + ';">BLOQUE ' + idx + ' \u2014 CIRCUITO POR TIEMPO</div>',
@@ -5463,49 +5598,6 @@
                 }
                 html += '</div>';
                 pLista.innerHTML += html;
-
-            } else if (tipo === "Por Tiempo") {
-                const ptVueltas = bloque.vueltas || 3;
-                const ptUid = uid + '-pt';
-                const ptBtnId = uid + '-pt-btn';
-                const ptClockId = uid + '-pt-clock';
-                const ptVCountId = uid + '-pt-vcount';
-                const ptLogId = uid + '-pt-log';
-                const ptMarcarId = uid + '-pt-marcar';
-
-                let htmlPT = '<div class="bloque-mix" style="border-color:var(--purpura);">' +
-                    '<div class="bloque-mix-titulo" style="color:var(--purpura);">BLOQUE ' + idx + ' — POR TIEMPO (' + ptVueltas + ' VUELTAS)</div>';
-                if (bloque.descripcion) {
-                    htmlPT += '<div class="bloque-descripcion">' + bloque.descripcion + '</div>';
-                }
-                var ptEjs = bloque.ejercicios || [];
-                ptEjs.forEach(function(ej) {
-                    var ejN = ej.nombre || ej[0] || '';
-                    var ejL = ej.link || ej[1] || '';
-                    var ejR = ej.reps || ej[2] || '';
-                    var ejU = (ej.unit || 'Reps').toUpperCase();
-                    var cc = (ej.con_carga === true) || _obtenerConCarga(ejN);
-                    htmlPT += crearCard(ejN, ejL, ejR ? ejR + ' ' + ejU + ' c/vuelta' : '', cc);
-                });
-
-                htmlPT += '<div style="text-align:center;margin:14px 0;">' +
-                    '<div id="' + ptVCountId + '" style="font-size:1.2rem;font-weight:900;color:var(--amarillo);margin-bottom:8px;">Vueltas: 0 / ' + ptVueltas + '</div>' +
-                    '<div id="' + ptLogId + '" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:26px;margin-bottom:12px;"></div>' +
-                    '<div id="' + ptClockId + '" style="font-size:clamp(3rem,14vw,6rem);font-family:Roboto Mono,monospace;font-weight:700;color:var(--purpura);text-shadow:0 0 30px rgba(167,139,250,0.6);margin:8px 0;">00:00</div>' +
-                    '<button id="' + ptBtnId + '" class="btn-rest" style="background:linear-gradient(135deg,var(--purpura),#7b3fa0);margin-bottom:10px;" ' +
-                    'onclick="iniciarBloquesPorTiempo(\'' + ptUid + '\',\'' + ptClockId + '\',\'' + ptBtnId + '\',\'' + ptVCountId + '\',\'' + ptLogId + '\',\'' + ptMarcarId + '\',' + ptVueltas + ')">' +
-                    'EMPEZAR</button><br>' +
-                    '<div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">' +
-                    '<button id="' + ptMarcarId + '" class="btn-rest" style="display:none;background:linear-gradient(135deg,var(--verde),#1a7a4a);font-size:1.4rem;padding:22px 44px;font-weight:900;min-height:72px;letter-spacing:1px;" ' +
-                    'onclick="marcarVueltaPorTiempo(\'' + ptUid + '\',\'' + ptVCountId + '\',\'' + ptLogId + '\',\'' + ptMarcarId + '\',' + ptVueltas + ')">' +
-                    '✓ MARCAR VUELTA</button>' +
-                    '<button id="' + ptMarcarId + '-reset" style="display:none;background:var(--tarjeta-alt);border:1px solid var(--borde);color:var(--texto-suave);font-size:0.8rem;font-weight:700;padding:10px 14px;border-radius:12px;cursor:pointer;min-height:44px;" ' +
-                    'onclick="if(confirm(\'¿Reiniciar vueltas?\')){var el=document.getElementById(\'' + ptMarcarId + '\');if(el){el.style.display=\'none\';}var logE=document.getElementById(\'' + ptLogId + '\');if(logE)logE.innerHTML=\'\';var vcE=document.getElementById(\'' + ptVCountId + '\');if(vcE)vcE.innerText=\'Vueltas: 0 / ' + ptVueltas + '\';var btnE=document.getElementById(\'' + ptBtnId + '\');if(btnE){btnE.style.display=\'\';}var rs=document.getElementById(\'' + ptMarcarId + '-reset\');if(rs)rs.style.display=\'none\';if(window._porTiempoState&&window._porTiempoState[\'' + ptUid + '\']){var s=window._porTiempoState[\'' + ptUid + '\'];if(s.iv)bgClearInterval(s.iv);if(s.motivoIv)bgClearInterval(s.motivoIv);desactivarTimerGlobal();liberarWakeLock();delete window._porTiempoState[\'' + ptUid + '\'];}}">' +
-                    '↺ REINICIAR</button>' +
-                    '</div>' +
-                    '</div></div>';
-
-                pLista.innerHTML += htmlPT;
 
             } else if (tipo === "Tabata") {
                 const tc = {
@@ -5609,6 +5701,53 @@
                     '</div></div>';
                 pLista.innerHTML += emomHtml;
 
+            } else if (tipo === "Por Tiempo") {
+                var ptVueltas = bloque.vueltas || 3;
+                var ptEjs = bloque.rutina || bloque.ejercicios || [];
+                var ptUid = uid + "-ft";
+                var ptClockId = ptUid + "-clock";
+                var ptStartId = ptUid + "-start";
+                var ptLapId = ptUid + "-lap";
+                var ptPausaId = ptUid + "-pausa";
+                var ptStatusId = ptUid + "-status";
+                var ptLapsId = ptUid + "-laps";
+                var ptHtml = '<div class="bloque-mix" style="border-color:var(--purpura);">' +
+                    '<div class="bloque-mix-titulo" style="color:var(--purpura);">BLOQUE ' + idx + ' — POR TIEMPO (' + ptVueltas + ' VUELTA' + (ptVueltas > 1 ? 'S' : '') + ')</div>';
+                if (bloque.descripcion) ptHtml += '<div class="bloque-descripcion">' + bloque.descripcion + '</div>';
+                ptHtml += '<div style="padding:8px 12px;background:rgba(179,136,255,0.08);border:1px solid rgba(179,136,255,0.2);border-radius:10px;margin-bottom:12px;font-size:0.75rem;color:var(--texto-suave);">⏱ Cronómetro desde 00:00 — Marcá el tiempo de cada vuelta</div>';
+                ptEjs.forEach(function(ej) {
+                    var n = Array.isArray(ej) ? ej[0] : (ej.nombre || "");
+                    var l = Array.isArray(ej) ? ej[1] : (ej.link || "");
+                    var r = Array.isArray(ej) ? (ej[2] || "") : (ej.reps || "");
+                    var u = Array.isArray(ej) ? (ej[3] || "Reps") : (ej.unit || "Reps");
+                    var cc = Array.isArray(ej) ? false : (ej.con_carga || false);
+                    ptHtml += crearCard(n, l, r ? r + " " + u.toUpperCase() : "", cc);
+                });
+                ptHtml +=
+                    '<div style="margin-top:16px;padding:16px;background:var(--fondo);border-radius:14px;text-align:center;">' +
+                        '<div id="' + ptStatusId + '" style="font-size:0.65rem;font-weight:900;letter-spacing:2px;color:var(--purpura);margin-bottom:8px;">LISTO PARA ARRANCAR</div>' +
+                        '<div id="' + ptClockId + '" style="font-size:3.2rem;font-family:Roboto Mono,monospace;font-weight:700;color:var(--amarillo);margin:8px 0;text-shadow:0 0 16px rgba(255,193,7,0.4);">00:00</div>' +
+                        '<div style="display:flex;flex-direction:column;gap:8px;max-width:280px;margin:0 auto;">' +
+                            '<button id="' + ptStartId + '" class="btn-rest" style="background:linear-gradient(135deg,var(--purpura),#7b1fa2);" ' +
+                                'onclick="iniciarForTime('' + ptClockId + '','' + ptStartId + '','' + ptLapId + '','' + ptStatusId + '','' + ptLapsId + '',' + ptVueltas + ')">▶ EMPEZAR</button>' +
+                            '<button id="' + ptLapId + '" class="btn-rest" style="display:none;background:linear-gradient(135deg,var(--verde),#2e7d32);" ' +
+                                'onclick="marcarVueltaForTime('' + ptClockId + '','' + ptLapId + '','' + ptStatusId + '','' + ptLapsId + '',' + ptVueltas + ')">🏁 MARCAR VUELTA</button>' +
+                            '<button id="' + ptPausaId + '" class="btn-pausa" style="display:none;" ' +
+                                'onclick="togglePausaForTime('' + ptClockId + '',this,'' + ptLapId + '')">⏸ PAUSAR</button>' +
+                        '</div>' +
+                        '<div id="' + ptLapsId + '" style="margin-top:14px;text-align:left;"></div>' +
+                    '</div></div>';
+                pLista.innerHTML += ptHtml;
+                // Mostrar pausa tras arranque
+                var _ptObs = setInterval(function() {
+                    var _btnL = document.getElementById(ptLapId);
+                    var _btnP = document.getElementById(ptPausaId);
+                    if (_btnL && _btnL.style.display !== 'none') {
+                        if (_btnP) _btnP.style.display = 'block';
+                        clearInterval(_ptObs);
+                    }
+                }, 500);
+
             } else if (tipo === "Series") {
                 const serialOffset = idx * 100;
                 renderSeriesMixInline(pLista, bloque.rutina || bloque.ejercicios || [], serialOffset, bloque.descripcion || "");
@@ -5626,131 +5765,15 @@
             incrementarProgreso(1);
             // >>> COACH: Pausa circuito vueltas mix con motivación y vueltas restantes
             coachPausaVueltas(mixBloqueVueltas[uid]);
-            // Iniciar timer con pausa/reiniciar si hay pausa configurada
+            // Iniciar timer con pantalla completa (overlay-descanso) si hay pausa configurada
             if (pausaVuelta > 0 && mixBloqueVueltas[uid] > 0) {
-                var _cvClockId = uid + '-cv-clock';
-                var _cvPausaId = uid + '-cv-pausa';
-                var _cvReinId = uid + '-cv-rein';
-                iniciarTimerCircuito(_cvClockId, _cvPausaId, _cvReinId, pausaVuelta);
+                iniciarDescansoCircuito(pausaVuelta);
             }
             const btn = document.getElementById(uid + '-btn-vuelta');
             if (mixBloqueVueltas[uid] <= 0 && btn) {
                 btn.disabled = true;
                 btn.innerText = "Completado";
                 return;
-            }
-        }
-
-        // ─── BLOQUE POR TIEMPO — Cronómetro ascendente ───
-        var _porTiempoState = {}; // { uid: { running, iv, motivoIv, start, lapStart, vueltas, total, lastLap } }
-
-        function iniciarBloquesPorTiempo(uid, clockId, btnId, vCountId, logId, marcarId, totalVueltas) {
-            if (_porTiempoState[uid] && _porTiempoState[uid].running) return;
-            if (hayTimerActivo()) return;
-            activarTimerGlobal();
-            solicitarWakeLock();
-
-            var clockEl = document.getElementById(clockId);
-            var btnEl = document.getElementById(btnId);
-            var vCountEl = document.getElementById(vCountId);
-            var logEl = document.getElementById(logId);
-            var marcarEl = document.getElementById(marcarId);
-
-            if (btnEl) { btnEl.style.display = 'none'; }
-            if (marcarEl) marcarEl.style.display = 'inline-block';
-            var resetEl = document.getElementById(marcarId + '-reset');
-            if (resetEl) resetEl.style.display = 'inline-block';
-
-            var now = Date.now();
-            _porTiempoState[uid] = {
-                running: true, total: totalVueltas, vueltas: 0,
-                start: now, lapStart: now, lastLap: now, laps: []
-            };
-
-            // Voz apertura
-            hablarCoach('Recordá, son ' + totalVueltas + ' ' + (totalVueltas === 1 ? 'vuelta' : 'vueltas') + '. Dale con todo!');
-
-            function _fmt(ms) {
-                var tot = Math.floor(ms / 1000);
-                var m = Math.floor(tot / 60);
-                var s = tot % 60;
-                return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
-            }
-
-            var st = _porTiempoState[uid];
-
-            st.iv = bgSetInterval(function() {
-                if (!st.running) return;
-                if (clockEl) clockEl.innerText = _fmt(Date.now() - st.start);
-            }, 500);
-
-            // Frases motivacionales cada 15s sin marcar vuelta
-            st.motivoIv = bgSetInterval(function() {
-                if (!st.running) return;
-                if (Date.now() - st.lastLap >= 15000) {
-                    st.lastLap = Date.now();
-                    try { hablarCoach(_fraseRandom(_frasesMotivacionales)); } catch(e) {}
-                }
-            }, 15000);
-        }
-
-        function marcarVueltaPorTiempo(uid, vCountId, logId, marcarId, totalVueltas) {
-            var st = _porTiempoState[uid];
-            if (!st || !st.running) return;
-            var now = Date.now();
-            var lapMs = now - st.lapStart;
-            st.lapStart = now;
-            st.lastLap = now;
-            st.vueltas++;
-            if (!st.laps) st.laps = [];
-            st.laps.push(lapMs);
-
-            function _fmt(ms) {
-                var tot = Math.floor(ms / 1000);
-                var m = Math.floor(tot / 60);
-                var s = tot % 60;
-                return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
-            }
-            var lapStr = _fmt(lapMs);
-
-            var vCountEl = document.getElementById(vCountId);
-            var logEl = document.getElementById(logId);
-            var marcarEl = document.getElementById(marcarId);
-
-            if (vCountEl) vCountEl.innerText = 'Vueltas: ' + st.vueltas + ' / ' + st.total;
-            if (logEl) {
-                var chip = document.createElement('span');
-                chip.style.cssText = 'background:rgba(105,240,174,0.15);border:1px solid rgba(105,240,174,0.4);border-radius:8px;padding:4px 10px;font-size:0.75rem;font-weight:700;color:var(--verde);';
-                chip.innerText = 'V' + st.vueltas + ': ' + lapStr;
-                logEl.appendChild(chip);
-            }
-            beep(800);
-            incrementarProgreso(1);
-
-            var restantes = st.total - st.vueltas;
-            if (restantes > 0) {
-                hablarCoach(restantes === 1 ? 'Última vuelta! No aflojes!' : 'Quedan ' + restantes + ' vueltas. Vamos!');
-            }
-
-            if (st.vueltas >= st.total) {
-                st.running = false;
-                bgClearInterval(st.iv);
-                bgClearInterval(st.motivoIv);
-                desactivarTimerGlobal();
-                liberarWakeLock();
-                if (marcarEl) { marcarEl.disabled = true; marcarEl.innerText = '✓ BLOQUE COMPLETO'; }
-                hablarCoach('Excelente! Completaste el bloque. Sos un crack!');
-                lanzarDestelloBloque();
-                // Mostrar mejor vuelta
-                if (st.laps && st.laps.length > 0 && logEl) {
-                    var bestMs = Math.min.apply(null, st.laps);
-                    var bestIdx = st.laps.indexOf(bestMs);
-                    var bestBanner = document.createElement('div');
-                    bestBanner.style.cssText = 'margin-top:12px;background:linear-gradient(135deg,rgba(255,213,79,0.2),rgba(255,213,79,0.05));border:1.5px solid var(--amarillo);border-radius:12px;padding:10px 16px;text-align:center;';
-                    bestBanner.innerHTML = '<div style="font-size:0.65rem;font-weight:900;letter-spacing:2px;color:var(--amarillo);text-transform:uppercase;margin-bottom:4px;">MEJOR VUELTA</div>' +
-                        '<div style="font-size:1.4rem;font-weight:900;font-family:Roboto Mono,monospace;color:var(--amarillo);">V' + (bestIdx + 1) + ': ' + _fmt(bestMs) + '</div>';
-                    logEl.parentNode.insertBefore(bestBanner, logEl.nextSibling);
-                }
             }
         }
 
