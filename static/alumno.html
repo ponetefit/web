@@ -761,6 +761,16 @@
             margin: 0 0 16px;
             transition: color 0.3s;
         }
+
+        #overlay-fullscreen.con-ejercicios .fs-clock {
+            font-size: clamp(6rem, 22vw, 13rem);
+            margin: 0 0 8px;
+        }
+
+        #fs-ejercicios-lista {
+            max-height: 40vh;
+            overflow-y: auto;
+        }
         
         .fs-progress-bar {
             width: 80vw;
@@ -1620,6 +1630,7 @@
         <div class="fs-ejercicio" id="fs-ejercicio"></div>
         <div class="fs-info" id="fs-info"></div>
         <div class="fs-clock" id="fs-clock">--</div>
+        <div id="fs-ejercicios-lista" style="display:none;width:90vw;max-width:500px;margin:8px auto 16px;text-align:left;"></div>
         <div class="fs-progress-bar">
             <div class="fs-progress-fill" id="fs-progress-fill"></div>
         </div>
@@ -1633,7 +1644,10 @@
         <div class="timer-progress-bar" style="max-width:280px;">
             <div class="timer-progress-fill" id="descanso-progress" style="background:var(--purpura);"></div>
         </div>
-        <button class="btn-header" onclick="cerrarDescansoCircuito()">SALTAR DESCANSO</button>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:8px;">
+            <button class="btn-header" onclick="cerrarDescansoCircuito()">SALTAR DESCANSO</button>
+            <button class="fs-btn-salir" onclick="entrarFullscreenDescanso()" style="margin-top:0;">⛶ PANTALLA COMPLETA</button>
+        </div>
     </div>
 
     <!-- Overlay pausa entre rondas Tabata -->
@@ -1703,6 +1717,7 @@
                     <div id="warmup-ej"></div>
                     <div id="warmup-clock">--</div>
                     <button class="btn-rest" id="warmup-btn" onclick="iniciarWarmupTimer()" style="background:linear-gradient(135deg,var(--azul),#0288d1); color:#000; max-width:300px; margin:0 auto;">Iniciar Calentamiento</button>
+                    <button class="btn-fullscreen" onclick="entrarFullscreen('warmup')">⛶ PANTALLA COMPLETA</button>
                 </div>
             </div>
 
@@ -2593,7 +2608,19 @@
             _fsTipo = tipo;
             _fsInlineIds = inlineIds || null;
             _fsActivo = true;
-            document.getElementById('overlay-fullscreen').classList.add('visible');
+            var fsEjList = document.getElementById('fs-ejercicios-lista');
+            if (fsEjList) {
+                fsEjList.style.display = 'none';
+                fsEjList.innerHTML = '';
+                delete fsEjList.dataset.cargado;
+            }
+            var fsOverlay = document.getElementById('overlay-fullscreen');
+            if (tipo === 'circuito-tiempo') {
+                fsOverlay.classList.add('con-ejercicios');
+            } else {
+                fsOverlay.classList.remove('con-ejercicios');
+            }
+            fsOverlay.classList.add('visible');
 
             // Intentar Fullscreen API nativa
             try {
@@ -2607,11 +2634,17 @@
             _syncFullscreen(); // sync inmediato
         }
 
+        function entrarFullscreenDescanso() {
+            entrarFullscreen('descanso-circuito');
+        }
+
         function salirFullscreen() {
             _fsActivo = false;
             _fsTipo = '';
             _fsInlineIds = null;
-            document.getElementById('overlay-fullscreen').classList.remove('visible');
+            var fsOverlay = document.getElementById('overlay-fullscreen');
+            fsOverlay.classList.remove('visible');
+            fsOverlay.classList.remove('con-ejercicios');
 
             if (_fsSyncInterval) {
                 clearInterval(_fsSyncInterval);
@@ -2632,6 +2665,7 @@
             var fsInfo = document.getElementById('fs-info');
             var fsClock = document.getElementById('fs-clock');
             var fsFill = document.getElementById('fs-progress-fill');
+            var fsEjList = document.getElementById('fs-ejercicios-lista');
 
             if (_fsTipo === 'tabata') {
                 // Timer Tabata / Circuito por Tiempo principal
@@ -2719,32 +2753,58 @@
                 fsFill.style.width = '0%';
                 fsClock.style.color = 'var(--azul)';
 
-            } else if (_fsTipo === 'circ-vuelta' && _fsInlineIds) {
-                // Circuito por vuelta — timer de pausa entre vueltas
-                var cvClockEl = document.getElementById(_fsInlineIds.clock);
-                fsStatus.textContent = 'DESCANSO DE VUELTA';
-                fsEj.textContent = '';
-                fsInfo.textContent = 'PAUSA';
-                fsClock.textContent = cvClockEl ? cvClockEl.textContent : '--';
-                fsFill.style.width = '0%';
-                fsClock.style.color = 'var(--purpura)';
+            } else if (_fsTipo === 'descanso-circuito') {
+                // Descanso entre vueltas del circuito principal
+                var dcClock = document.getElementById('descanso-clock');
+                var dcProgress = document.getElementById('descanso-progress');
+                var vContEl = document.getElementById('circ-vueltas-counter');
 
-            } else if (_fsTipo === 'circ-tiempo') {
-                // Circuito por Tiempo — mostrar timer y lista de ejercicios
-                var ctTimerEl = _fsInlineIds ? document.getElementById(_fsInlineIds.clock) : null;
-                var ctEjEl = _fsInlineIds ? document.getElementById(_fsInlineIds.ej) : null;
-                var ctStatusEl = _fsInlineIds ? document.getElementById(_fsInlineIds.status) : null;
-                fsStatus.textContent = ctStatusEl ? ctStatusEl.textContent : 'CIRCUITO';
-                fsEj.textContent = ctEjEl ? ctEjEl.textContent : '';
-                fsInfo.textContent = 'EN CURSO';
-                fsClock.textContent = ctTimerEl ? ctTimerEl.textContent : '--';
-                fsFill.style.width = '0%';
+                fsStatus.textContent = 'DESCANSO DE VUELTA';
+                fsEj.textContent = vContEl ? vContEl.textContent : '';
+                fsInfo.textContent = 'Descansá y preparate';
+                fsClock.textContent = dcClock ? dcClock.textContent : '--';
+                fsClock.style.color = 'var(--purpura)';
+                if (dcProgress) fsFill.style.width = dcProgress.style.width;
+
+                // Si el descanso terminó, cerrar fullscreen
+                if (dcClock && (dcClock.textContent === '0' || dcClock.textContent === '00')) {
+                    salirFullscreen();
+                }
+
+            } else if (_fsTipo === 'circuito-tiempo' && _fsInlineIds) {
+                // Circuito por Tiempo con bloques — mostrar timer y lista de ejercicios
+                var ctIds = _fsInlineIds;
+                var ctClock = document.getElementById(ctIds.clock);
+                var ctBtnEl = document.getElementById(ctIds.btn);
+
+                fsStatus.textContent = ctIds.titulo || 'CIRCUITO POR TIEMPO';
+                fsEj.textContent = '';
+                fsInfo.textContent = ctBtnEl && ctBtnEl.disabled ? 'EN CURSO' : 'LISTO';
+                fsClock.textContent = ctClock ? ctClock.textContent : '--';
                 fsClock.style.color = 'var(--amarillo)';
+                fsFill.style.width = '0%';
+
+                // Mostrar lista de ejercicios
+                if (fsEjList && ctIds.ejercicios && ctIds.ejercicios.length > 0 && fsEjList.dataset.cargado !== ctIds.clock) {
+                    fsEjList.style.display = 'block';
+                    fsEjList.dataset.cargado = ctIds.clock;
+                    var ejsHtml = '';
+                    ctIds.ejercicios.forEach(function(ej, idx) {
+                        var nombre = ej.nombre || ej[0] || '';
+                        var reps = ej.reps || ej[2] || '';
+                        var unit = (ej.unit || 'Reps').toUpperCase();
+                        ejsHtml += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,0.05);border-radius:10px;margin-bottom:6px;">' +
+                            '<span style="color:var(--texto);font-weight:700;font-size:clamp(0.85rem,2.5vw,1.1rem);">' + nombre + '</span>' +
+                            (reps ? '<span style="color:var(--amarillo);font-weight:900;font-size:clamp(0.85rem,2.5vw,1.1rem);white-space:nowrap;">' + reps + ' ' + unit + '</span>' : '') +
+                            '</div>';
+                    });
+                    fsEjList.innerHTML = ejsHtml;
+                }
             }
 
             // Sincronizar barra de progreso general de rutina
             var rutinaFill = document.getElementById('rutina-progress-fill');
-            if (rutinaFill && fsFill && _fsTipo !== 'tabata' && _fsTipo !== 'emom') {
+            if (rutinaFill && fsFill && _fsTipo !== 'tabata' && _fsTipo !== 'emom' && _fsTipo !== 'descanso-circuito' && _fsTipo !== 'circuito-tiempo') {
                 fsFill.style.width = rutinaFill.style.width;
             }
         }
@@ -2885,6 +2945,7 @@
                 return total || 3;
             }
             if (tipo === 'Circuito') return bloque.vueltas_bloque || bloque.vueltas || 3;
+            if (tipo === 'Por Tiempo') return bloque.vueltas || bloque.vueltas_bloque || 3;
             if (tipo === 'Tabata') {
                 var cfg = bloque.config || {};
                 return (cfg.cantidad || bloque.cantidad || 8) * (cfg.rondas || bloque.rondas || 1);
@@ -2912,6 +2973,7 @@
                 return total || 3;
             }
             if (tipo === 'Circuito') return bloque.vueltas_bloque || bloque.vueltas || 3;
+            if (tipo === 'Por Tiempo') return bloque.vueltas || bloque.vueltas_bloque || 3;
             if (tipo === 'Tabata') {
                 var cfgT = bloque.config || {};
                 return (cfgT.cantidad || bloque.cantidad || 8) * (cfgT.rondas || bloque.rondas || 1);
@@ -3012,7 +3074,7 @@
                     tipo: tipo,
                     rutina: data.rutina || data.datos || [],
                     config: data.config || {},
-                    vueltas_bloque: data.vueltas_bloque,
+                    vueltas_bloque: data.vueltas_bloque || data.vueltas,
                     vueltas: data.vueltas,
                     minutos_totales: data.minutos_totales
                 };
@@ -4997,7 +5059,7 @@
             if (data.descripcion) {
                 pLista.innerHTML += '<div class="bloque-descripcion">' + data.descripcion + '</div>';
             }
-            const vBloque = data.vueltas_bloque || data.vueltas || 3;
+            const vBloque = data.vueltas_bloque || 3;
             const pausaVuelta = data.pausa_vuelta || 60;
             let vRestantes = vBloque;
             const vContId = 'circ-vueltas-counter';
@@ -5030,7 +5092,8 @@
 
             pLista.innerHTML += '<div style="margin-top:16px;">' +
                 '<div id="' + vContId + '" style="text-align:center; font-size:1.4rem; font-weight:900; color:var(--amarillo); padding:14px; background:var(--tarjeta-alt); border-radius:14px; margin-bottom:14px; border:1px solid var(--borde-sutil);">Vueltas restantes: ' + vRestantes + '</div>' +
-                '<button id="circ-btn-vuelta" class="btn-rest" onclick="marcarVueltaCircuito(' + pausaVuelta + ',\'' + vContId + '\',' + vBloque + ')">ACTIVAR PAUSA</button></div>';
+                '<button id="circ-btn-vuelta" class="btn-rest" onclick="marcarVueltaCircuito(' + pausaVuelta + ',\'' + vContId + '\',' + vBloque + ')">ACTIVAR PAUSA</button>' +
+                '<button class="btn-fullscreen" style="margin-top:10px;" onclick="entrarFullscreen(\'descanso-circuito\')">⛶ PANTALLA COMPLETA</button></div>';
         }
         let circVueltasRestantes = 0;
 
@@ -5069,34 +5132,23 @@
                     const tiempoSeg = tiempoMin * 60;
                     const timerId = 'ct-timer-' + bIdx;
                     const btnId = 'ct-btn-' + bIdx;
-                    const ejListId = 'ct-ej-list-' + bIdx;
-                    const statusId = 'ct-status-' + bIdx;
-
-                    // Construir lista de ejercicios para fullscreen
-                    var ejListTexto = (bloque.ejercicios || []).map(function(ej) {
-                        var nombre = ej.nombre || ej[0] || "";
-                        var reps = ej.reps || ej[2] || "";
-                        var ejU = (ej.unit || "Reps").toUpperCase();
-                        return nombre + (reps ? ' — ' + reps + ' ' + ejU : '');
-                    }).join(' | ');
+                    const tituloBloque = 'BLOQUE ' + (bloque.id || (bIdx + 1)) + ' — ' + tiempoMin + ' MIN';
+                    const ejsBloque = bloque.ejercicios || [];
 
                     let html = '<div style="background:var(--tarjeta-alt); border:1px solid #1a8bc0; border-radius:18px; padding:18px; margin-bottom:18px;">' +
-                        '<div id="' + statusId + '" style="color:var(--azul); font-size:0.7rem; font-weight:900; letter-spacing:2px; margin-bottom:12px;">BLOQUE ' + (bloque.id || (bIdx + 1)) + ' — ' + tiempoMin + ' MINUTOS</div>';
-                    (bloque.ejercicios || []).forEach(function(ej) {
+                        '<div style="color:var(--azul); font-size:0.7rem; font-weight:900; letter-spacing:2px; margin-bottom:12px;">' + tituloBloque + '</div>';
+                    ejsBloque.forEach(function(ej) {
                         const nombre = ej.nombre || ej[0] || "";
                         const link = ej.link || ej[1] || "";
                         const reps = ej.reps || ej[2] || "";
                         const ejU = (ej.unit || "Reps").toUpperCase();
-                        // Circuito por tiempo: solo reps, sin pausa (la pausa no existe en este modo)
                         var metaStr = reps ? reps + " " + ejU : "";
                         var cc = (ej.con_carga === true) || _obtenerConCarga(nombre);
                         html += crearCard(nombre, link, metaStr, cc);
                     });
-                    // Lista de ejercicios oculta para fullscreen
-                    html += '<div id="' + ejListId + '" style="display:none;">' + ejListTexto + '</div>';
                     html += '<div id="' + timerId + '" style="font-size:3rem; font-family:Roboto Mono,monospace; font-weight:700; color:var(--amarillo); text-align:center; margin:12px 0; text-shadow:0 0 20px var(--amarillo-glow);">' + tiempoMin + ':00</div>' +
                         '<button id="' + btnId + '" class="btn-rest" onclick="iniciarBloqueTiempoConDescuento(\'' + timerId + '\',\'' + btnId + '\',' + tiempoSeg + ')">Iniciar Bloque</button>' +
-                        '<button class="btn-fullscreen" style="margin-top:10px;" onclick="entrarFullscreen(\'circ-tiempo\',{clock:\'' + timerId + '\',ej:\'' + ejListId + '\',status:\'' + statusId + '\'})">⛶ PANTALLA COMPLETA</button>' +
+                        '<button class="btn-fullscreen" style="margin-top:10px;" onclick="entrarFullscreen(\'circuito-tiempo\',{clock:\'' + timerId + '\',btn:\'' + btnId + '\',titulo:' + JSON.stringify(tituloBloque) + ',ejercicios:' + JSON.stringify(ejsBloque) + '})">⛶ PANTALLA COMPLETA</button>' +
                         '</div>';
                     pLista.innerHTML += html;
                 });
@@ -5642,6 +5694,7 @@
                     'onclick="togglePausaEmomBloque(\'' + emomClockId + '\', document.getElementById(\'' + emomPausaId + '\'))">\u23f8 PAUSAR</button>' +
                     '<button id="' + emomReinId + '" class="btn-pausa" style="max-width:280px; margin:8px auto 0; display:none; background:var(--tarjeta-alt); color:var(--texto-suave); border-color:var(--borde);" ' +
                     'onclick="reiniciarEmomMixInline(\'' + emomBtnId + '\', \'' + emomStatusId + '\', \'' + emomRoundId + '\', \'' + emomClockId + '\', \'' + emomEjId + '\', \'' + emomPausaId + '\', \'' + emomReinId + '\')">&#8635; REINICIAR</button>' +
+                    '<button class="btn-fullscreen" style="max-width:280px; margin:8px auto 0; display:block;" onclick="entrarFullscreen(\'inline\',{status:\'' + emomStatusId + '\',ej:\'' + emomEjId + '\',info:\'' + emomRoundId + '\',clock:\'' + emomClockId + '\'})">⛶ PANTALLA COMPLETA</button>' +
                     '</div></div>';
                 pLista.innerHTML += emomHtml;
 
@@ -6179,12 +6232,8 @@
             if (!ct) return;
             ct.pausado = !ct.pausado;
             if (pausaBtn) pausaBtn.innerText = ct.pausado ? '▶ REANUDAR' : '⏸ PAUSAR';
-            if (ct.pausado) {
-                // Activar pantalla completa al pausar (igual que warmup)
-                entrarFullscreen('circ-vuelta', { clock: clockId });
-            } else {
+            if (!ct.pausado) {
                 ct.deadline = Date.now() + ct.rem * 1000;
-                salirFullscreen();
             }
         }
 
