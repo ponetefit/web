@@ -798,6 +798,7 @@
             background: rgba(255,255,255,0.15);
         }
 
+        /* Lista de ejercicios CT dentro del fullscreen */
         #fs-ejercicios-lista {
             display: none;
             width: 80vw;
@@ -806,6 +807,7 @@
             overflow-y: auto;
             margin-bottom: 16px;
         }
+        /* Con ejercicios: reducir un poco el reloj para que todo quepa */
         #overlay-fullscreen.has-ct-exercises .fs-clock {
             font-size: clamp(6rem, 26vw, 14rem);
             margin: 0 0 12px;
@@ -2601,8 +2603,9 @@
         var _fsActivo = false;
         var _fsTipo = ''; // 'tabata', 'emom', 'inline', 'warmup', 'ct'
         var _fsSyncInterval = null;
-        var _fsInlineIds = null; // para inline timers: {status, ej, info, clock}
-        var _ctBloques = {}; // { timerId: [{nombre,reps,unit},...] } para CT fullscreen
+        var _fsInlineIds = null;
+        // Mapa de ejercicios por bloque CT: { timerId: [{nombre,reps,unit}, ...] }
+        var _ctBloques = {};
 
         function entrarFullscreen(tipo, inlineIds) {
             _fsTipo = tipo;
@@ -2622,11 +2625,12 @@
             _syncFullscreen(); // sync inmediato
         }
 
+        // Pantalla completa para Circuito por Tiempo
+        // Los ejercicios se guardan en _ctBloques[timerId] al renderizar
         function entrarFullscreenCT(timerId) {
             _fsTipo = 'ct';
             _fsInlineIds = { clock: timerId };
             _fsActivo = true;
-            // Mostrar lista de ejercicios del bloque
             var fsEjsLista = document.getElementById('fs-ejercicios-lista');
             if (fsEjsLista) {
                 var ejes = _ctBloques[timerId] || [];
@@ -2635,7 +2639,9 @@
                     ejes.forEach(function(ej) {
                         var u = (ej.unit || 'Reps').toUpperCase();
                         var meta = ej.reps ? ej.reps + ' ' + u : '';
-                        h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:rgba(79,195,247,0.08);border:1px solid rgba(79,195,247,0.2);border-radius:10px;margin-bottom:6px;">' +
+                        h += '<div style="display:flex;align-items:center;justify-content:space-between;' +
+                             'padding:8px 14px;background:rgba(79,195,247,0.08);border:1px solid rgba(79,195,247,0.2);' +
+                             'border-radius:10px;margin-bottom:6px;">' +
                              '<span style="font-size:1rem;font-weight:700;color:var(--texto);">' + ej.nombre + '</span>' +
                              (meta ? '<span style="font-size:0.9rem;font-weight:700;color:var(--amarillo);">' + meta + '</span>' : '') +
                              '</div>';
@@ -2662,7 +2668,6 @@
             _fsActivo = false;
             _fsTipo = '';
             _fsInlineIds = null;
-            // Limpiar lista de ejercicios CT
             var fsEjsLista = document.getElementById('fs-ejercicios-lista');
             if (fsEjsLista) { fsEjsLista.style.display = 'none'; fsEjsLista.innerHTML = ''; }
             document.getElementById('overlay-fullscreen').classList.remove('has-ct-exercises');
@@ -2775,7 +2780,7 @@
                 fsClock.style.color = 'var(--azul)';
 
             } else if (_fsTipo === 'ct' && _fsInlineIds) {
-                // Circuito por Tiempo — timer del bloque activo
+                // Circuito por Tiempo — sincronizar el reloj del bloque activo
                 var ctClockEl = document.getElementById(_fsInlineIds.clock);
                 var ctVal = ctClockEl ? ctClockEl.textContent : '--';
                 fsStatus.textContent = 'CIRCUITO POR TIEMPO';
@@ -2783,7 +2788,7 @@
                 fsInfo.textContent = ctVal === 'TIEMPO!' ? '¡TIEMPO!' : '';
                 fsClock.textContent = ctVal;
                 fsFill.style.width = '0%';
-                fsClock.style.color = ctVal === 'TIEMPO!' ? 'var(--verde)' : 'var(--amarillo)';
+                fsClock.style.color = (ctVal === 'TIEMPO!') ? 'var(--verde)' : 'var(--amarillo)';
             }
 
             // Sincronizar barra de progreso general de rutina
@@ -3469,6 +3474,10 @@
             _desbloquearAudioIOS();
             try {
                 const res = await fetch("https://ponetefit-app-default-rtdb.firebaseio.com/rutinas/" + cod + ".json");
+                if (!res.ok) {
+                    alert("Error de conexión: " + res.status + " " + res.statusText);
+                    return;
+                }
                 const data = await res.json();
                 if (!data) {
                     alert("Codigo no encontrado");
@@ -3519,7 +3528,7 @@
                 document.getElementById('rutina-modal').classList.add('visible');
                 mostrarToast('Rutina cargada');
             } catch (e) {
-                alert("Error al conectar con la base de datos");
+                alert("Error al conectar con la base de datos: " + (e && e.message ? e.message : String(e)));
             } finally {
                 btn.innerText = 'Entrar a Entrenar';
                 btn.disabled = false;
@@ -5210,12 +5219,11 @@
                         const link = ej.link || ej[1] || "";
                         const reps = ej.reps || ej[2] || "";
                         const ejU = (ej.unit || "Reps").toUpperCase();
-                        // Circuito por tiempo: solo reps, sin pausa (la pausa no existe en este modo)
                         var metaStr = reps ? reps + " " + ejU : "";
                         var cc = (ej.con_carga === true) || _obtenerConCarga(nombre);
                         html += crearCard(nombre, link, metaStr, cc);
                     });
-                    // Guardar ejercicios para pantalla completa CT
+                    // Guardar ejercicios del bloque para pantalla completa
                     _ctBloques[timerId] = (bloque.ejercicios || []).map(function(ej) {
                         return { nombre: ej.nombre || ej[0] || '', reps: ej.reps || ej[2] || '', unit: ej.unit || 'Reps' };
                     });
@@ -5430,7 +5438,7 @@
                         if (ej.descanso && parseInt(ej.descanso) > 0) metaStr += ' | Pausa: ' + ej.descanso + 's';
                         html += crearCard(ej.nombre, ej.link, metaStr, ej.con_carga);
                     });
-                    // Guardar ejercicios para pantalla completa CT
+                    // Guardar ejercicios para pantalla completa
                     _ctBloques[timerIdVal] = b.ejercicios.map(function(ej) {
                         return { nombre: ej.nombre || '', reps: ej.reps || '', unit: ej.unit || 'Reps' };
                     });
@@ -5568,18 +5576,17 @@
                         '<div style="color:var(--azul); font-weight:bold; margin-bottom:8px; font-size:0.8rem; letter-spacing:1px;">BLOQUE #' + b.id + ' — ' + tiempo + ' min</div>';
                     (b.ejercicios || []).forEach(function(ej) {
                         var ejU = (ej.unit || "Reps").toUpperCase();
-                        // Circuito por Tiempo: solo reps, sin pausa
                         var metaStr = (ej.reps || ej[2] || "") ? (ej.reps || ej[2]) + " " + ejU : "";
                         html += crearCard(ej.nombre || ej[0] || "", ej.link || ej[1] || "", metaStr, ej.con_carga);
                     });
-                    // Guardar ejercicios para pantalla completa CT
+                    // Guardar ejercicios para pantalla completa
                     _ctBloques[tId] = (b.ejercicios || []).map(function(ej) {
                         return { nombre: ej.nombre || ej[0] || '', reps: ej.reps || ej[2] || '', unit: ej.unit || 'Reps' };
                     });
                     var pId = uid + "-ct-pausa-" + bIdx;
                     html += '<div id="' + tId + '" style="font-size:2.5rem; font-family:Roboto Mono,monospace; font-weight:700; color:var(--amarillo); text-align:center; margin:10px 0;">' + tiempo + ':00</div>' +
                         '<button id="' + bId + '" class="btn-rest" onclick="iniciarBloqueTiempoConDescuento(\'' + tId + '\',\'' + bId + '\',' + (tiempo * 60) + ')">Iniciar Bloque</button>' +
-                        '<button id="' + pId + '" class="btn-pausa" style="margin-top:8px; display:none;" onclick="togglePausaBloqueTiempo(\'' + tId + '\', document.getElementById(\'' + pId + '\'))">' + '\u23f8 PAUSAR</button>' +
+                        '<button id="' + pId + '" class="btn-pausa" style="margin-top:8px; display:none;" onclick="togglePausaBloqueTiempo(\'' + tId + '\', document.getElementById(\'' + pId + '\'))">\u23f8 PAUSAR</button>' +
                         '<button class="btn-fullscreen" style="margin-top:8px;width:100%;" onclick="entrarFullscreenCT(\'' + tId + '\')">⛶ PANTALLA COMPLETA</button></div>';
                 });
                 if (bloque.descripcion) {
