@@ -1661,6 +1661,19 @@
         <button class="btn-header" style="margin-top:24px;" onclick="saltarPausaRonda()">SALTAR PAUSA</button>
     </div>
 
+    <!-- Overlay pausa entre series (Series y Repeticiones) -->
+    <div id="overlay-series-pausa" style="display:none;position:fixed;inset:0;background:rgba(10,10,12,0.97);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);z-index:3500;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px 20px;animation:overlayIn 0.3s cubic-bezier(0.34,1.56,0.64,1);">
+        <div style="font-size:0.65rem;font-weight:900;letter-spacing:4px;text-transform:uppercase;color:var(--verde);margin-bottom:10px;">⏱ DESCANSO</div>
+        <div id="sp-ejercicio" style="font-size:1.5rem;font-weight:900;color:var(--texto);margin-bottom:4px;max-width:88vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+        <div id="sp-series-info" style="font-size:0.9rem;color:var(--amarillo);font-weight:700;letter-spacing:1px;margin-bottom:6px;"></div>
+        <div id="sp-carga-info" style="font-size:0.85rem;font-weight:700;color:var(--texto-suave);margin-bottom:16px;min-height:1.2rem;"></div>
+        <div id="sp-clock" style="font-size:clamp(7rem,32vw,14rem);font-family:'Roboto Mono',monospace;font-weight:700;color:var(--verde);line-height:1;margin:0 0 16px;text-shadow:0 0 40px var(--verde-glow);"></div>
+        <div style="width:80vw;max-width:400px;height:6px;background:var(--borde);border-radius:4px;overflow:hidden;margin-bottom:24px;">
+            <div id="sp-progress" style="height:100%;border-radius:4px;background:var(--verde);width:100%;transition:width 1s linear;"></div>
+        </div>
+        <button class="btn-header" onclick="saltarPausaSeries()" style="border-color:var(--verde);color:var(--verde);">SALTAR PAUSA</button>
+    </div>
+
     <!-- HOME -->
     <div class="home-screen" id="view-home">
         <div class="home-logo">
@@ -1673,7 +1686,12 @@
                 <input type="text" id="codigoInput" placeholder="XXXX-0000" autocomplete="off" autocapitalize="characters" spellcheck="false">
             </div>
             <button class="btn-principal" onclick="consultarRutina()">Entrar a Entrenar</button>
-        </div>
+            <!-- Record personal del código ingresado -->
+            <div id="home-record-container" style="display:none;margin-top:16px;background:rgba(255,107,53,0.08);border:1px solid rgba(255,107,53,0.25);border-radius:12px;padding:10px 16px;text-align:center;">
+                <div style="font-size:0.6rem;font-weight:700;letter-spacing:2px;color:var(--naranja);text-transform:uppercase;margin-bottom:3px;">🏅 TU MEJOR TIEMPO</div>
+                <div id="home-record-valor" style="font-size:1.4rem;font-family:'Roboto Mono',monospace;font-weight:700;color:var(--naranja);"></div>
+                <div id="home-record-veces" style="font-size:0.65rem;color:var(--texto-suave);margin-top:2px;"></div>
+            </div>
         <!-- PWA Install Button -->
         <button id="pwa-install-btn" onclick="_instalarPWA()" style="display:none; margin-top:16px; width:100%; max-width:420px; padding:14px 18px; border-radius:14px; border:1px solid var(--borde); background:var(--tarjeta); color:var(--texto); font-weight:700; font-size:0.85rem; letter-spacing:1px; text-transform:uppercase; cursor:pointer; transition:background 0.15s, transform 0.15s;">
             📲 Instalar App
@@ -1684,6 +1702,7 @@
     <div id="rutina-modal">
         <div class="header-rutina">
             <div class="header-rutina-info">
+                <div style="font-size:0.55rem;font-weight:900;letter-spacing:3px;color:var(--verde);text-transform:uppercase;opacity:0.7;margin-bottom:1px;">PONETE FIT</div>
                 <span id="alumno-nombre-display">---</span>
                 <div class="header-rutina-sub">
                     <span class="tipo-tag" id="tipo-tag">MODO</span>
@@ -1730,7 +1749,9 @@
 
             <!-- Timer Tabata / Circuito por Tiempo -->
             <div id="sec-timer-ui" style="display:none;">
-                <div id="timer-volver-container" style="display:none; margin-bottom:12px;"></div>
+                <div id="timer-volver-container" style="display:none; margin-bottom:12px;">
+                    <button onclick="volverDeTabataMix()" style="background:var(--tarjeta-alt);border:1px solid var(--borde);border-radius:12px;padding:10px 18px;color:var(--texto-suave);font-size:0.8rem;font-weight:700;cursor:pointer;letter-spacing:1px;width:100%;">← Volver al entrenamiento</button>
+                </div>
                 <div id="timer-box">
                     <div id="t-status">LISTO</div>
                     <div id="t-ejercicio-nombre"></div>
@@ -1781,13 +1802,24 @@
             <div class="fin-tiempo-label">Tiempo de entrenamiento</div>
             <div class="fin-tiempo-valor" id="fin-tiempo-valor">00:00</div>
         </div>
+        <!-- Record personal -->
+        <div id="fin-record-container" style="display:none;margin-bottom:16px;animation:finFadeUp 0.5s 0.7s both;">
+            <div id="fin-record-nuevo" style="display:none;background:linear-gradient(135deg,rgba(255,213,79,0.25),rgba(255,213,79,0.05));border:2px solid var(--amarillo);border-radius:16px;padding:12px 24px;text-align:center;">
+                <div style="font-size:0.65rem;font-weight:900;letter-spacing:2px;color:var(--amarillo);text-transform:uppercase;margin-bottom:4px;">🏅 NUEVO RECORD PERSONAL</div>
+                <div id="fin-record-nuevo-valor" style="font-size:1.6rem;font-family:'Roboto Mono',monospace;font-weight:700;color:var(--amarillo);"></div>
+            </div>
+            <div id="fin-record-anterior" style="display:none;background:var(--tarjeta);border:1px solid var(--borde);border-radius:14px;padding:10px 20px;text-align:center;">
+                <div style="font-size:0.6rem;font-weight:700;letter-spacing:2px;color:var(--texto-suave);text-transform:uppercase;margin-bottom:2px;">🏅 TU MEJOR TIEMPO</div>
+                <div id="fin-record-anterior-valor" style="font-size:1.4rem;font-family:'Roboto Mono',monospace;font-weight:700;color:var(--naranja);"></div>
+            </div>
+        </div>
         <div class="fin-stats" id="fin-stats-container" style="display:none;">
             <div class="fin-stat-box">
                 <div class="fin-stat-label">Calorias estimadas</div>
                 <div class="fin-stat-value" id="fin-calorias-valor">0</div>
             </div>
         </div>
-        <button class="fin-btn-salir" onclick="cerrarPantallaFin()">Volver al inicio</button>
+        <button class="fin-btn-salir" id="fin-btn-accion" onclick="cerrarPantallaFin()">Volver al inicio</button>
     </div>
 
     <!-- Boton flotante Coach de Voz -->
@@ -2600,7 +2632,8 @@
         // PANTALLA COMPLETA (FULLSCREEN MODE)
         // ====================================================================
         var _fsActivo = false;
-        var _fsTipo = ''; // 'tabata', 'emom', 'inline-tabata', 'inline-emom'
+        var _fsTipo = ''; // 'tabata', 'emom', 'inline-tabata', 'inline-emom', 'por-vueltas'
+        var _fsBlockConfig = {};
         var _fsSyncInterval = null;
         var _fsInlineIds = null; // para inline timers: {status, ej, info, clock}
 
@@ -2615,7 +2648,7 @@
                 delete fsEjList.dataset.cargado;
             }
             var fsOverlay = document.getElementById('overlay-fullscreen');
-            if (tipo === 'circuito-tiempo') {
+            if (tipo === 'circuito-tiempo' || tipo === 'por-vueltas') {
                 fsOverlay.classList.add('con-ejercicios');
             } else {
                 fsOverlay.classList.remove('con-ejercicios');
@@ -2772,7 +2805,6 @@
                 }
 
             } else if (_fsTipo === 'circuito-tiempo' && _fsInlineIds) {
-                // Circuito por Tiempo con bloques — mostrar timer y lista de ejercicios
                 var ctIds = _fsInlineIds;
                 var ctClock = document.getElementById(ctIds.clock);
                 var ctBtnEl = document.getElementById(ctIds.btn);
@@ -2784,7 +2816,6 @@
                 fsClock.style.color = 'var(--amarillo)';
                 fsFill.style.width = '0%';
 
-                // Mostrar lista de ejercicios
                 if (fsEjList && ctIds.ejercicios && ctIds.ejercicios.length > 0 && fsEjList.dataset.cargado !== ctIds.clock) {
                     fsEjList.style.display = 'block';
                     fsEjList.dataset.cargado = ctIds.clock;
@@ -2799,6 +2830,30 @@
                             '</div>';
                     });
                     fsEjList.innerHTML = ejsHtml;
+                }
+
+            } else if (_fsTipo === 'por-vueltas' && _fsInlineIds) {
+                var pvIds = _fsInlineIds;
+                var pvClock = document.getElementById(pvIds.clock);
+                var pvVcount = document.getElementById(pvIds.vcount);
+                var pvSt = pvIds.uid ? _porTiempoState[pvIds.uid] : null;
+
+                fsStatus.textContent = 'POR TIEMPO';
+                fsClock.textContent = pvClock ? pvClock.textContent : '00:00';
+                fsClock.style.color = 'var(--purpura)';
+                fsFill.style.width = '0%';
+
+                if (pvSt) {
+                    var pvRestantes = pvSt.total - pvSt.vueltas;
+                    fsEj.textContent = pvVcount ? pvVcount.textContent : ('Vueltas: ' + pvSt.vueltas + ' / ' + pvSt.total);
+                    fsInfo.textContent = pvRestantes > 0 ? ('Quedan ' + pvRestantes + ' vuelta' + (pvRestantes > 1 ? 's' : '')) : 'COMPLETO';
+                } else {
+                    fsEj.textContent = pvVcount ? pvVcount.textContent : '';
+                    fsInfo.textContent = '';
+                }
+
+                if (pvSt && !pvSt.running) {
+                    salirFullscreen();
                 }
             }
 
@@ -3191,7 +3246,7 @@
             // Mostrar pantalla de finalización al llegar al 100%
             if (pct >= 100) {
                 setTimeout(function() {
-                    mostrarPantallaFin();
+                    if (!_pantallaFinBloqueadaPorTiempo) mostrarPantallaFin();
                 }, 600);
             }
         }
@@ -3211,6 +3266,71 @@
             var s = seg % 60;
             if (h > 0) return h + ':' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
             return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+        }
+
+        // ─── RECORD PERSONAL (mejor tiempo por código) ───
+        function _recordKey(cod) { return 'pf-record-' + (cod || '').toLowerCase().trim(); }
+        function _recordCountKey(cod) { return 'pf-record-count-' + (cod || '').toLowerCase().trim(); }
+
+        function _obtenerRecord(cod) {
+            try {
+                var raw = localStorage.getItem(_recordKey(cod));
+                return raw ? parseInt(raw) : null; // segundos
+            } catch(e) { return null; }
+        }
+
+        function _guardarRecord(cod, segs) {
+            try {
+                var prev = _obtenerRecord(cod);
+                var esNuevoRecord = (prev === null || segs < prev);
+                if (esNuevoRecord) localStorage.setItem(_recordKey(cod), segs);
+                // Incrementar contador de veces
+                var count = parseInt(localStorage.getItem(_recordCountKey(cod)) || '0') + 1;
+                localStorage.setItem(_recordCountKey(cod), count);
+                return { esNuevoRecord: esNuevoRecord, anterior: prev, nuevo: segs, veces: count };
+            } catch(e) { return { esNuevoRecord: false, anterior: null, nuevo: segs, veces: 1 }; }
+        }
+
+        function _formatSegs(segs) {
+            if (!segs || segs <= 0) return '--';
+            var h = Math.floor(segs / 3600);
+            var m = Math.floor((segs % 3600) / 60);
+            var s = segs % 60;
+            if (h > 0) return h + ':' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+            return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+        }
+
+        function _mostrarRecordHome(cod) {
+            var rec = _obtenerRecord(cod);
+            var container = document.getElementById('home-record-container');
+            if (!container) return;
+            if (rec !== null) {
+                var count = parseInt(localStorage.getItem(_recordCountKey(cod)) || '0');
+                document.getElementById('home-record-valor').innerText = _formatSegs(rec);
+                document.getElementById('home-record-veces').innerText = 'Realizaste este entrenamiento ' + count + ' vez' + (count !== 1 ? 'es' : '');
+                container.style.display = 'block';
+            } else {
+                container.style.display = 'none';
+            }
+        }
+
+        function _procesarRecordAlFinalizar() {
+            if (!currentCode || !_tiempoInicioEntrenamiento) return;
+            var segs = Math.floor((Date.now() - _tiempoInicioEntrenamiento) / 1000);
+            if (segs < 10) return; // ignorar tiempos ridículamente cortos
+            var resultado = _guardarRecord(currentCode, segs);
+            var recContainer = document.getElementById('fin-record-container');
+            if (!recContainer) return;
+            recContainer.style.display = 'block';
+            if (resultado.esNuevoRecord) {
+                document.getElementById('fin-record-nuevo').style.display = 'block';
+                document.getElementById('fin-record-anterior').style.display = 'none';
+                document.getElementById('fin-record-nuevo-valor').innerText = _formatSegs(segs);
+            } else {
+                document.getElementById('fin-record-nuevo').style.display = 'none';
+                document.getElementById('fin-record-anterior').style.display = 'block';
+                document.getElementById('fin-record-anterior-valor').innerText = _formatSegs(resultado.anterior);
+            }
         }
 
         // ─── MENSAJES DE FELICITACIÓN (10 aleatorios) ───
@@ -3286,6 +3406,9 @@
                 calsEl.innerText = cals + ' kcal';
                 statsContainer.style.display = 'flex';
             }
+
+            // Record personal
+            _procesarRecordAlFinalizar();
 
             document.getElementById('pantalla-fin').classList.add('visible');
 
@@ -3495,6 +3618,8 @@
                 }
                 dataGlobal = data;
                 currentCode = cod;
+                // Mostrar record personal del código
+                _mostrarRecordHome(cod);
                 // Titulo dinamico para codigos con formato nombre-000X
                 if (cod.includes('-')) {
                     const partes = cod.split('-');
@@ -3548,6 +3673,11 @@
         // Enter key
         document.getElementById('codigoInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') consultarRutina();
+        });
+        // Mostrar record al escribir el código
+        document.getElementById('codigoInput').addEventListener('input', function() {
+            var cod = this.value.trim().toLowerCase();
+            _mostrarRecordHome(cod);
         });
 
         function calcularPausa(reps) {
@@ -4181,6 +4311,8 @@
                 // >>> COACH: Arranca el circuito al activar bloque calentamiento (solo Circuito por Tiempo)
                 if (tipo === 'Circuito por Tiempo') hablarCoach('Arranca el circuito, vamos con todo!');
 
+                entrarFullscreen('warmup');
+
                 var afterCountdown;
                 if (tipo === "Tabata") {
                     afterCountdown = function() {
@@ -4247,6 +4379,7 @@
                     if (_wPausaBtn) _wPausaBtn.style.display = 'none';
                     if (_wReinBtn) _wReinBtn.style.display = 'none';
                     liberarWakeLock();
+                    if (_fsActivo) salirFullscreen();
                     return;
                 }
                 const ej = ejsW[ejIdx % ejsW.length];
@@ -4582,6 +4715,7 @@
                     if (pausaBtnEW) pausaBtnEW.style.display = 'none';
                     if (reiniciarBtnEW) reiniciarBtnEW.style.display = 'none';
                     liberarWakeLock();
+                    if (_fsActivo) salirFullscreen();
                     return;
                 }
                 document.getElementById('warmup-status').innerText = "MINUTO " + (minActual + 1) + "/" + mins;
@@ -4723,6 +4857,7 @@
                     } else {
                         document.getElementById('warmup-status').innerText = "CALENTAMIENTO LISTO!";
                         liberarWakeLock();
+                        if (_fsActivo) salirFullscreen();
                     }
                 }
             }, 1000);
@@ -5146,6 +5281,7 @@
                         var cc = (ej.con_carga === true) || _obtenerConCarga(nombre);
                         html += crearCard(nombre, link, metaStr, cc);
                     });
+                    _fsBlockConfig[timerId] = {clock: timerId, btn: btnId, titulo: tituloBloque, ejercicios: ejsBloque};
                     html += '<div id="' + timerId + '" style="font-size:3rem; font-family:Roboto Mono,monospace; font-weight:700; color:var(--amarillo); text-align:center; margin:12px 0; text-shadow:0 0 20px var(--amarillo-glow);">' + tiempoMin + ':00</div>' +
                         '<button id="' + btnId + '" class="btn-rest" onclick="iniciarBloqueTiempoConDescuento(\'' + timerId + '\',\'' + btnId + '\',' + tiempoSeg + ')">Iniciar Bloque</button>' +
                         '<button class="btn-fullscreen" style="margin-top:10px;" onclick="entrarFullscreen(\'circuito-tiempo\',{clock:\'' + timerId + '\',btn:\'' + btnId + '\',titulo:' + JSON.stringify(tituloBloque) + ',ejercicios:' + JSON.stringify(ejsBloque) + '})">⛶ PANTALLA COMPLETA</button>' +
@@ -5501,17 +5637,6 @@
                 });
                 html += '<button id="' + uid + '-btn-vuelta" class="btn-rest" style="margin-top:12px;" ' +
                     'onclick="marcarVueltaMixBloque(\'' + uid + '\',\'' + vContId + '\',' + pausaV + ',' + vueltas + ')">ACTIVAR PAUSA</button>';
-                // Timer con pausa/reiniciar para Circuito por Vuelta
-                if (pausaV > 0) {
-                    var _cvClockId = uid + '-cv-clock';
-                    var _cvPausaId = uid + '-cv-pausa';
-                    var _cvReinId = uid + '-cv-rein';
-                    html += '<div style="margin-top:10px;text-align:center;">' +
-                        '<div id="' + _cvClockId + '" style="font-size:2.5rem;font-family:Roboto Mono,monospace;font-weight:700;color:var(--rojo);display:none;margin:6px 0;">' + pausaV + '</div>' +
-                        '<button id="' + _cvPausaId + '" class="btn-pausa" style="display:none;" onclick="togglePausaCircuito(\'' + _cvClockId + '\', this)">⏸ PAUSAR</button>' +
-                        '<button id="' + _cvReinId + '" class="btn-pausa" style="display:none;background:var(--tarjeta-alt);color:var(--texto-suave);border-color:var(--borde);" onclick="reiniciarCircuito(\'' + _cvClockId + '\',\'' + _cvPausaId + '\',\'' + _cvReinId + '\',' + pausaV + ')">↺ REINICIAR</button>' +
-                        '</div>';
-                }
                 html += '</div>';
                 pLista.innerHTML += html;
 
@@ -5540,9 +5665,14 @@
                         html += crearCard(ej.nombre || ej[0] || "", ej.link || ej[1] || "", metaStr, ej.con_carga);
                     });
                     var pId = uid + "-ct-pausa-" + bIdx;
+                    var _ctEjsBloque = b.ejercicios || [];
+                    var _ctTituloBloque = 'BLOQUE #' + b.id + ' — ' + tiempo + ' min';
+                    _fsBlockConfig[tId] = {clock: tId, btn: bId, titulo: _ctTituloBloque, ejercicios: _ctEjsBloque};
                     html += '<div id="' + tId + '" style="font-size:2.5rem; font-family:Roboto Mono,monospace; font-weight:700; color:var(--amarillo); text-align:center; margin:10px 0;">' + tiempo + ':00</div>' +
                         '<button id="' + bId + '" class="btn-rest" onclick="iniciarBloqueTiempoConDescuento(\'' + tId + '\',\'' + bId + '\',' + (tiempo * 60) + ')">Iniciar Bloque</button>' +
-                        '<button id="' + pId + '" class="btn-pausa" style="margin-top:8px; display:none;" onclick="togglePausaBloqueTiempo(\'' + tId + '\', document.getElementById(\'' + pId + '\'))">' + '\u23f8 PAUSAR</button></div>';
+                        '<button id="' + pId + '" class="btn-pausa" style="margin-top:8px; display:none;" onclick="togglePausaBloqueTiempo(\'' + tId + '\', document.getElementById(\'' + pId + '\'))">\u23f8 PAUSAR</button>' +
+                        '<button class="btn-fullscreen" style="margin-top:8px;" onclick="entrarFullscreen(\'circuito-tiempo\',{clock:\'' + tId + '\',btn:\'' + bId + '\',titulo:' + JSON.stringify(_ctTituloBloque) + ',ejercicios:' + JSON.stringify(_ctEjsBloque) + '})">⛶ PANTALLA COMPLETA</button>' +
+                        '</div>';
                 });
                 if (bloque.descripcion) {
                     html = html.replace('<div class="bloque-mix-titulo" style="color:' + color + ';">BLOQUE ' + idx + ' \u2014 CIRCUITO POR TIEMPO</div>',
@@ -5713,19 +5843,15 @@
             const el = document.getElementById(contId);
             if (el) el.innerText = mixBloqueVueltas[uid] > 0 ? 'Vueltas restantes: ' + mixBloqueVueltas[uid] : 'BLOQUE COMPLETO!';
             incrementarProgreso(1);
-            // >>> COACH: Pausa circuito vueltas mix con motivación y vueltas restantes
             coachPausaVueltas(mixBloqueVueltas[uid]);
-            // Iniciar timer con pausa/reiniciar si hay pausa configurada
+            // Usar el mismo overlay-descanso que en calentamiento y circuito principal
             if (pausaVuelta > 0 && mixBloqueVueltas[uid] > 0) {
-                var _cvClockId = uid + '-cv-clock';
-                var _cvPausaId = uid + '-cv-pausa';
-                var _cvReinId = uid + '-cv-rein';
-                iniciarTimerCircuito(_cvClockId, _cvPausaId, _cvReinId, pausaVuelta);
+                iniciarDescansoCircuito(pausaVuelta);
             }
             const btn = document.getElementById(uid + '-btn-vuelta');
             if (mixBloqueVueltas[uid] <= 0 && btn) {
                 btn.disabled = true;
-                btn.innerText = "Completado";
+                btn.innerText = 'Completado';
                 return;
             }
         }
@@ -5756,7 +5882,8 @@
                 start: now, lapStart: now, lastLap: now, laps: []
             };
 
-            // Voz apertura
+            entrarFullscreen('por-vueltas', {clock: clockId, vcount: vCountId, log: logId, totalVueltas: totalVueltas, uid: uid});
+
             hablarCoach('Recordá, son ' + totalVueltas + ' ' + (totalVueltas === 1 ? 'vuelta' : 'vueltas') + '. Dale con todo!');
 
             function _fmt(ms) {
@@ -5814,22 +5941,31 @@
                 logEl.appendChild(chip);
             }
             beep(800);
-            incrementarProgreso(1);
 
+            // incrementarProgreso solo en la última vuelta para no disparar fin prematuro
             var restantes = st.total - st.vueltas;
-            if (restantes > 0) {
-                hablarCoach(restantes === 1 ? 'Última vuelta! No aflojes!' : 'Quedan ' + restantes + ' vueltas. Vamos!');
-            }
-
             if (st.vueltas >= st.total) {
+                // Última vuelta: marcar completo
                 st.running = false;
                 bgClearInterval(st.iv);
                 bgClearInterval(st.motivoIv);
+
+                // Bloquear pantalla fin si este bloque NO es el último
+                var _eraPenultimoSeg = (_progresoSegActual < _progresoSegmentos.length - 1);
+                if (_eraPenultimoSeg) {
+                    // No es el último modo — solo destello, sin pantalla fin
+                    _pantallaFinBloqueadaPorTiempo = true;
+                }
+
+                incrementarProgreso(1); // avanzar progreso (puede disparar fin si es el último)
+                _pantallaFinBloqueadaPorTiempo = false;
+
                 desactivarTimerGlobal();
                 liberarWakeLock();
                 if (marcarEl) { marcarEl.disabled = true; marcarEl.innerText = '✓ BLOQUE COMPLETO'; }
                 hablarCoach('Excelente! Completaste el bloque. Sos un crack!');
-                lanzarDestelloBloque();
+                lanzarDestelloBloque(); // destello + confetti solo en última vuelta
+
                 // Mostrar mejor vuelta
                 if (st.laps && st.laps.length > 0 && logEl) {
                     var bestMs = Math.min.apply(null, st.laps);
@@ -5840,7 +5976,36 @@
                         '<div style="font-size:1.4rem;font-weight:900;font-family:Roboto Mono,monospace;color:var(--amarillo);">V' + (bestIdx + 1) + ': ' + _fmt(bestMs) + '</div>';
                     logEl.parentNode.insertBefore(bestBanner, logEl.nextSibling);
                 }
+
+                // Si era el penúltimo segmento (o antes), mostrar botón finalizar rutina
+                if (_eraPenultimoSeg) {
+                    _mostrarBotonFinalizarRutina(logEl ? logEl.parentNode : null);
+                }
+            } else {
+                // Vuelta intermedia — solo chip, SIN incrementarProgreso (no queremos fin prematuro)
+                hablarCoach(restantes === 1 ? 'Última vuelta! No aflojes!' : 'Quedan ' + restantes + ' vueltas. Vamos!');
             }
+        }
+
+        var _pantallaFinBloqueadaPorTiempo = false;
+
+        function _mostrarBotonFinalizarRutina(container) {
+            if (!container) return;
+            // Verificar si ya hay botón
+            if (container.querySelector('.btn-finalizar-rutina')) return;
+            var btn = document.createElement('button');
+            btn.className = 'btn-rest btn-finalizar-rutina';
+            btn.style.cssText = 'margin-top:16px;background:linear-gradient(135deg,var(--verde),#00c853);color:#000;font-weight:900;font-size:1rem;padding:16px 32px;border-radius:14px;letter-spacing:1px;width:100%;';
+            btn.innerText = '🏁 FINALIZAR RUTINA';
+            btn.onclick = function() {
+                // Forzar el 100% del progreso y mostrar pantalla fin
+                for (var i = 0; i < _progresoSegmentos.length; i++) {
+                    _progresoSegmentos[i].completados = _progresoSegmentos[i].totalItems;
+                }
+                _progresoSegActual = _progresoSegmentos.length - 1;
+                mostrarPantallaFin();
+            };
+            container.appendChild(btn);
         }
 
         function renderTabataMixInline(rutina, tc, uid) {
@@ -6001,18 +6166,85 @@
         }
 
         // ─── MARCAR SERIE (con WakeLock) ───
+        // ─── OVERLAY PAUSA SERIES ───
+        var _spInterval = null;
+        var _spSerieIdx = -1; // índice del ejercicio en descanso
+
+        function abrirOverlaySeries(nombreEj, seriesRestantes, pesoKg, pausa, onFin) {
+            var overlay = document.getElementById('overlay-series-pausa');
+            if (!overlay) { onFin && onFin(); return; }
+
+            document.getElementById('sp-ejercicio').innerText = nombreEj || 'DESCANSO';
+            document.getElementById('sp-series-info').innerText = seriesRestantes > 0
+                ? 'Próxima: Serie ' + '— quedan ' + seriesRestantes + ' serie' + (seriesRestantes !== 1 ? 's' : '')
+                : 'Último descanso — ¡ya terminaste!';
+            document.getElementById('sp-carga-info').innerText = pesoKg ? '🏋️ ' + pesoKg + ' kg' : '';
+
+            var clockEl = document.getElementById('sp-clock');
+            var progressEl = document.getElementById('sp-progress');
+            var total = pausa;
+            clockEl.innerText = pausa;
+            progressEl.style.transition = 'none';
+            progressEl.style.width = '100%';
+
+            overlay.style.display = 'flex';
+            solicitarWakeLock();
+
+            var _deadline = Date.now() + pausa * 1000;
+            if (_spInterval) bgClearInterval(_spInterval);
+            _spInterval = bgSetInterval(function() {
+                var rem = Math.max(0, Math.round((_deadline - Date.now()) / 1000));
+                clockEl.innerText = rem < 10 ? '0' + rem : rem;
+                progressEl.style.transition = 'width 1s linear';
+                progressEl.style.width = ((rem / total) * 100) + '%';
+                if (rem === 10) hablarCoach('Quedan 10 segundos. Preparate!');
+                if (rem <= 3 && rem > 0) beep(400);
+                if (rem <= 0) {
+                    bgClearInterval(_spInterval);
+                    _spInterval = null;
+                    beep(800);
+                    cerrarOverlaySeries();
+                    onFin && onFin();
+                }
+            }, 1000);
+        }
+
+        function cerrarOverlaySeries() {
+            var overlay = document.getElementById('overlay-series-pausa');
+            if (overlay) overlay.style.display = 'none';
+            liberarWakeLock();
+        }
+
+        function saltarPausaSeries() {
+            if (_spInterval) { bgClearInterval(_spInterval); _spInterval = null; }
+            cerrarOverlaySeries();
+            // Re-habilitar el botón del ejercicio en descanso
+            if (_spSerieIdx >= 0) {
+                var btn = document.getElementById('btn-' + _spSerieIdx);
+                var timer = document.getElementById('timer-' + _spSerieIdx);
+                if (btn) {
+                    btn.classList.remove('active');
+                    btn.disabled = false;
+                    btn.innerText = 'Marcar Serie (' + (seriesRestantes[_spSerieIdx] || 0) + ' rest.)';
+                }
+                if (timer) timer.style.display = 'none';
+                _spSerieIdx = -1;
+            }
+        }
+
         function marcarSerie(i, pausa) {
             if (seriesRestantes[i] <= 0) return;
             const btn = document.getElementById('btn-' + i);
-            // Bloquear si ya está descansando
             if (btn && btn.disabled) return;
+
             // Guardar peso en localStorage
             var pesoInput = document.getElementById('peso-' + i);
+            var pesoKg = null;
             if (pesoInput && pesoInput.value) {
                 var nombreEj = ejercicioNombres[i] || '';
-                guardarPeso(nombreEj, parseFloat(pesoInput.value));
-                // Actualizar texto "Última vez" en tiempo real
-                var pesoRow = pesoInput.closest('.peso-row');
+                pesoKg = parseFloat(pesoInput.value);
+                guardarPeso(nombreEj, pesoKg);
+                var pesoRow = pesoInput.closest ? pesoInput.closest('.peso-row') : null;
                 if (pesoRow) {
                     var ultimaSpan = pesoRow.querySelector('.peso-ultima');
                     if (!ultimaSpan) {
@@ -6020,24 +6252,22 @@
                         ultimaSpan.className = 'peso-ultima';
                         pesoRow.appendChild(ultimaSpan);
                     }
-                    ultimaSpan.textContent = '\u00DAltima vez: ' + pesoInput.value + 'kg';
+                    ultimaSpan.textContent = 'Última vez: ' + pesoInput.value + 'kg';
                 }
             }
+
             seriesRestantes[i]--;
             const timer = document.getElementById('timer-' + i);
             const val = document.getElementById('s-val-' + i);
             if (val) val.innerText = seriesRestantes[i];
-            // Actualizar progreso
             incrementarProgreso(1);
+
             if (seriesRestantes[i] <= 0) {
-                btn.innerText = "Completado";
+                btn.innerText = 'Completado';
                 btn.disabled = true;
-                btn.style.background = "linear-gradient(135deg,var(--verde),#00c853)";
-                btn.style.color = "#000";
-
+                btn.style.background = 'linear-gradient(135deg,var(--verde),#00c853)';
+                btn.style.color = '#000';
                 var _serieNombreCompletado = ejercicioNombres[i] || '';
-
-                // Buscar si hay un próximo ejercicio con series pendientes
                 var _serieTodosCompletos = true;
                 var _serieSiguienteNombre = '';
                 var _serieKeys = Object.keys(seriesRestantes).map(Number).sort(function(a, b) { return a - b; });
@@ -6051,52 +6281,46 @@
                         }
                     }
                 }
-
                 if (_serieTodosCompletos) {
-                    // Último ejercicio completado
                     hablarCoach('Genial! Completaste el entrenamiento de series y repeticiones. Sos un crack!');
                 } else {
-                    if (_serieNombreCompletado) {
-                        hablarCoach('Completaste ' + _serieNombreCompletado + '.');
-                    }
-                    if (_serieSiguienteNombre) {
-                        hablarCoach('El siguiente ejercicio es ' + _serieSiguienteNombre + '.');
-                    }
+                    if (_serieNombreCompletado) hablarCoach('Completaste ' + _serieNombreCompletado + '.');
+                    if (_serieSiguienteNombre) hablarCoach('El siguiente ejercicio es ' + _serieSiguienteNombre + '.');
                 }
                 return;
             }
-            btn.classList.add('active');
-            btn.innerText = "Descansando...";
-            btn.disabled = true; // Bloquear botón durante descanso
-            timer.style.display = "block";
-            solicitarWakeLock();
 
-            // >>> COACH: Anunciar pausa con series restantes
+            // Bloquear botón y mostrar timer inline (por si está fuera del overlay)
+            btn.classList.add('active');
+            btn.innerText = 'Descansando...';
+            btn.disabled = true;
+            if (timer) { timer.style.display = 'block'; timer.innerText = formatearTiempo(pausa); }
+
             coachPausaSeries(seriesRestantes[i]);
 
-            let remaining = pausa;
-            var _restDeadline = Date.now() + pausa * 1000;
-            timer.innerText = formatearTiempo(remaining);
-            restIntervals[i] = bgSetInterval(function() {
-                remaining = Math.max(0, Math.round((_restDeadline - Date.now()) / 1000));
-                timer.innerText = formatearTiempo(remaining);
-                if (remaining <= 3 && remaining > 0) beep(400);
-                if (remaining <= 0) {
-                    bgClearInterval(restIntervals[i]);
-                    beep(800);
-                    // >>> COACH: Anunciar ejercicio + tip técnico al terminar descanso
-                    var _nombreEj = ejercicioNombres[i] || '';
-                    if (_nombreEj) {
-                        hablarCoach('Es momento de hacer ' + _nombreEj + '.');
-                        var _tipSeries = _obtenerTip(_nombreEj);
-                        if (_tipSeries) hablarCoach(_tipSeries);
-                    }
-                    timer.style.display = "none";
+            // Abrir overlay de pausa pantalla completa
+            _spSerieIdx = i;
+            var _nombreParaOverlay = ejercicioNombres[i] || '';
+            abrirOverlaySeries(_nombreParaOverlay, seriesRestantes[i], pesoKg, pausa, function() {
+                // Al terminar el descanso
+                var _tipSeries = _obtenerTip(_nombreParaOverlay);
+                if (_nombreParaOverlay) hablarCoach('Es momento de hacer ' + _nombreParaOverlay + '.');
+                if (_tipSeries) hablarCoach(_tipSeries);
+                if (timer) timer.style.display = 'none';
+                if (btn) {
                     btn.classList.remove('active');
-                    btn.disabled = false; // Re-habilitar botón
-                    btn.innerText = "Marcar Serie (" + seriesRestantes[i] + " rest.)";
-                    liberarWakeLock();
+                    btn.disabled = false;
+                    btn.innerText = 'Marcar Serie (' + seriesRestantes[i] + ' rest.)';
                 }
+                _spSerieIdx = -1;
+            });
+
+            // Mantener interval inline sincronizado (accesibilidad, por si overlay está cerrado)
+            var _restDeadline = Date.now() + pausa * 1000;
+            restIntervals[i] = bgSetInterval(function() {
+                var remaining = Math.max(0, Math.round((_restDeadline - Date.now()) / 1000));
+                if (timer) timer.innerText = formatearTiempo(remaining);
+                if (remaining <= 0) bgClearInterval(restIntervals[i]);
             }, 1000);
         }
 
@@ -6328,6 +6552,7 @@
                     btnEl.dataset.running = "0";
                     bloqueTiempoPausado[timerId] = false;
                     desactivarTimerGlobal();
+                    if (_fsActivo) salirFullscreen();
                     if (pausaBtnAssoc && timerId === 'warmup-clock') pausaBtnAssoc.style.display = 'none';
                     if (pausaBtnBloque) pausaBtnBloque.style.display = 'none';
                     if (timerId === 'warmup-clock') {
@@ -6371,6 +6596,9 @@
             btnEl.disabled = true;
             btnEl.innerText = "Preparate...";
             solicitarWakeLock();
+            if (_fsBlockConfig[timerId]) {
+                entrarFullscreen('circuito-tiempo', _fsBlockConfig[timerId]);
+            }
             prepCountdown(timerEl, null, 440, function() {
                 btnEl.dataset.running = "0";
                 iniciarBloqueTiempo(timerId, btnId, totalSeg);
@@ -6424,6 +6652,8 @@
             tRonda = 1;
             timerTrabajoCurr = trabajo;
             _tPhaseDeadline = Date.now() + 5000;
+
+            entrarFullscreen('tabata');
 
             const clock = document.getElementById('clock');
             clock.className = 'prep';
@@ -6790,6 +7020,8 @@
             _emomPhaseDeadline = Date.now() + 5000;
             emomMinutosCiclo = (dataGlobal.minutos_ciclo && dataGlobal.minutos_ciclo.length > 0) ? dataGlobal.minutos_ciclo : emomMinutosCiclo;
 
+            entrarFullscreen('emom');
+
             document.getElementById('btnStartEmom').style.display = "none";
             document.getElementById('btnPausaEmom').style.display = "block";
             document.getElementById('btnReiniciarEmom').style.display = "block";
@@ -6988,6 +7220,7 @@
             btn.innerText = "En curso...";
             if (pausaBtn) pausaBtn.style.display = "block";
             solicitarWakeLock();
+            entrarFullscreen('inline', {status: statusId, ej: ejId, info: infoId, clock: timerId});
 
             const trabajo = tc.trabajo || 20;
             const pausa = tc.pausa || 10;
@@ -7027,6 +7260,7 @@
                         tabataRunningFlags[btnId] = false;
                         desactivarTimerGlobal();
                         liberarWakeLock();
+                        if (_fsActivo) salirFullscreen();
                         return;
                     }
                     if (ejIdx >= cantidad) {
@@ -7154,11 +7388,11 @@
             emomBloquePausado[clockId] = false;
             let minActual = 0;
 
-            // Mostrar boton pausa EMOM bloque
             var pausaBtnEl = document.getElementById(clockId.replace('-clock', '-pausa'));
             if (pausaBtnEl) pausaBtnEl.style.display = 'block';
 
-            // >>> COACH: Arrancamos EMOM bloque
+            entrarFullscreen('inline', {status: statusId, ej: '', info: roundId, clock: clockId});
+
             hablarCoach('Arrancamos EMOM de ' + totalMin + ' minutos. ' + _fraseRandom(_frasesMotivacionales));
 
             prepCountdown(
@@ -7186,6 +7420,7 @@
                     if (pausaBtnEl) pausaBtnEl.style.display = 'none';
                     if (reinBtnEl) reinBtnEl.style.display = 'none';
                     liberarWakeLock();
+                    if (_fsActivo) salirFullscreen();
                     return;
                 }
                 document.getElementById(statusId).innerText = "¡TRABAJA!";
@@ -7238,11 +7473,42 @@
             dataGlobal.rutina = rutina;
             document.getElementById('sec-rutina-lista').style.display = "none";
             document.getElementById('sec-timer-ui').style.display = "block";
+            var _volverContainer = document.getElementById('timer-volver-container');
+            if (_volverContainer) _volverContainer.style.display = 'block';
             const btnPausa = document.getElementById('btnPausaTimer');
             if (btnPausa) {
                 btnPausa.style.display = "block";
                 btnPausa.innerText = "⏸ PAUSAR";
             }
+        }
+
+        function volverDeTabataMix() {
+            // Detener timer si está corriendo
+            if (timerActivo) {
+                if (confirm('¿Salir del Tabata? El progreso de este bloque se perderá.')) {
+                    bgClearInterval(tInterval);
+                    bgClearInterval(pausaRondaInterval);
+                    timerActivo = false;
+                    timerPausado = false;
+                    desactivarTimerGlobal();
+                    liberarWakeLock();
+                } else {
+                    return;
+                }
+            }
+            document.getElementById('sec-timer-ui').style.display = "none";
+            document.getElementById('sec-rutina-lista').style.display = "block";
+            var _volverContainer = document.getElementById('timer-volver-container');
+            if (_volverContainer) _volverContainer.style.display = 'none';
+            var btnPausa = document.getElementById('btnPausaTimer');
+            if (btnPausa) { btnPausa.style.display = 'none'; btnPausa.innerText = '⏸ PAUSAR'; }
+            var btnRein = document.getElementById('btnReiniciarTimer');
+            if (btnRein) btnRein.style.display = 'none';
+            var btnStart = document.getElementById('btnStartTimer');
+            if (btnStart) { btnStart.style.display = 'block'; btnStart.innerText = 'EMPEZAR'; }
+            // Scroll al bloque
+            var secLista = document.getElementById('sec-rutina-lista');
+            if (secLista) secLista.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         function iniciarEmomBloqueConCiclo(btnId, statusId, roundId, clockId, ejId, totalMin, ciclo) {
@@ -7257,9 +7523,9 @@
             emomBloquePausado[clockId] = false;
             let minActual = 0;
 
-            // Mostrar boton pausa y reiniciar EMOM bloque
             var pausaBtnEl = document.getElementById(clockId.replace('-clock', '-pausa'));
             if (pausaBtnEl) pausaBtnEl.style.display = 'block';
+            entrarFullscreen('inline', {status: statusId, ej: ejId || '', info: roundId, clock: clockId});
             var reinBtnEl = document.getElementById(clockId.replace('-clock', '-rein'));
             if (reinBtnEl) reinBtnEl.style.display = 'block';
 
@@ -7307,6 +7573,7 @@
                     desactivarTimerGlobal();
                     if (pausaBtnEl) pausaBtnEl.style.display = 'none';
                     if (reinBtnEl) reinBtnEl.style.display = 'none';
+                    if (_fsActivo) salirFullscreen();
                     liberarWakeLock();
                     return;
                 }
@@ -7417,6 +7684,7 @@
 
         // ─── SALIR DEL TIMER ───
         function salirDelTimer() {
+            if (_fsActivo) salirFullscreen();
             bgClearInterval(tInterval);
             bgClearInterval(pausaRondaInterval);
             bgClearInterval(emomInterval);
@@ -7457,7 +7725,7 @@
 
         // ─── CERRAR RUTINA ───
         function cerrar() {
-            // Limpiar sesión guardada al salir voluntariamente
+            if (_fsActivo) salirFullscreen();
             _limpiarSesionGuardada();
             var secLista = document.getElementById('sec-rutina-lista');
             if (secLista) secLista.style.display = 'block';
@@ -7486,6 +7754,11 @@
             document.getElementById('overlay-descanso').style.display = 'none';
             document.getElementById('overlay-pausa-ronda').classList.remove('visible');
             document.getElementById('overlay-pausa-ronda').style.display = 'none';
+            // Cerrar overlay de pausa series
+            var _spOverlay = document.getElementById('overlay-series-pausa');
+            if (_spOverlay) _spOverlay.style.display = 'none';
+            if (_spInterval) { bgClearInterval(_spInterval); _spInterval = null; }
+            _spSerieIdx = -1;
             emomRunning = false;
             warmupRunning = false;
             timerPausado = false;
