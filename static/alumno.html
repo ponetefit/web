@@ -5253,8 +5253,7 @@
                         html += crearCard(nombre, link, metaStr, cc);
                     });
                     html += '<div id="' + timerId + '" style="font-size:3rem; font-family:Roboto Mono,monospace; font-weight:700; color:var(--amarillo); text-align:center; margin:12px 0; text-shadow:0 0 20px var(--amarillo-glow);">' + tiempoMin + ':00</div>' +
-                        '<button id="' + btnId + '" class="btn-rest" onclick="iniciarBloqueTiempoConDescuento(\'' + timerId + '\',\'' + btnId + '\',' + tiempoSeg + ')">Iniciar Bloque</button>' +
-                        '<button class="btn-fullscreen" style="margin-top:10px;" onclick="entrarFullscreen(\'circuito-tiempo\',{clock:\'' + timerId + '\',btn:\'' + btnId + '\',titulo:' + JSON.stringify(tituloBloque) + ',ejercicios:' + JSON.stringify(ejsBloque) + '})">⛶ PANTALLA COMPLETA</button>' +
+                        '<button id="' + btnId + '" class="btn-rest" data-titulo="' + encodeURIComponent(tituloBloque) + '" data-ejercicios="' + encodeURIComponent(JSON.stringify(ejsBloque)) + '" onclick="iniciarBloqueTiempoFullscreen(\'' + timerId + '\',\'' + btnId + '\',' + tiempoSeg + ')">Iniciar Bloque</button>' +
                         '</div>';
                     pLista.innerHTML += html;
                 });
@@ -5508,8 +5507,10 @@
                         if (ej.descanso && parseInt(ej.descanso) > 0) metaStr += ' | Pausa: ' + ej.descanso + 's';
                         html += crearCard(ej.nombre, ej.link, metaStr, ej.con_carga);
                     });
+                    var _mixCtEjs = b.ejercicios || [];
+                    var _mixCtTitulo = 'BLOQUE #' + b.id + ' — ' + tiempo + ' min';
                     html += '<div id="' + timerIdVal + '" style="font-size:2.5rem; font-family:Roboto Mono,monospace; font-weight:700; color:var(--amarillo); text-align:center; margin:8px 0;">' + tiempo + ':00</div>' +
-                        '<button id="' + btnIdVal + '" class="btn-rest" onclick="iniciarBloqueTiempoConDescuento(\'' + timerIdVal + '\',\'' + btnIdVal + '\',' + (tiempo * 60) + ')">Iniciar Bloque</button></div>';
+                        '<button id="' + btnIdVal + '" class="btn-rest" data-titulo="' + encodeURIComponent(_mixCtTitulo) + '" data-ejercicios="' + encodeURIComponent(JSON.stringify(_mixCtEjs)) + '" onclick="iniciarBloqueTiempoFullscreen(\'' + timerIdVal + '\',\'' + btnIdVal + '\',' + (tiempo * 60) + ')">Iniciar Bloque</button></div>';
                 });
                 html += '</div>';
                 pLista.innerHTML += html;
@@ -5638,9 +5639,8 @@
                     var _ctEjsBloque = b.ejercicios || [];
                     var _ctTituloBloque = 'BLOQUE #' + b.id + ' — ' + tiempo + ' min';
                     html += '<div id="' + tId + '" style="font-size:2.5rem; font-family:Roboto Mono,monospace; font-weight:700; color:var(--amarillo); text-align:center; margin:10px 0;">' + tiempo + ':00</div>' +
-                        '<button id="' + bId + '" class="btn-rest" onclick="iniciarBloqueTiempoConDescuento(\'' + tId + '\',\'' + bId + '\',' + (tiempo * 60) + ')">Iniciar Bloque</button>' +
+                        '<button id="' + bId + '" class="btn-rest" data-titulo="' + encodeURIComponent(_ctTituloBloque) + '" data-ejercicios="' + encodeURIComponent(JSON.stringify(_ctEjsBloque)) + '" onclick="iniciarBloqueTiempoFullscreen(\'' + tId + '\',\'' + bId + '\',' + (tiempo * 60) + ')">Iniciar Bloque</button>' +
                         '<button id="' + pId + '" class="btn-pausa" style="margin-top:8px; display:none;" onclick="togglePausaBloqueTiempo(\'' + tId + '\', document.getElementById(\'' + pId + '\'))">\u23f8 PAUSAR</button>' +
-                        '<button class="btn-fullscreen" style="margin-top:8px;" onclick="entrarFullscreen(\'circuito-tiempo\',{clock:\'' + tId + '\',btn:\'' + bId + '\',titulo:' + JSON.stringify(_ctTituloBloque) + ',ejercicios:' + JSON.stringify(_ctEjsBloque) + '})">⛶ PANTALLA COMPLETA</button>' +
                         '</div>';
                 });
                 if (bloque.descripcion) {
@@ -6444,6 +6444,7 @@
         // ─── BLOQUE TIEMPO (Circuito por Tiempo) ───
         var bloqueTiempoPausado = {};
         var _btDeadlines = {}; // deadline timestamp por timerId
+        var _bloqueTiempoFSData = {}; // datos para fullscreen por btnId
         var _btRems = {}; // segundos restantes al pausar por timerId
 
         function iniciarBloqueTiempo(timerId, btnId, totalSeg) {
@@ -6569,6 +6570,127 @@
             }, {
                 showArrancamos: false
             });
+        }
+
+        // ─── INICIAR BLOQUE TIEMPO CON PANTALLA COMPLETA Y CUENTA REGRESIVA ───
+        function iniciarBloqueTiempoFullscreen(timerId, btnId, totalSeg) {
+            var _btn = document.getElementById(btnId);
+            var tituloBloque = '';
+            var ejsBloque = [];
+            if (_btn) {
+                try { tituloBloque = decodeURIComponent(_btn.dataset.titulo || ''); } catch(e) {}
+                try { ejsBloque = JSON.parse(decodeURIComponent(_btn.dataset.ejercicios || '[]')); } catch(e) {}
+            }
+            const timerEl = document.getElementById(timerId);
+            const btnEl = document.getElementById(btnId);
+            if (!timerEl || !btnEl) return;
+            if (btnEl.dataset.running === "1") return;
+            if (hayTimerActivo()) return;
+
+            // Deshabilitar botón de inmediato
+            btnEl.dataset.running = "1";
+            btnEl.disabled = true;
+            btnEl.innerText = "Preparate...";
+            solicitarWakeLock();
+            _desbloquearAudioIOS && _desbloquearAudioIOS();
+
+            // Abrir overlay fullscreen en modo cuenta regresiva
+            var fsOverlay = document.getElementById('overlay-fullscreen');
+            var fsStatus = document.getElementById('fs-status');
+            var fsEj = document.getElementById('fs-ejercicio');
+            var fsInfo = document.getElementById('fs-info');
+            var fsClock = document.getElementById('fs-clock');
+            var fsFill = document.getElementById('fs-progress-fill');
+            var fsEjList = document.getElementById('fs-ejercicios-lista');
+            var fsBtnSalir = fsOverlay ? fsOverlay.querySelector('.fs-btn-salir') : null;
+
+            // Ocultar botón salir durante cuenta regresiva
+            if (fsBtnSalir) fsBtnSalir.style.visibility = 'hidden';
+
+            // Configurar overlay para cuenta regresiva
+            if (fsStatus) fsStatus.textContent = 'PREPARATE';
+            if (fsEj) fsEj.textContent = tituloBloque || '';
+            if (fsInfo) fsInfo.textContent = '';
+            if (fsClock) {
+                fsClock.textContent = '5';
+                fsClock.style.color = 'var(--amarillo)';
+                fsClock.style.textShadow = '0 0 60px rgba(255,213,79,0.7)';
+            }
+            if (fsFill) fsFill.style.width = '0%';
+            if (fsEjList) {
+                fsEjList.style.display = 'none';
+                fsEjList.innerHTML = '';
+                delete fsEjList.dataset.cargado;
+            }
+
+            // Remover clase con-ejercicios para que el reloj sea grande en la cuenta regresiva
+            fsOverlay.classList.remove('con-ejercicios');
+            _fsTipo = 'circuito-tiempo-prep';
+            _fsActivo = true;
+            fsOverlay.classList.add('visible');
+
+            // Intentar Fullscreen API nativa
+            try {
+                var el = document.documentElement;
+                if (el.requestFullscreen) el.requestFullscreen().catch(function(){});
+                else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+            } catch(e) {}
+
+            // Cuenta regresiva 5-4-3-2-1 en la pantalla completa
+            var count = 5;
+            activarTimerGlobal();
+
+            var ivPrep = bgSetInterval(function() {
+                beep(440);
+                count--;
+                if (fsClock) fsClock.textContent = count > 0 ? count : '';
+                if (count <= 0) {
+                    bgClearInterval(ivPrep);
+                    beep(800);
+
+                    // Cambiar a modo timer con ejercicios
+                    fsOverlay.classList.add('con-ejercicios');
+                    _fsTipo = 'circuito-tiempo';
+                    _fsInlineIds = { clock: timerId, btn: btnId, titulo: tituloBloque, ejercicios: ejsBloque };
+
+                    if (fsStatus) fsStatus.textContent = tituloBloque || 'CIRCUITO POR TIEMPO';
+                    if (fsEj) fsEj.textContent = '';
+                    if (fsInfo) fsInfo.textContent = 'EN CURSO';
+                    if (fsClock) {
+                        var tiempoMin = Math.floor(totalSeg / 60);
+                        fsClock.textContent = tiempoMin + ':00';
+                        fsClock.style.color = 'var(--amarillo)';
+                    }
+
+                    // Renderizar lista de ejercicios en fullscreen
+                    if (fsEjList && ejsBloque && ejsBloque.length > 0) {
+                        fsEjList.style.display = 'block';
+                        fsEjList.dataset.cargado = timerId;
+                        var ejsHtml = '';
+                        ejsBloque.forEach(function(ej) {
+                            var nombre = ej.nombre || ej[0] || '';
+                            var reps = ej.reps || ej[2] || '';
+                            var unit = (ej.unit || 'Reps').toUpperCase();
+                            ejsHtml += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,0.05);border-radius:10px;margin-bottom:6px;">' +
+                                '<span style="color:var(--texto);font-weight:700;font-size:clamp(0.85rem,2.5vw,1.1rem);">' + nombre + '</span>' +
+                                (reps ? '<span style="color:var(--amarillo);font-weight:900;font-size:clamp(0.85rem,2.5vw,1.1rem);white-space:nowrap;">' + reps + ' ' + unit + '</span>' : '') +
+                                '</div>';
+                        });
+                        fsEjList.innerHTML = ejsHtml;
+                    }
+
+                    // Mostrar botón salir
+                    if (fsBtnSalir) fsBtnSalir.style.visibility = 'visible';
+
+                    // Iniciar sync del fullscreen
+                    if (_fsSyncInterval) clearInterval(_fsSyncInterval);
+                    _fsSyncInterval = setInterval(_syncFullscreen, 200);
+
+                    // Iniciar el timer real del bloque
+                    btnEl.dataset.running = "0";
+                    iniciarBloqueTiempo(timerId, btnId, totalSeg);
+                }
+            }, 1000);
         }
 
         // ─── TIMER PRINCIPAL (Tabata / Circuito por Tiempo) ───
