@@ -1631,10 +1631,14 @@
         <div class="fs-info" id="fs-info"></div>
         <div class="fs-clock" id="fs-clock">--</div>
         <div id="fs-ejercicios-lista" style="display:none;width:90vw;max-width:500px;margin:8px auto 16px;text-align:left;"></div>
+        <div id="fs-lap-counter" style="display:none;font-size:1rem;font-weight:900;color:var(--amarillo);margin:4px 0;letter-spacing:1px;"></div>
+        <div id="fs-lap-log" style="display:none;flex-wrap:wrap;gap:6px;justify-content:center;max-width:90vw;margin:4px auto;"></div>
+        <button id="fs-btn-marcar" style="display:none;background:linear-gradient(135deg,var(--verde),#1a7a4a);font-size:1.3rem;padding:18px 36px;font-weight:900;border:none;border-radius:16px;color:#fff;cursor:pointer;min-height:64px;letter-spacing:1px;margin:8px 0;" onclick="_fsBtnMarcarVuelta()">✓ MARCAR VUELTA</button>
         <div class="fs-progress-bar">
             <div class="fs-progress-fill" id="fs-progress-fill"></div>
         </div>
-        <button class="fs-btn-salir" onclick="salirFullscreen()">✕ SALIR</button>
+        <button id="fs-btn-volver" style="display:none;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:var(--texto-suave);font-size:0.8rem;font-weight:700;padding:10px 20px;border-radius:12px;cursor:pointer;margin:4px 0;letter-spacing:1px;text-transform:uppercase;" onclick="_fsVolverEntrenamiento()">← VOLVER A ENTRENAMIENTO</button>
+        <button class="fs-btn-salir" id="fs-btn-salir-x" onclick="salirFullscreen()">✕ SALIR</button>
     </div>
 
     <!-- Overlay descanso circuito -->
@@ -2634,17 +2638,61 @@
         var _fsTipo = ''; // 'tabata', 'emom', 'inline-tabata', 'inline-emom'
         var _fsSyncInterval = null;
         var _fsInlineIds = null; // para inline timers: {status, ej, info, clock}
+        var _fsVolverCallback = null; // callback para "Volver a Entrenamiento"
+        var _fsMarcarCallback = null; // callback para "Marcar Vuelta" en fullscreen
+        var _fsPorTiempoUid = null; // uid del bloque Por Tiempo activo en FS
 
-        function entrarFullscreen(tipo, inlineIds) {
+        function _fsVolverEntrenamiento() {
+            if (_fsVolverCallback) {
+                _fsVolverCallback();
+            } else {
+                salirFullscreen();
+            }
+        }
+
+        function _fsBtnMarcarVuelta() {
+            if (_fsMarcarCallback) _fsMarcarCallback();
+        }
+
+        function entrarFullscreen(tipo, inlineIds, opts) {
             _fsTipo = tipo;
             _fsInlineIds = inlineIds || null;
             _fsActivo = true;
+            opts = opts || {};
+            _fsVolverCallback = opts.volverCallback || null;
+            _fsMarcarCallback = opts.marcarCallback || null;
+            _fsPorTiempoUid = opts.porTiempoUid || null;
+
             var fsEjList = document.getElementById('fs-ejercicios-lista');
             if (fsEjList) {
                 fsEjList.style.display = 'none';
                 fsEjList.innerHTML = '';
                 delete fsEjList.dataset.cargado;
             }
+            // Reset lap elements
+            var fsLapCounter = document.getElementById('fs-lap-counter');
+            var fsLapLog = document.getElementById('fs-lap-log');
+            var fsBtnMarcar = document.getElementById('fs-btn-marcar');
+            var fsBtnVolver = document.getElementById('fs-btn-volver');
+            var fsBtnSalirX = document.getElementById('fs-btn-salir-x');
+            if (fsLapCounter) fsLapCounter.style.display = 'none';
+            if (fsLapLog) { fsLapLog.style.display = 'none'; fsLapLog.innerHTML = ''; }
+            if (fsBtnMarcar) fsBtnMarcar.style.display = 'none';
+
+            // Configure "Volver" button text and visibility
+            if (fsBtnVolver) {
+                if (opts.volverLabel) {
+                    fsBtnVolver.textContent = opts.volverLabel;
+                } else {
+                    fsBtnVolver.textContent = '← VOLVER A ENTRENAMIENTO';
+                }
+                fsBtnVolver.style.display = opts.volverCallback ? 'block' : 'none';
+            }
+            // Hide default X button when we have a custom volver
+            if (fsBtnSalirX) {
+                fsBtnSalirX.style.display = opts.volverCallback ? 'none' : 'block';
+            }
+
             var fsOverlay = document.getElementById('overlay-fullscreen');
             if (tipo === 'circuito-tiempo') {
                 fsOverlay.classList.add('con-ejercicios');
@@ -2652,6 +2700,13 @@
                 fsOverlay.classList.remove('con-ejercicios');
             }
             fsOverlay.classList.add('visible');
+
+            // Si es Por Tiempo, configurar botón marcar vuelta y lap counter
+            if (tipo === 'por-tiempo' && _fsPorTiempoUid) {
+                if (fsBtnMarcar) fsBtnMarcar.style.display = 'inline-block';
+                if (fsLapCounter) fsLapCounter.style.display = 'block';
+                if (fsLapLog) fsLapLog.style.display = 'flex';
+            }
 
             // Intentar Fullscreen API nativa
             try {
@@ -2673,9 +2728,24 @@
             _fsActivo = false;
             _fsTipo = '';
             _fsInlineIds = null;
+            _fsVolverCallback = null;
+            _fsMarcarCallback = null;
+            _fsPorTiempoUid = null;
             var fsOverlay = document.getElementById('overlay-fullscreen');
             fsOverlay.classList.remove('visible');
             fsOverlay.classList.remove('con-ejercicios');
+
+            // Reset buttons
+            var fsBtnVolver = document.getElementById('fs-btn-volver');
+            var fsBtnMarcar = document.getElementById('fs-btn-marcar');
+            var fsBtnSalirX = document.getElementById('fs-btn-salir-x');
+            var fsLapCounter = document.getElementById('fs-lap-counter');
+            var fsLapLog = document.getElementById('fs-lap-log');
+            if (fsBtnVolver) fsBtnVolver.style.display = 'none';
+            if (fsBtnMarcar) fsBtnMarcar.style.display = 'none';
+            if (fsBtnSalirX) fsBtnSalirX.style.display = 'block';
+            if (fsLapCounter) fsLapCounter.style.display = 'none';
+            if (fsLapLog) { fsLapLog.style.display = 'none'; fsLapLog.innerHTML = ''; }
 
             if (_fsSyncInterval) {
                 clearInterval(_fsSyncInterval);
@@ -2830,6 +2900,51 @@
                             '</div>';
                     });
                     fsEjList.innerHTML = ejsHtml;
+                }
+            } else if (_fsTipo === 'por-tiempo' && _fsPorTiempoUid) {
+                // Por Tiempo — mostrar cronómetro y sincronizar lap counter
+                var ptState = window._porTiempoState && window._porTiempoState[_fsPorTiempoUid];
+                var ptClockEl = _fsInlineIds && _fsInlineIds.clock ? document.getElementById(_fsInlineIds.clock) : null;
+                fsStatus.textContent = 'POR TIEMPO';
+                fsEj.textContent = '';
+                fsInfo.textContent = ptState ? ('Vueltas: ' + ptState.vueltas + ' / ' + ptState.total) : '';
+                fsClock.textContent = ptClockEl ? ptClockEl.textContent : '00:00';
+                fsClock.style.color = 'var(--purpura)';
+                fsFill.style.width = '0%';
+
+                // Cargar lista de ejercicios (solo 1 vez)
+                if (fsEjList && _fsInlineIds && _fsInlineIds.ejercicios && _fsInlineIds.ejercicios.length > 0 && fsEjList.dataset.cargado !== _fsPorTiempoUid) {
+                    fsEjList.style.display = 'block';
+                    fsEjList.dataset.cargado = _fsPorTiempoUid;
+                    var ptEjHtml = '';
+                    _fsInlineIds.ejercicios.forEach(function(ej) {
+                        var nombre = ej.nombre || ej[0] || '';
+                        var reps = ej.reps || ej[2] || '';
+                        var unit = (ej.unit || 'Reps').toUpperCase();
+                        ptEjHtml += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,0.05);border-radius:10px;margin-bottom:6px;">' +
+                            '<span style="color:var(--texto);font-weight:700;font-size:clamp(0.85rem,2.5vw,1.1rem);">' + nombre + '</span>' +
+                            (reps ? '<span style="color:var(--amarillo);font-weight:900;font-size:clamp(0.85rem,2.5vw,1.1rem);white-space:nowrap;">' + reps + ' ' + unit + '</span>' : '') +
+                            '</div>';
+                    });
+                    fsEjList.innerHTML = ptEjHtml;
+                }
+
+                // Sincronizar lap log desde el log del bloque
+                var srcLog = _fsInlineIds && _fsInlineIds.logId ? document.getElementById(_fsInlineIds.logId) : null;
+                var fsLapLog2 = document.getElementById('fs-lap-log');
+                var fsLapCounter2 = document.getElementById('fs-lap-counter');
+                if (srcLog && fsLapLog2) {
+                    fsLapLog2.innerHTML = srcLog.innerHTML;
+                }
+                if (fsLapCounter2 && ptState) {
+                    fsLapCounter2.textContent = 'Vueltas: ' + ptState.vueltas + ' / ' + ptState.total;
+                }
+
+                // Si el bloque terminó, deshabilitar botón marcar
+                var fsBtnMarcar2 = document.getElementById('fs-btn-marcar');
+                if (fsBtnMarcar2 && ptState && !ptState.running) {
+                    fsBtnMarcar2.disabled = true;
+                    fsBtnMarcar2.textContent = '✓ BLOQUE COMPLETO';
                 }
             }
 
@@ -5253,8 +5368,7 @@
                         html += crearCard(nombre, link, metaStr, cc);
                     });
                     html += '<div id="' + timerId + '" style="font-size:3rem; font-family:Roboto Mono,monospace; font-weight:700; color:var(--amarillo); text-align:center; margin:12px 0; text-shadow:0 0 20px var(--amarillo-glow);">' + tiempoMin + ':00</div>' +
-                        '<button id="' + btnId + '" class="btn-rest" onclick="iniciarBloqueTiempoConDescuento(\'' + timerId + '\',\'' + btnId + '\',' + tiempoSeg + ')">Iniciar Bloque</button>' +
-                        '<button class="btn-fullscreen" style="margin-top:10px;" onclick="entrarFullscreen(\'circuito-tiempo\',{clock:\'' + timerId + '\',btn:\'' + btnId + '\',titulo:' + JSON.stringify(tituloBloque) + ',ejercicios:' + JSON.stringify(ejsBloque) + '})">⛶ PANTALLA COMPLETA</button>' +
+                        '<button id="' + btnId + '" class="btn-rest" onclick="iniciarBloqueTiempoConFS(\'' + timerId + '\',\'' + btnId + '\',' + tiempoSeg + ',' + JSON.stringify(tituloBloque) + ',' + JSON.stringify(ejsBloque) + ')">Iniciar Bloque</button>' +
                         '</div>';
                     pLista.innerHTML += html;
                 });
@@ -5439,7 +5553,7 @@
                 '<div id="' + ptLogId + '" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:26px;margin-bottom:12px;"></div>' +
                 '<div id="' + ptClockId + '" style="font-size:clamp(4rem,20vw,8rem);font-family:Roboto Mono,monospace;font-weight:700;color:var(--purpura);text-shadow:0 0 30px rgba(167,139,250,0.6);margin:10px 0;">00:00</div>' +
                 '<button id="' + ptBtnId + '" class="btn-rest" style="background:linear-gradient(135deg,var(--purpura),#7b3fa0);font-size:1.1rem;padding:16px 32px;margin-bottom:12px;" ' +
-                'onclick="iniciarBloquesPorTiempo(\'' + ptUid + '\',\'' + ptClockId + '\',\'' + ptBtnId + '\',\'' + ptVCountId + '\',\'' + ptLogId + '\',\'' + ptMarcarId + '\',' + ptVueltas + ')">' +
+                'onclick="iniciarPorTiempoConFS(\'' + ptUid + '\',\'' + ptClockId + '\',\'' + ptBtnId + '\',\'' + ptVCountId + '\',\'' + ptLogId + '\',\'' + ptMarcarId + '\',' + ptVueltas + ',' + JSON.stringify(ptEjs) + ')">' +
                 'EMPEZAR</button><br>' +
                 '<div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">' +
                 '<button id="' + ptMarcarId + '" class="btn-rest" style="display:none;background:linear-gradient(135deg,var(--verde),#1a7a4a);font-size:1.4rem;padding:22px 44px;font-weight:900;min-height:72px;letter-spacing:1px;" ' +
@@ -5638,9 +5752,8 @@
                     var _ctEjsBloque = b.ejercicios || [];
                     var _ctTituloBloque = 'BLOQUE #' + b.id + ' — ' + tiempo + ' min';
                     html += '<div id="' + tId + '" style="font-size:2.5rem; font-family:Roboto Mono,monospace; font-weight:700; color:var(--amarillo); text-align:center; margin:10px 0;">' + tiempo + ':00</div>' +
-                        '<button id="' + bId + '" class="btn-rest" onclick="iniciarBloqueTiempoConDescuento(\'' + tId + '\',\'' + bId + '\',' + (tiempo * 60) + ')">Iniciar Bloque</button>' +
+                        '<button id="' + bId + '" class="btn-rest" onclick="iniciarBloqueTiempoConFS(\'' + tId + '\',\'' + bId + '\',' + (tiempo * 60) + ',' + JSON.stringify(_ctTituloBloque) + ',' + JSON.stringify(_ctEjsBloque) + ')">Iniciar Bloque</button>' +
                         '<button id="' + pId + '" class="btn-pausa" style="margin-top:8px; display:none;" onclick="togglePausaBloqueTiempo(\'' + tId + '\', document.getElementById(\'' + pId + '\'))">\u23f8 PAUSAR</button>' +
-                        '<button class="btn-fullscreen" style="margin-top:8px;" onclick="entrarFullscreen(\'circuito-tiempo\',{clock:\'' + tId + '\',btn:\'' + bId + '\',titulo:' + JSON.stringify(_ctTituloBloque) + ',ejercicios:' + JSON.stringify(_ctEjsBloque) + '})">⛶ PANTALLA COMPLETA</button>' +
                         '</div>';
                 });
                 if (bloque.descripcion) {
@@ -5680,7 +5793,7 @@
                     '<div id="' + ptLogId + '" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:26px;margin-bottom:12px;"></div>' +
                     '<div id="' + ptClockId + '" style="font-size:clamp(3rem,14vw,6rem);font-family:Roboto Mono,monospace;font-weight:700;color:var(--purpura);text-shadow:0 0 30px rgba(167,139,250,0.6);margin:8px 0;">00:00</div>' +
                     '<button id="' + ptBtnId + '" class="btn-rest" style="background:linear-gradient(135deg,var(--purpura),#7b3fa0);margin-bottom:10px;" ' +
-                    'onclick="iniciarBloquesPorTiempo(\'' + ptUid + '\',\'' + ptClockId + '\',\'' + ptBtnId + '\',\'' + ptVCountId + '\',\'' + ptLogId + '\',\'' + ptMarcarId + '\',' + ptVueltas + ')">' +
+                    'onclick="iniciarPorTiempoConFS(\'' + ptUid + '\',\'' + ptClockId + '\',\'' + ptBtnId + '\',\'' + ptVCountId + '\',\'' + ptLogId + '\',\'' + ptMarcarId + '\',' + ptVueltas + ',' + JSON.stringify(ptEjs) + ')">' +
                     'EMPEZAR</button><br>' +
                     '<div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">' +
                     '<button id="' + ptMarcarId + '" class="btn-rest" style="display:none;background:linear-gradient(135deg,var(--verde),#1a7a4a);font-size:1.4rem;padding:22px 44px;font-weight:900;min-height:72px;letter-spacing:1px;" ' +
@@ -5793,7 +5906,6 @@
                     'onclick="togglePausaEmomBloque(\'' + emomClockId + '\', document.getElementById(\'' + emomPausaId + '\'))">\u23f8 PAUSAR</button>' +
                     '<button id="' + emomReinId + '" class="btn-pausa" style="max-width:280px; margin:8px auto 0; display:none; background:var(--tarjeta-alt); color:var(--texto-suave); border-color:var(--borde);" ' +
                     'onclick="reiniciarEmomMixInline(\'' + emomBtnId + '\', \'' + emomStatusId + '\', \'' + emomRoundId + '\', \'' + emomClockId + '\', \'' + emomEjId + '\', \'' + emomPausaId + '\', \'' + emomReinId + '\')">&#8635; REINICIAR</button>' +
-                    '<button class="btn-fullscreen" style="max-width:280px; margin:8px auto 0; display:block;" onclick="entrarFullscreen(\'inline\',{status:\'' + emomStatusId + '\',ej:\'' + emomEjId + '\',info:\'' + emomRoundId + '\',clock:\'' + emomClockId + '\'})">⛶ PANTALLA COMPLETA</button>' +
                     '</div></div>';
                 pLista.innerHTML += emomHtml;
 
@@ -5827,6 +5939,21 @@
 
         // ─── BLOQUE POR TIEMPO — Cronómetro ascendente ───
         var _porTiempoState = {}; // { uid: { running, iv, motivoIv, start, lapStart, vueltas, total, lastLap } }
+
+        // Wrapper: inicia PorTiempo Y entra en fullscreen mostrando ejercicios, lap counter y botón marcar
+        function iniciarPorTiempoConFS(uid, clockId, btnId, vCountId, logId, marcarId, totalVueltas, ejercicios) {
+            iniciarBloquesPorTiempo(uid, clockId, btnId, vCountId, logId, marcarId, totalVueltas);
+            entrarFullscreen('por-tiempo', {clock: clockId, logId: logId, ejercicios: ejercicios || []}, {
+                porTiempoUid: uid,
+                volverLabel: '← VOLVER A ENTRENAMIENTO',
+                volverCallback: function() {
+                    salirFullscreen();
+                },
+                marcarCallback: function() {
+                    marcarVueltaPorTiempo(uid, vCountId, logId, marcarId, totalVueltas);
+                }
+            });
+        }
 
         function iniciarBloquesPorTiempo(uid, clockId, btnId, vCountId, logId, marcarId, totalVueltas) {
             if (_porTiempoState[uid] && _porTiempoState[uid].running) return;
@@ -6568,6 +6695,18 @@
                 iniciarBloqueTiempo(timerId, btnId, totalSeg);
             }, {
                 showArrancamos: false
+            });
+        }
+
+        // Wrapper para Circuito por Tiempo: inicia bloque Y entra en fullscreen automáticamente
+        function iniciarBloqueTiempoConFS(timerId, btnId, totalSeg, titulo, ejercicios) {
+            iniciarBloqueTiempoConDescuento(timerId, btnId, totalSeg);
+            var inlineIds = {clock: timerId, btn: btnId, titulo: titulo, ejercicios: ejercicios};
+            entrarFullscreen('circuito-tiempo', inlineIds, {
+                volverLabel: '← VOLVER A ENTRENAMIENTO',
+                volverCallback: function() {
+                    salirFullscreen();
+                }
             });
         }
 
@@ -7431,12 +7570,20 @@
             document.getElementById('sec-rutina-lista').style.display = "none";
             document.getElementById('sec-timer-ui').style.display = "block";
             var _volverContainer = document.getElementById('timer-volver-container');
-            if (_volverContainer) _volverContainer.style.display = 'block';
+            if (_volverContainer) _volverContainer.style.display = 'none'; // ocultar botón volver dentro del timer
             const btnPausa = document.getElementById('btnPausaTimer');
             if (btnPausa) {
                 btnPausa.style.display = "block";
                 btnPausa.innerText = "⏸ PAUSAR";
             }
+            // Entrar automáticamente en fullscreen con botón "Volver a Bloque Principal"
+            entrarFullscreen('tabata', null, {
+                volverLabel: '← VOLVER A BLOQUE PRINCIPAL',
+                volverCallback: function() {
+                    salirFullscreen();
+                    volverDeTabataMix();
+                }
+            });
         }
 
         function volverDeTabataMix() {
@@ -7614,6 +7761,13 @@
                 }
             }
             iniciarEmomBloqueConCiclo(btnId, statusId, roundId, clockId, ejId || null, totalMin, ciclo);
+            // Entrar automáticamente en fullscreen con botón "Volver a Bloque Principal"
+            entrarFullscreen('inline', {status: statusId, ej: ejId || roundId, info: roundId, clock: clockId}, {
+                volverLabel: '← VOLVER A BLOQUE PRINCIPAL',
+                volverCallback: function() {
+                    salirFullscreen();
+                }
+            });
         }
 
         // ─── REINICIAR EMOM BLOQUE MIX INLINE ───
