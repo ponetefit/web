@@ -5507,8 +5507,10 @@
                         if (ej.descanso && parseInt(ej.descanso) > 0) metaStr += ' | Pausa: ' + ej.descanso + 's';
                         html += crearCard(ej.nombre, ej.link, metaStr, ej.con_carga);
                     });
+                    var _mixCtEjs = b.ejercicios || [];
+                    var _mixCtTitulo = 'BLOQUE #' + b.id + ' — ' + tiempo + ' min';
                     html += '<div id="' + timerIdVal + '" style="font-size:2.5rem; font-family:Roboto Mono,monospace; font-weight:700; color:var(--amarillo); text-align:center; margin:8px 0;">' + tiempo + ':00</div>' +
-                        '<button id="' + btnIdVal + '" class="btn-rest" onclick="iniciarBloqueTiempoConDescuento(\'' + timerIdVal + '\',\'' + btnIdVal + '\',' + (tiempo * 60) + ')">Iniciar Bloque</button></div>';
+                        '<button id="' + btnIdVal + '" class="btn-rest" onclick="iniciarBloqueTiempoFullscreen(\'' + timerIdVal + '\',\'' + btnIdVal + '\',' + (tiempo * 60) + ',' + JSON.stringify(_mixCtTitulo) + ',' + JSON.stringify(_mixCtEjs) + ')">Iniciar Bloque</button></div>';
                 });
                 html += '</div>';
                 pLista.innerHTML += html;
@@ -5637,9 +5639,8 @@
                     var _ctEjsBloque = b.ejercicios || [];
                     var _ctTituloBloque = 'BLOQUE #' + b.id + ' — ' + tiempo + ' min';
                     html += '<div id="' + tId + '" style="font-size:2.5rem; font-family:Roboto Mono,monospace; font-weight:700; color:var(--amarillo); text-align:center; margin:10px 0;">' + tiempo + ':00</div>' +
-                        '<button id="' + bId + '" class="btn-rest" onclick="iniciarBloqueTiempoConDescuento(\'' + tId + '\',\'' + bId + '\',' + (tiempo * 60) + ')">Iniciar Bloque</button>' +
+                        '<button id="' + bId + '" class="btn-rest" onclick="iniciarBloqueTiempoFullscreen(\'' + tId + '\',\'' + bId + '\',' + (tiempo * 60) + ',' + JSON.stringify(_ctTituloBloque) + ',' + JSON.stringify(_ctEjsBloque) + ')">Iniciar Bloque</button>' +
                         '<button id="' + pId + '" class="btn-pausa" style="margin-top:8px; display:none;" onclick="togglePausaBloqueTiempo(\'' + tId + '\', document.getElementById(\'' + pId + '\'))">\u23f8 PAUSAR</button>' +
-                        '<button class="btn-fullscreen" style="margin-top:8px;" onclick="entrarFullscreen(\'circuito-tiempo\',{clock:\'' + tId + '\',btn:\'' + bId + '\',titulo:' + JSON.stringify(_ctTituloBloque) + ',ejercicios:' + JSON.stringify(_ctEjsBloque) + '})">⛶ PANTALLA COMPLETA</button>' +
                         '</div>';
                 });
                 if (bloque.descripcion) {
