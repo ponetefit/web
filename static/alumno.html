@@ -707,6 +707,82 @@
                 opacity: 0;
             }
         }
+        /* ─── OVERLAY CIRCUITO TIEMPO FULLSCREEN (dedicado) ─── */
+
+        #overlay-ct-fs {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #0a0a0c;
+            z-index: 7500;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 24px 20px;
+            overflow: hidden;
+        }
+        #overlay-ct-fs.visible { display: flex; }
+
+        #ct-fs-prep-label {
+            font-size: 0.8rem;
+            font-weight: 900;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: var(--amarillo);
+            margin-bottom: 8px;
+        }
+        #ct-fs-titulo {
+            font-size: clamp(0.9rem, 3vw, 1.4rem);
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--texto-suave);
+            margin-bottom: 8px;
+            max-width: 90vw;
+        }
+        #ct-fs-countdown {
+            font-size: clamp(12rem, 48vw, 22rem);
+            font-family: 'Roboto Mono', monospace;
+            font-weight: 700;
+            color: var(--amarillo);
+            text-shadow: 0 0 80px rgba(255,213,79,0.6);
+            line-height: 1;
+            margin: 0 0 20px;
+            transition: color 0.3s;
+        }
+        #ct-fs-clock {
+            font-size: clamp(7rem, 28vw, 14rem);
+            font-family: 'Roboto Mono', monospace;
+            font-weight: 700;
+            color: var(--amarillo);
+            text-shadow: 0 0 50px rgba(255,213,79,0.5);
+            line-height: 1;
+            margin: 4px 0 12px;
+        }
+        #ct-fs-lista {
+            width: 90vw;
+            max-width: 500px;
+            max-height: 38vh;
+            overflow-y: auto;
+            margin: 0 auto 16px;
+            text-align: left;
+        }
+        #ct-fs-btn-salir {
+            background: rgba(255,255,255,0.08);
+            color: var(--texto-suave);
+            border: 1px solid var(--borde);
+            border-radius: 12px;
+            padding: 12px 32px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        #ct-fs-btn-salir:active { background: rgba(255,255,255,0.15); }
+
         /* ─── FULLSCREEN MODE ─── */
         
         #overlay-fullscreen {
@@ -1635,6 +1711,16 @@
             <div class="fs-progress-fill" id="fs-progress-fill"></div>
         </div>
         <button class="fs-btn-salir" onclick="salirFullscreen()">✕ SALIR</button>
+    </div>
+
+    <!-- Overlay dedicado para Circuito por Tiempo fullscreen -->
+    <div id="overlay-ct-fs">
+        <div id="ct-fs-prep-label">PREPARATE</div>
+        <div id="ct-fs-titulo"></div>
+        <div id="ct-fs-countdown"></div>
+        <div id="ct-fs-clock" style="display:none;"></div>
+        <div id="ct-fs-lista"></div>
+        <button id="ct-fs-btn-salir" onclick="cerrarCtFs()" style="display:none;">✕ SALIR</button>
     </div>
 
     <!-- Overlay descanso circuito -->
@@ -6572,123 +6658,111 @@
             });
         }
 
+        // ─── OVERLAY CIRCUITO TIEMPO — funciones de control ───
+        var _ctFsTimerId = null;
+        var _ctFsSyncIv = null;
+
+        function cerrarCtFs() {
+            var ov = document.getElementById('overlay-ct-fs');
+            if (ov) ov.classList.remove('visible');
+            if (_ctFsSyncIv) { clearInterval(_ctFsSyncIv); _ctFsSyncIv = null; }
+        }
+
         // ─── INICIAR BLOQUE TIEMPO CON PANTALLA COMPLETA Y CUENTA REGRESIVA ───
         function iniciarBloqueTiempoFullscreen(timerId, btnId, totalSeg) {
-            var _btn = document.getElementById(btnId);
-            var tituloBloque = '';
-            var ejsBloque = [];
-            if (_btn) {
-                try { tituloBloque = decodeURIComponent(_btn.dataset.titulo || ''); } catch(e) {}
-                try { ejsBloque = JSON.parse(decodeURIComponent(_btn.dataset.ejercicios || '[]')); } catch(e) {}
-            }
-            const timerEl = document.getElementById(timerId);
-            const btnEl = document.getElementById(btnId);
-            if (!timerEl || !btnEl) return;
+            var btnEl = document.getElementById(btnId);
+            var timerEl = document.getElementById(timerId);
+            if (!btnEl || !timerEl) return;
             if (btnEl.dataset.running === "1") return;
             if (hayTimerActivo()) return;
 
-            // Deshabilitar botón de inmediato
+            // Leer datos del bloque desde data attributes
+            var tituloBloque = '';
+            var ejsBloque = [];
+            try { tituloBloque = decodeURIComponent(btnEl.dataset.titulo || ''); } catch(e) {}
+            try { ejsBloque = JSON.parse(decodeURIComponent(btnEl.dataset.ejercicios || '[]')); } catch(e) {}
+
+            // Deshabilitar botón
             btnEl.dataset.running = "1";
             btnEl.disabled = true;
-            btnEl.innerText = "Preparate...";
+            btnEl.innerText = "En curso...";
             solicitarWakeLock();
-            _desbloquearAudioIOS && _desbloquearAudioIOS();
 
-            // Abrir overlay fullscreen en modo cuenta regresiva
-            var fsOverlay = document.getElementById('overlay-fullscreen');
-            var fsStatus = document.getElementById('fs-status');
-            var fsEj = document.getElementById('fs-ejercicio');
-            var fsInfo = document.getElementById('fs-info');
-            var fsClock = document.getElementById('fs-clock');
-            var fsFill = document.getElementById('fs-progress-fill');
-            var fsEjList = document.getElementById('fs-ejercicios-lista');
-            var fsBtnSalir = fsOverlay ? fsOverlay.querySelector('.fs-btn-salir') : null;
+            // Referencias al nuevo overlay
+            var ov         = document.getElementById('overlay-ct-fs');
+            var elPrep     = document.getElementById('ct-fs-prep-label');
+            var elTitulo   = document.getElementById('ct-fs-titulo');
+            var elCountdown = document.getElementById('ct-fs-countdown');
+            var elClock    = document.getElementById('ct-fs-clock');
+            var elLista    = document.getElementById('ct-fs-lista');
+            var elSalir    = document.getElementById('ct-fs-btn-salir');
 
-            // Ocultar botón salir durante cuenta regresiva
-            if (fsBtnSalir) fsBtnSalir.style.visibility = 'hidden';
+            // Configurar para la cuenta regresiva
+            if (elPrep)     elPrep.textContent     = 'PREPARATE';
+            if (elTitulo)   elTitulo.textContent   = tituloBloque;
+            if (elCountdown) { elCountdown.textContent = '5'; elCountdown.style.display = ''; }
+            if (elClock)    elClock.style.display  = 'none';
+            if (elLista)    elLista.innerHTML       = '';
+            if (elSalir)    elSalir.style.display   = 'none';
 
-            // Configurar overlay para cuenta regresiva
-            if (fsStatus) fsStatus.textContent = 'PREPARATE';
-            if (fsEj) fsEj.textContent = tituloBloque || '';
-            if (fsInfo) fsInfo.textContent = '';
-            if (fsClock) {
-                fsClock.textContent = '5';
-                fsClock.style.color = 'var(--amarillo)';
-                fsClock.style.textShadow = '0 0 60px rgba(255,213,79,0.7)';
-            }
-            if (fsFill) fsFill.style.width = '0%';
-            if (fsEjList) {
-                fsEjList.style.display = 'none';
-                fsEjList.innerHTML = '';
-                delete fsEjList.dataset.cargado;
-            }
+            // Mostrar overlay
+            ov.classList.add('visible');
 
-            // Remover clase con-ejercicios para que el reloj sea grande en la cuenta regresiva
-            fsOverlay.classList.remove('con-ejercicios');
-            _fsTipo = 'circuito-tiempo-prep';
-            _fsActivo = true;
-            fsOverlay.classList.add('visible');
-
-            // Intentar Fullscreen API nativa
-            try {
-                var el = document.documentElement;
-                if (el.requestFullscreen) el.requestFullscreen().catch(function(){});
-                else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-            } catch(e) {}
-
-            // Cuenta regresiva 5-4-3-2-1 en la pantalla completa
+            // Cuenta regresiva 5-4-3-2-1
             var count = 5;
             activarTimerGlobal();
 
-            var ivPrep = bgSetInterval(function() {
+            var ivPrep = setInterval(function() {
                 beep(440);
                 count--;
-                if (fsClock) fsClock.textContent = count > 0 ? count : '';
+                if (elCountdown) elCountdown.textContent = count > 0 ? String(count) : '';
                 if (count <= 0) {
-                    bgClearInterval(ivPrep);
+                    clearInterval(ivPrep);
                     beep(800);
 
-                    // Cambiar a modo timer con ejercicios
-                    fsOverlay.classList.add('con-ejercicios');
-                    _fsTipo = 'circuito-tiempo';
-                    _fsInlineIds = { clock: timerId, btn: btnId, titulo: tituloBloque, ejercicios: ejsBloque };
-
-                    if (fsStatus) fsStatus.textContent = tituloBloque || 'CIRCUITO POR TIEMPO';
-                    if (fsEj) fsEj.textContent = '';
-                    if (fsInfo) fsInfo.textContent = 'EN CURSO';
-                    if (fsClock) {
-                        var tiempoMin = Math.floor(totalSeg / 60);
-                        fsClock.textContent = tiempoMin + ':00';
-                        fsClock.style.color = 'var(--amarillo)';
+                    // ── Cambiar a modo TIMER ──
+                    if (elPrep)      elPrep.textContent    = tituloBloque || 'CIRCUITO POR TIEMPO';
+                    if (elCountdown) elCountdown.style.display = 'none';
+                    if (elClock) {
+                        var m = Math.floor(totalSeg / 60), s = totalSeg % 60;
+                        elClock.textContent = m + ':' + (s < 10 ? '0' + s : s);
+                        elClock.style.display = '';
                     }
 
-                    // Renderizar lista de ejercicios en fullscreen
-                    if (fsEjList && ejsBloque && ejsBloque.length > 0) {
-                        fsEjList.style.display = 'block';
-                        fsEjList.dataset.cargado = timerId;
+                    // Renderizar lista de ejercicios
+                    if (elLista && ejsBloque.length > 0) {
                         var ejsHtml = '';
                         ejsBloque.forEach(function(ej) {
                             var nombre = ej.nombre || ej[0] || '';
-                            var reps = ej.reps || ej[2] || '';
-                            var unit = (ej.unit || 'Reps').toUpperCase();
-                            ejsHtml += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,0.05);border-radius:10px;margin-bottom:6px;">' +
-                                '<span style="color:var(--texto);font-weight:700;font-size:clamp(0.85rem,2.5vw,1.1rem);">' + nombre + '</span>' +
-                                (reps ? '<span style="color:var(--amarillo);font-weight:900;font-size:clamp(0.85rem,2.5vw,1.1rem);white-space:nowrap;">' + reps + ' ' + unit + '</span>' : '') +
+                            var reps   = ej.reps   || ej[2] || '';
+                            var unit   = (ej.unit || 'Reps').toUpperCase();
+                            ejsHtml += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(255,255,255,0.06);border-radius:12px;margin-bottom:8px;">' +
+                                '<span style="color:#f0f0f5;font-weight:700;font-size:clamp(0.9rem,3vw,1.15rem);">' + nombre + '</span>' +
+                                (reps ? '<span style="color:#FFD54F;font-weight:900;font-size:clamp(0.9rem,3vw,1.15rem);white-space:nowrap;margin-left:12px;">' + reps + ' ' + unit + '</span>' : '') +
                                 '</div>';
                         });
-                        fsEjList.innerHTML = ejsHtml;
+                        elLista.innerHTML = ejsHtml;
                     }
 
                     // Mostrar botón salir
-                    if (fsBtnSalir) fsBtnSalir.style.visibility = 'visible';
+                    if (elSalir) elSalir.style.display = '';
 
-                    // Iniciar sync del fullscreen
-                    if (_fsSyncInterval) clearInterval(_fsSyncInterval);
-                    _fsSyncInterval = setInterval(_syncFullscreen, 200);
-
-                    // Iniciar el timer real del bloque
+                    // Iniciar el timer real
                     btnEl.dataset.running = "0";
                     iniciarBloqueTiempo(timerId, btnId, totalSeg);
+
+                    // Sincronizar reloj en el overlay con el inline timer
+                    _ctFsSyncIv = setInterval(function() {
+                        if (!ov.classList.contains('visible')) { clearInterval(_ctFsSyncIv); return; }
+                        var inlineTxt = timerEl.textContent || timerEl.innerText || '';
+                        if (elClock) elClock.textContent = inlineTxt;
+                        // Si el timer terminó, cambiar color
+                        if (inlineTxt === 'TIEMPO!') {
+                            if (elClock) elClock.style.color = 'var(--verde)';
+                            if (elClock) elClock.style.textShadow = '0 0 40px rgba(105,240,174,0.5)';
+                            clearInterval(_ctFsSyncIv);
+                        }
+                    }, 300);
                 }
             }, 1000);
         }
