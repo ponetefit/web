@@ -7087,10 +7087,51 @@
         var _ctFsTimerId = null;
         var _ctFsSyncIv = null;
 
+        var _ctFsActiveBtnId = null;
+        var _ctFsActiveTimerId = null;
+
         function cerrarCtFs() {
             var ov = document.getElementById('overlay-ct-fs');
             if (ov) ov.classList.remove('visible');
             if (_ctFsSyncIv) { clearInterval(_ctFsSyncIv); _ctFsSyncIv = null; }
+            // Mostrar botón para volver a abrir la pantalla completa
+            if (_ctFsActiveBtnId) {
+                var btnEl = document.getElementById(_ctFsActiveBtnId);
+                if (btnEl && btnEl.disabled) {
+                    var reopenId = _ctFsActiveBtnId + '-reopen';
+                    if (!document.getElementById(reopenId)) {
+                        var reopenBtn = document.createElement('button');
+                        reopenBtn.id = reopenId;
+                        reopenBtn.className = 'btn-fullscreen';
+                        reopenBtn.style.cssText = 'display:block;width:100%;margin-top:8px;';
+                        reopenBtn.textContent = '⛶ Ver pantalla completa';
+                        reopenBtn.onclick = function() { reabrirCtFs(); };
+                        btnEl.parentNode.insertBefore(reopenBtn, btnEl.nextSibling);
+                    }
+                }
+            }
+        }
+
+        function reabrirCtFs() {
+            var ov = document.getElementById('overlay-ct-fs');
+            if (ov) ov.classList.add('visible');
+            // Reactivar sync del reloj
+            if (_ctFsActiveBtnId) {
+                var timerEl = document.getElementById(_ctFsActiveTimerId);
+                var elClock = document.getElementById('ct-fs-clock');
+                if (timerEl && elClock) {
+                    if (_ctFsSyncIv) clearInterval(_ctFsSyncIv);
+                    _ctFsSyncIv = setInterval(function() {
+                        if (!ov.classList.contains('visible')) { clearInterval(_ctFsSyncIv); return; }
+                        var inlineTxt = timerEl.textContent || timerEl.innerText || '';
+                        elClock.textContent = inlineTxt;
+                        if (inlineTxt === 'TIEMPO!') {
+                            elClock.style.color = 'var(--verde)';
+                            clearInterval(_ctFsSyncIv);
+                        }
+                    }, 300);
+                }
+            }
         }
 
         // ─── INICIAR BLOQUE TIEMPO CON PANTALLA COMPLETA Y CUENTA REGRESIVA ───
@@ -7106,6 +7147,13 @@
             var ejsBloque = [];
             try { tituloBloque = decodeURIComponent(btnEl.dataset.titulo || ''); } catch(e) {}
             try { ejsBloque = JSON.parse(decodeURIComponent(btnEl.dataset.ejercicios || '[]')); } catch(e) {}
+
+            // Guardar referencias para poder reabrir la pantalla completa
+            _ctFsActiveBtnId = btnId;
+            _ctFsActiveTimerId = timerId;
+            // Eliminar botón reabrir anterior si existe
+            var oldReopen = document.getElementById(btnId + '-reopen');
+            if (oldReopen) oldReopen.remove();
 
             // Deshabilitar botón
             btnEl.dataset.running = "1";
@@ -7191,6 +7239,11 @@
                             if (elClock) elClock.style.color = 'var(--verde)';
                             if (elClock) elClock.style.textShadow = '0 0 40px rgba(105,240,174,0.5)';
                             clearInterval(_ctFsSyncIv);
+                            // Quitar botón reabrir y limpiar estado
+                            var reopenEl = document.getElementById(btnId + '-reopen');
+                            if (reopenEl) reopenEl.remove();
+                            _ctFsActiveBtnId = null;
+                            _ctFsActiveTimerId = null;
                         }
                     }, 300);
                 }
