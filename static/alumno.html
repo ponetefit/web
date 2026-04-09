@@ -1110,8 +1110,9 @@
             flex-direction: column;
             align-items: center;
             justify-content: flex-start;
-            padding: 28px 20px 24px;
+            padding: 24px 20px 0;
             overflow-y: auto;
+            padding-bottom: 200px; /* espacio para la barra inferior fija */
         }
         #overlay-pt-fs.visible { display: flex; }
 
@@ -1124,21 +1125,48 @@
             margin-bottom: 6px;
             text-align: center;
         }
+        /* Reloj total — ahora en la barra inferior */
         #pt-fs-clock {
-            font-size: clamp(5rem, 22vw, 10rem);
+            font-size: clamp(3.5rem, 16vw, 7rem);
             font-family: 'Roboto Mono', monospace;
             font-weight: 700;
             color: var(--purpura);
-            text-shadow: 0 0 50px rgba(206,147,216,0.6);
+            text-shadow: 0 0 30px rgba(206,147,216,0.5);
             line-height: 1;
-            margin: 4px 0 12px;
+            margin: 0;
             text-align: center;
         }
+        #pt-fs-total-label {
+            font-size: 0.6rem;
+            font-weight: 900;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--texto-suave);
+            margin-bottom: 4px;
+            text-align: center;
+        }
+        /* Barra inferior fija con reloj + botones */
+        #pt-fs-bottom {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(10,10,12,0.97);
+            border-top: 1px solid var(--borde);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 12px 20px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            z-index: 1;
+        }
         #pt-fs-vcount {
-            font-size: 1.3rem;
+            font-size: 1.4rem;
             font-weight: 900;
             color: var(--amarillo);
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             text-align: center;
         }
         #pt-fs-log {
@@ -1147,14 +1175,14 @@
             gap: 6px;
             justify-content: center;
             min-height: 28px;
-            margin-bottom: 14px;
+            margin-bottom: 10px;
             width: 90vw;
             max-width: 500px;
         }
         #pt-fs-lista {
             width: 90vw;
             max-width: 500px;
-            margin: 0 auto 20px;
+            margin: 0 auto 12px;
         }
         .pt-fs-ej-row {
             display: flex;
@@ -1195,7 +1223,7 @@
             text-transform: uppercase;
             box-shadow: 0 8px 30px rgba(105,240,174,0.4);
             transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s;
-            margin-bottom: 12px;
+            margin-bottom: 16px;
         }
         #pt-fs-btn-marcar:active {
             transform: scale(0.97);
@@ -1212,7 +1240,6 @@
             gap: 10px;
             width: 90vw;
             max-width: 500px;
-            margin-bottom: 8px;
         }
         #pt-fs-btn-pausa {
             flex: 1;
@@ -1246,6 +1273,129 @@
             transition: background 0.15s;
         }
         #pt-fs-btn-volver:active { background: rgba(255,255,255,0.12); }
+        /* Panel de resultados al finalizar */
+        #pt-fs-resultados {
+            width: 90vw;
+            max-width: 500px;
+            margin-bottom: 16px;
+        }
+        .pt-fs-resultado-card {
+            background: var(--tarjeta);
+            border: 1px solid var(--borde);
+            border-radius: 18px;
+            padding: 20px;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+        .pt-fs-resultado-titulo {
+            font-size: 0.65rem;
+            font-weight: 900;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--texto-suave);
+            margin-bottom: 14px;
+        }
+        .pt-fs-resultado-stats {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+        .pt-fs-stat-box {
+            flex: 1;
+            background: var(--fondo-alt);
+            border-radius: 12px;
+            padding: 12px 8px;
+        }
+        .pt-fs-stat-label {
+            font-size: 0.6rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--texto-suave);
+            margin-bottom: 4px;
+        }
+        .pt-fs-stat-value {
+            font-size: 1.3rem;
+            font-family: 'Roboto Mono', monospace;
+            font-weight: 900;
+            color: var(--amarillo);
+        }
+        .pt-fs-stat-value.mejor {
+            color: var(--verde);
+        }
+        .pt-fs-btn-finalizar {
+            width: 100%;
+            padding: 18px;
+            border-radius: 14px;
+            border: none;
+            font-weight: 900;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            min-height: 56px;
+            transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s;
+        }
+        .pt-fs-btn-finalizar:active { transform: scale(0.97); }
+        .pt-fs-btn-finalizar.es-ultimo {
+            background: linear-gradient(135deg, var(--naranja), #e85500);
+            color: white;
+            box-shadow: 0 8px 24px var(--naranja-glow);
+        }
+        .pt-fs-btn-finalizar.no-ultimo {
+            background: linear-gradient(135deg, var(--verde), #00c853);
+            color: #000;
+            box-shadow: 0 8px 24px rgba(105,240,174,0.35);
+        }
+        /* Chip de vuelta con indicador de mejor */
+        .pt-lap-chip {
+            background: rgba(105,240,174,0.1);
+            border: 1px solid rgba(105,240,174,0.3);
+            border-radius: 8px;
+            padding: 5px 10px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--verde);
+            font-family: 'Roboto Mono', monospace;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .pt-lap-chip.mejor-vuelta {
+            background: rgba(255,213,79,0.15);
+            border-color: rgba(255,213,79,0.5);
+            color: var(--amarillo);
+        }
+        /* Barra de progreso de vueltas */
+        #pt-fs-progreso-bar-wrap {
+            width: 90vw;
+            max-width: 500px;
+            margin-bottom: 12px;
+        }
+        .pt-fs-progreso-track {
+            height: 6px;
+            background: var(--borde);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .pt-fs-progreso-fill {
+            height: 100%;
+            border-radius: 6px;
+            background: linear-gradient(90deg, var(--purpura), var(--verde));
+            width: 0%;
+            transition: width 0.4s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        .pt-fs-progreso-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: var(--texto-suave);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
 
         /* ─── WARMUP TIMER ─── */
         
@@ -1917,15 +2067,23 @@
 
     <!-- Overlay Por Tiempo fullscreen -->
     <div id="overlay-pt-fs">
+        <!-- Zona superior: título + ejercicios + log de vueltas -->
         <div id="pt-fs-titulo">POR TIEMPO</div>
-        <div id="pt-fs-clock">00:00</div>
         <div id="pt-fs-vcount">Vueltas: 0 / 0</div>
-        <div id="pt-fs-log"></div>
         <div id="pt-fs-lista"></div>
+        <div id="pt-fs-log"></div>
+        <!-- Botón marcar grande (zona central) -->
         <button id="pt-fs-btn-marcar" onclick="_ptFsMarcar()">✓ MARCAR VUELTA</button>
-        <div class="pt-fs-btns-row">
-            <button id="pt-fs-btn-pausa" onclick="_ptFsTogglePausa()">⏸ PAUSA</button>
-            <button id="pt-fs-btn-volver" onclick="_ptFsCerrar()">← VOLVER</button>
+        <!-- Panel de resultados (se muestra al terminar) -->
+        <div id="pt-fs-resultados" style="display:none;"></div>
+        <!-- Zona inferior fija: tiempo total + controles -->
+        <div id="pt-fs-bottom">
+            <div id="pt-fs-total-label">TIEMPO TOTAL</div>
+            <div id="pt-fs-clock">00:00</div>
+            <div class="pt-fs-btns-row">
+                <button id="pt-fs-btn-pausa" onclick="_ptFsTogglePausa()">⏸ PAUSA</button>
+                <button id="pt-fs-btn-volver" onclick="_ptFsCerrar()">← VOLVER</button>
+            </div>
         </div>
     </div>
 
@@ -6369,14 +6527,33 @@
             var vcEl   = document.getElementById('pt-fs-vcount');
             var logEl  = document.getElementById('pt-fs-log');
             var clockEl = document.getElementById('pt-fs-clock');
+            var resEl  = document.getElementById('pt-fs-resultados');
+            var marcarBtn = document.getElementById('pt-fs-btn-marcar');
+
             if (vcEl)   vcEl.innerText  = 'Vueltas: 0 / ' + totalVueltas;
             if (logEl)  logEl.innerHTML = '';
             if (clockEl) clockEl.innerText = '00:00';
+            if (resEl)  { resEl.style.display = 'none'; resEl.innerHTML = ''; }
+
+            // Barra de progreso de vueltas
+            var progresoWrap = document.getElementById('pt-fs-progreso-bar-wrap');
+            if (!progresoWrap) {
+                progresoWrap = document.createElement('div');
+                progresoWrap.id = 'pt-fs-progreso-bar-wrap';
+                progresoWrap.innerHTML =
+                    '<div class="pt-fs-progreso-label"><span>PROGRESO DE VUELTAS</span><span id="pt-fs-progreso-pct">0%</span></div>' +
+                    '<div class="pt-fs-progreso-track"><div class="pt-fs-progreso-fill" id="pt-fs-progreso-fill"></div></div>';
+                // Insertar antes del log
+                if (logEl && logEl.parentNode) logEl.parentNode.insertBefore(progresoWrap, logEl);
+            }
+            var progresoFill = document.getElementById('pt-fs-progreso-fill');
+            var progresoPct  = document.getElementById('pt-fs-progreso-pct');
+            if (progresoFill) progresoFill.style.width = '0%';
+            if (progresoPct)  progresoPct.innerText = '0%';
 
             var pausaBtn = document.getElementById('pt-fs-btn-pausa');
             if (pausaBtn) pausaBtn.innerText = '⏸ PAUSA';
-            var marcarBtn = document.getElementById('pt-fs-btn-marcar');
-            if (marcarBtn) { marcarBtn.disabled = false; marcarBtn.innerText = '✓ MARCAR VUELTA'; }
+            if (marcarBtn) { marcarBtn.disabled = false; marcarBtn.innerText = '✓ MARCAR VUELTA'; marcarBtn.style.display = ''; }
 
             document.getElementById('overlay-pt-fs').classList.add('visible');
 
@@ -6394,12 +6571,23 @@
                 var srcLog   = document.getElementById(srcLogId);
                 if (srcClock && clockEl) clockEl.innerText = srcClock.innerText;
                 if (srcVc    && vcEl)    vcEl.innerText    = srcVc.innerText;
-                if (srcLog   && logEl && srcLog.innerHTML !== logEl.innerHTML) logEl.innerHTML = srcLog.innerHTML;
+                // Sincronizar chips de vuelta y actualizar barra de progreso
+                if (srcLog && logEl && srcLog.innerHTML !== logEl.innerHTML) {
+                    logEl.innerHTML = srcLog.innerHTML;
+                    // Actualizar barra de progreso según vueltas completadas
+                    var chips = logEl.querySelectorAll('.pt-lap-chip, span');
+                    var vueltasHechas = chips.length;
+                    if (vueltasHechas > 0 && totalVueltas > 0) {
+                        var pct = Math.round((vueltasHechas / totalVueltas) * 100);
+                        if (progresoFill) progresoFill.style.width = pct + '%';
+                        if (progresoPct)  progresoPct.innerText = pct + '%';
+                    }
+                }
                 // Detectar si el botón marcar quedó deshabilitado (bloque completo)
                 var srcMarcar = document.getElementById(mode === 'warmup' ? 'warmup-pt-marcar' : (uid + '-marcar'));
                 if (srcMarcar && srcMarcar.disabled && marcarBtn && !marcarBtn.disabled) {
                     marcarBtn.disabled = true;
-                    marcarBtn.innerText = srcMarcar.innerText || '✓ COMPLETADO';
+                    marcarBtn.style.display = 'none';
                 }
             }, 300);
         }
@@ -6457,6 +6645,17 @@
             if (_ptFsMode === 'warmup') {
                 var wBtn = document.getElementById('warmup-pt-marcar');
                 if (wBtn && !wBtn.disabled) wBtn.click();
+                // Actualizar barra de progreso en fullscreen
+                var vcEl = document.getElementById('pt-fs-vcount');
+                var txt = vcEl ? vcEl.innerText : '';
+                var m = txt.match(/(\d+)\s*\/\s*(\d+)/);
+                if (m) {
+                    var done = parseInt(m[1]), tot = parseInt(m[2]);
+                    var pFill = document.getElementById('pt-fs-progreso-fill');
+                    var pPct  = document.getElementById('pt-fs-progreso-pct');
+                    if (pFill && tot > 0) { pFill.style.width = Math.round(done/tot*100)+'%'; }
+                    if (pPct  && tot > 0) { pPct.innerText = Math.round(done/tot*100)+'%'; }
+                }
             } else {
                 var uid = _ptFsUid;
                 var st  = _porTiempoState[uid];
@@ -6464,7 +6663,7 @@
                 marcarVueltaPorTiempo(uid, uid + '-vcount', uid + '-log', uid + '-marcar', st.total);
                 if (!st.running) {
                     var mb = document.getElementById('pt-fs-btn-marcar');
-                    if (mb) { mb.disabled = true; mb.innerText = '✓ BLOQUE COMPLETO'; }
+                    if (mb) { mb.disabled = true; mb.style.display = 'none'; }
                 }
             }
         }
@@ -6546,60 +6745,129 @@
             }
             var lapStr = _fmt(lapMs);
 
+            // Calcular mejor vuelta hasta ahora
+            var bestMs = Math.min.apply(null, st.laps);
+            var bestIdx = st.laps.indexOf(bestMs);
+            var esMejor = (st.laps.length - 1) === bestIdx;
+
             var vCountEl = document.getElementById(vCountId);
             var logEl = document.getElementById(logId);
             var marcarEl = document.getElementById(marcarId);
 
             if (vCountEl) vCountEl.innerText = 'Vueltas: ' + st.vueltas + ' / ' + st.total;
+
+            // Chip de vuelta con indicador de mejor tiempo
             if (logEl) {
                 var chip = document.createElement('span');
-                chip.style.cssText = 'background:rgba(105,240,174,0.15);border:1px solid rgba(105,240,174,0.4);border-radius:8px;padding:4px 10px;font-size:0.75rem;font-weight:700;color:var(--verde);';
-                chip.innerText = 'V' + st.vueltas + ': ' + lapStr;
+                chip.className = 'pt-lap-chip' + (esMejor ? ' mejor-vuelta' : '');
+                chip.style.cssText = esMejor
+                    ? 'background:rgba(255,213,79,0.15);border:1px solid rgba(255,213,79,0.5);border-radius:8px;padding:5px 10px;font-size:0.75rem;font-weight:700;color:var(--amarillo);font-family:Roboto Mono,monospace;display:inline-flex;align-items:center;gap:4px;'
+                    : 'background:rgba(105,240,174,0.1);border:1px solid rgba(105,240,174,0.3);border-radius:8px;padding:5px 10px;font-size:0.75rem;font-weight:700;color:var(--verde);font-family:Roboto Mono,monospace;display:inline-flex;align-items:center;gap:4px;';
+                chip.innerHTML = (esMejor ? '⭐ ' : '') + 'V' + st.vueltas + ': ' + lapStr;
                 logEl.appendChild(chip);
             }
             beep(800);
 
-            // incrementarProgreso solo en la última vuelta para no disparar fin prematuro
+            // Actualizar barra de progreso en el fullscreen
+            var progresoFill = document.getElementById('pt-fs-progreso-fill');
+            var progresoPct  = document.getElementById('pt-fs-progreso-pct');
+            if (progresoFill && totalVueltas > 0) {
+                var pct = Math.round((st.vueltas / totalVueltas) * 100);
+                progresoFill.style.width = pct + '%';
+                if (progresoPct) progresoPct.innerText = pct + '%';
+            }
+
+            // Incrementar progreso general de rutina en cada vuelta
+            if (st.vueltas < st.total) {
+                // Vueltas intermedias: incrementar proporcional sin disparar fin
+                var _eraPenultimoSegInter = (_progresoSegActual < _progresoSegmentos.length - 1);
+                if (_eraPenultimoSegInter) _pantallaFinBloqueadaPorTiempo = true;
+                incrementarProgreso(1);
+                _pantallaFinBloqueadaPorTiempo = false;
+            }
+
             var restantes = st.total - st.vueltas;
             if (st.vueltas >= st.total) {
-                // Última vuelta: marcar completo
+                // Última vuelta: completar bloque
                 st.running = false;
                 bgClearInterval(st.iv);
                 bgClearInterval(st.motivoIv);
 
-                // Bloquear pantalla fin si este bloque NO es el último
                 var _eraPenultimoSeg = (_progresoSegActual < _progresoSegmentos.length - 1);
-                if (_eraPenultimoSeg) {
-                    // No es el último modo — solo destello, sin pantalla fin
-                    _pantallaFinBloqueadaPorTiempo = true;
-                }
+                var _esUltimoBloque  = !_eraPenultimoSeg;
 
-                incrementarProgreso(1); // avanzar progreso (puede disparar fin si es el último)
+                if (_eraPenultimoSeg) _pantallaFinBloqueadaPorTiempo = true;
+                incrementarProgreso(1);
                 _pantallaFinBloqueadaPorTiempo = false;
 
                 desactivarTimerGlobal();
                 liberarWakeLock();
                 if (marcarEl) { marcarEl.disabled = true; marcarEl.innerText = '✓ BLOQUE COMPLETO'; }
                 hablarCoach('Excelente! Completaste el bloque. Sos un crack!');
-                lanzarDestelloBloque(); // destello + confetti solo en última vuelta
+                lanzarDestelloBloque();
 
-                // Mostrar mejor vuelta
-                if (st.laps && st.laps.length > 0 && logEl) {
-                    var bestMs = Math.min.apply(null, st.laps);
-                    var bestIdx = st.laps.indexOf(bestMs);
-                    var bestBanner = document.createElement('div');
-                    bestBanner.style.cssText = 'margin-top:12px;background:linear-gradient(135deg,rgba(255,213,79,0.2),rgba(255,213,79,0.05));border:1.5px solid var(--amarillo);border-radius:12px;padding:10px 16px;text-align:center;';
-                    bestBanner.innerHTML = '<div style="font-size:0.65rem;font-weight:900;letter-spacing:2px;color:var(--amarillo);text-transform:uppercase;margin-bottom:4px;">MEJOR VUELTA</div>' +
-                        '<div style="font-size:1.4rem;font-weight:900;font-family:Roboto Mono,monospace;color:var(--amarillo);">V' + (bestIdx + 1) + ': ' + _fmt(bestMs) + '</div>';
-                    logEl.parentNode.insertBefore(bestBanner, logEl.nextSibling);
+                // Calcular estadísticas
+                var totalMs = now - st.start;
+                var avgMs   = Math.round(totalMs / st.laps.length);
+                var bestFmt = _fmt(bestMs);
+                var avgFmt  = _fmt(avgMs);
+
+                // Mostrar resultados en panel fullscreen
+                var resEl = document.getElementById('pt-fs-resultados');
+                if (resEl) {
+                    resEl.style.display = 'block';
+                    var btnLabel = _esUltimoBloque ? '🏁 FINALIZAR RUTINA' : '✓ BLOQUE COMPLETO';
+                    var btnClass = _esUltimoBloque ? 'pt-fs-btn-finalizar es-ultimo' : 'pt-fs-btn-finalizar no-ultimo';
+                    var btnAction = _esUltimoBloque
+                        ? 'for(var i=0;i<_progresoSegmentos.length;i++){_progresoSegmentos[i].completados=_progresoSegmentos[i].totalItems;}mostrarPantallaFin();'
+                        : '_ptFsCerrar();';
+                    resEl.innerHTML =
+                        '<div class="pt-fs-resultado-card">' +
+                        '<div class="pt-fs-resultado-titulo">📊 RESULTADOS DEL BLOQUE</div>' +
+                        '<div class="pt-fs-resultado-stats">' +
+                        '<div class="pt-fs-stat-box">' +
+                        '<div class="pt-fs-stat-label">Vueltas</div>' +
+                        '<div class="pt-fs-stat-value">' + st.laps.length + '</div>' +
+                        '</div>' +
+                        '<div class="pt-fs-stat-box">' +
+                        '<div class="pt-fs-stat-label">Promedio</div>' +
+                        '<div class="pt-fs-stat-value">' + avgFmt + '</div>' +
+                        '</div>' +
+                        '<div class="pt-fs-stat-box">' +
+                        '<div class="pt-fs-stat-label">⭐ Mejor</div>' +
+                        '<div class="pt-fs-stat-value mejor">' + bestFmt + '</div>' +
+                        '</div>' +
+                        '</div>' +
+                        '<button class="' + btnClass + '" onclick="' + btnAction + '">' + btnLabel + '</button>' +
+                        '</div>';
                 }
 
-                // Si era el penúltimo segmento (o antes), mostrar botón finalizar rutina
-                if (_eraPenultimoSeg) {
-                    _mostrarBotonFinalizarRutina(logEl ? logEl.parentNode : null);
+                // También mostrar estadísticas en el log inline
+                if (st.laps && st.laps.length > 0 && logEl) {
+                    var bestBanner = document.createElement('div');
+                    bestBanner.style.cssText = 'margin-top:10px;background:linear-gradient(135deg,rgba(255,213,79,0.15),rgba(255,213,79,0.03));border:1.5px solid var(--amarillo);border-radius:12px;padding:10px 14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;';
+                    bestBanner.innerHTML =
+                        '<div style="text-align:center;">' +
+                        '<div style="font-size:0.55rem;font-weight:900;letter-spacing:2px;color:var(--texto-suave);text-transform:uppercase;margin-bottom:2px;">PROMEDIO</div>' +
+                        '<div style="font-size:1.1rem;font-weight:900;font-family:Roboto Mono,monospace;color:var(--amarillo);">' + avgFmt + '</div>' +
+                        '</div>' +
+                        '<div style="text-align:center;">' +
+                        '<div style="font-size:0.55rem;font-weight:900;letter-spacing:2px;color:var(--texto-suave);text-transform:uppercase;margin-bottom:2px;">⭐ MEJOR</div>' +
+                        '<div style="font-size:1.1rem;font-weight:900;font-family:Roboto Mono,monospace;color:var(--verde);">' + 'V' + (bestIdx + 1) + ': ' + bestFmt + '</div>' +
+                        '</div>';
+                    logEl.appendChild(bestBanner);
+                    // Botón en inline si no se muestra el panel fullscreen
+                    if (_esUltimoBloque) {
+                        _mostrarBotonFinalizarRutina(logEl.parentNode);
+                    }
+                }
+
+                // Si era penúltimo segmento y NO es el último bloque, ocultar botón finalizar inline
+                if (!_esUltimoBloque) {
+                    // Ya se mostró el panel en fullscreen; no duplicar botón
                 }
             } else {
-                // Vuelta intermedia — solo chip, SIN incrementarProgreso (no queremos fin prematuro)
+                // Vuelta intermedia
                 hablarCoach(restantes === 1 ? 'Última vuelta! No aflojes!' : 'Quedan ' + restantes + ' vueltas. Vamos!');
             }
         }
