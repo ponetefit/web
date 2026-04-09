@@ -3048,9 +3048,10 @@
                 var emFill = document.getElementById('emom-progress-fill');
 
                 fsStatus.textContent = emStatus ? emStatus.textContent : '';
-                fsEj.textContent = emEj ? emEj.textContent : '';
-                _actualizarFsThumbnail(fsEj.textContent);
-                fsInfo.textContent = emMin ? emMin.textContent : '';
+                // Mostrar número de minuto como título principal
+                var emMinTxt = emMin ? emMin.textContent : '';
+                fsEj.textContent = emMinTxt || '';
+                fsInfo.textContent = '';
                 fsClock.textContent = emClock ? emClock.textContent : '--';
                 if (emFill) fsFill.style.width = emFill.style.width;
 
@@ -3064,28 +3065,104 @@
                     fsClock.style.color = 'var(--amarillo)';
                 }
 
+                // Mostrar lista de ejercicios del minuto actual con thumbnails
+                if (fsEjList && emomMinutosCiclo && emomMinutosCiclo.length > 0 && emomFase === 'trabajo') {
+                    var minData = emomMinutosCiclo[emomMinActual % emomMinutosCiclo.length];
+                    var ejsMinActual = (minData && !minData.es_descanso) ? (minData.ejercicios || []) : [];
+                    var cacheKey = 'emom-' + emomMinActual;
+                    if (ejsMinActual.length > 0 && fsEjList.dataset.cargado !== cacheKey) {
+                        fsEjList.style.display = 'block';
+                        fsEjList.dataset.cargado = cacheKey;
+                        var ejsHtmlEm = '';
+                        ejsMinActual.forEach(function(ej) {
+                            var nombre = ej.nombre || '';
+                            var reps = ej.reps || '';
+                            var unit = (ej.unit || 'Reps').toUpperCase();
+                            var link = _fsLinkCache[nombre.trim()] || '';
+                            var thumbUrl = extraerYoutubeThumbnail(link);
+                            var thumbHtmlEm = thumbUrl ? '<img src="' + thumbUrl + '" alt="' + nombre.replace(/"/g,'&quot;') + '" loading="lazy" style="width:80px;height:80px;object-fit:cover;border-radius:10px;flex-shrink:0;cursor:pointer;border:2px solid rgba(255,213,79,0.3);" onclick="abrirVideo(\'' + link.replace(/'/g,"\\'") + '\',\'' + nombre.replace(/'/g,"\\'") + '\')" />' : '';
+                            ejsHtmlEm += '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(255,213,79,0.07);border:1px solid rgba(255,213,79,0.2);border-radius:12px;margin-bottom:8px;">' +
+                                thumbHtmlEm +
+                                '<span style="flex:1;color:var(--texto);font-weight:700;font-size:clamp(0.9rem,3vw,1.15rem);">' + nombre + '</span>' +
+                                (reps ? '<span style="color:var(--amarillo);font-weight:900;font-size:clamp(0.9rem,3vw,1.1rem);white-space:nowrap;">' + reps + ' ' + unit + '</span>' : '') +
+                                '</div>';
+                        });
+                        fsEjList.innerHTML = ejsHtmlEm;
+                    } else if (ejsMinActual.length === 0) {
+                        fsEjList.style.display = 'none';
+                        fsEjList.innerHTML = '';
+                        delete fsEjList.dataset.cargado;
+                    }
+                } else if (emomFase !== 'trabajo') {
+                    fsEjList.style.display = 'none';
+                    fsEjList.innerHTML = '';
+                    delete fsEjList.dataset.cargado;
+                }
+
             } else if (_fsTipo === 'inline' && _fsInlineIds) {
                 // Inline Tabata/EMOM blocks dentro de ENTRENAMIENTO mix
                 var ids = _fsInlineIds;
                 var iStatus = document.getElementById(ids.status);
-                var iEj = document.getElementById(ids.ej);
+                var iEj = ids.ej ? document.getElementById(ids.ej) : null;
                 var iInfo = document.getElementById(ids.info);
                 var iClock = document.getElementById(ids.clock);
 
+                var iStatusTxt = (iStatus ? iStatus.textContent : '').toUpperCase();
                 fsStatus.textContent = iStatus ? iStatus.textContent : '';
-                fsEj.textContent = iEj ? iEj.textContent : '';
-                _actualizarFsThumbnail(fsEj.textContent);
-                fsInfo.textContent = iInfo ? iInfo.textContent : '';
+                // Mostrar número de minuto (iInfo) como título y ejercicios como lista con thumbnails
+                var iInfoTxt = iInfo ? iInfo.textContent : '';
+                fsEj.textContent = iInfoTxt || '';
+                fsInfo.textContent = '';
                 fsClock.textContent = iClock ? iClock.textContent : '--';
                 fsFill.style.width = '0%'; // inline no tienen progress bar
 
-                var iStatusTxt = (iStatus ? iStatus.textContent : '').toUpperCase();
                 if (iStatusTxt.indexOf('TRABAJO') !== -1 || iStatusTxt.indexOf('TRABAJA') !== -1) {
-                    fsClock.style.color = 'var(--verde)';
+                    fsClock.style.color = 'var(--amarillo)';
                 } else if (iStatusTxt.indexOf('DESCANSO') !== -1 || iStatusTxt.indexOf('PAUSA') !== -1) {
                     fsClock.style.color = 'var(--naranja)';
                 } else {
                     fsClock.style.color = 'var(--amarillo)';
+                }
+
+                // Mostrar ejercicios del minuto actual con thumbnails (desde el div inline)
+                if (fsEjList && iEj && (iStatusTxt.indexOf('TRABAJA') !== -1 || iStatusTxt.indexOf('TRABAJO') !== -1)) {
+                    var iEjRows = iEj.querySelectorAll('.emom-fs-ej-row');
+                    var cacheKeyInline = iClock ? (iClock.id + '-' + (iInfo ? iInfo.textContent : '')) : '';
+                    if (iEjRows.length > 0 && fsEjList.dataset.cargado !== cacheKeyInline) {
+                        fsEjList.style.display = 'block';
+                        fsEjList.dataset.cargado = cacheKeyInline;
+                        fsEjList.innerHTML = '';
+                        iEjRows.forEach(function(row) {
+                            fsEjList.appendChild(row.cloneNode(true));
+                        });
+                    } else if (iEjRows.length === 0 && iEj.dataset.emomEjs) {
+                        // Fallback: usar data attribute con ejercicios JSON
+                        var ejsData = [];
+                        try { ejsData = JSON.parse(iEj.dataset.emomEjs); } catch(e) {}
+                        if (ejsData.length > 0 && fsEjList.dataset.cargado !== cacheKeyInline) {
+                            fsEjList.style.display = 'block';
+                            fsEjList.dataset.cargado = cacheKeyInline;
+                            var ejsHtmlInl = '';
+                            ejsData.forEach(function(ej) {
+                                var nombre = ej.nombre || '';
+                                var reps = ej.reps || '';
+                                var unit = (ej.unit || 'Reps').toUpperCase();
+                                var link = _fsLinkCache[nombre.trim()] || '';
+                                var thumbUrl = extraerYoutubeThumbnail(link);
+                                var thumbHtmlInl = thumbUrl ? '<img src="' + thumbUrl + '" alt="' + nombre.replace(/"/g,'&quot;') + '" loading="lazy" style="width:80px;height:80px;object-fit:cover;border-radius:10px;flex-shrink:0;cursor:pointer;border:2px solid rgba(255,213,79,0.3);" onclick="abrirVideo(\'' + link.replace(/'/g,"\\'") + '\',\'' + nombre.replace(/'/g,"\\'") + '\')" />' : '';
+                                ejsHtmlInl += '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(255,213,79,0.07);border:1px solid rgba(255,213,79,0.2);border-radius:12px;margin-bottom:8px;">' +
+                                    thumbHtmlInl +
+                                    '<span style="flex:1;color:var(--texto);font-weight:700;font-size:clamp(0.9rem,3vw,1.15rem);">' + nombre + '</span>' +
+                                    (reps ? '<span style="color:var(--amarillo);font-weight:900;font-size:clamp(0.9rem,3vw,1.1rem);white-space:nowrap;">' + reps + ' ' + unit + '</span>' : '') +
+                                    '</div>';
+                            });
+                            fsEjList.innerHTML = ejsHtmlInl;
+                        }
+                    }
+                } else if (iStatusTxt.indexOf('PREP') !== -1 || iStatusTxt.indexOf('LISTO') !== -1) {
+                    fsEjList.style.display = 'none';
+                    fsEjList.innerHTML = '';
+                    delete fsEjList.dataset.cargado;
                 }
 
             } else if (_fsTipo === 'warmup') {
@@ -3093,14 +3170,38 @@
                 var wStatus = document.getElementById('warmup-status');
                 var wEj = document.getElementById('warmup-ej');
                 var wClock = document.getElementById('warmup-clock');
+                var wMinDiv = document.getElementById('warmup-emom-minuto');
 
+                var wStatusTxt = wStatus ? wStatus.textContent : '';
                 fsStatus.textContent = 'CALENTAMIENTO';
-                fsEj.textContent = wEj ? wEj.textContent : '';
-                _actualizarFsThumbnail(fsEj.textContent);
-                fsInfo.textContent = wStatus ? wStatus.textContent : '';
+                // Mostrar minuto si existe (EMOM warmup), sino ejercicio
+                var wMinTxt = wMinDiv ? wMinDiv.textContent : '';
+                fsEj.textContent = wMinTxt || (wEj ? wEj.textContent : '');
+                fsInfo.textContent = wStatusTxt;
                 fsClock.textContent = wClock ? wClock.textContent : '--';
                 fsFill.style.width = '0%';
                 fsClock.style.color = 'var(--azul)';
+
+                // Mostrar ejercicios con thumbnails (EMOM warmup)
+                var wEjListDiv = document.getElementById('warmup-emom-ej-list');
+                if (fsEjList && wEjListDiv && wEjListDiv.children.length > 0) {
+                    var wCacheKey = 'warmup-' + (wMinTxt || '');
+                    if (fsEjList.dataset.cargado !== wCacheKey) {
+                        fsEjList.style.display = 'block';
+                        fsEjList.dataset.cargado = wCacheKey;
+                        fsEjList.innerHTML = '';
+                        Array.from(wEjListDiv.querySelectorAll('.emom-fs-ej-row')).forEach(function(row) {
+                            fsEjList.appendChild(row.cloneNode(true));
+                        });
+                    }
+                } else if (!wEjListDiv) {
+                    // Fallback para ejercicio simple
+                    var wNombre = wEj ? wEj.textContent.replace(/^PROXIMO:\s*/i, '').trim() : '';
+                    _actualizarFsThumbnail(wNombre);
+                    fsEjList.style.display = 'none';
+                    fsEjList.innerHTML = '';
+                    delete fsEjList.dataset.cargado;
+                }
 
             } else if (_fsTipo === 'descanso-circuito') {
                 // Descanso entre vueltas del circuito principal
@@ -4504,6 +4605,16 @@
                 tBtn.onclick = function() {
                     iniciarEmomWarmup(det);
                 };
+                // Div para minuto actual EMOM warmup (usado en fullscreen sync)
+                var warmupEmomMinDiv = document.createElement('div');
+                warmupEmomMinDiv.id = 'warmup-emom-minuto';
+                warmupEmomMinDiv.style.cssText = 'font-size:0.85rem;color:var(--azul);font-weight:700;letter-spacing:1px;margin-bottom:6px;min-height:1.2rem;';
+                tBox.insertBefore(warmupEmomMinDiv, tEj);
+                // Div para ejercicios del minuto EMOM warmup con thumbnails
+                var warmupEmomEjList = document.createElement('div');
+                warmupEmomEjList.id = 'warmup-emom-ej-list';
+                warmupEmomEjList.style.cssText = 'margin-bottom:8px;';
+                tBox.insertBefore(warmupEmomEjList, tEj);
                 // Agregar barra de progreso para EMOM warmup
                 var warmupEmomProgressBar = document.createElement('div');
                 warmupEmomProgressBar.className = 'timer-progress-bar';
@@ -5027,6 +5138,10 @@
                 if (minActual >= mins) {
                     document.getElementById('warmup-status').innerText = "CALENTAMIENTO LISTO!";
                     document.getElementById('warmup-ej').innerText = "";
+                    var _weMinDivEnd = document.getElementById('warmup-emom-minuto');
+                    if (_weMinDivEnd) _weMinDivEnd.innerText = "";
+                    var _weEjListEnd = document.getElementById('warmup-emom-ej-list');
+                    if (_weEjListEnd) _weEjListEnd.innerHTML = "";
                     document.getElementById('warmup-clock').innerText = "OK";
                     warmupRunning = false;
                     desactivarTimerGlobal();
@@ -5037,13 +5152,29 @@
                     return;
                 }
                 document.getElementById('warmup-status').innerText = "MINUTO " + (minActual + 1) + "/" + mins;
+                // Actualizar div de minuto para fullscreen sync
+                var _weMinDiv = document.getElementById('warmup-emom-minuto');
+                if (_weMinDiv) _weMinDiv.innerText = "Minuto " + (minActual + 1) + " de " + mins;
                 // Usar config por minuto si existe
                 var _wEmomNombresMin = '';
                 var _wEjsMinDisplay = [];
+                var _wEjsMinData = []; // objetos completos para thumbnails
                 if (emomCfgPorMin.length > 0 && emomCfgPorMin[minActual]) {
                     var _wMinCfg = emomCfgPorMin[minActual];
                     _wEjsMinDisplay = (_wMinCfg.ejercicios_nombres || []).filter(function(n){ return n; });
                     _wEmomNombresMin = _wEjsMinDisplay.join(' y ');
+                    // Obtener datos completos del warmup_ejercicios
+                    _wEjsMinDisplay.forEach(function(n) {
+                        var ejObj = ejsW.find(function(e){ return (Array.isArray(e) ? e[0] : (e.nombre||e.ejercicio||'')) === n; });
+                        if (ejObj) {
+                            var eLink = Array.isArray(ejObj) ? ejObj[1] : (ejObj.link||'');
+                            var eReps = Array.isArray(ejObj) ? ejObj[2] : (ejObj.reps||'');
+                            var eUnit = Array.isArray(ejObj) ? (ejObj[3]||'Reps') : (ejObj.unit||'Reps');
+                            _wEjsMinData.push({ nombre: n, link: eLink, reps: eReps, unit: eUnit });
+                        } else {
+                            _wEjsMinData.push({ nombre: n, link: '', reps: '', unit: 'Reps' });
+                        }
+                    });
                 } else {
                     // fallback: calcular por índice
                     var _wStartIdx = minActual * ejsPorMin;
@@ -5051,9 +5182,28 @@
                     for (var _wei = _wStartIdx; _wei < _wEndIdx; _wei++) {
                         var _wej = ejsW[_wei];
                         var _wn = Array.isArray(_wej) ? _wej[0] : (_wej.nombre || _wej.ejercicio || "");
-                        if (_wn) _wEjsMinDisplay.push(_wn);
+                        var _wl = Array.isArray(_wej) ? _wej[1] : (_wej.link || "");
+                        var _wr = Array.isArray(_wej) ? _wej[2] : (_wej.reps || "");
+                        var _wu = Array.isArray(_wej) ? (_wej[3]||'Reps') : (_wej.unit||'Reps');
+                        if (_wn) { _wEjsMinDisplay.push(_wn); _wEjsMinData.push({ nombre: _wn, link: _wl, reps: _wr, unit: _wu }); }
                     }
                     _wEmomNombresMin = _wEjsMinDisplay.join(' y ');
+                }
+                // Mostrar ejercicios con thumbnails en el div inline
+                var _weEjListDiv = document.getElementById('warmup-emom-ej-list');
+                if (_weEjListDiv) {
+                    _weEjListDiv.innerHTML = _wEjsMinData.map(function(ej) {
+                        var eU = (ej.unit || 'Reps').toUpperCase();
+                        var rT = ej.reps ? ej.reps + ' ' + eU : '';
+                        var link = _fsLinkCache[(ej.nombre || '').trim()] || ej.link || '';
+                        var thumbUrl = extraerYoutubeThumbnail(link);
+                        var thumbHtmlWE = thumbUrl ? '<img src="' + thumbUrl + '" alt="' + (ej.nombre || '').replace(/"/g,'&quot;') + '" loading="lazy" style="width:52px;height:52px;object-fit:cover;border-radius:8px;flex-shrink:0;cursor:pointer;border:2px solid rgba(79,195,247,0.3);" onclick="abrirVideo(\'' + link.replace(/'/g,"\\'") + '\',\'' + (ej.nombre || '').replace(/'/g,"\\'") + '\')" />' : '';
+                        return '<div class="emom-fs-ej-row" style="display:flex;align-items:center;gap:10px;margin-bottom:6px;padding:8px 10px;background:rgba(79,195,247,0.07);border:1px solid rgba(79,195,247,0.2);border-radius:10px;">' +
+                            thumbHtmlWE +
+                            '<span style="flex:1;font-weight:700;color:var(--texto);font-size:clamp(0.85rem,3vw,0.95rem);">' + (ej.nombre || '') + '</span>' +
+                            (rT ? '<span style="color:var(--azul);font-weight:900;font-size:clamp(0.8rem,2.5vw,0.9rem);white-space:nowrap;">' + rT + '</span>' : '') +
+                            '</div>';
+                    }).join('');
                 }
                 document.getElementById('warmup-ej').innerText = _wEjsMinDisplay.length > 0 ? _wEjsMinDisplay.join(" | ") : "";
                 // >>> COACH: Anunciar ejercicios del minuto + tip técnico
@@ -7610,13 +7760,31 @@
             if (emomFase === "trabajo") {
                 document.getElementById('emom-minuto').innerText = "Minuto " + (emomMinActual + 1) + " de " + emomMinTotal;
                 document.getElementById('emom-subtexto').innerText = "";
-                // Mostrar ejercicios del minuto actual
+                // Mostrar ejercicios del minuto actual con thumbnails
                 var _emNomActual = _obtenerNombresEmomMinuto(emomMinActual, emomMinutosCiclo);
                 var ejNomEl = document.getElementById('emom-ejercicio-nombre');
-                if (ejNomEl && _emNomActual) {
-                    ejNomEl.innerHTML = '<span style="color:var(--amarillo);font-weight:900;">' + _emNomActual.split(' y ').join('</span><br><span style="color:var(--amarillo);font-weight:900;">') + '</span>';
-                } else if (ejNomEl) {
-                    ejNomEl.innerHTML = '';
+                if (ejNomEl) {
+                    var minDataUI = emomMinutosCiclo && emomMinutosCiclo.length > 0 ? emomMinutosCiclo[emomMinActual % emomMinutosCiclo.length] : null;
+                    var ejsMinUI = (minDataUI && !minDataUI.es_descanso) ? (minDataUI.ejercicios || []) : [];
+                    if (ejsMinUI.length > 0) {
+                        ejNomEl.dataset.emomEjs = JSON.stringify(ejsMinUI);
+                        ejNomEl.innerHTML = ejsMinUI.map(function(ej) {
+                            var eU = (ej.unit || 'Reps').toUpperCase();
+                            var rT = ej.reps ? ej.reps + ' ' + eU : '';
+                            var link = _fsLinkCache[(ej.nombre || '').trim()] || ej.link || '';
+                            var thumbUrl = extraerYoutubeThumbnail(link);
+                            var thumbHtmlUI = thumbUrl ? '<img src="' + thumbUrl + '" alt="' + (ej.nombre || '').replace(/"/g,'&quot;') + '" loading="lazy" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0;cursor:pointer;border:2px solid rgba(255,213,79,0.25);" onclick="abrirVideo(\'' + link.replace(/'/g,"\\'") + '\',\'' + (ej.nombre || '').replace(/'/g,"\\'") + '\')" />' : '';
+                            return '<div class="emom-fs-ej-row" style="display:flex;align-items:center;gap:10px;margin-bottom:6px;padding:8px 12px;background:rgba(255,213,79,0.07);border:1px solid rgba(255,213,79,0.18);border-radius:10px;">' +
+                                thumbHtmlUI +
+                                '<span style="flex:1;font-weight:700;color:var(--texto);font-size:clamp(0.9rem,3.5vw,1.05rem);">' + (ej.nombre || '') + '</span>' +
+                                (rT ? '<span style="color:var(--amarillo);font-weight:900;font-size:clamp(0.85rem,3vw,1rem);white-space:nowrap;">' + rT + '</span>' : '') +
+                                '</div>';
+                        }).join('');
+                    } else if (_emNomActual) {
+                        ejNomEl.innerHTML = '<span style="color:var(--amarillo);font-weight:900;">' + _emNomActual.split(' y ').join('</span><br><span style="color:var(--amarillo);font-weight:900;">') + '</span>';
+                    } else {
+                        ejNomEl.innerHTML = '';
+                    }
                 }
             } else if (emomFase === "prep") {
                 document.getElementById('emom-minuto').innerText = "";
@@ -8171,16 +8339,27 @@
                 if (ciclo.length > 0) {
                     var minData = ciclo[minIdx % ciclo.length];
                     if (minData && minData.ejercicios && minData.ejercicios.length > 0) {
+                        // Guardar datos del minuto actual para fullscreen
+                        ejEl.dataset.emomEjs = JSON.stringify(minData.ejercicios);
                         ejEl.innerHTML = minData.ejercicios.map(function(ej) {
-                            var eU = (ej.unit || 'reps').toLowerCase();
-                            var rT = ej.reps ? (' <span style="color:var(--amarillo);">' + ej.reps + ' ' + eU + '</span>') : '';
-                            return '<div>' + ej.nombre + rT + '</div>';
+                            var eU = (ej.unit || 'reps').toUpperCase();
+                            var rT = ej.reps ? ej.reps + ' ' + eU : '';
+                            var link = _fsLinkCache[(ej.nombre || '').trim()] || ej.link || '';
+                            var thumbUrl = extraerYoutubeThumbnail(link);
+                            var thumbHtmlME = thumbUrl ? '<img src="' + thumbUrl + '" alt="' + (ej.nombre || '').replace(/"/g,'&quot;') + '" loading="lazy" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0;cursor:pointer;border:2px solid rgba(255,213,79,0.25);" onclick="abrirVideo(\'' + link.replace(/'/g,"\\'") + '\',\'' + (ej.nombre || '').replace(/'/g,"\\'") + '\')" />' : '';
+                            return '<div class="emom-fs-ej-row" style="display:flex;align-items:center;gap:10px;margin-bottom:6px;padding:8px 10px;background:rgba(255,213,79,0.07);border:1px solid rgba(255,213,79,0.2);border-radius:10px;">' +
+                                thumbHtmlME +
+                                '<span style="flex:1;font-weight:700;color:var(--texto);font-size:clamp(0.85rem,3vw,1rem);">' + (ej.nombre || '') + '</span>' +
+                                (rT ? '<span style="color:var(--amarillo);font-weight:900;font-size:clamp(0.85rem,3vw,0.95rem);white-space:nowrap;">' + rT + '</span>' : '') +
+                                '</div>';
                         }).join('');
                     } else {
                         ejEl.innerHTML = "";
+                        ejEl.dataset.emomEjs = '[]';
                     }
                 } else {
                     ejEl.innerHTML = "";
+                    ejEl.dataset.emomEjs = '[]';
                 }
             }
 
