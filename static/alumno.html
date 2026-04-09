@@ -1890,9 +1890,6 @@
     <!-- Overlay Pantalla Completa -->
     <div id="overlay-fullscreen">
         <div class="fs-status" id="fs-status"></div>
-        <div id="fs-thumbnail-wrap" style="display:none;margin-bottom:10px;">
-            <img id="fs-thumbnail-img" src="" alt="" style="width:90px;height:90px;object-fit:cover;border-radius:14px;border:2px solid rgba(255,255,255,0.12);cursor:pointer;" onclick="(function(){var n=document.getElementById('fs-ejercicio').textContent;var l=_fsLinkCache[n];if(l)abrirVideo(l,n);})()" />
-        </div>
         <div class="fs-ejercicio" id="fs-ejercicio"></div>
         <div class="fs-info" id="fs-info"></div>
         <div class="fs-clock" id="fs-clock">--</div>
@@ -2979,29 +2976,7 @@
             } catch (e) {}
         }
 
-        // ─── CACHE DE LINKS POR NOMBRE DE EJERCICIO (para thumbnail en fullscreen) ───
-        var _fsLinkCache = {};
-
-        function _registrarLink(nombre, link) {
-            if (nombre && link) _fsLinkCache[nombre.trim()] = link;
-        }
-
-        function _actualizarFsThumbnail(nombre) {
-            var wrap = document.getElementById('fs-thumbnail-wrap');
-            var img = document.getElementById('fs-thumbnail-img');
-            if (!wrap || !img || !nombre) { if (wrap) wrap.style.display = 'none'; return; }
-            var link = _fsLinkCache[nombre.trim()];
-            var thumb = extraerYoutubeThumbnail(link || '');
-            if (thumb) {
-                img.src = thumb;
-                img.alt = nombre;
-                wrap.style.display = 'block';
-            } else {
-                wrap.style.display = 'none';
-            }
-        }
-
-                function _syncFullscreen() {
+        function _syncFullscreen() {
             if (!_fsActivo) return;
             var fsStatus = document.getElementById('fs-status');
             var fsEj = document.getElementById('fs-ejercicio');
@@ -3020,7 +2995,6 @@
 
                 fsStatus.textContent = status ? status.textContent : '';
                 fsEj.textContent = ejNombre ? ejNombre.textContent : '';
-                _actualizarFsThumbnail(fsEj.textContent);
                 fsInfo.textContent = ejSub ? ejSub.textContent : '';
                 fsClock.textContent = clock ? clock.textContent : '--';
                 if (fill) fsFill.style.width = fill.style.width;
@@ -3047,7 +3021,6 @@
 
                 fsStatus.textContent = emStatus ? emStatus.textContent : '';
                 fsEj.textContent = emEj ? emEj.textContent : '';
-                _actualizarFsThumbnail(fsEj.textContent);
                 fsInfo.textContent = emMin ? emMin.textContent : '';
                 fsClock.textContent = emClock ? emClock.textContent : '--';
                 if (emFill) fsFill.style.width = emFill.style.width;
@@ -3072,7 +3045,6 @@
 
                 fsStatus.textContent = iStatus ? iStatus.textContent : '';
                 fsEj.textContent = iEj ? iEj.textContent : '';
-                _actualizarFsThumbnail(fsEj.textContent);
                 fsInfo.textContent = iInfo ? iInfo.textContent : '';
                 fsClock.textContent = iClock ? iClock.textContent : '--';
                 fsFill.style.width = '0%'; // inline no tienen progress bar
@@ -3094,7 +3066,6 @@
 
                 fsStatus.textContent = 'CALENTAMIENTO';
                 fsEj.textContent = wEj ? wEj.textContent : '';
-                _actualizarFsThumbnail(fsEj.textContent);
                 fsInfo.textContent = wStatus ? wStatus.textContent : '';
                 fsClock.textContent = wClock ? wClock.textContent : '--';
                 fsFill.style.width = '0%';
@@ -3108,7 +3079,6 @@
 
                 fsStatus.textContent = 'DESCANSO DE VUELTA';
                 fsEj.textContent = vContEl ? vContEl.textContent : '';
-                _actualizarFsThumbnail('');
                 fsInfo.textContent = 'Descansá y preparate';
                 fsClock.textContent = dcClock ? dcClock.textContent : '--';
                 fsClock.style.color = 'var(--purpura)';
@@ -4186,7 +4156,6 @@
                 '<img src="' + thumbUrl + '" alt="' + (nombre || '').replace(/"/g, '&quot;') + '" loading="lazy">' +
                 '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div>' +
                 '</div>' : '';
-            _registrarLink(nombre, link);
             return '<div class="card-ejercicio"><div class="card-ej-top">' + thumbHtml + '<span class="card-ejercicio-nombre">' + nombre + '</span>' + metaHtml + videoBtn + '</div>' + elemHtml + (extraHtml || '') + pesoHtml + '</div>';
         }
 
@@ -4204,7 +4173,6 @@
                 '<img src="' + thumbUrl + '" alt="' + (nombre || '').replace(/"/g, '&quot;') + '" loading="lazy">' +
                 '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div>' +
                 '</div>' : '';
-            _registrarLink(nombre, link);
             return '<div class="card-numero">' +
                 '<div class="card-numero-header"><span class="card-numero-idx">EJ ' + idx + ' / ' + total + '</span></div>' +
                 '<div class="card-numero-body">' + thumbHtml + '<span class="card-numero-nombre">' + nombre + '</span>' + videoBtn + '</div>' +
