@@ -1160,12 +1160,14 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 12px;
             padding: 12px 16px;
             background: rgba(255,255,255,0.06);
             border-radius: 14px;
             margin-bottom: 8px;
         }
         .pt-fs-ej-nombre {
+            flex: 1;
             color: #f0f0f5;
             font-weight: 700;
             font-size: clamp(0.9rem, 3.5vw, 1.15rem);
@@ -1890,6 +1892,9 @@
     <!-- Overlay Pantalla Completa -->
     <div id="overlay-fullscreen">
         <div class="fs-status" id="fs-status"></div>
+        <div id="fs-thumbnail-wrap" style="display:none;margin-bottom:10px;">
+            <img id="fs-thumbnail-img" src="" alt="" style="width:100px;height:100px;object-fit:cover;border-radius:12px;border:2px solid rgba(255,255,255,0.12);cursor:pointer;" onclick="(function(){var n=document.getElementById('fs-ejercicio').textContent;var l=_fsLinkCache[n];if(l)abrirVideo(l,n);})()" />
+        </div>
         <div class="fs-ejercicio" id="fs-ejercicio"></div>
         <div class="fs-info" id="fs-info"></div>
         <div class="fs-clock" id="fs-clock">--</div>
@@ -2976,7 +2981,29 @@
             } catch (e) {}
         }
 
-        function _syncFullscreen() {
+        // ─── CACHE DE LINKS POR NOMBRE DE EJERCICIO (para thumbnail en fullscreen) ───
+        var _fsLinkCache = {};
+
+        function _registrarLink(nombre, link) {
+            if (nombre && link) _fsLinkCache[nombre.trim()] = link;
+        }
+
+        function _actualizarFsThumbnail(nombre) {
+            var wrap = document.getElementById('fs-thumbnail-wrap');
+            var img = document.getElementById('fs-thumbnail-img');
+            if (!wrap || !img || !nombre) { if (wrap) wrap.style.display = 'none'; return; }
+            var link = _fsLinkCache[nombre.trim()];
+            var thumb = extraerYoutubeThumbnail(link || '');
+            if (thumb) {
+                img.src = thumb;
+                img.alt = nombre;
+                wrap.style.display = 'block';
+            } else {
+                wrap.style.display = 'none';
+            }
+        }
+
+                function _syncFullscreen() {
             if (!_fsActivo) return;
             var fsStatus = document.getElementById('fs-status');
             var fsEj = document.getElementById('fs-ejercicio');
@@ -2995,6 +3022,7 @@
 
                 fsStatus.textContent = status ? status.textContent : '';
                 fsEj.textContent = ejNombre ? ejNombre.textContent : '';
+                _actualizarFsThumbnail(fsEj.textContent);
                 fsInfo.textContent = ejSub ? ejSub.textContent : '';
                 fsClock.textContent = clock ? clock.textContent : '--';
                 if (fill) fsFill.style.width = fill.style.width;
@@ -3021,6 +3049,7 @@
 
                 fsStatus.textContent = emStatus ? emStatus.textContent : '';
                 fsEj.textContent = emEj ? emEj.textContent : '';
+                _actualizarFsThumbnail(fsEj.textContent);
                 fsInfo.textContent = emMin ? emMin.textContent : '';
                 fsClock.textContent = emClock ? emClock.textContent : '--';
                 if (emFill) fsFill.style.width = emFill.style.width;
@@ -3045,6 +3074,7 @@
 
                 fsStatus.textContent = iStatus ? iStatus.textContent : '';
                 fsEj.textContent = iEj ? iEj.textContent : '';
+                _actualizarFsThumbnail(fsEj.textContent);
                 fsInfo.textContent = iInfo ? iInfo.textContent : '';
                 fsClock.textContent = iClock ? iClock.textContent : '--';
                 fsFill.style.width = '0%'; // inline no tienen progress bar
@@ -3066,6 +3096,7 @@
 
                 fsStatus.textContent = 'CALENTAMIENTO';
                 fsEj.textContent = wEj ? wEj.textContent : '';
+                _actualizarFsThumbnail(fsEj.textContent);
                 fsInfo.textContent = wStatus ? wStatus.textContent : '';
                 fsClock.textContent = wClock ? wClock.textContent : '--';
                 fsFill.style.width = '0%';
@@ -3079,6 +3110,7 @@
 
                 fsStatus.textContent = 'DESCANSO DE VUELTA';
                 fsEj.textContent = vContEl ? vContEl.textContent : '';
+                _actualizarFsThumbnail('');
                 fsInfo.textContent = 'Descansá y preparate';
                 fsClock.textContent = dcClock ? dcClock.textContent : '--';
                 fsClock.style.color = 'var(--purpura)';
@@ -3111,8 +3143,13 @@
                         var nombre = ej.nombre || ej[0] || '';
                         var reps = ej.reps || ej[2] || '';
                         var unit = (ej.unit || 'Reps').toUpperCase();
-                        ejsHtml += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,0.05);border-radius:10px;margin-bottom:6px;">' +
-                            '<span style="color:var(--texto);font-weight:700;font-size:clamp(0.85rem,2.5vw,1.1rem);">' + nombre + '</span>' +
+                        var link = ej.link || ej[1] || '';
+                        _registrarLink(nombre, link);
+                        var thumbUrl = extraerYoutubeThumbnail(link);
+                        var thumbHtmlInline = thumbUrl ? '<img src="' + thumbUrl + '" alt="' + nombre.replace(/"/g,'&quot;') + '" loading="lazy" style="width:100px;height:100px;object-fit:cover;border-radius:12px;flex-shrink:0;cursor:pointer;border:2px solid rgba(255,255,255,0.1);" onclick="abrirVideo(\'' + link.replace(/'/g,"\'") + '\',\'' + nombre.replace(/'/g,"\'") + '\')" />' : '';
+                        ejsHtml += '<div style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:rgba(255,255,255,0.05);border-radius:10px;margin-bottom:6px;">' +
+                            thumbHtmlInline +
+                            '<span style="flex:1;color:var(--texto);font-weight:700;font-size:clamp(0.85rem,2.5vw,1.1rem);">' + nombre + '</span>' +
                             (reps ? '<span style="color:var(--amarillo);font-weight:900;font-size:clamp(0.85rem,2.5vw,1.1rem);white-space:nowrap;">' + reps + ' ' + unit + '</span>' : '') +
                             '</div>';
                     });
@@ -4156,6 +4193,7 @@
                 '<img src="' + thumbUrl + '" alt="' + (nombre || '').replace(/"/g, '&quot;') + '" loading="lazy">' +
                 '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div>' +
                 '</div>' : '';
+            _registrarLink(nombre, link);
             return '<div class="card-ejercicio"><div class="card-ej-top">' + thumbHtml + '<span class="card-ejercicio-nombre">' + nombre + '</span>' + metaHtml + videoBtn + '</div>' + elemHtml + (extraHtml || '') + pesoHtml + '</div>';
         }
 
@@ -4173,6 +4211,7 @@
                 '<img src="' + thumbUrl + '" alt="' + (nombre || '').replace(/"/g, '&quot;') + '" loading="lazy">' +
                 '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div>' +
                 '</div>' : '';
+            _registrarLink(nombre, link);
             return '<div class="card-numero">' +
                 '<div class="card-numero-header"><span class="card-numero-idx">EJ ' + idx + ' / ' + total + '</span></div>' +
                 '<div class="card-numero-body">' + thumbHtml + '<span class="card-numero-nombre">' + nombre + '</span>' + videoBtn + '</div>' +
@@ -6162,9 +6201,13 @@
                     var nombre = ej.nombre || ej[0] || '';
                     var reps   = ej.reps   || ej[2] || '';
                     var unit   = (ej.unit || 'Reps').toUpperCase();
+                    var link = ej.link || ej[1] || '';
+                    _registrarLink(nombre, link);
+                    var thumbUrl = extraerYoutubeThumbnail(link);
+                    var thumbHtmlPt = thumbUrl ? '<img src="' + thumbUrl + '" alt="' + nombre.replace(/"/g,'&quot;') + '" loading="lazy" style="width:100px;height:100px;object-fit:cover;border-radius:12px;flex-shrink:0;cursor:pointer;border:2px solid rgba(255,255,255,0.1);" onclick="abrirVideo(\'' + link.replace(/'/g,"\'") + '\',\'' + nombre.replace(/'/g,"\'") + '\')" />' : '';
                     var row = document.createElement('div');
                     row.className = 'pt-fs-ej-row';
-                    row.innerHTML = '<span class="pt-fs-ej-nombre">' + nombre + '</span>' +
+                    row.innerHTML = thumbHtmlPt + '<span class="pt-fs-ej-nombre">' + nombre + '</span>' +
                         (reps ? '<span class="pt-fs-ej-reps">' + reps + ' ' + unit + '</span>' : '');
                     lista.appendChild(row);
                 });
@@ -7110,9 +7153,14 @@
                             var nombre = ej.nombre || ej[0] || '';
                             var reps   = ej.reps   || ej[2] || '';
                             var unit   = (ej.unit || 'Reps').toUpperCase();
-                            ejsHtml += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(255,255,255,0.06);border-radius:12px;margin-bottom:8px;">' +
-                                '<span style="color:#f0f0f5;font-weight:700;font-size:clamp(0.9rem,3vw,1.15rem);">' + nombre + '</span>' +
-                                (reps ? '<span style="color:#FFD54F;font-weight:900;font-size:clamp(0.9rem,3vw,1.15rem);white-space:nowrap;margin-left:12px;">' + reps + ' ' + unit + '</span>' : '') +
+                            var link   = ej.link   || ej[1] || '';
+                            _registrarLink(nombre, link);
+                            var thumbUrl = extraerYoutubeThumbnail(link);
+                            var thumbHtmlCt = thumbUrl ? '<img src="' + thumbUrl + '" alt="' + nombre.replace(/"/g,'&quot;') + '" loading="lazy" style="width:100px;height:100px;object-fit:cover;border-radius:12px;flex-shrink:0;cursor:pointer;border:2px solid rgba(255,255,255,0.1);" onclick="abrirVideo(\'' + link.replace(/'/g,"\'") + '\',\'' + nombre.replace(/'/g,"\'") + '\')" />' : '';
+                            ejsHtml += '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(255,255,255,0.06);border-radius:12px;margin-bottom:8px;">' +
+                                thumbHtmlCt +
+                                '<span style="flex:1;color:#f0f0f5;font-weight:700;font-size:clamp(0.9rem,3vw,1.15rem);">' + nombre + '</span>' +
+                                (reps ? '<span style="color:#FFD54F;font-weight:900;font-size:clamp(0.9rem,3vw,1.15rem);white-space:nowrap;">' + reps + ' ' + unit + '</span>' : '') +
                                 '</div>';
                         });
                         elLista.innerHTML = ejsHtml;
