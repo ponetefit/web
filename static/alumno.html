@@ -783,6 +783,129 @@
         }
         #ct-fs-btn-salir:active { background: rgba(255,255,255,0.15); }
 
+        /* ─── TABATA FULLSCREEN OVERLAY ─── */
+        #overlay-tabata-fs {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #0a0a0c;
+            z-index: 9000;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+        }
+        #overlay-tabata-fs.visible { display: flex; }
+        #tabata-fs-status {
+            font-size: clamp(0.9rem, 3vw, 1.2rem);
+            font-weight: 900;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: var(--texto-suave);
+            margin-bottom: 4px;
+        }
+        #tabata-fs-ej {
+            font-size: clamp(1.2rem, 4.5vw, 2.2rem);
+            font-weight: 900;
+            color: var(--texto);
+            margin-bottom: 6px;
+            max-width: 90vw;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        #tabata-fs-info {
+            font-size: clamp(0.7rem, 2.5vw, 1rem);
+            color: var(--texto-suave);
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+        #tabata-fs-clock {
+            font-size: clamp(10rem, 40vw, 20rem);
+            font-family: 'Roboto Mono', monospace;
+            font-weight: 700;
+            line-height: 1;
+            margin: 0 0 12px;
+            transition: color 0.3s;
+            color: var(--verde);
+        }
+        .tabata-fs-progress-bar {
+            width: 80vw;
+            max-width: 500px;
+            height: 8px;
+            background: var(--borde);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .tabata-fs-progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            background: var(--verde);
+            width: 100%;
+            transition: width 1s linear;
+        }
+        .tabata-fs-btns {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 500px;
+            width: 90vw;
+        }
+        .tabata-fs-btn-pausa {
+            flex: 1;
+            background: var(--tarjeta-alt);
+            color: var(--purpura);
+            border: 1.5px solid var(--purpura);
+            border-radius: 14px;
+            font-weight: 900;
+            font-size: 0.9rem;
+            padding: 14px 10px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            min-height: 52px;
+            min-width: 100px;
+            transition: background 0.15s;
+        }
+        .tabata-fs-btn-pausa:active { background: rgba(206,147,216,0.12); }
+        .tabata-fs-btn-reiniciar {
+            flex: 1;
+            background: rgba(255,255,255,0.06);
+            color: var(--texto-suave);
+            border: 1px solid var(--borde);
+            border-radius: 14px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            padding: 14px 10px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            min-height: 52px;
+            min-width: 100px;
+            transition: background 0.15s;
+        }
+        .tabata-fs-btn-reiniciar:active { background: rgba(255,255,255,0.12); }
+        .tabata-fs-btn-volver {
+            flex: 1;
+            background: rgba(255,255,255,0.04);
+            color: var(--texto-suave);
+            border: 1px solid var(--borde-sutil);
+            border-radius: 14px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            padding: 14px 10px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            min-height: 52px;
+            min-width: 100px;
+            transition: background 0.15s;
+        }
+        .tabata-fs-btn-volver:active { background: rgba(255,255,255,0.10); }
+
         /* ─── FULLSCREEN MODE ─── */
         
         #overlay-fullscreen {
@@ -1883,6 +2006,22 @@
         </div>
     </div>
 
+    <!-- Overlay Tabata Fullscreen (warmup + mix) -->
+    <div id="overlay-tabata-fs">
+        <div id="tabata-fs-status">PREPARATE</div>
+        <div id="tabata-fs-ej"></div>
+        <div id="tabata-fs-info"></div>
+        <div id="tabata-fs-clock">--</div>
+        <div class="tabata-fs-progress-bar">
+            <div class="tabata-fs-progress-fill" id="tabata-fs-progress-fill"></div>
+        </div>
+        <div class="tabata-fs-btns">
+            <button class="tabata-fs-btn-pausa" id="tabata-fs-btn-pausa" onclick="_tabataFsTogglePausa()">⏸ PAUSA</button>
+            <button class="tabata-fs-btn-reiniciar" id="tabata-fs-btn-reiniciar" onclick="_tabataFsReiniciar()">↺ REINICIAR</button>
+            <button class="tabata-fs-btn-volver" id="tabata-fs-btn-volver" onclick="_tabataFsVolver()">← Volver al entrenamiento</button>
+        </div>
+    </div>
+
     <!-- Overlay descanso circuito -->
     <div id="overlay-descanso">
         <div class="overlay-titulo" style="color:var(--purpura)">DESCANSO DE VUELTA</div>
@@ -1981,7 +2120,6 @@
                     <div id="warmup-ej"></div>
                     <div id="warmup-clock">--</div>
                     <button class="btn-rest" id="warmup-btn" onclick="iniciarWarmupTimer()" style="background:linear-gradient(135deg,var(--azul),#0288d1); color:#000; max-width:300px; margin:0 auto;">Iniciar Calentamiento</button>
-                    <button class="btn-fullscreen" onclick="entrarFullscreen('warmup')">⛶ PANTALLA COMPLETA</button>
                 </div>
             </div>
 
@@ -2012,7 +2150,6 @@
                     <button class="btn-principal" id="btnStartTimer" onclick="iniciarCronometroTiempo()" style="background:linear-gradient(135deg,var(--verde),#00c853); color:#000; margin-bottom:10px;">EMPEZAR</button>
                     <button class="btn-pausa" id="btnPausaTimer" onclick="togglePausaTimer()" style="display:none;">⏸ PAUSAR</button>
                     <button class="btn-pausa" id="btnReiniciarTimer" onclick="reiniciarTimer()" style="display:none; margin-top:10px; background:var(--tarjeta-alt); color:var(--texto-suave); border-color:var(--borde);">↺ REINICIAR</button>
-                    <button class="btn-fullscreen" onclick="entrarFullscreen('tabata')">⛶ PANTALLA COMPLETA</button>
                 </div>
             </div>
 
@@ -4585,6 +4722,9 @@
             var clockEl = document.getElementById('warmup-clock');
             var statusEl = document.getElementById('warmup-status');
 
+            // Abrir overlay fullscreen de tabata (modo warmup)
+            _tabataFsAbrir('warmup', 'warmup-status', 'warmup-ej', 'warmup-ej', 'warmup-clock', null);
+
             warmupTabInterval = prepCountdown(clockEl, statusEl, 600, function() {
                 siguiente();
             });
@@ -4598,6 +4738,7 @@
                     desactivarTimerGlobal();
                     if (_wPausaBtn) _wPausaBtn.style.display = 'none';
                     if (_wReinBtn) _wReinBtn.style.display = 'none';
+                    _tabataFsCerrar();
                     liberarWakeLock();
                     return;
                 }
@@ -4663,6 +4804,120 @@
             }
         }
 
+        // ====================================================================
+        // TABATA FULLSCREEN OVERLAY — compartido entre warmup y mix
+        // ====================================================================
+        var _tabataFsMode = null;   // 'warmup' | 'mix'
+        var _tabataFsSyncIv = null;
+        var _tabataFsMixReiniciarFn = null; // función reiniciar para mix
+        var _tabataFsMixVolverFn = null;    // función volver para mix
+
+        function _tabataFsAbrir(modo, srcStatusId, srcEjId, srcInfoId, srcClockId, srcFillId) {
+            _tabataFsMode = modo;
+            document.getElementById('overlay-tabata-fs').classList.add('visible');
+
+            // Intentar Fullscreen API nativa
+            try {
+                var el = document.documentElement;
+                if (el.requestFullscreen) el.requestFullscreen().catch(function(){});
+                else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+            } catch(e) {}
+
+            // Resetear botón pausa
+            var pausaBtn = document.getElementById('tabata-fs-btn-pausa');
+            if (pausaBtn) pausaBtn.innerText = '⏸ PAUSA';
+
+            // Sincronización continua
+            clearInterval(_tabataFsSyncIv);
+            _tabataFsSyncIv = setInterval(function() {
+                var ov = document.getElementById('overlay-tabata-fs');
+                if (!ov || !ov.classList.contains('visible')) { clearInterval(_tabataFsSyncIv); return; }
+
+                var srcStatus = document.getElementById(srcStatusId);
+                var srcEj     = document.getElementById(srcEjId);
+                var srcInfo   = document.getElementById(srcInfoId);
+                var srcClock  = document.getElementById(srcClockId);
+                var srcFill   = srcFillId ? document.getElementById(srcFillId) : null;
+
+                var fsStatus = document.getElementById('tabata-fs-status');
+                var fsEj     = document.getElementById('tabata-fs-ej');
+                var fsInfo   = document.getElementById('tabata-fs-info');
+                var fsClock  = document.getElementById('tabata-fs-clock');
+                var fsFill   = document.getElementById('tabata-fs-progress-fill');
+
+                if (srcStatus && fsStatus) fsStatus.textContent = srcStatus.textContent || srcStatus.innerText;
+                if (srcEj     && fsEj)     fsEj.textContent     = srcEj.textContent     || srcEj.innerText;
+                if (srcInfo   && fsInfo)   fsInfo.textContent   = srcInfo.textContent   || srcInfo.innerText;
+                if (srcClock  && fsClock)  fsClock.textContent  = srcClock.textContent  || srcClock.innerText;
+                if (srcFill   && fsFill)   fsFill.style.width   = srcFill.style.width;
+
+                // Color del reloj según fase
+                var statusTxt = fsStatus ? fsStatus.textContent.toUpperCase() : '';
+                if (statusTxt.indexOf('TRABAJO') !== -1) {
+                    fsClock.style.color = 'var(--verde)';
+                    fsClock.style.textShadow = '0 0 60px var(--verde-glow)';
+                } else if (statusTxt.indexOf('DESCANSO') !== -1 || statusTxt.indexOf('PROXIMO') !== -1) {
+                    fsClock.style.color = 'var(--rojo)';
+                    fsClock.style.textShadow = '0 0 60px var(--rojo-glow)';
+                } else if (statusTxt.indexOf('PREPARATE') !== -1 || statusTxt.indexOf('PREP') !== -1) {
+                    fsClock.style.color = 'var(--amarillo)';
+                    fsClock.style.textShadow = '0 0 60px var(--amarillo-glow)';
+                } else if (statusTxt.indexOf('COMPLETO') !== -1 || statusTxt.indexOf('LISTO') !== -1) {
+                    fsClock.style.color = 'var(--verde)';
+                    fsClock.style.textShadow = '0 0 60px var(--verde-glow)';
+                }
+            }, 200);
+        }
+
+        function _tabataFsCerrar() {
+            clearInterval(_tabataFsSyncIv);
+            document.getElementById('overlay-tabata-fs').classList.remove('visible');
+            try {
+                if (document.fullscreenElement) document.exitFullscreen().catch(function(){});
+                else if (document.webkitFullscreenElement) document.webkitExitFullscreen();
+            } catch(e) {}
+        }
+
+        function _tabataFsTogglePausa() {
+            var pausaBtn = document.getElementById('tabata-fs-btn-pausa');
+            if (_tabataFsMode === 'warmup') {
+                warmupTabataPausado = !warmupTabataPausado;
+                if (pausaBtn) pausaBtn.innerText = warmupTabataPausado ? '▶ REANUDAR' : '⏸ PAUSA';
+                if (warmupTabataPausado) { liberarWakeLock(); coachPausa(); } else { solicitarWakeLock(); }
+            } else if (_tabataFsMode === 'mix') {
+                // Disparar clic en el botón de pausa del bloque mix activo
+                var mixPausaBtn = document.getElementById(_tabataFsMixPausaBtnId);
+                if (mixPausaBtn) mixPausaBtn.click();
+                // Sincronizar texto del botón de pausa del FS
+                setTimeout(function() {
+                    if (mixPausaBtn && pausaBtn) {
+                        pausaBtn.innerText = mixPausaBtn.innerText.indexOf('REANUDAR') !== -1 ? '▶ REANUDAR' : '⏸ PAUSA';
+                    }
+                }, 50);
+            }
+        }
+
+        function _tabataFsReiniciar() {
+            if (_tabataFsMode === 'warmup') {
+                _tabataFsCerrar();
+                reiniciarTabataWarmup();
+            } else if (_tabataFsMode === 'mix' && typeof _tabataFsMixReiniciarFn === 'function') {
+                _tabataFsCerrar();
+                _tabataFsMixReiniciarFn();
+            }
+        }
+
+        function _tabataFsVolver() {
+            _tabataFsCerrar();
+            if (_tabataFsMode === 'warmup') {
+                reiniciarTabataWarmup();
+            } else if (_tabataFsMode === 'mix' && typeof _tabataFsMixVolverFn === 'function') {
+                _tabataFsMixVolverFn();
+            }
+        }
+
+        var _tabataFsMixPausaBtnId = null; // id del botón de pausa del bloque mix activo
+
         // ─── PAUSE/REINICIAR TABATA WARMUP ───
         var warmupTabataPausado = false;
 
@@ -4682,6 +4937,7 @@
             warmupRunning = false;
             warmupTabataPausado = false;
             desactivarTimerGlobal();
+            _tabataFsCerrar();
             var clockEl = document.getElementById('warmup-clock');
             var statusEl = document.getElementById('warmup-status');
             var ejEl = document.getElementById('warmup-ej');
@@ -6392,7 +6648,6 @@
                 '<div class="emom-inline-clock" id="' + timerId + '">00</div>' +
                 '<button id="' + btnId + '" class="btn-rest" style="max-width:280px; margin:10px auto 0;" onclick="iniciarTabataBloque(\'' + btnId + '\',\'' + statusId + '\',\'' + ejId + '\',\'' + infoId + '\',\'' + timerId + '\',' + JSON.stringify(tc) + ',' + JSON.stringify(rutina) + ')">INICIAR TABATA</button>' +
                 '<button id="' + pausaId + '" class="btn-pausa" style="max-width:280px; margin:8px auto 0; display:none;" onclick="togglePausaTabataMix(\'' + pausaId + '\',\'' + btnId + '\')">⏸ PAUSAR</button>' +
-                '<button class="btn-fullscreen" onclick="entrarFullscreen(\'inline\',{status:\'' + statusId + '\',ej:\'' + ejId + '\',info:\'' + infoId + '\',clock:\'' + timerId + '\'})">⛶ PANTALLA COMPLETA</button>' +
                 '</div></div>';
             return html;
         }
@@ -7114,6 +7369,11 @@
             if (btnReiniciar) btnReiniciar.style.display = 'block';
             if (dataGlobal && dataGlobal.tipo === 'Circuito por Tiempo') hablarCoach('Arranca el circuito, vamos con todo!');
 
+            // Abrir overlay fullscreen de tabata (modo mix) si venimos de activarTabataMixEnUI
+            if (_tabataFsMixVolverFn) {
+                _tabataFsAbrir('mix', 't-status', 't-ejercicio-nombre', 't-ej-restantes', 'clock', 'timer-progress-fill');
+            }
+
             tSegs = 5;
             tFase = "prep";
             tIdx = 0;
@@ -7215,6 +7475,9 @@
                             document.getElementById('clock').className = "";
                             timerActivo = false;
                             desactivarTimerGlobal();
+                            _tabataFsCerrar();
+                            _tabataFsMixVolverFn = null;
+                            _tabataFsMixReiniciarFn = null;
                             var _btnPausaSkip = document.getElementById('btnPausaTimer');
                             if (_btnPausaSkip) _btnPausaSkip.style.display = 'none';
                             var _btnReinSkip = document.getElementById('btnReiniciarTimer');
@@ -7263,6 +7526,9 @@
                                 document.getElementById('clock').className = "";
                                 timerActivo = false;
                                 desactivarTimerGlobal();
+                                _tabataFsCerrar();
+                                _tabataFsMixVolverFn = null;
+                                _tabataFsMixReiniciarFn = null;
                                 var _btnPausaEnd = document.getElementById('btnPausaTimer');
                                 if (_btnPausaEnd) _btnPausaEnd.style.display = 'none';
                                 var _btnReinEnd = document.getElementById('btnReiniciarTimer');
@@ -7318,6 +7584,9 @@
             timerPausado = !timerPausado;
             const btn = document.getElementById('btnPausaTimer');
             if (btn) btn.innerText = timerPausado ? "▶ REANUDAR" : "⏸ PAUSAR";
+            // Sincronizar botón de pausa del overlay FS de tabata
+            var fsBtn = document.getElementById('tabata-fs-btn-pausa');
+            if (fsBtn) fsBtn.innerText = timerPausado ? "▶ REANUDAR" : "⏸ PAUSA";
             if (timerPausado) {
                 liberarWakeLock();
                 coachPausa();
@@ -7334,6 +7603,7 @@
             timerActivo = false;
             timerPausado = false;
             desactivarTimerGlobal();
+            _tabataFsCerrar();
             tSegs = 5;
             tFase = "prep";
             tIdx = 0;
@@ -7691,17 +7961,46 @@
             const rondas = tc.rondas || 1;
             const pausaRonda = tc.pausa_entre_rondas || 0;
             let pausado = false;
+
+            // Guardar referencia al pausaId para el overlay FS
+            _tabataFsMixPausaBtnId = pausaId;
+
             if (pausaBtn) pausaBtn.onclick = function() {
                 pausado = !pausado;
                 pausaBtn.innerText = pausado ? "▶ REANUDAR" : "⏸ PAUSAR";
+                // Sincronizar botón de pausa del overlay FS
+                var fsPausaBtn = document.getElementById('tabata-fs-btn-pausa');
+                if (fsPausaBtn) fsPausaBtn.innerText = pausado ? '▶ REANUDAR' : '⏸ PAUSA';
                 if (pausado) {
                     liberarWakeLock();
-                    // >>> COACH: Pausa tabata bloque
                     coachPausa();
                 } else {
                     solicitarWakeLock();
                 }
             };
+
+            // Funciones para el overlay FS (reiniciar y volver)
+            _tabataFsMixReiniciarFn = function() {
+                tabataRunningFlags[btnId] = false;
+                if (pausaBtn) { pausaBtn.style.display = "none"; pausaBtn.innerText = "⏸ PAUSAR"; }
+                btn.disabled = false;
+                btn.innerText = "INICIAR TABATA";
+                document.getElementById(statusId).innerText = "LISTO PARA TABATA";
+                document.getElementById(ejId).innerText = "";
+                document.getElementById(infoId).innerText = "";
+                document.getElementById(timerId).innerText = "00";
+                desactivarTimerGlobal();
+                liberarWakeLock();
+                _tabataFsMixReiniciarFn = null;
+                _tabataFsMixVolverFn = null;
+            };
+            _tabataFsMixVolverFn = function() {
+                // No hay "volver al entrenamiento" en el modo inline antiguo — solo cerramos overlay
+                _tabataFsMixReiniciarFn && _tabataFsMixReiniciarFn();
+            };
+
+            // Abrir overlay FS de tabata
+            _tabataFsAbrir('mix', statusId, ejId, infoId, timerId, null);
 
             function runTabata() {
                 prepCountdown(
@@ -7722,6 +8021,9 @@
                         btn.innerText = "Reiniciar";
                         tabataRunningFlags[btnId] = false;
                         desactivarTimerGlobal();
+                        _tabataFsCerrar();
+                        _tabataFsMixReiniciarFn = null;
+                        _tabataFsMixVolverFn = null;
                         liberarWakeLock();
                         return;
                     }
@@ -7941,6 +8243,16 @@
                 btnPausa.style.display = "block";
                 btnPausa.innerText = "⏸ PAUSAR";
             }
+            // Guardar funciones para el overlay FS de tabata mix
+            _tabataFsMixPausaBtnId = 'btnPausaTimer';
+            _tabataFsMixReiniciarFn = function() {
+                reiniciarTimer();
+                // Volver a la vista de entrenamiento
+                setTimeout(function() { volverDeTabataMix(); }, 100);
+            };
+            _tabataFsMixVolverFn = function() {
+                volverDeTabataMix();
+            };
         }
 
         function volverDeTabataMix() {
@@ -7957,6 +8269,9 @@
                     return;
                 }
             }
+            _tabataFsCerrar();
+            _tabataFsMixVolverFn = null;
+            _tabataFsMixReiniciarFn = null;
             document.getElementById('sec-timer-ui').style.display = "none";
             document.getElementById('sec-rutina-lista').style.display = "block";
             var _volverContainer = document.getElementById('timer-volver-container');
