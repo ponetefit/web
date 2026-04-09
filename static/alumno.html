@@ -4179,7 +4179,6 @@
 
         var _cardCargaIdx = 0;
         function crearCard(nombre, link, meta, con_carga, elemento, extraHtml) {
-            const videoBtn = link ? '<button onclick="abrirVideo(\'' + link.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')" class="btn-play-video">' + svgPlay() + '</button>' : '';
             const metaHtml = meta ? '<span class="card-ejercicio-meta">' + meta + '</span>' : '';
             var elem = elemento || _obtenerElemento(nombre);
             var elemHtml = elem ? '<span class="card-elemento-badge">' + elem + '</span>' : '';
@@ -4194,11 +4193,10 @@
                 '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div>' +
                 '</div>' : '';
             _registrarLink(nombre, link);
-            return '<div class="card-ejercicio"><div class="card-ej-top">' + thumbHtml + '<span class="card-ejercicio-nombre">' + nombre + '</span>' + metaHtml + videoBtn + '</div>' + elemHtml + (extraHtml || '') + pesoHtml + '</div>';
+            return '<div class="card-ejercicio"><div class="card-ej-top"><span class="card-ejercicio-nombre">' + nombre + '</span>' + metaHtml + thumbHtml + '</div>' + elemHtml + (extraHtml || '') + pesoHtml + '</div>';
         }
 
         function crearCardNumero(idx, total, nombre, link, con_carga, elemento) {
-            const videoBtn = link ? '<button onclick="abrirVideo(\'' + link.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')" class="btn-play-video">' + svgPlay() + '</button>' : '';
             var elem = elemento || _obtenerElemento(nombre);
             var elemHtml = elem ? '<span class="card-elemento-badge">' + elem + '</span>' : '';
             var pesoHtml = '';
@@ -4214,7 +4212,7 @@
             _registrarLink(nombre, link);
             return '<div class="card-numero">' +
                 '<div class="card-numero-header"><span class="card-numero-idx">EJ ' + idx + ' / ' + total + '</span></div>' +
-                '<div class="card-numero-body">' + thumbHtml + '<span class="card-numero-nombre">' + nombre + '</span>' + videoBtn + '</div>' +
+                '<div class="card-numero-body"><span class="card-numero-nombre">' + nombre + '</span>' + thumbHtml + '</div>' +
                 elemHtml +
                 pesoHtml +
                 '</div>';
@@ -5488,9 +5486,14 @@
                 const pesoInputId = 'peso-' + i;
                 var elem = _obtenerElemento(ej.nombre);
                 var elemHtml = elem ? '<div style="margin-bottom:6px;"><span class="card-elemento-badge">' + elem + '</span></div>' : '';
+                var _s1ThumbUrl = extraerYoutubeThumbnail(ej.link || '');
+                _registrarLink(ej.nombre, ej.link || '');
+                var _s1ThumbHtml = _s1ThumbUrl ? '<div class="card-thumb" onclick="abrirVideo(\'' + (ej.link || '').replace(/'/g, "\\'") + '\', \'' + (ej.nombre || '').replace(/'/g, "\\'") + '\')">' +
+                    '<img src="' + _s1ThumbUrl + '" alt="" loading="lazy">' +
+                    '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div></div>' : '';
                 pLista.innerHTML += '<div class="serie-card">' +
                     '<div class="serie-header"><span class="serie-nombre">' + ej.nombre + '</span>' +
-                    '<button onclick="abrirVideo(\'' + (ej.link || '').replace(/'/g, "\\'") + '\', \'' + (ej.nombre || '').replace(/'/g, "\\'") + '\')" class="btn-play-video">' + svgPlay() + '</button></div>' +
+                    _s1ThumbHtml + '</div>' +
                     elemHtml +
                     '<div class="serie-meta">' +
                     '<div class="serie-meta-item"><span class="serie-meta-label">Series</span><span class="serie-meta-value" id="s-val-' + i + '">' + ej.series + '</span></div>' +
@@ -6610,9 +6613,14 @@
                 // Pausa a usar para el timer y el botón
                 var pausaBoton = haPerSerie ? pausaPrimeraSerie : ((ej.descanso && parseInt(ej.descanso) > 0) ? parseInt(ej.descanso) : pausaN);
 
+                var _s2ThumbUrl = extraerYoutubeThumbnail(link);
+                _registrarLink(nombre, link);
+                var _s2ThumbHtml = _s2ThumbUrl ? '<div class="card-thumb" onclick="abrirVideo(\'' + link.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')">' +
+                    '<img src="' + _s2ThumbUrl + '" alt="" loading="lazy">' +
+                    '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div></div>' : '';
                 html += '<div class="serie-card">' +
                     '<div class="serie-header"><span class="serie-nombre">' + nombre + '</span>' +
-                    (link ? '<button onclick="abrirVideo(\'' + link.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')" class="btn-play-video">' + svgPlay() + '</button>' : '') + '</div>' +
+                    _s2ThumbHtml + '</div>' +
                     elemHtml +
                     '<div class="serie-meta">' +
                     '<div class="serie-meta-item"><span class="serie-meta-label">Series</span><span class="serie-meta-value" id="s-val-' + idxS + '">' + seriesN + '</span></div>' +
