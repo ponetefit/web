@@ -344,6 +344,47 @@
             font-weight: 700;
             white-space: nowrap;
         }
+        /* ─── THUMBNAIL EJERCICIO ─── */
+
+        .card-thumb {
+            width: 60px;
+            height: 60px;
+            border-radius: 10px;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: var(--fondo);
+            position: relative;
+            cursor: pointer;
+        }
+
+        .card-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .card-thumb-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card-thumb-overlay svg {
+            width: 18px;
+            height: 18px;
+            fill: white;
+            opacity: 0.9;
+            margin-left: 2px;
+        }
+
+        .card-thumb:active .card-thumb-overlay {
+            background: rgba(255, 107, 53, 0.35);
+        }
+
         /* Play button for video */
         
         .btn-play-video {
@@ -4066,6 +4107,15 @@
             return '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg>';
         }
 
+        function extraerYoutubeThumbnail(url) {
+            if (!url) return '';
+            var match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{11})/);
+            if (match && match[1]) {
+                return 'https://img.youtube.com/vi/' + match[1] + '/mqdefault.jpg';
+            }
+            return '';
+        }
+
         function extraerYoutubeEmbedUrl(url) {
             if (!url) return '';
             var match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{11})/);
@@ -4094,7 +4144,6 @@
         function crearCard(nombre, link, meta, con_carga, elemento, extraHtml) {
             const videoBtn = link ? '<button onclick="abrirVideo(\'' + link.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')" class="btn-play-video">' + svgPlay() + '</button>' : '';
             const metaHtml = meta ? '<span class="card-ejercicio-meta">' + meta + '</span>' : '';
-            // Resolver elemento: parámetro directo o desde videoteca cache
             var elem = elemento || _obtenerElemento(nombre);
             var elemHtml = elem ? '<span class="card-elemento-badge">' + elem + '</span>' : '';
             var pesoHtml = '';
@@ -4102,7 +4151,12 @@
                 var pid = 'peso-card-' + (_cardCargaIdx++);
                 pesoHtml = crearPesoRow(nombre, pid);
             }
-            return '<div class="card-ejercicio"><div class="card-ej-top"><span class="card-ejercicio-nombre">' + nombre + '</span>' + metaHtml + videoBtn + '</div>' + elemHtml + (extraHtml || '') + pesoHtml + '</div>';
+            var thumbUrl = extraerYoutubeThumbnail(link);
+            var thumbHtml = thumbUrl ? '<div class="card-thumb" onclick="abrirVideo(\'' + link.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')">' +
+                '<img src="' + thumbUrl + '" alt="' + (nombre || '').replace(/"/g, '&quot;') + '" loading="lazy">' +
+                '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div>' +
+                '</div>' : '';
+            return '<div class="card-ejercicio"><div class="card-ej-top">' + thumbHtml + '<span class="card-ejercicio-nombre">' + nombre + '</span>' + metaHtml + videoBtn + '</div>' + elemHtml + (extraHtml || '') + pesoHtml + '</div>';
         }
 
         function crearCardNumero(idx, total, nombre, link, con_carga, elemento) {
@@ -4114,9 +4168,14 @@
                 var pid = 'peso-card-' + (_cardCargaIdx++);
                 pesoHtml = crearPesoRow(nombre, pid);
             }
+            var thumbUrl = extraerYoutubeThumbnail(link);
+            var thumbHtml = thumbUrl ? '<div class="card-thumb" onclick="abrirVideo(\'' + link.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')">' +
+                '<img src="' + thumbUrl + '" alt="' + (nombre || '').replace(/"/g, '&quot;') + '" loading="lazy">' +
+                '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div>' +
+                '</div>' : '';
             return '<div class="card-numero">' +
                 '<div class="card-numero-header"><span class="card-numero-idx">EJ ' + idx + ' / ' + total + '</span></div>' +
-                '<div class="card-numero-body"><span class="card-numero-nombre">' + nombre + '</span>' + videoBtn + '</div>' +
+                '<div class="card-numero-body">' + thumbHtml + '<span class="card-numero-nombre">' + nombre + '</span>' + videoBtn + '</div>' +
                 elemHtml +
                 pesoHtml +
                 '</div>';
