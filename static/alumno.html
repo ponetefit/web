@@ -1058,6 +1058,152 @@
         #toast.show {
             transform: translateX(-50%) translateY(0);
         }
+        /* ─── POR TIEMPO FULLSCREEN OVERLAY ─── */
+
+        #overlay-pt-fs {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #0a0a0c;
+            z-index: 8000;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 28px 20px 24px;
+            overflow-y: auto;
+        }
+        #overlay-pt-fs.visible { display: flex; }
+
+        #pt-fs-titulo {
+            font-size: 0.75rem;
+            font-weight: 900;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--purpura);
+            margin-bottom: 6px;
+            text-align: center;
+        }
+        #pt-fs-clock {
+            font-size: clamp(5rem, 22vw, 10rem);
+            font-family: 'Roboto Mono', monospace;
+            font-weight: 700;
+            color: var(--purpura);
+            text-shadow: 0 0 50px rgba(206,147,216,0.6);
+            line-height: 1;
+            margin: 4px 0 12px;
+            text-align: center;
+        }
+        #pt-fs-vcount {
+            font-size: 1.3rem;
+            font-weight: 900;
+            color: var(--amarillo);
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        #pt-fs-log {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: center;
+            min-height: 28px;
+            margin-bottom: 14px;
+            width: 90vw;
+            max-width: 500px;
+        }
+        #pt-fs-lista {
+            width: 90vw;
+            max-width: 500px;
+            margin: 0 auto 20px;
+        }
+        .pt-fs-ej-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 14px;
+            margin-bottom: 8px;
+        }
+        .pt-fs-ej-nombre {
+            color: #f0f0f5;
+            font-weight: 700;
+            font-size: clamp(0.9rem, 3.5vw, 1.15rem);
+        }
+        .pt-fs-ej-reps {
+            color: var(--amarillo);
+            font-weight: 900;
+            font-size: clamp(0.9rem, 3.5vw, 1.1rem);
+            white-space: nowrap;
+            margin-left: 12px;
+        }
+        #pt-fs-btn-marcar {
+            background: linear-gradient(135deg, var(--verde), #00c853);
+            color: #000;
+            border: none;
+            border-radius: 18px;
+            font-weight: 900;
+            font-size: clamp(1.3rem, 5vw, 1.8rem);
+            padding: 24px 48px;
+            cursor: pointer;
+            width: 90vw;
+            max-width: 500px;
+            min-height: 80px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            box-shadow: 0 8px 30px rgba(105,240,174,0.4);
+            transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s;
+            margin-bottom: 12px;
+        }
+        #pt-fs-btn-marcar:active {
+            transform: scale(0.97);
+            box-shadow: 0 4px 15px rgba(105,240,174,0.3);
+        }
+        #pt-fs-btn-marcar:disabled {
+            background: var(--tarjeta-alt);
+            color: var(--texto-suave);
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+        .pt-fs-btns-row {
+            display: flex;
+            gap: 10px;
+            width: 90vw;
+            max-width: 500px;
+            margin-bottom: 8px;
+        }
+        #pt-fs-btn-pausa {
+            flex: 1;
+            background: var(--tarjeta-alt);
+            color: var(--purpura);
+            border: 1.5px solid var(--purpura);
+            border-radius: 14px;
+            font-weight: 900;
+            font-size: 0.9rem;
+            padding: 14px 10px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            min-height: 52px;
+            transition: background 0.15s;
+        }
+        #pt-fs-btn-pausa:active { background: rgba(206,147,216,0.12); }
+        #pt-fs-btn-volver {
+            flex: 1;
+            background: rgba(255,255,255,0.06);
+            color: var(--texto-suave);
+            border: 1px solid var(--borde);
+            border-radius: 14px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            padding: 14px 10px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            min-height: 52px;
+            transition: background 0.15s;
+        }
+        #pt-fs-btn-volver:active { background: rgba(255,255,255,0.12); }
+
         /* ─── WARMUP TIMER ─── */
         
         #warmup-timer-box {
@@ -1721,6 +1867,20 @@
         <div id="ct-fs-clock" style="display:none;"></div>
         <div id="ct-fs-lista"></div>
         <button id="ct-fs-btn-salir" onclick="cerrarCtFs()" style="display:none;">✕ SALIR</button>
+    </div>
+
+    <!-- Overlay Por Tiempo fullscreen -->
+    <div id="overlay-pt-fs">
+        <div id="pt-fs-titulo">POR TIEMPO</div>
+        <div id="pt-fs-clock">00:00</div>
+        <div id="pt-fs-vcount">Vueltas: 0 / 0</div>
+        <div id="pt-fs-log"></div>
+        <div id="pt-fs-lista"></div>
+        <button id="pt-fs-btn-marcar" onclick="_ptFsMarcar()">✓ MARCAR VUELTA</button>
+        <div class="pt-fs-btns-row">
+            <button id="pt-fs-btn-pausa" onclick="_ptFsTogglePausa()">⏸ PAUSA</button>
+            <button id="pt-fs-btn-volver" onclick="_ptFsCerrar()">← VOLVER</button>
+        </div>
     </div>
 
     <!-- Overlay descanso circuito -->
@@ -4634,6 +4794,10 @@
             _wPorTiempoStart = Date.now();
             _wPorTiempoLapStart = Date.now();
 
+            // Abrir fullscreen con ejercicios del calentamiento
+            var _wEjsFS = (dataGlobal && dataGlobal.warmup_ejercicios) ? toArray(dataGlobal.warmup_ejercicios) : [];
+            _ptFsAbrir('warmup', 'warmup', totalVueltas, _wEjsFS);
+
             function _fmtCrono(ms) {
                 var tot = Math.floor(ms / 1000);
                 var m = Math.floor(tot / 60);
@@ -5494,6 +5658,9 @@
         }
 
         // ─── MODO POR TIEMPO (standalone) ───
+        // Cache de ejercicios por uid de bloque Por Tiempo (para fullscreen)
+        var _ptEjsPorUid = {};
+
         function renderPorTiempoStandalone(data, pTitulo, pLista) {
             pTitulo.innerText = "POR TIEMPO";
             _tipoEntrenamientoGlobal = 'Por Tiempo';
@@ -5505,6 +5672,9 @@
             var ptVCountId = 'pt-main-vcount';
             var ptLogId = 'pt-main-log';
             var ptMarcarId = 'pt-main-marcar';
+
+            // Guardar ejercicios para el fullscreen
+            _ptEjsPorUid[ptUid] = ptEjs;
 
             if (data.descripcion) {
                 pLista.innerHTML += '<div class="bloque-descripcion">' + data.descripcion + '</div>';
@@ -5746,12 +5916,15 @@
                 const ptLogId = uid + '-pt-log';
                 const ptMarcarId = uid + '-pt-marcar';
 
+                var ptEjs = bloque.ejercicios || [];
+                // Guardar ejercicios para el fullscreen
+                _ptEjsPorUid[ptUid] = ptEjs;
+
                 let htmlPT = '<div class="bloque-mix" style="border-color:var(--purpura);">' +
                     '<div class="bloque-mix-titulo" style="color:var(--purpura);">BLOQUE ' + idx + ' — POR TIEMPO (' + ptVueltas + ' VUELTAS)</div>';
                 if (bloque.descripcion) {
                     htmlPT += '<div class="bloque-descripcion">' + bloque.descripcion + '</div>';
                 }
-                var ptEjs = bloque.ejercicios || [];
                 ptEjs.forEach(function(ej) {
                     var ejN = ej.nombre || ej[0] || '';
                     var ejL = ej.link || ej[1] || '';
@@ -5911,6 +6084,136 @@
             }
         }
 
+        // ─── POR TIEMPO FULLSCREEN ───────────────────────────────────────
+        // Estado compartido entre warmup y bloque mix para el overlay
+        var _ptFsUid = null;
+        var _ptFsMode = null;
+        var _ptFsPausado = false;
+        var _ptFsSyncIv = null;
+
+        function _ptFsAbrir(uid, mode, totalVueltas, ejercicios) {
+            _ptFsUid = uid;
+            _ptFsMode = mode;
+            _ptFsPausado = false;
+
+            var lista = document.getElementById('pt-fs-lista');
+            if (lista) {
+                lista.innerHTML = '';
+                (ejercicios || []).forEach(function(ej) {
+                    var nombre = ej.nombre || ej[0] || '';
+                    var reps   = ej.reps   || ej[2] || '';
+                    var unit   = (ej.unit || 'Reps').toUpperCase();
+                    var row = document.createElement('div');
+                    row.className = 'pt-fs-ej-row';
+                    row.innerHTML = '<span class="pt-fs-ej-nombre">' + nombre + '</span>' +
+                        (reps ? '<span class="pt-fs-ej-reps">' + reps + ' ' + unit + '</span>' : '');
+                    lista.appendChild(row);
+                });
+            }
+
+            var vcEl   = document.getElementById('pt-fs-vcount');
+            var logEl  = document.getElementById('pt-fs-log');
+            var clockEl = document.getElementById('pt-fs-clock');
+            if (vcEl)   vcEl.innerText  = 'Vueltas: 0 / ' + totalVueltas;
+            if (logEl)  logEl.innerHTML = '';
+            if (clockEl) clockEl.innerText = '00:00';
+
+            var pausaBtn = document.getElementById('pt-fs-btn-pausa');
+            if (pausaBtn) pausaBtn.innerText = '⏸ PAUSA';
+            var marcarBtn = document.getElementById('pt-fs-btn-marcar');
+            if (marcarBtn) { marcarBtn.disabled = false; marcarBtn.innerText = '✓ MARCAR VUELTA'; }
+
+            document.getElementById('overlay-pt-fs').classList.add('visible');
+
+            // Sincronizar reloj + vueltas + log desde elementos inline
+            var srcClockId = (mode === 'warmup') ? 'warmup-clock'            : (uid + '-clock');
+            var srcVcId    = (mode === 'warmup') ? 'warmup-pt-vcount'        : (uid + '-vcount');
+            var srcLogId   = (mode === 'warmup') ? 'warmup-pt-vueltas-log'   : (uid + '-log');
+
+            clearInterval(_ptFsSyncIv);
+            _ptFsSyncIv = setInterval(function() {
+                var ov = document.getElementById('overlay-pt-fs');
+                if (!ov || !ov.classList.contains('visible')) { clearInterval(_ptFsSyncIv); return; }
+                var srcClock = document.getElementById(srcClockId);
+                var srcVc    = document.getElementById(srcVcId);
+                var srcLog   = document.getElementById(srcLogId);
+                if (srcClock && clockEl) clockEl.innerText = srcClock.innerText;
+                if (srcVc    && vcEl)    vcEl.innerText    = srcVc.innerText;
+                if (srcLog   && logEl && srcLog.innerHTML !== logEl.innerHTML) logEl.innerHTML = srcLog.innerHTML;
+                // Detectar si el botón marcar quedó deshabilitado (bloque completo)
+                var srcMarcar = document.getElementById(mode === 'warmup' ? 'warmup-pt-marcar' : (uid + '-marcar'));
+                if (srcMarcar && srcMarcar.disabled && marcarBtn && !marcarBtn.disabled) {
+                    marcarBtn.disabled = true;
+                    marcarBtn.innerText = srcMarcar.innerText || '✓ COMPLETADO';
+                }
+            }, 300);
+        }
+
+        function _ptFsCerrar() {
+            clearInterval(_ptFsSyncIv);
+            document.getElementById('overlay-pt-fs').classList.remove('visible');
+            var scroll = document.getElementById('modal-scroll');
+            if (scroll) {
+                var srcId = (_ptFsUid === 'warmup') ? 'warmup-clock' : (_ptFsUid + '-clock');
+                var srcEl = document.getElementById(srcId);
+                if (srcEl) srcEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function _ptFsTogglePausa() {
+            _ptFsPausado = !_ptFsPausado;
+            var btn = document.getElementById('pt-fs-btn-pausa');
+            if (btn) btn.innerText = _ptFsPausado ? '▶ REANUDAR' : '⏸ PAUSA';
+
+            if (_ptFsMode === 'warmup') {
+                if (_ptFsPausado) {
+                    _wPorTiempoRunning = false;
+                    _ptFs_wPausaStart = Date.now();
+                    liberarWakeLock();
+                    coachPausa();
+                } else {
+                    var pauseMs = Date.now() - (_ptFs_wPausaStart || Date.now());
+                    _wPorTiempoStart   += pauseMs;
+                    _wPorTiempoLapStart += pauseMs;
+                    _wPorTiempoRunning  = true;
+                    solicitarWakeLock();
+                }
+            } else {
+                var st = _porTiempoState[_ptFsUid];
+                if (!st) return;
+                if (_ptFsPausado) {
+                    st.running = false;
+                    st._pausedAt = Date.now();
+                    liberarWakeLock();
+                    coachPausa();
+                } else {
+                    var pMs = Date.now() - (st._pausedAt || Date.now());
+                    st.start     += pMs;
+                    st.lapStart  += pMs;
+                    st.lastLap   += pMs;
+                    st.running    = true;
+                    solicitarWakeLock();
+                }
+            }
+        }
+        var _ptFs_wPausaStart = 0;
+
+        function _ptFsMarcar() {
+            if (_ptFsMode === 'warmup') {
+                var wBtn = document.getElementById('warmup-pt-marcar');
+                if (wBtn && !wBtn.disabled) wBtn.click();
+            } else {
+                var uid = _ptFsUid;
+                var st  = _porTiempoState[uid];
+                if (!st || !st.running) return;
+                marcarVueltaPorTiempo(uid, uid + '-vcount', uid + '-log', uid + '-marcar', st.total);
+                if (!st.running) {
+                    var mb = document.getElementById('pt-fs-btn-marcar');
+                    if (mb) { mb.disabled = true; mb.innerText = '✓ BLOQUE COMPLETO'; }
+                }
+            }
+        }
+
         // ─── BLOQUE POR TIEMPO — Cronómetro ascendente ───
         var _porTiempoState = {}; // { uid: { running, iv, motivoIv, start, lapStart, vueltas, total, lastLap } }
 
@@ -5939,6 +6242,11 @@
 
             // Voz apertura
             hablarCoach('Recordá, son ' + totalVueltas + ' ' + (totalVueltas === 1 ? 'vuelta' : 'vueltas') + '. Dale con todo!');
+
+            // Obtener ejercicios del bloque para el fullscreen (del cache de render)
+            var _ptEjsFS = (_ptEjsPorUid && _ptEjsPorUid[uid]) ? _ptEjsPorUid[uid] : [];
+            // Abrir overlay fullscreen
+            _ptFsAbrir(uid, 'bloque', totalVueltas, _ptEjsFS);
 
             function _fmt(ms) {
                 var tot = Math.floor(ms / 1000);
