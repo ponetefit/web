@@ -3919,6 +3919,25 @@
                 }
                 dataGlobal = data;
                 currentCode = cod;
+                // Pre-registrar todos los links en cache para thumbnails
+                (function _preRegistrarLinks(d) {
+                    if (!d) return;
+                    function _regEj(ej) {
+                        if (!ej) return;
+                        var n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || '');
+                        var l = Array.isArray(ej) ? (ej[1] || '') : (ej.link || '');
+                        if (n && l) _registrarLink(n, l);
+                    }
+                    function _regList(list) { (list||[]).forEach(_regEj); }
+                    _regList(d.rutina); _regList(d.datos); _regList(d.ejercicios);
+                    _regList(d.warmup_ejercicios);
+                    (d.bloques||[]).forEach(function(b) {
+                        _regList(b.rutina); _regList(b.ejercicios);
+                        (b.rutina||[]).forEach(function(sub){ _regList(sub.ejercicios); });
+                    });
+                    (d.minutos_ciclo||[]).forEach(function(m){ _regList(m.ejercicios); });
+                    (d.dias||[]).forEach(function(dia){ _preRegistrarLinks(dia); });
+                })(data);
                 // Mostrar record personal del código
                 _mostrarRecordHome(cod);
                 // Titulo dinamico para codigos con formato nombre-000X
@@ -4147,10 +4166,27 @@
         function _emomEnriquecerCiclo(minutosCiclo, fuenteEjs) {
             // Construir índice por nombre desde la fuente
             var idx = {};
-            (fuenteEjs || []).forEach(function(ej) {
+            // También indexar desde dataGlobal completo (todas las posibles fuentes)
+            var todasFuentes = (fuenteEjs || []).slice();
+            if (typeof dataGlobal !== 'undefined' && dataGlobal) {
+                var _allEjs = (dataGlobal.rutina || []).concat(dataGlobal.datos || []);
+                // Buscar en bloques también
+                (dataGlobal.bloques || []).forEach(function(b) {
+                    _allEjs = _allEjs.concat(b.rutina || b.ejercicios || []);
+                    (b.rutina || []).forEach(function(sub) {
+                        _allEjs = _allEjs.concat(sub.ejercicios || []);
+                    });
+                });
+                // Warmup
+                _allEjs = _allEjs.concat(dataGlobal.warmup_ejercicios || []);
+                todasFuentes = todasFuentes.concat(_allEjs);
+            }
+            todasFuentes.forEach(function(ej) {
+                if (!ej) return;
                 var n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || '');
-                if (n) idx[n] = {
-                    link: Array.isArray(ej) ? (ej[1] || '') : (ej.link || ''),
+                var l = Array.isArray(ej) ? (ej[1] || '') : (ej.link || '');
+                if (n && l && !idx[n]) idx[n] = {
+                    link: l,
                     reps: Array.isArray(ej) ? (ej[2] || '') : (ej.reps || ''),
                     unit: Array.isArray(ej) ? (ej[3] || 'Reps') : (ej.unit || 'Reps'),
                     con_carga: Array.isArray(ej) ? false : (ej.con_carga || false)
@@ -4161,9 +4197,11 @@
                 var ejsEnriq = (minData.ejercicios || []).map(function(ej) {
                     var n = (typeof ej === 'string') ? ej : (ej.nombre || '');
                     var src = idx[n] || {};
+                    // Also check _fsLinkCache as last resort
+                    var cachedLink = (typeof _fsLinkCache !== 'undefined' && _fsLinkCache[n]) ? _fsLinkCache[n] : '';
                     return {
                         nombre: n,
-                        link:  ej.link  || src.link  || '',
+                        link:  ej.link || src.link || cachedLink || '',
                         reps:  ej.reps  || src.reps  || '',
                         unit:  ej.unit  || src.unit  || 'Reps',
                         con_carga: ej.con_carga || src.con_carga || false
