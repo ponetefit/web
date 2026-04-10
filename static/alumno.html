@@ -4141,6 +4141,37 @@
 
 
         // ─── EMOM: HTML por minuto con thumbnails ───
+
+        // ─── EMOM: enriquecer ejercicios del ciclo con link/reps de la lista fuente ───
+        function _emomEnriquecerCiclo(minutosCiclo, fuenteEjs) {
+            // Construir índice por nombre desde la fuente
+            var idx = {};
+            (fuenteEjs || []).forEach(function(ej) {
+                var n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || '');
+                if (n) idx[n] = {
+                    link: Array.isArray(ej) ? (ej[1] || '') : (ej.link || ''),
+                    reps: Array.isArray(ej) ? (ej[2] || '') : (ej.reps || ''),
+                    unit: Array.isArray(ej) ? (ej[3] || 'Reps') : (ej.unit || 'Reps'),
+                    con_carga: Array.isArray(ej) ? false : (ej.con_carga || false)
+                };
+            });
+            return (minutosCiclo || []).map(function(minData) {
+                if (minData.es_descanso) return minData;
+                var ejsEnriq = (minData.ejercicios || []).map(function(ej) {
+                    var n = (typeof ej === 'string') ? ej : (ej.nombre || '');
+                    var src = idx[n] || {};
+                    return {
+                        nombre: n,
+                        link:  ej.link  || src.link  || '',
+                        reps:  ej.reps  || src.reps  || '',
+                        unit:  ej.unit  || src.unit  || 'Reps',
+                        con_carga: ej.con_carga || src.con_carga || false
+                    };
+                });
+                return { es_descanso: false, ejercicios: ejsEnriq };
+            });
+        }
+
         function _emomMinutoHtml(mi, minData) {
             var esD = minData.es_descanso || false;
             var ejs = minData.ejercicios || [];
@@ -4344,9 +4375,10 @@
                             con_carga: ejData ? (Array.isArray(ejData) ? false : (ejData.con_carga||false)) : false };
                     })};
                 });
-                if (emomMinutosW.length > 0) {
+                var emomMinutosWEnriq = _emomEnriquecerCiclo(emomMinutosW, ejsW);
+                if (emomMinutosWEnriq.length > 0) {
                     var emomMinHtmlW = '<div style="margin-bottom:12px;"><div style="font-size:0.6rem;font-weight:900;color:var(--amarillo);letter-spacing:1px;margin-bottom:8px;text-transform:uppercase;">Ejercicios por minuto</div>';
-                    emomMinutosW.forEach(function(minData, mi) {
+                    emomMinutosWEnriq.forEach(function(minData, mi) {
                         emomMinHtmlW += _emomMinutoHtml(mi, minData);
                     });
                     emomMinHtmlW += '</div>';
@@ -5719,7 +5751,7 @@
             const rutina = toArray(data.rutina || []);
             const minutosCiclo = data.minutos_ciclo || [];
             emomTotalMin = minutos;
-            emomMinutosCiclo = minutosCiclo;
+            emomMinutosCiclo = _emomEnriquecerCiclo(minutosCiclo, rutina);
             emomCicloLen = ejsPorMin;
 
             pLista.innerHTML += '<div class="info-block" style="border-color:var(--amarillo);">' +
@@ -5730,9 +5762,10 @@
 
             // Mostrar ejercicios por minuto con thumbnails
             if (minutosCiclo.length > 0) {
+                var minutosCicloEnriq = _emomEnriquecerCiclo(minutosCiclo, rutina);
                 var cicloHtml = '<div style="margin-bottom:10px;">' +
                     '<div style="font-size:0.65rem;font-weight:900;color:var(--amarillo);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Ejercicios por minuto</div>';
-                minutosCiclo.forEach(function(minData, mi) {
+                minutosCicloEnriq.forEach(function(minData, mi) {
                     cicloHtml += _emomMinutoHtml(mi, minData);
                 });
                 cicloHtml += '</div>';
@@ -5743,7 +5776,7 @@
             var yaMostrados = new Set();
             var ejsList = [];
             if (minutosCiclo.length > 0) {
-                minutosCiclo.forEach(function(minData) {
+                minutosCicloEnriq.forEach(function(minData) {
                     if (!minData.es_descanso) {
                         (minData.ejercicios || []).forEach(function(ej) {
                             if (!yaMostrados.has(ej.nombre)) {
@@ -6125,14 +6158,16 @@
                 }
                 // Mostrar ejercicios por minuto con thumbnails
                 if (minutosCicloBlq.length > 0) {
+                    var _fuenteMix = bloque.rutina || bloque.ejercicios || [];
+                    var minutosCicloBlqEnriq = _emomEnriquecerCiclo(minutosCicloBlq, _fuenteMix);
                     emomHtml += '<div style="margin-bottom:10px;"><div style="font-size:0.6rem;font-weight:900;color:var(--amarillo);letter-spacing:1px;margin-bottom:8px;text-transform:uppercase;">Ejercicios por minuto</div>';
-                    minutosCicloBlq.forEach(function(minData, mi) {
+                    minutosCicloBlqEnriq.forEach(function(minData, mi) {
                         emomHtml += _emomMinutoHtml(mi, minData);
                     });
                     emomHtml += '</div>';
                     // Mostrar campo de carga solo si hay con_carga
                     var yaMostradosBlq = new Set();
-                    minutosCicloBlq.forEach(function(minData) {
+                    minutosCicloBlqEnriq.forEach(function(minData) {
                         if (!minData.es_descanso) {
                             (minData.ejercicios || []).forEach(function(ej) {
                                 if (!yaMostradosBlq.has(ej.nombre) && (ej.con_carga || (bloque.carga_por_ejercicio || {})[ej.nombre])) {
@@ -7694,7 +7729,8 @@
             emomSegs = 5;
             emomFase = "prep";
             _emomPhaseDeadline = Date.now() + 5000;
-            emomMinutosCiclo = (dataGlobal.minutos_ciclo && dataGlobal.minutos_ciclo.length > 0) ? dataGlobal.minutos_ciclo : emomMinutosCiclo;
+            var _rawCiclo = (dataGlobal.minutos_ciclo && dataGlobal.minutos_ciclo.length > 0) ? dataGlobal.minutos_ciclo : [];
+            if (_rawCiclo.length > 0) emomMinutosCiclo = _emomEnriquecerCiclo(_rawCiclo, toArray(dataGlobal.rutina || []));
 
             document.getElementById('btnStartEmom').style.display = "none";
             document.getElementById('btnPausaEmom').style.display = "block";
@@ -8306,7 +8342,9 @@
             var bloque = bloquesMix[i];
             if (!bloque) return;
             var totalMin = bloque.minutos_totales || 10;
-            var ciclo = bloque.minutos_ciclo || [];
+            var _cicloRaw = bloque.minutos_ciclo || [];
+            var _fuenteBlq = bloque.rutina || bloque.ejercicios || [];
+            var ciclo = _cicloRaw.length > 0 ? _emomEnriquecerCiclo(_cicloRaw, _fuenteBlq) : [];
             // Si no hay ciclo pero hay ejercicios, construir ciclo para anunciar nombres
             if (ciclo.length === 0) {
                 var ejsBloque = bloque.rutina || bloque.ejercicios || [];
