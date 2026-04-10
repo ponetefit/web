@@ -1020,6 +1020,7 @@
             color: var(--texto);
             min-height: 1.6rem;
             margin-bottom: 4px;
+            text-align: left;
         }
         
         #emom-minuto {
@@ -2066,8 +2067,8 @@
             <div id="sec-emom-ui" style="display:none;">
                 <div id="emom-box">
                     <div id="emom-status">LISTO</div>
-                    <div id="emom-ejercicio-nombre"></div>
                     <div id="emom-minuto"></div>
+                    <div id="emom-ejercicio-nombre"></div>
                     <div class="timer-progress-bar">
                         <div class="timer-progress-fill" id="emom-progress-fill"></div>
                     </div>
@@ -4375,30 +4376,27 @@
                             con_carga: ejData ? (Array.isArray(ejData) ? false : (ejData.con_carga||false)) : false };
                     })};
                 });
-                var emomMinutosWEnriq = _emomEnriquecerCiclo(emomMinutosW, ejsW);
-                if (emomMinutosWEnriq.length > 0) {
-                    var emomMinHtmlW = '<div style="margin-bottom:12px;"><div style="font-size:0.6rem;font-weight:900;color:var(--amarillo);letter-spacing:1px;margin-bottom:8px;text-transform:uppercase;">Ejercicios por minuto</div>';
-                    emomMinutosWEnriq.forEach(function(minData, mi) {
+                // Si no hay ciclo por minuto, construirlo desde ejsW
+                var _cicloBaseW = emomMinutosW.length > 0 ? emomMinutosW : [];
+                if (_cicloBaseW.length === 0 && ejsW.length > 0) {
+                    var _ejsPorMinW = det.ejercicios_por_minuto || 1;
+                    var _totalMinW = det.minutos || 5;
+                    for (var _mwi = 0; _mwi < _totalMinW; _mwi++) {
+                        var _ejsMinW = [];
+                        for (var _jwi = 0; _jwi < _ejsPorMinW; _jwi++) {
+                            _ejsMinW.push(ejsW[(_mwi * _ejsPorMinW + _jwi) % ejsW.length]);
+                        }
+                        _cicloBaseW.push({ es_descanso: false, ejercicios: _ejsMinW });
+                    }
+                }
+                var _cicloEnriqW = _emomEnriquecerCiclo(_cicloBaseW, ejsW);
+                if (_cicloEnriqW.length > 0) {
+                    var emomMinHtmlW = '<div style="margin-bottom:12px;">';
+                    _cicloEnriqW.forEach(function(minData, mi) {
                         emomMinHtmlW += _emomMinutoHtml(mi, minData);
                     });
                     emomMinHtmlW += '</div>';
                     wLista.innerHTML += emomMinHtmlW;
-                } else {
-                    // Fallback: mostrar cada ejercicio una vez
-                    var emomRepsDictW = det.reps_por_ejercicio || {};
-                    var emomUnitsDictW = det.units_por_ejercicio || {};
-                    var emomCargaDictW = det.carga_por_ejercicio || {};
-                    var yaVistosW = new Set();
-                    ejsW.forEach(function(ej) {
-                        const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio);
-                        if (yaVistosW.has(n)) return;
-                        yaVistosW.add(n);
-                        const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
-                        const r = Array.isArray(ej) ? ej[2] : (ej.reps || emomRepsDictW[n] || "");
-                        const u = Array.isArray(ej) ? (ej[3] || "Reps") : (ej.unit || emomUnitsDictW[n] || "Reps");
-                        const cc = Array.isArray(ej) ? (emomCargaDictW[n]||false) : (ej.con_carga || emomCargaDictW[n] || false);
-                        wLista.innerHTML += crearCard(n, l, r ? r + " " + u.toUpperCase() : "EMOM", cc);
-                    });
                 }
             } else {
                 // Número de vueltas del calentamiento (para generar inputs de carga por vuelta)
@@ -5754,56 +5752,48 @@
             emomMinutosCiclo = _emomEnriquecerCiclo(minutosCiclo, rutina);
             emomCicloLen = ejsPorMin;
 
-            pLista.innerHTML += '<div class="info-block" style="border-color:var(--amarillo);">' +
-                '<span class="info-block-titulo" style="color:var(--amarillo)">' + minutos + ' MIN — Ciclo: ' + ejsPorMin + ' ej/min</span></div>';
             if (data.descripcion) {
                 pLista.innerHTML += '<div class="bloque-descripcion">' + data.descripcion + '</div>';
             }
 
+            // Construir ciclo enriquecido (con link + reps desde rutina fuente)
+            var _cicloBase = minutosCiclo.length > 0 ? minutosCiclo : [];
+            // Si no hay ciclo explícito, construir uno repitiendo los ejercicios de la rutina
+            if (_cicloBase.length === 0 && rutina.length > 0) {
+                for (var _mi = 0; _mi < minutos; _mi++) {
+                    var _ejsMin = [];
+                    for (var _ji = 0; _ji < ejsPorMin; _ji++) {
+                        var _ej = rutina[(_mi * ejsPorMin + _ji) % rutina.length];
+                        _ejsMin.push(_ej);
+                    }
+                    _cicloBase.push({ es_descanso: false, ejercicios: _ejsMin });
+                }
+            }
+            var _cicloEnriq = _emomEnriquecerCiclo(_cicloBase, rutina);
+            // Guardar en global para uso del timer
+            emomMinutosCiclo = _cicloEnriq;
+
             // Mostrar ejercicios por minuto con thumbnails
-            if (minutosCiclo.length > 0) {
-                var minutosCicloEnriq = _emomEnriquecerCiclo(minutosCiclo, rutina);
-                var cicloHtml = '<div style="margin-bottom:10px;">' +
-                    '<div style="font-size:0.65rem;font-weight:900;color:var(--amarillo);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Ejercicios por minuto</div>';
-                minutosCicloEnriq.forEach(function(minData, mi) {
+            if (_cicloEnriq.length > 0) {
+                var cicloHtml = '<div style="margin-bottom:10px;">';
+                _cicloEnriq.forEach(function(minData, mi) {
                     cicloHtml += _emomMinutoHtml(mi, minData);
                 });
                 cicloHtml += '</div>';
                 pLista.innerHTML += cicloHtml;
             }
 
-            // Mostrar cada ejercicio UNA SOLA VEZ con campo de carga (solo si hay carga)
-            var yaMostrados = new Set();
-            var ejsList = [];
-            if (minutosCiclo.length > 0) {
-                minutosCicloEnriq.forEach(function(minData) {
-                    if (!minData.es_descanso) {
-                        (minData.ejercicios || []).forEach(function(ej) {
-                            if (!yaMostrados.has(ej.nombre)) {
-                                yaMostrados.add(ej.nombre);
-                                ejsList.push(ej);
-                            }
-                        });
-                    }
-                });
-            } else {
-                rutina.forEach(function(ej) {
-                    const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || '');
-                    if (!yaMostrados.has(n)) {
-                        yaMostrados.add(n);
-                        ejsList.push(ej);
-                    }
-                });
-            }
-
-            ejsList.forEach(function(ej) {
-                const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || '');
-                const l = Array.isArray(ej) ? ej[1] : (ej.link || '');
-                const reps = Array.isArray(ej) ? '' : (ej.reps || repsDict[n] || '');
-                const ejU = (Array.isArray(ej) ? 'Reps' : (ej.unit || unitsDict[n] || 'Reps')).toUpperCase();
-                const cc = Array.isArray(ej) ? (cargaDict[n] || false) : (ej.con_carga || cargaDict[n] || false);
-                const meta = reps ? reps + ' ' + ejU : 'EMOM';
-                pLista.innerHTML += crearCard(n, l, meta, cc);
+            // Mostrar campo de carga para ejercicios que lo tengan
+            var _yaConCarga = new Set();
+            _cicloEnriq.forEach(function(minData) {
+                if (!minData.es_descanso) {
+                    (minData.ejercicios || []).forEach(function(ej) {
+                        if (!_yaConCarga.has(ej.nombre) && ej.con_carga) {
+                            _yaConCarga.add(ej.nombre);
+                            pLista.innerHTML += crearCard(ej.nombre, ej.link || '', ej.reps ? ej.reps + ' ' + (ej.unit||'Reps').toUpperCase() : 'EMOM', true);
+                        }
+                    });
+                }
             });
 
             document.getElementById('emom-status').innerText = "LISTO";
@@ -6156,43 +6146,42 @@
                 if (bloque.descripcion) {
                     emomHtml += '<div class="bloque-descripcion">' + bloque.descripcion + '</div>';
                 }
-                // Mostrar ejercicios por minuto con thumbnails
-                if (minutosCicloBlq.length > 0) {
-                    var _fuenteMix = bloque.rutina || bloque.ejercicios || [];
-                    var minutosCicloBlqEnriq = _emomEnriquecerCiclo(minutosCicloBlq, _fuenteMix);
-                    emomHtml += '<div style="margin-bottom:10px;"><div style="font-size:0.6rem;font-weight:900;color:var(--amarillo);letter-spacing:1px;margin-bottom:8px;text-transform:uppercase;">Ejercicios por minuto</div>';
-                    minutosCicloBlqEnriq.forEach(function(minData, mi) {
+                // Construir ciclo enriquecido
+                var _fuenteMix = bloque.rutina || bloque.ejercicios || [];
+                var _cicloBaseMix = minutosCicloBlq.length > 0 ? minutosCicloBlq : [];
+                if (_cicloBaseMix.length === 0 && _fuenteMix.length > 0) {
+                    var _ejsPorMinMix = ec.ejercicios_por_minuto || 1;
+                    var _totalMinMix = ec.minutos_totales || 10;
+                    for (var _mmi = 0; _mmi < _totalMinMix; _mmi++) {
+                        var _ejsMinMix = [];
+                        for (var _jmi = 0; _jmi < _ejsPorMinMix; _jmi++) {
+                            _ejsMinMix.push(_fuenteMix[(_mmi * _ejsPorMinMix + _jmi) % _fuenteMix.length]);
+                        }
+                        _cicloBaseMix.push({ es_descanso: false, ejercicios: _ejsMinMix });
+                    }
+                }
+                var _cicloEnriqMix = _emomEnriquecerCiclo(_cicloBaseMix, _fuenteMix);
+                // Mostrar por minuto con thumbnails
+                if (_cicloEnriqMix.length > 0) {
+                    emomHtml += '<div style="margin-bottom:10px;">';
+                    _cicloEnriqMix.forEach(function(minData, mi) {
                         emomHtml += _emomMinutoHtml(mi, minData);
                     });
                     emomHtml += '</div>';
-                    // Mostrar campo de carga solo si hay con_carga
-                    var yaMostradosBlq = new Set();
-                    minutosCicloBlqEnriq.forEach(function(minData) {
-                        if (!minData.es_descanso) {
-                            (minData.ejercicios || []).forEach(function(ej) {
-                                if (!yaMostradosBlq.has(ej.nombre) && (ej.con_carga || (bloque.carga_por_ejercicio || {})[ej.nombre])) {
-                                    yaMostradosBlq.add(ej.nombre);
-                                    var ejU = (ej.unit || 'Reps').toUpperCase();
-                                    emomHtml += crearCard(ej.nombre, ej.link || '', ej.reps ? ej.reps + ' ' + ejU : 'EMOM', true);
-                                }
-                            });
-                        }
-                    });
-                } else {
-                    var unitsDict = bloque.units_por_ejercicio || {};
-                    var cargaDictBlq = bloque.carga_por_ejercicio || {};
-                    var yaMostrados2 = new Set();
-                    (bloque.rutina || bloque.ejercicios || []).forEach(function(ej) {
-                        const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej);
-                        if (yaMostrados2.has(n)) return;
-                        yaMostrados2.add(n);
-                        const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
-                        const reps = repsDict[n] || "";
-                        const ejU = (unitsDict[n] || "Reps").toUpperCase();
-                        const cc = Array.isArray(ej) ? (cargaDictBlq[n] || false) : (ej.con_carga || cargaDictBlq[n] || false);
-                        emomHtml += crearCard(n, l, reps ? reps + " " + ejU : "EMOM", cc);
-                    });
                 }
+                // Carga si corresponde
+                var yaMostradosBlq = new Set();
+                _cicloEnriqMix.forEach(function(minData) {
+                    if (!minData.es_descanso) {
+                        (minData.ejercicios || []).forEach(function(ej) {
+                            if (!yaMostradosBlq.has(ej.nombre) && (ej.con_carga || (bloque.carga_por_ejercicio || {})[ej.nombre])) {
+                                yaMostradosBlq.add(ej.nombre);
+                                var ejU = (ej.unit || 'Reps').toUpperCase();
+                                emomHtml += crearCard(ej.nombre, ej.link || '', ej.reps ? ej.reps + ' ' + ejU : 'EMOM', true);
+                            }
+                        });
+                    }
+                });
                 var emomPausaId = emomUid + "-pausa";
                 var emomReinId = emomUid + "-rein";
                 emomHtml += '<div class="emom-inline-box">' +
@@ -7668,6 +7657,7 @@
                 var ejNomEl = document.getElementById('emom-ejercicio-nombre');
                 if (ejNomEl) {
                     var _emMinData = emomMinutosCiclo.length > 0 ? emomMinutosCiclo[emomMinActual % emomMinutosCiclo.length] : null;
+                    ejNomEl.style.textAlign = 'left';
                     if (_emMinData && _emMinData.ejercicios && _emMinData.ejercicios.length > 0) {
                         ejNomEl.innerHTML = _emMinData.ejercicios.map(function(ej) {
                             var n = ej.nombre || '';
@@ -7675,11 +7665,13 @@
                             var r = ej.reps || '';
                             var u = (ej.unit || 'reps').toLowerCase();
                             var tUrl = extraerYoutubeThumbnail(l);
-                            var tHtml = tUrl ? '<img src="' + tUrl + '" alt="" style="width:100px;height:100px;object-fit:cover;border-radius:12px;flex-shrink:0;cursor:pointer;border:2px solid rgba(255,255,255,0.15);" onclick="abrirVideo(\'' + l.replace(/'/g,"\'") + '\',\'' + n.replace(/'/g,"\'") + '\')">' : '';
-                            return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">' + tHtml +
-                                '<div style="display:flex;flex-direction:column;gap:2px;">' +
-                                '<span style="color:var(--amarillo);font-weight:900;font-size:1rem;">' + n + '</span>' +
-                                (r ? '<span style="color:var(--texto-suave);font-size:0.85rem;">' + r + ' ' + u + '</span>' : '') +
+                            var safeL = l.replace(/\/g,'\\').replace(/'/g,"\'");
+                            var safeN = n.replace(/\/g,'\\').replace(/'/g,"\'");
+                            var tHtml = tUrl ? '<img src="' + tUrl + '" alt="" style="width:100px;height:100px;object-fit:cover;border-radius:12px;flex-shrink:0;cursor:pointer;border:2px solid rgba(255,255,255,0.15);" onclick="abrirVideo('' + safeL + '','' + safeN + '')">' : '';
+                            return '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;background:rgba(255,255,255,0.05);border-radius:12px;padding:8px 10px;">' + tHtml +
+                                '<div style="display:flex;flex-direction:column;gap:3px;">' +
+                                '<span style="color:var(--amarillo);font-weight:900;font-size:clamp(0.95rem,3vw,1.15rem);">' + n + '</span>' +
+                                (r ? '<span style="color:var(--texto-suave);font-size:0.85rem;font-weight:700;">' + r + ' ' + u + '</span>' : '') +
                                 '</div></div>';
                         }).join('');
                     } else if (_emNomActual) {
@@ -8239,6 +8231,7 @@
             function mostrarEjercicios(minIdx) {
                 var ejEl = ejId ? document.getElementById(ejId) : null;
                 if (!ejEl) return;
+                ejEl.style.textAlign = 'left';
                 if (ciclo.length > 0) {
                     var minData = ciclo[minIdx % ciclo.length];
                     if (minData && minData.ejercicios && minData.ejercicios.length > 0) {
@@ -8248,11 +8241,13 @@
                             var r = ej.reps || '';
                             var u = (ej.unit || 'reps').toLowerCase();
                             var tUrl = extraerYoutubeThumbnail(l);
-                            var tHtml = tUrl ? '<img src="' + tUrl + '" alt="" style="width:100px;height:100px;object-fit:cover;border-radius:12px;flex-shrink:0;cursor:pointer;border:2px solid rgba(255,255,255,0.15);" onclick="abrirVideo(\'' + l.replace(/'/g,"\'") + '\',\'' + n.replace(/'/g,"\'") + '\')">' : '';
-                            return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">' + tHtml +
-                                '<div style="display:flex;flex-direction:column;gap:2px;">' +
-                                '<span style="color:var(--amarillo);font-weight:900;font-size:1rem;">' + n + '</span>' +
-                                (r ? '<span style="color:var(--texto-suave);font-size:0.85rem;">' + r + ' ' + u + '</span>' : '') +
+                            var safeL = l.replace(/\/g,'\\').replace(/'/g,"\'");
+                            var safeN = n.replace(/\/g,'\\').replace(/'/g,"\'");
+                            var tHtml = tUrl ? '<img src="' + tUrl + '" alt="" style="width:100px;height:100px;object-fit:cover;border-radius:12px;flex-shrink:0;cursor:pointer;border:2px solid rgba(255,255,255,0.15);" onclick="abrirVideo('' + safeL + '','' + safeN + '')">' : '';
+                            return '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;background:rgba(255,255,255,0.05);border-radius:12px;padding:8px 10px;">' + tHtml +
+                                '<div style="display:flex;flex-direction:column;gap:3px;">' +
+                                '<span style="color:var(--amarillo);font-weight:900;font-size:clamp(0.95rem,3vw,1.15rem);">' + n + '</span>' +
+                                (r ? '<span style="color:var(--texto-suave);font-size:0.85rem;font-weight:700;">' + r + ' ' + u + '</span>' : '') +
                                 '</div></div>';
                         }).join('');
                     } else {
