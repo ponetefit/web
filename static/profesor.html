@@ -6518,30 +6518,18 @@
     }
 
     // ====================================================================
-    // REPOSITORIO DE RUTINAS (Firebase)
+    // REPOSITORIO DE RUTINAS (localStorage)
     // ====================================================================
+    const REPO_KEY = 'ponetefit_repositorio';
     let repoEditandoIdx = null;
     let repoCopiarIdx = null;
-    let _repoCache = null; // cache local para la sesión
 
-    async function getRepositorio() {
-        try {
-            const resp = await fetch('/api/repositorio');
-            const d = await resp.json();
-            _repoCache = d.ok ? (d.repositorio || []) : [];
-            return _repoCache;
-        } catch(e) { return _repoCache || []; }
+    function getRepositorio() {
+        try { return JSON.parse(localStorage.getItem(REPO_KEY) || '[]'); } catch(e) { return []; }
     }
 
-    async function setRepositorio(arr) {
-        _repoCache = arr;
-        try {
-            await fetch('/api/repositorio', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ repositorio: arr })
-            });
-        } catch(e) { console.error('Error guardando repositorio', e); }
+    function setRepositorio(arr) {
+        localStorage.setItem(REPO_KEY, JSON.stringify(arr));
     }
 
     // Abre el modal para guardar la rutina actual en el repositorio
@@ -6554,7 +6542,7 @@
     }
 
     // Captura el estado actual de diasData + DOM y lo guarda en repositorio
-    async function guardarEnRepositorio() {
+    function guardarEnRepositorio() {
         const nombre = (document.getElementById('repo-nombre-input').value || '').trim();
         if (!nombre) {
             document.getElementById('repo-status').textContent = 'Ingresá un nombre para la plantilla';
@@ -6594,14 +6582,14 @@
             })
         };
 
-        const repo = await getRepositorio();
+        const repo = getRepositorio();
         // Si venimos de "editar rutina completa", reemplazar el ítem existente en vez de agregar uno nuevo
         if (window._repoEditandoIdx !== undefined && window._repoEditandoIdx !== null && repo[window._repoEditandoIdx]) {
             repo[window._repoEditandoIdx] = snapshot;
         } else {
             repo.unshift(snapshot);
         }
-        await setRepositorio(repo);
+        setRepositorio(repo);
 
         document.getElementById('repo-status').textContent = '✓ Guardado correctamente';
         document.getElementById('repo-status').className = 'text-xs text-verde text-center min-h-[1.2rem]';
@@ -6615,8 +6603,8 @@
         toast('Rutina guardada en el repositorio');
     }
 
-    async function renderizarRepositorio() {
-        const repo = await getRepositorio();
+    function renderizarRepositorio() {
+        const repo = getRepositorio();
         const lista = document.getElementById('repo-lista');
         if (!repo.length) {
             lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-12">No hay rutinas guardadas en el repositorio aún.<br><span class="text-xs">Andá a "Crear Rutina", armá tu rutina y guardala desde el repositorio.</span></p>';
@@ -6767,8 +6755,8 @@
         }
     }
 
-    async function verEntrenamientoRepo(idx) {
-        const repo = await getRepositorio();
+    function verEntrenamientoRepo(idx) {
+        const repo = getRepositorio();
         const r = repo[idx];
         if (!r) return;
 
@@ -6783,30 +6771,30 @@
         document.getElementById('modal-ver-rutina').classList.remove('hidden');
     }
 
-    async function eliminarDelRepositorio(idx) {
+    function eliminarDelRepositorio(idx) {
         if (!confirm('¿Eliminar esta rutina del repositorio?')) return;
-        const repo = await getRepositorio();
+        const repo = getRepositorio();
         repo.splice(idx, 1);
-        await setRepositorio(repo);
+        setRepositorio(repo);
         renderizarRepositorio();
         toast('Rutina eliminada del repositorio');
     }
 
-    async function editarPlantilla(idx) {
-        const repo = await getRepositorio();
+    function editarPlantilla(idx) {
+        const repo = getRepositorio();
         repoEditandoIdx = idx;
         document.getElementById('repo-editar-nombre').value = repo[idx].nombre || '';
         document.getElementById('modal-repo-editar').classList.remove('hidden');
         setTimeout(() => document.getElementById('repo-editar-nombre').focus(), 100);
     }
 
-    async function confirmarEditarPlantilla() {
+    function confirmarEditarPlantilla() {
         const nuevoNombre = (document.getElementById('repo-editar-nombre').value || '').trim();
         if (!nuevoNombre) return;
-        const repo = await getRepositorio();
+        const repo = getRepositorio();
         if (repoEditandoIdx !== null && repo[repoEditandoIdx]) {
             repo[repoEditandoIdx].nombre = nuevoNombre;
-            await setRepositorio(repo);
+            setRepositorio(repo);
             renderizarRepositorio();
             toast('Nombre actualizado');
         }
@@ -6814,7 +6802,7 @@
     }
 
     async function editarRutinaCompleta() {
-        const repo = await getRepositorio();
+        const repo = getRepositorio();
         if (repoEditandoIdx === null || !repo[repoEditandoIdx]) return;
         const r = repo[repoEditandoIdx];
         document.getElementById('modal-repo-editar').classList.add('hidden');
@@ -6823,7 +6811,7 @@
         const nuevoNombre = (document.getElementById('repo-editar-nombre').value || '').trim();
         if (nuevoNombre && nuevoNombre !== r.nombre) {
             r.nombre = nuevoNombre;
-            await setRepositorio(repo);
+            setRepositorio(repo);
         }
 
         // Cargar la plantilla en el editor (Crear Rutina) en modo repositorio
@@ -6838,9 +6826,9 @@
         toast('Plantilla cargada — editá y guardá en Repositorio');
     }
 
-    async function copiarAAlumnoDesdeRepo(idx) {
+    function copiarAAlumnoDesdeRepo(idx) {
         repoCopiarIdx = idx;
-        const repo = await getRepositorio();
+        const repo = getRepositorio();
         const r = repo[idx];
         document.getElementById('repo-copiar-nombre-plantilla').textContent = r.nombre;
         document.getElementById('repo-copiar-status').textContent = '';
@@ -6869,7 +6857,7 @@
             document.getElementById('repo-copiar-status').className = 'text-xs text-rojo text-center min-h-[1.2rem]';
             return;
         }
-        const repo = await getRepositorio();
+        const repo = getRepositorio();
         const r = repo[repoCopiarIdx];
         if (!r) return;
 
@@ -6934,7 +6922,7 @@
     }
 
     async function cargarPlantillaEnCrear(idx) {
-        const repo = await getRepositorio();
+        const repo = getRepositorio();
         const r = repo[idx];
         if (!r) return;
         if (!confirm('¿Cargar esta plantilla en "Crear Rutina"? Se reemplazará lo que tengas actualmente.')) return;
