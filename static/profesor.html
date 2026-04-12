@@ -2079,11 +2079,11 @@
     }
 
     // Guarda directamente con un prompt de nombre (modo repositorio)
-    function guardarEnRepositorioDirecto() {
+    async function guardarEnRepositorioDirecto() {
         document.getElementById('repo-status').textContent = '';
         // Si venimos de "editar rutina completa", pre-rellenar el nombre del ítem original
         if (window._repoEditandoIdx !== undefined && window._repoEditandoIdx !== null) {
-            const repo = getRepositorio();
+            const repo = await getRepositorio();
             const r = repo[window._repoEditandoIdx];
             document.getElementById('repo-nombre-input').value = r ? (r.nombre || '') : '';
         } else {
@@ -6979,8 +6979,8 @@
     }
 
     // Actualiza el panel de fuentes en el modal IA
-    function _iaActualizarPreviewFuentes() {
-        const repo = getRepositorio();
+    async function _iaActualizarPreviewFuentes() {
+        const repo = await getRepositorio();
         const panelRepo = document.getElementById('ia-repo-preview');
         if (!panelRepo) return;
         if (repo.length === 0) {
@@ -7704,7 +7704,7 @@
         const numDias    = parseInt(document.getElementById('ia-num-dias')?.value) || 1;
         const numBloques = parseInt(document.getElementById('ia-num-bloques')?.value) || 1;
         try {
-            const patrones   = _iaExtraerPatrones(_iaHistorialCache, getRepositorio());
+            const patrones   = _iaExtraerPatrones(_iaHistorialCache, await getRepositorio());
             const nuevaData  = _iaGenerarDias(videotecaCache, patrones, numDias, numBloques);
             if (!nuevaData) { toast('Sin ejercicios. Revisá la Videoteca.'); return; }
             _iaUltimaGeneracion = nuevaData;
@@ -7777,7 +7777,7 @@
         const numDias    = parseInt(document.getElementById('ia-num-dias')?.value) || 1;
         const numBloques = parseInt(document.getElementById('ia-num-bloques')?.value) || 1;
         try {
-            const patrones  = _iaExtraerPatrones(_iaHistorialCache, getRepositorio());
+            const patrones  = _iaExtraerPatrones(_iaHistorialCache, await getRepositorio());
             const nuevaData = _iaGenerarDias(videotecaCache, patrones, numDias, numBloques);
             if (!nuevaData) { toast('Sin ejercicios.'); return; }
             _iaUltimaGeneracion = nuevaData;
@@ -7796,7 +7796,7 @@
 
         toast('🤖 Generando rutina...');
         try {
-            const patrones  = _iaExtraerPatrones(_iaHistorialCache, getRepositorio());
+            const patrones  = _iaExtraerPatrones(_iaHistorialCache, await getRepositorio());
             const nuevaData = _iaGenerarDias(videotecaCache, patrones, numDias, numBloques);
             if (!nuevaData || nuevaData.length === 0) { toast('No se pudo generar. Revisá la Videoteca.'); return; }
 
