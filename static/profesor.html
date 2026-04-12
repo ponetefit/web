@@ -780,15 +780,123 @@
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                     <h2 class="text-lg font-bold text-naranja uppercase tracking-wider">Repositorio de Rutinas</h2>
                     <div class="flex gap-2 flex-wrap self-start sm:self-auto">
+                        <button onclick="pizTogglePanel()" id="btn-pizarra" class="px-5 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wider flex items-center gap-2 transition" style="background:rgba(79,195,247,.15);color:#4FC3F7;border:1px solid rgba(79,195,247,.3)" onmouseover="this.style.background='rgba(79,195,247,.25)'" onmouseout="this.style.background='rgba(79,195,247,.15)'">
+                            📷 Digitalizar Pizarra
+                        </button>
                         <button onclick="abrirCrearEntrenamiento()" class="btn-primary px-5 py-2.5 rounded-xl text-white font-bold text-sm uppercase tracking-wider flex items-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                             Crear Entrenamiento
                         </button>
-                        <button onclick="abrirModalPizarra()" class="px-5 py-2.5 rounded-xl border-2 border-azul/50 text-azul font-bold text-sm uppercase tracking-wider flex items-center gap-2 hover:border-azul hover:bg-azul/5 transition">
-                            📷 Digitalizar Pizarra
-                        </button>
                     </div>
                 </div>
+
+                <!-- ── PANEL DIGITALIZACIÓN DE PIZARRA ── -->
+                <div id="piz-panel" class="hidden mb-6 rounded-2xl border border-azul/30 overflow-hidden" style="background:rgba(79,195,247,.04)">
+                    <!-- Header panel -->
+                    <div class="flex items-center justify-between px-5 py-3 border-b border-azul/20" style="background:rgba(79,195,247,.08)">
+                        <div class="flex items-center gap-3">
+                            <span class="text-lg">📷</span>
+                            <div>
+                                <p class="text-sm font-bold text-azul uppercase tracking-wider">Digitalizar Pizarra</p>
+                                <p class="text-xs text-textoSuave">Subí una foto → la IA extrae los ejercicios → armás la rutina</p>
+                            </div>
+                        </div>
+                        <button onclick="pizTogglePanel()" class="text-textoSuave hover:text-texto text-2xl leading-none" style="background:none;border:none;cursor:pointer">&times;</button>
+                    </div>
+
+                    <div class="p-5 grid grid-cols-1 lg:grid-cols-2 gap-5">
+                        <!-- Columna izquierda: upload + resultado -->
+                        <div class="space-y-4">
+                            <!-- Drop Zone -->
+                            <div id="piz-dropZone" class="border-2 border-dashed border-borde rounded-xl p-6 text-center cursor-pointer transition hover:border-azul hover:bg-azul/5 relative" ondragover="pizDragOver(event)" ondragleave="pizDragLeave(event)" ondrop="pizDrop(event)" onclick="document.getElementById('piz-fileInput').click()">
+                                <input type="file" id="piz-fileInput" accept="image/*" onchange="pizProcesarArchivo(event)" class="hidden">
+                                <div class="text-3xl mb-2">📸</div>
+                                <p class="text-sm font-bold text-texto mb-1">Subí la foto de la pizarra</p>
+                                <p class="text-xs text-textoSuave mb-3">JPG, PNG — o arrastrá acá</p>
+                                <span class="inline-block px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider text-white" style="background:#4FC3F7">Elegir Archivo</span>
+                            </div>
+
+                            <!-- Preview -->
+                            <div id="piz-previewContainer" class="hidden">
+                                <div class="relative">
+                                    <img id="piz-previewImg" class="w-full rounded-xl border border-borde" style="max-height:180px;object-fit:cover">
+                                    <button onclick="pizResetear()" class="absolute top-2 right-2 text-xs font-bold px-3 py-1 rounded-lg cursor-pointer" style="background:rgba(0,0,0,.75);color:#fff;border:none">✕ Cambiar</button>
+                                </div>
+                            </div>
+
+                            <!-- Estado OCR -->
+                            <div id="piz-ocr-status" class="hidden rounded-xl p-3 flex items-center gap-3" style="background:rgba(79,195,247,.08);border:1px solid rgba(79,195,247,.2)">
+                                <div class="flex gap-1">
+                                    <span class="w-2 h-2 rounded-full bg-azul" style="animation:pizBounce .8s infinite alternate;display:inline-block"></span>
+                                    <span class="w-2 h-2 rounded-full" style="background:#CE93D8;animation:pizBounce .8s .15s infinite alternate;display:inline-block"></span>
+                                    <span class="w-2 h-2 rounded-full bg-verde" style="animation:pizBounce .8s .3s infinite alternate;display:inline-block"></span>
+                                </div>
+                                <span id="piz-ocr-msg" class="text-xs text-textoSuave">Analizando con IA...</span>
+                            </div>
+
+                            <!-- Resultado ejercicios -->
+                            <div id="piz-resultado" class="hidden space-y-3">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Nombre sesión</label>
+                                        <input id="piz-nombre" type="text" class="w-full rounded-lg px-3 py-2 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Sistema</label>
+                                        <select id="piz-sistema" class="w-full rounded-lg px-3 py-2 text-sm">
+                                            <option>AMRAP</option><option>EMOM</option><option>TABATA</option>
+                                            <option>CIRCUITO VUELTAS</option><option>CIRCUITO TIEMPO</option><option>LIBRE</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div class="flex items-center justify-between mb-2">
+                                        <label class="text-xs text-textoSuave uppercase tracking-wider">Ejercicios detectados</label>
+                                        <button onclick="pizAgregarManual()" class="text-xs font-bold text-naranja hover:text-naranja/70 transition" style="background:none;border:none;cursor:pointer">+ Agregar</button>
+                                    </div>
+                                    <div id="piz-ejs-lista" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
+                                </div>
+
+                                <!-- Botón armar rutina -->
+                                <button onclick="pizArmarRutina()" class="btn-primary w-full py-3 rounded-xl text-white font-bold text-sm uppercase tracking-wider">
+                                    🏋️ Armar Rutina con estos ejercicios
+                                </button>
+                                <p id="piz-advertencia" class="text-xs text-amarillo text-center hidden">
+                                    ⚠️ Los ejercicios sin Videoteca no se incluirán en la rutina
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Columna derecha: resumen + log -->
+                        <div class="space-y-4">
+                            <!-- Resumen -->
+                            <div id="piz-resumen" class="hidden rounded-xl p-4" style="background:#141418;border:1px solid #2a2a35">
+                                <p class="text-xs font-bold text-texto uppercase tracking-wider mb-3">Resumen</p>
+                                <div class="grid grid-cols-2 gap-3 mb-3">
+                                    <div class="rounded-lg p-3 text-center" style="background:#0f0f13;border:1px solid rgba(105,240,174,.2)">
+                                        <p id="piz-cnt-vt" class="text-2xl font-black text-verde">0</p>
+                                        <p class="text-xs text-textoSuave mt-0.5">En Videoteca</p>
+                                    </div>
+                                    <div class="rounded-lg p-3 text-center" style="background:#0f0f13;border:1px solid rgba(255,107,53,.2)">
+                                        <p id="piz-cnt-no" class="text-2xl font-black text-naranja">0</p>
+                                        <p class="text-xs text-textoSuave mt-0.5">Sin Videoteca</p>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-textoSuave leading-relaxed">Los <span class="text-naranja font-bold">en naranja</span> no tienen video en tu repositorio. Podés guardarlos ahora o usarlos igual en la rutina (sin video).</p>
+                            </div>
+
+                            <!-- Log -->
+                            <div class="rounded-xl p-4" style="background:#141418;border:1px solid #2a2a35">
+                                <p class="text-xs font-bold text-purpura uppercase tracking-wider mb-3">Actividad</p>
+                                <div id="piz-log" class="space-y-1.5 max-h-52 overflow-y-auto">
+                                    <p class="text-xs text-textoSuave text-center py-4">Cargá una foto para comenzar</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- ── FIN PANEL PIZARRA ── -->
                 <div id="repo-lista" class="space-y-3">
                     <p class="text-textoSuave text-sm text-center py-12">No hay rutinas guardadas en el repositorio aún.<br><span class="text-xs">Andá a "Crear Rutina", armá tu rutina y guardala aquí.</span></p>
                 </div>
@@ -889,6 +997,52 @@
             </div>
         </div>
     </main>
+
+    <!-- Modal: Guardar en Videoteca desde Pizarra -->
+    <div id="modal-piz-vt" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-tarjeta rounded-3xl border border-borde p-6 max-w-md w-full">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-bold text-naranja uppercase tracking-wider">Guardar en Videoteca</h3>
+                <button onclick="document.getElementById('modal-piz-vt').classList.add('hidden')" class="text-textoSuave hover:text-texto text-2xl leading-none">&times;</button>
+            </div>
+            <p class="text-xs text-textoSuave mb-4">Completá los datos para que este ejercicio quede con video en tu repositorio.</p>
+            <div class="space-y-3">
+                <div>
+                    <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Nombre</label>
+                    <input id="mpv-nombre" type="text" class="w-full rounded-lg px-3 py-2.5 text-sm" readonly style="opacity:.7">
+                </div>
+                <div>
+                    <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Categoría</label>
+                    <select id="mpv-categoria" class="w-full rounded-lg px-3 py-2.5 text-sm"></select>
+                </div>
+                <div>
+                    <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Link YouTube <span class="text-textoSuave/60">(obligatorio)</span></label>
+                    <input id="mpv-link" type="url" placeholder="https://www.youtube.com/watch?v=..." class="w-full rounded-lg px-3 py-2.5 text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Músculo Principal</label>
+                        <select id="mpv-musculo1" class="w-full rounded-lg px-3 py-2 text-sm"></select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Equipamiento</label>
+                        <select id="mpv-elemento" class="w-full rounded-lg px-3 py-2 text-sm"></select>
+                    </div>
+                </div>
+                <p id="mpv-status" class="text-xs text-verde text-center min-h-[1rem]"></p>
+                <div class="flex gap-3">
+                    <button onclick="pizConfirmarGuardarVT()" class="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold text-sm">Guardar en Videoteca</button>
+                    <button onclick="document.getElementById('modal-piz-vt').classList.add('hidden')" class="flex-1 py-2.5 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+    @keyframes pizBounce { from { transform:translateY(0); } to { transform:translateY(-5px); } }
+    .piz-ej-vt  { border:1px solid rgba(105,240,174,.25); background:rgba(105,240,174,.04); }
+    .piz-ej-no  { border:1px solid rgba(255,107,53,.25);  background:rgba(255,107,53,.04);  }
+    </style>
 
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- MODAL: CONFIGURAR RUTINA CON IA                                -->
@@ -7597,6 +7751,363 @@
     }
 
     // ====================================================================
+    // DIGITALIZACIÓN DE PIZARRA
+    // ====================================================================
+    const PIZ_OR_KEY = "TU_OPENROUTER_KEY_AQUI"; // ← reemplazá con tu key de OpenRouter
+    const PIZ_MODELS = [
+        "google/gemma-3-27b-it:free",
+        "meta-llama/llama-3.2-11b-vision-instruct:free",
+        "openrouter/free"
+    ];
+    let pizEjs = [];        // [{nombre, reps, enVT}]
+    let pizGuardIdx = null; // índice del ej que se está guardando en VT
+
+    function pizTogglePanel() {
+        const panel = document.getElementById('piz-panel');
+        const btn   = document.getElementById('btn-pizarra');
+        const hidden = panel.classList.toggle('hidden');
+        btn.style.background = hidden ? 'rgba(79,195,247,.15)' : 'rgba(79,195,247,.3)';
+    }
+
+    // ── Drag & drop ───────────────────────────────────────────────────
+    function pizDragOver(e) { e.preventDefault(); document.getElementById('piz-dropZone').classList.add('border-azul'); }
+    function pizDragLeave()  { document.getElementById('piz-dropZone').classList.remove('border-azul'); }
+    function pizDrop(e) {
+        e.preventDefault(); pizDragLeave();
+        const f = e.dataTransfer.files[0];
+        if (f?.type.startsWith('image/')) pizProcFile(f);
+    }
+    function pizProcesarArchivo(ev) { const f = ev.target.files[0]; if (f) pizProcFile(f); }
+
+    function pizProcFile(file) {
+        const r = new FileReader();
+        r.onload = async (e) => {
+            const b64 = e.target.result;
+            document.getElementById('piz-previewImg').src = b64;
+            document.getElementById('piz-previewContainer').classList.remove('hidden');
+            document.getElementById('piz-dropZone').classList.add('hidden');
+            document.getElementById('piz-resultado').classList.add('hidden');
+            document.getElementById('piz-resumen').classList.add('hidden');
+            pizEjs = [];
+            document.getElementById('piz-nombre').value = 'Sesión ' + new Date().toLocaleDateString('es-AR');
+            await pizOCR(b64.split(',')[1]);
+        };
+        r.readAsDataURL(file);
+    }
+
+    async function pizOCR(b64) {
+        const st  = document.getElementById('piz-ocr-status');
+        const msg = document.getElementById('piz-ocr-msg');
+        st.classList.remove('hidden');
+        msg.textContent = 'Analizando imagen con IA...';
+        pizLog('🔍 Enviando imagen al modelo de visión...', '#4FC3F7');
+
+        const prompt = 'Analiza esta imagen de pizarra de entrenamiento funcional. Extrae TODOS los ejercicios en JSON sin texto extra: {"ejercicios":[{"nombre":"...","reps":"..."}],"sistema":"AMRAP"}. Sistema puede ser: AMRAP, EMOM, TABATA, CIRCUITO VUELTAS, CIRCUITO TIEMPO, LIBRE.';
+
+        for (let i = 0; i < PIZ_MODELS.length; i++) {
+            try {
+                msg.textContent = 'Modelo ' + (i+1) + '/' + PIZ_MODELS.length + '...';
+                const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+PIZ_OR_KEY, 'HTTP-Referer':window.location.origin, 'X-Title':'PONETE FIT' },
+                    body: JSON.stringify({ model: PIZ_MODELS[i], messages: [{ role:'user', content:[
+                        { type:'image_url', image_url:{ url:'data:image/jpeg;base64,'+b64 } },
+                        { type:'text', text:prompt }
+                    ]}]})
+                });
+                const d = await resp.json();
+                if (d.error) throw new Error(d.error.message);
+                const txt = d.choices?.[0]?.message?.content;
+                if (!txt) throw new Error('Sin respuesta');
+                let raw = txt.replace(/```json|```/g,'').trim();
+                const m = raw.match(/\{[\s\S]*\}/); if (m) raw = m[0];
+                const parsed = JSON.parse(raw);
+                if (!parsed.ejercicios?.length) throw new Error('Sin ejercicios');
+
+                // Sistema detectado
+                if (parsed.sistema) {
+                    const sel = document.getElementById('piz-sistema');
+                    for (let j = 0; j < sel.options.length; j++)
+                        if (sel.options[j].value === parsed.sistema.toUpperCase()) { sel.selectedIndex = j; break; }
+                }
+                pizEjs = parsed.ejercicios.map(ej => ({
+                    nombre: (ej.nombre || '').trim(),
+                    reps:   ej.reps || '',
+                    enVT:   pizCheckVT(ej.nombre)
+                }));
+                st.classList.add('hidden');
+                pizLog('✓ ' + pizEjs.length + ' ejercicios detectados', '#69F0AE');
+                pizRender();
+                document.getElementById('piz-resultado').classList.remove('hidden');
+                document.getElementById('piz-resumen').classList.remove('hidden');
+                return;
+            } catch(err) {
+                pizLog('⚠️ Modelo ' + (i+1) + ' falló: ' + err.message, '#FFD54F');
+                if (i === PIZ_MODELS.length - 1) {
+                    st.classList.add('hidden');
+                    pizLog('✗ No se pudo analizar. Completá manualmente.', '#EF5350');
+                    pizEjs = [{ nombre:'', reps:'', enVT:false }];
+                    pizRender();
+                    document.getElementById('piz-resultado').classList.remove('hidden');
+                }
+            }
+        }
+    }
+
+    // Chequear si nombre existe en videotecaCache (busca en todas las cats)
+    function pizCheckVT(nombre) {
+        if (!nombre) return false;
+        const up = nombre.trim().toUpperCase();
+        for (const lista of Object.values(videotecaCache || {})) {
+            if (Array.isArray(lista) && lista.some(e => (e.nombre||e[0]||'').toUpperCase() === up)) return true;
+        }
+        return false;
+    }
+
+    function pizRender() {
+        const cont = document.getElementById('piz-ejs-lista');
+        if (!pizEjs.length) { cont.innerHTML = '<p class="text-xs text-textoSuave text-center py-3">Sin ejercicios</p>'; return; }
+
+        cont.innerHTML = pizEjs.map((ej, i) => {
+            const cls   = ej.enVT ? 'piz-ej-vt' : 'piz-ej-no';
+            const badge = ej.enVT
+                ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(105,240,174,.15);color:#69F0AE">✓ En Videoteca</span>'
+                : '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(255,107,53,.15);color:#FF6B35">Sin Videoteca</span>';
+            const btnVT = ej.enVT ? '' :
+                `<button onclick="pizAbrirModalVT(${i})" class="text-[11px] font-bold px-2.5 py-1 rounded-lg whitespace-nowrap transition" style="background:rgba(255,107,53,.2);color:#FF6B35;border:1px solid rgba(255,107,53,.3);cursor:pointer" onmouseover="this.style.background='rgba(255,107,53,.35)'" onmouseout="this.style.background='rgba(255,107,53,.2)'">💾 Guardar en Videoteca</button>`;
+            return `<div class="rounded-xl p-3 ${cls}">
+                <div class="flex items-center gap-2 mb-2 flex-wrap">
+                    ${badge}
+                    <span class="flex-1"></span>
+                    <button onclick="pizDelEj(${i})" style="background:none;border:none;cursor:pointer;color:#8a8a9a;font-size:18px;line-height:1;padding:0 4px" onmouseover="this.style.color='#EF5350'" onmouseout="this.style.color='#8a8a9a'">×</button>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="text" value="${escapeHtml(ej.nombre)}" placeholder="Nombre ejercicio"
+                        class="rounded-lg px-3 py-2 text-sm col-span-1"
+                        style="background:#0f0f13;border:1px solid #2a2a35;color:#f0f0f5"
+                        onchange="pizUpd(${i},'nombre',this.value)">
+                    <input type="text" value="${escapeHtml(ej.reps)}" placeholder="Reps / Tiempo"
+                        class="rounded-lg px-3 py-2 text-sm"
+                        style="background:#0f0f13;border:1px solid #2a2a35;color:#f0f0f5"
+                        onchange="pizUpd(${i},'reps',this.value)">
+                </div>
+                ${btnVT ? `<div class="mt-2 flex justify-end">${btnVT}</div>` : ''}
+            </div>`;
+        }).join('');
+
+        // Resumen
+        const enVT = pizEjs.filter(e => e.enVT).length;
+        const noVT = pizEjs.filter(e => !e.enVT).length;
+        document.getElementById('piz-cnt-vt').textContent = enVT;
+        document.getElementById('piz-cnt-no').textContent = noVT;
+        const adv = document.getElementById('piz-advertencia');
+        (noVT > 0 && enVT > 0) ? adv.classList.remove('hidden') : adv.classList.add('hidden');
+    }
+
+    function pizUpd(i, f, v) {
+        if (!pizEjs[i]) return;
+        pizEjs[i][f] = v;
+        if (f === 'nombre') { pizEjs[i].enVT = pizCheckVT(v); pizRender(); }
+    }
+    function pizDelEj(i) { pizEjs.splice(i,1); pizRender(); }
+    function pizAgregarManual() { pizEjs.push({nombre:'',reps:'',enVT:false}); pizRender(); }
+
+    function pizLog(msg, color) {
+        const log = document.getElementById('piz-log');
+        const p = log.querySelector('p'); if (p) log.innerHTML = '';
+        const d = document.createElement('div');
+        d.style.cssText = 'font-size:11px;padding:6px 10px;border-radius:8px;background:#1a1a20;border:1px solid #2a2a35';
+        d.innerHTML = color ? `<span style="color:${color}">${msg}</span>` : msg;
+        log.appendChild(d);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function pizResetear() {
+        pizEjs = [];
+        document.getElementById('piz-previewContainer').classList.add('hidden');
+        document.getElementById('piz-dropZone').classList.remove('hidden');
+        document.getElementById('piz-fileInput').value = '';
+        document.getElementById('piz-resultado').classList.add('hidden');
+        document.getElementById('piz-resumen').classList.add('hidden');
+        document.getElementById('piz-ocr-status').classList.add('hidden');
+        document.getElementById('piz-log').innerHTML = '<p class="text-xs text-textoSuave text-center py-4">Cargá una foto para comenzar</p>';
+    }
+
+    // ── Armar rutina usando el armador existente ──────────────────────
+    function pizArmarRutina() {
+        const ejsValidos = pizEjs.filter(e => e.nombre.trim());
+        if (!ejsValidos.length) { toast('⚠️ Agregá al menos un ejercicio'); return; }
+
+        const enVT  = ejsValidos.filter(e => e.enVT);
+        const noVT  = ejsValidos.filter(e => !e.enVT);
+
+        // Si TODOS están sin VT: confirmamos usar igual (sin video)
+        // Si hay MEZCLA: avisamos y usamos solo los de VT
+        // Si TODOS tienen VT: directo
+        let ejsParaRutina = ejsValidos;
+        if (noVT.length > 0 && enVT.length > 0) {
+            if (!confirm(
+                noVT.length + ' ejercicio(s) sin Videoteca:\n' +
+                noVT.map(e => '• ' + e.nombre).join('\n') +
+                '\n\nEstos se incluirán SIN video. ¿Continuás?'
+            )) return;
+        } else if (noVT.length > 0 && enVT.length === 0) {
+            if (!confirm('Ningún ejercicio tiene Videoteca. Se incluirán SIN video. ¿Continuás?')) return;
+        }
+
+        // Construir array de ejercicios con datos de VT si existen
+        const ejsConstruidos = ejsParaRutina.map(ej => {
+            const vtData = buscarEjEnVideoteca(ej.nombre.trim().toUpperCase());
+            return {
+                nombre: ej.nombre.trim(),
+                link:   vtData ? (vtData.link || vtData.video || '') : '',
+                reps:   ej.reps || '10',
+                unit:   'Reps',
+                elemento: vtData?.elemento || '',
+                con_carga: vtData?.con_carga || false
+            };
+        });
+
+        // Mapear sistema a tipo de bloque
+        const SIST_MAP = {
+            'AMRAP':'Circuito por Tiempo', 'EMOM':'EMOM', 'TABATA':'Tabata',
+            'CIRCUITO VUELTAS':'Circuito', 'CIRCUITO TIEMPO':'Circuito por Tiempo', 'LIBRE':'Circuito'
+        };
+        const sistema    = document.getElementById('piz-sistema')?.value || 'LIBRE';
+        const tipoBloque = SIST_MAP[sistema] || 'Circuito';
+
+        // Ir a Crear Rutina y cargar
+        showTab('rutina');
+        inicializarRutina();
+
+        setTimeout(() => {
+            if (!diasData || diasData.length === 0) agregarDia();
+
+            // Rellenar nombre sesión en descripción
+            const sesNombre = document.getElementById('piz-nombre')?.value || '';
+            const descEl = document.getElementById('rutina-desc');
+            if (descEl && sesNombre) descEl.value = sesNombre;
+
+            // Agregar bloque al día 0 usando el sistema existente:
+            // Simula lo que hace confirmarBloque() pero sin abrir el modal
+            diaActivoIdx = 0;
+            bloquesRutina = diasData[0].bloquesRutina;
+            editandoBloqueIdx = null;
+
+            const bloque = {
+                tipo: tipoBloque,
+                ejercicios: ejsConstruidos,
+                params: { vueltas:'3', pausa_vuelta:'45', duracion:'5', trabajo:'20', pausa:'10', cantidad: String(ejsConstruidos.length), series:'3', pausa_serie:'60' }
+            };
+            // Parámetros específicos según tipo
+            if (tipoBloque === 'Tabata') {
+                bloque.trabajo = 20; bloque.pausa = 10; bloque.rondas = 1;
+            } else if (tipoBloque === 'EMOM') {
+                bloque.minutos_totales = ejsConstruidos.length;
+                bloque.emom_config_por_minuto = ejsConstruidos.map(ej => ({ ejercicios: [ej] }));
+            } else if (tipoBloque === 'Circuito') {
+                bloque.vueltas = 3; bloque.pausa_vuelta = 45;
+            } else if (tipoBloque === 'Circuito por Tiempo') {
+                bloque.duracion_min = 5;
+            }
+
+            diasData[0].bloquesRutina.push(bloque);
+            renderDias();
+            diasData.forEach((_, idx) => toggleDia(idx, true));
+
+            toast('✅ ' + ejsConstruidos.length + ' ejercicios cargados en Crear Rutina');
+            pizLog('✅ Rutina armada → revisá el tab "Crear Rutina"', '#69F0AE');
+        }, 350);
+    }
+
+    // ── Modal guardar en Videoteca ────────────────────────────────────
+    function pizAbrirModalVT(idx) {
+        pizGuardIdx = idx;
+        const ej = pizEjs[idx];
+        if (!ej) return;
+
+        document.getElementById('mpv-nombre').value   = ej.nombre;
+        document.getElementById('mpv-link').value     = '';
+        document.getElementById('mpv-status').textContent = '';
+
+        // Categorías desde videotecaCache (igual que ej-categoria)
+        const cats = Object.keys(videotecaCache || {});
+        document.getElementById('mpv-categoria').innerHTML =
+            (cats.length ? cats : ['General']).map(c => `<option value="${c}">${c}</option>`).join('');
+
+        // Músculos — igual que ej-musculo1 (GRUPOS_MUSCULARES)
+        document.getElementById('mpv-musculo1').innerHTML =
+            '<option value="">-- Seleccionar --</option>' +
+            GRUPOS_MUSCULARES.map(m => `<option value="${m}">${m}</option>`).join('');
+
+        // Elementos — igual que ej-elemento (ELEMENTOS)
+        document.getElementById('mpv-elemento').innerHTML =
+            '<option value="">-- Seleccionar --</option>' +
+            ELEMENTOS.map(e => `<option value="${e}">${e}</option>`).join('');
+
+        document.getElementById('modal-piz-vt').classList.remove('hidden');
+        setTimeout(() => document.getElementById('mpv-link').focus(), 100);
+    }
+
+    async function pizConfirmarGuardarVT() {
+        const nombre    = document.getElementById('mpv-nombre').value.trim();
+        const link      = document.getElementById('mpv-link').value.trim();
+        const categoria = document.getElementById('mpv-categoria').value;
+        const musculo1  = document.getElementById('mpv-musculo1').value;
+        const elemento  = document.getElementById('mpv-elemento').value;
+        const statusEl  = document.getElementById('mpv-status');
+
+        if (!nombre)    { statusEl.textContent = '⚠️ Falta el nombre';  statusEl.className='text-xs text-rojo text-center min-h-[1rem]'; return; }
+        if (!link)      { statusEl.textContent = '⚠️ El link YouTube es obligatorio'; statusEl.className='text-xs text-rojo text-center min-h-[1rem]'; return; }
+        if (!categoria) { statusEl.textContent = '⚠️ Seleccioná una categoría'; statusEl.className='text-xs text-rojo text-center min-h-[1rem]'; return; }
+
+        statusEl.textContent = 'Guardando...';
+        statusEl.className = 'text-xs text-textoSuave text-center min-h-[1rem]';
+
+        // Guardar usando la función existente del sistema:
+        // inyectar en los campos originales, llamar guardarEjercicio(), restaurar
+        const ids = { 'ej-nombre':nombre, 'ej-link':link, 'ej-musculo1':musculo1, 'ej-musculo2':'', 'ej-sinergista':'', 'ej-elemento':elemento, 'ej-tip1':'', 'ej-tip2':'' };
+        const orig = {};
+        for (const [id, val] of Object.entries(ids)) {
+            const el = document.getElementById(id); if (el) { orig[id]=el.value; el.value=val; }
+        }
+        const catEl = document.getElementById('ej-categoria');
+        const catOrig = catEl?.value;
+        if (catEl) catEl.value = categoria;
+        const ccEl = document.getElementById('ej-con-carga');
+        const ccOrig = ccEl?.checked;
+        if (ccEl) ccEl.checked = false;
+
+        try {
+            await guardarEjercicio();
+            // Restaurar
+            for (const [id, val] of Object.entries(orig)) { const el=document.getElementById(id); if(el) el.value=val; }
+            if (catEl && catOrig !== undefined) catEl.value = catOrig;
+            if (ccEl  && ccOrig  !== undefined) ccEl.checked = ccOrig;
+
+            // Marcar como en VT
+            if (pizGuardIdx !== null && pizEjs[pizGuardIdx]) {
+                pizEjs[pizGuardIdx].enVT = true;
+            }
+            statusEl.textContent = '✓ Guardado';
+            statusEl.className = 'text-xs text-verde text-center min-h-[1rem]';
+            pizLog('✓ "' + escapeHtml(nombre) + '" guardado en Videoteca — ' + categoria, '#69F0AE');
+            setTimeout(() => {
+                document.getElementById('modal-piz-vt').classList.add('hidden');
+                pizRender();
+            }, 900);
+        } catch(e) {
+            // Restaurar en caso de error también
+            for (const [id, val] of Object.entries(orig)) { const el=document.getElementById(id); if(el) el.value=val; }
+            if (catEl && catOrig !== undefined) catEl.value = catOrig;
+            if (ccEl  && ccOrig  !== undefined) ccEl.checked = ccOrig;
+            statusEl.textContent = '✗ Error al guardar';
+            statusEl.className = 'text-xs text-rojo text-center min-h-[1rem]';
+            console.error(e);
+        }
+    }
+
+    // ====================================================================
     // INIT
     // ====================================================================
     document.addEventListener('DOMContentLoaded', () => {
@@ -7673,297 +8184,6 @@ self.addEventListener('fetch', event => {
                 .catch(err => console.log('SW error:', err));
         });
     }
-
-    // ====================================================================
-    // PIZARRA DIGITALIZER
-    // ====================================================================
-    const PIZARRA_OPENROUTER_KEY = 'TU_OPENROUTER_KEY_AQUI';
-    const PIZARRA_MODELS = ['openrouter/free', 'google/gemma-3-27b-it:free', 'meta-llama/llama-3.2-11b-vision-instruct:free'];
-    let _pizarraBase64 = null;
-    let _pizarraEjerciciosDetectados = [];
-
-    function abrirModalPizarra() {
-        resetPizarra();
-        document.getElementById('modal-pizarra').classList.remove('hidden');
-    }
-
-    function cerrarModalPizarra() {
-        document.getElementById('modal-pizarra').classList.add('hidden');
-        resetPizarra();
-    }
-
-    function resetPizarra() {
-        _pizarraBase64 = null;
-        _pizarraEjerciciosDetectados = [];
-        document.getElementById('pizarra-file').value = '';
-        document.getElementById('pizarra-preview-wrap').classList.add('hidden');
-        document.getElementById('pizarra-dropzone').classList.remove('hidden');
-        document.getElementById('pizarra-nombre-wrap').classList.add('hidden');
-        document.getElementById('pizarra-btn-analizar').classList.add('hidden');
-        document.getElementById('pizarra-paso1').classList.remove('hidden');
-        document.getElementById('pizarra-paso2').classList.add('hidden');
-        document.getElementById('pizarra-status').textContent = '';
-        document.getElementById('pizarra-ejercicios-wrap').classList.add('hidden');
-        document.getElementById('pizarra-nuevos-wrap').classList.add('hidden');
-        document.getElementById('pizarra-btn-guardar').classList.add('hidden');
-    }
-
-    function pizarraArchivoSeleccionado(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            _pizarraBase64 = e.target.result.split(',')[1];
-            document.getElementById('pizarra-preview-img').src = e.target.result;
-            document.getElementById('pizarra-preview-wrap').classList.remove('hidden');
-            document.getElementById('pizarra-dropzone').classList.add('hidden');
-            document.getElementById('pizarra-nombre-wrap').classList.remove('hidden');
-            document.getElementById('pizarra-btn-analizar').classList.remove('hidden');
-            document.getElementById('pizarra-nombre').value = 'Rutina ' + new Date().toLocaleDateString('es-AR');
-        };
-        reader.readAsDataURL(file);
-    }
-
-    async function analizarPizarra() {
-        if (!_pizarraBase64) return;
-        document.getElementById('pizarra-paso1').classList.add('hidden');
-        document.getElementById('pizarra-paso2').classList.remove('hidden');
-        document.getElementById('pizarra-status').textContent = 'Analizando imagen con IA...';
-
-        const prompt = 'Analiza esta imagen de una pizarra de entrenamiento. Extrae TODOS los ejercicios en formato JSON sin texto extra ni backticks: {"ejercicios": [{"nombre": "...", "series": "...", "reps": "...", "peso": "..."}]}. Si no ves series/reps/peso dejalo vacio string. Solo JSON.';
-
-        let resultado = null;
-        for (let i = 0; i < PIZARRA_MODELS.length; i++) {
-            const model = PIZARRA_MODELS[i];
-            try {
-                document.getElementById('pizarra-status').textContent = 'Consultando IA... (' + (i+1) + '/' + PIZARRA_MODELS.length + ')';
-                const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + PIZARRA_OPENROUTER_KEY,
-                        'HTTP-Referer': window.location.origin,
-                        'X-Title': 'PoneFit Profesor'
-                    },
-                    body: JSON.stringify({
-                        model: model,
-                        messages: [{
-                            role: 'user',
-                            content: [
-                                { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + _pizarraBase64 } },
-                                { type: 'text', text: prompt }
-                            ]
-                        }]
-                    })
-                });
-                const data = await response.json();
-                if (data.error) throw new Error(data.error.message);
-                const text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-                if (!text) throw new Error('Sin respuesta');
-                let raw = text.replace(/```json|```/g, '').trim();
-                const match = raw.match(/\{[\s\S]*\}/);
-                if (match) raw = match[0];
-                resultado = JSON.parse(raw);
-                if (resultado.ejercicios && resultado.ejercicios.length) break;
-            } catch(err) {
-                console.warn('Pizarra model ' + model + ' failed:', err.message);
-                if (i === PIZARRA_MODELS.length - 1) {
-                    document.getElementById('pizarra-status').textContent = 'Error: ' + err.message + '. Intentá de nuevo.';
-                    document.getElementById('pizarra-paso2').classList.add('hidden');
-                    document.getElementById('pizarra-paso1').classList.remove('hidden');
-                    document.getElementById('pizarra-btn-analizar').classList.remove('hidden');
-                    return;
-                }
-            }
-        }
-
-        if (!resultado || !resultado.ejercicios || !resultado.ejercicios.length) {
-            document.getElementById('pizarra-status').textContent = 'No se detectaron ejercicios. Intentá con otra imagen.';
-            return;
-        }
-
-        _pizarraEjerciciosDetectados = resultado.ejercicios;
-        document.getElementById('pizarra-status').textContent = resultado.ejercicios.length + ' ejercicios detectados';
-
-        // Mostrar lista detectada
-        const listaEl = document.getElementById('pizarra-ejercicios-lista');
-        listaEl.innerHTML = resultado.ejercicios.map(function(ej, i) {
-            const detalle = [ej.series ? ej.series + ' series' : '', ej.reps ? ej.reps + ' reps' : '', ej.peso ? ej.peso : ''].filter(Boolean).join(' · ');
-            return '<div style="background:#1c1c27;border:1px solid #2a2a3a;border-radius:10px;padding:10px 12px;font-size:12px">' +
-                '<span style="font-weight:700;color:#e8e8f0">' + escapeHtml(ej.nombre) + '</span>' +
-                (detalle ? '<span style="color:#6b6b85;margin-left:8px">' + escapeHtml(detalle) + '</span>' : '') +
-                '</div>';
-        }).join('');
-        document.getElementById('pizarra-ejercicios-wrap').classList.remove('hidden');
-
-        // Verificar cuáles no están en la videoteca
-        const nombresVideoteca = new Set();
-        Object.values(VIDEOTECA_DATA || {}).forEach(function(cat) {
-            (Array.isArray(cat) ? cat : []).forEach(function(ej) {
-                if (ej.nombre) nombresVideoteca.add(ej.nombre.toUpperCase().trim());
-            });
-        });
-
-        const nuevos = resultado.ejercicios.filter(function(ej) {
-            return !nombresVideoteca.has((ej.nombre || '').toUpperCase().trim());
-        });
-
-        if (nuevos.length > 0) {
-            const nuevosEl = document.getElementById('pizarra-nuevos-lista');
-            const categoriasDisponibles = Object.keys(VIDEOTECA_DATA || {});
-            const opcionesCat = categoriasDisponibles.map(function(c) {
-                return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>';
-            }).join('');
-
-            nuevosEl.innerHTML = nuevos.map(function(ej, i) {
-                return '<div style="background:#1c1c27;border:1px solid #f59e0b33;border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:8px">' +
-                    '<input type="checkbox" id="nuevo-ej-' + i + '" value="' + escapeHtml(ej.nombre) + '" checked style="accent-color:#FF6B35;width:14px;height:14px;flex-shrink:0">' +
-                    '<span style="font-size:12px;font-weight:600;flex:1;color:#e8e8f0">' + escapeHtml(ej.nombre) + '</span>' +
-                    (opcionesCat ? '<select id="nuevo-cat-' + i + '" style="background:#0a0a0f;border:1px solid #2a2a3a;color:#e8e8f0;border-radius:6px;padding:3px 6px;font-size:11px">' + opcionesCat + '</select>' : '') +
-                    '</div>';
-            }).join('');
-            document.getElementById('pizarra-nuevos-wrap').classList.remove('hidden');
-        }
-
-        document.getElementById('pizarra-btn-guardar').classList.remove('hidden');
-    }
-
-    async function pizarraGuardarYContinuar() {
-        const nombre = (document.getElementById('pizarra-nombre').value || '').trim() || ('Rutina ' + new Date().toLocaleDateString('es-AR'));
-
-        // 1. Guardar ejercicios nuevos marcados en videoteca
-        const nuevosWrap = document.getElementById('pizarra-nuevos-lista');
-        const checkboxes = nuevosWrap ? nuevosWrap.querySelectorAll('input[type=checkbox]') : [];
-        for (let i = 0; i < checkboxes.length; i++) {
-            if (!checkboxes[i].checked) continue;
-            const ejNombre = checkboxes[i].value.toUpperCase().trim();
-            const catSelect = document.getElementById('nuevo-cat-' + i);
-            const categoria = catSelect ? catSelect.value : (Object.keys(VIDEOTECA_DATA || {})[0] || '');
-            if (!categoria) continue;
-            try {
-                const resGet = await fetch(FIREBASE_BASE + '/videoteca/' + encodeURIComponent(categoria) + '.json');
-                let ejsActuales = await resGet.json();
-                if (!ejsActuales || !Array.isArray(ejsActuales)) ejsActuales = [];
-                const yaExiste = ejsActuales.findIndex(function(e) { return (e.nombre||'').toUpperCase() === ejNombre; });
-                if (yaExiste === -1) {
-                    ejsActuales.push({ nombre: ejNombre, link: '', musculo1: '', musculo2: '', sinergista: '', elemento: '', con_carga: false, tip1: '', tip2: '' });
-                    await fetch(FIREBASE_BASE + '/videoteca/' + encodeURIComponent(categoria) + '.json', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(ejsActuales)
-                    });
-                }
-            } catch(e) { console.warn('Error guardando ej en videoteca:', e); }
-        }
-
-        // 2. Crear snapshot de rutina y guardar en repositorio
-        // Formato mínimo compatible con renderizarRepositorio
-        const bloque = {
-            nombre: 'Bloque Principal',
-            tipo: 'serie',
-            ejercicios: _pizarraEjerciciosDetectados.map(function(ej) {
-                return {
-                    nombre: (ej.nombre || '').toUpperCase(),
-                    series: parseInt(ej.series) || 3,
-                    reps: ej.reps || '',
-                    peso: ej.peso || '',
-                    descanso: '',
-                    notas: ''
-                };
-            })
-        };
-
-        const diaData = {
-            nombre: 'Día 1',
-            bloquesRutina: [bloque],
-            warmupEjercicios: [],
-            warmupConfig: {}
-        };
-
-        const snapshot = {
-            nombre: nombre,
-            fecha: new Date().toLocaleDateString('es-AR'),
-            diasData: [diaData],
-            warmupConfigs: [{}],
-            alumnoNombre: '',
-            rutinaDesc: 'Digitalizada desde pizarra'
-        };
-
-        const repo = getRepositorio();
-        repo.unshift(snapshot);
-        setRepositorio(repo);
-
-        cerrarModalPizarra();
-        showTab('repositorio');
-        toast('Rutina guardada en repositorio');
-
-        // Recargar videoteca en segundo plano si se guardaron ejercicios nuevos
-        if (checkboxes.length > 0) cargarVideoteca();
-    }
-
     </script>
-
-    <!-- ═══════════════════════════════════════════ -->
-    <!-- MODAL: DIGITALIZAR PIZARRA                  -->
-    <!-- ═══════════════════════════════════════════ -->
-    <div id="modal-pizarra" class="hidden fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-tarjeta rounded-3xl border border-borde w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <!-- Header -->
-            <div class="flex items-center justify-between p-5 border-b border-borde">
-                <h3 class="text-sm font-bold text-azul uppercase tracking-wider">📷 Digitalizar Pizarra</h3>
-                <button onclick="cerrarModalPizarra()" class="text-textoSuave hover:text-texto transition text-xl leading-none">×</button>
-            </div>
-
-            <!-- Paso 1: subir imagen -->
-            <div id="pizarra-paso1" class="p-5 space-y-4">
-                <div id="pizarra-dropzone" onclick="document.getElementById('pizarra-file').click()"
-                    style="position:relative;border:2px dashed #2a2a3a;border-radius:14px;padding:32px 20px;text-align:center;cursor:pointer;transition:all 0.2s"
-                    onmouseover="this.style.borderColor='#4f6ef7'" onmouseout="this.style.borderColor='#2a2a3a'">
-                    <input type="file" id="pizarra-file" accept="image/*" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:10" onchange="pizarraArchivoSeleccionado(event)">
-                    <div style="font-size:32px;margin-bottom:8px">📷</div>
-                    <p style="font-weight:700;font-size:14px;margin-bottom:4px">Subí la foto de la pizarra</p>
-                    <p style="font-size:11px;color:#6b6b85">JPG, PNG — o arrastrá acá</p>
-                </div>
-                <div id="pizarra-preview-wrap" class="hidden">
-                    <img id="pizarra-preview-img" style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;border:1px solid #2a2a3a">
-                    <button onclick="resetPizarra()" class="mt-2 text-xs text-textoSuave hover:text-texto transition">✕ Cambiar imagen</button>
-                </div>
-                <div id="pizarra-nombre-wrap" class="hidden space-y-2">
-                    <label class="text-xs text-textoSuave uppercase tracking-wider block">Nombre de la rutina</label>
-                    <input id="pizarra-nombre" type="text" placeholder="Ej: Rutina Funcional Lunes" class="w-full rounded-lg px-3 py-2.5 text-sm" style="background:#0a0a0f;border:1px solid #2a2a3a;color:#e8e8f0">
-                </div>
-                <button id="pizarra-btn-analizar" onclick="analizarPizarra()" class="hidden btn-primary w-full py-3 rounded-xl text-white font-bold text-sm uppercase tracking-wider">
-                    🔍 Analizar con IA
-                </button>
-            </div>
-
-            <!-- Paso 2: resultado -->
-            <div id="pizarra-paso2" class="hidden p-5 space-y-4">
-                <div id="pizarra-status" class="text-xs text-textoSuave text-center py-2"></div>
-
-                <!-- Lista de ejercicios detectados -->
-                <div id="pizarra-ejercicios-wrap" class="hidden">
-                    <p class="text-xs text-textoSuave uppercase tracking-wider mb-2">Ejercicios detectados</p>
-                    <div id="pizarra-ejercicios-lista" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
-                </div>
-
-                <!-- Nuevos para guardar en videoteca -->
-                <div id="pizarra-nuevos-wrap" class="hidden">
-                    <p class="text-xs text-naranja uppercase tracking-wider mb-2">⚠️ Ejercicios no encontrados en videoteca — marcá los que querés guardar:</p>
-                    <div id="pizarra-nuevos-lista" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
-                </div>
-
-                <div class="flex gap-3 pt-2">
-                    <button onclick="pizarraGuardarYContinuar()" id="pizarra-btn-guardar" class="hidden btn-primary flex-1 py-3 rounded-xl text-white font-bold text-sm">
-                        ✓ Guardar en Repositorio
-                    </button>
-                    <button onclick="cerrarModalPizarra()" class="flex-1 py-3 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">
-                        Cancelar
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
 </body>
 </html>
