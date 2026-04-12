@@ -1090,8 +1090,8 @@
 
     <style>
     @keyframes pizBounce { from { transform:translateY(0); } to { transform:translateY(-5px); } }
-    .piz-ej-vt  { border:1px solid rgba(105,240,174,.25); background:rgba(105,240,174,.04); }
-    .piz-ej-no  { border:1px solid rgba(255,107,53,.25);  background:rgba(255,107,53,.04);  }
+    .piz-ej-vt    { border:1px solid rgba(105,240,174,.25); background:rgba(105,240,174,.04); }
+    .piz-ej-no    { border:1px solid rgba(255,107,53,.25);  background:rgba(255,107,53,.04);  }
     </style>
 
     <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -5927,13 +5927,16 @@
 
     // Busca un ejercicio por nombre en la videoteca cache
     function buscarEjEnVideoteca(nombreUpper) {
+        // Primero exacto
         for (const [cat, ejercicios] of Object.entries(videotecaCache)) {
             for (const ej of (ejercicios || [])) {
                 const n = (ej.nombre || ej[0] || '').toUpperCase();
                 if (n === nombreUpper) return ej;
             }
         }
-        return null;
+        // Fuzzy fallback ≥50%
+        const r = pizFindBestVT(nombreUpper);
+        return r ? r.ej : null;
     }
 
     // Colores del heatmap reutilizables
@@ -7856,17 +7859,29 @@
         msg.textContent = 'Analizando con IA Vision...';
         pizLog('🔍 Enviando imagen al modelo...', '#4FC3F7');
 
-        const prompt = `Analizá esta imagen de una pizarra o tabla de entrenamiento funcional.
-IMPORTANTE - Detectá bloques de ejercicios:
-- En imágenes escritas a mano: los corchetes ] agrupan ejercicios en un bloque. Cada grupo entre corchetes es un bloque separado.
-- En tablas digitales: los ejercicios con el mismo color de fondo o bajo el mismo título forman un bloque.
-- Si no hay indicadores de bloques, poné todos los ejercicios en un único bloque.
+        const prompt = `Analizá esta imagen de una hoja o pizarra de entrenamiento funcional escrita a mano o digital.
 
-Respondé SOLO con JSON válido, sin texto adicional ni backticks:
+REGLAS PARA DETECTAR BLOQUES — leé con atención:
+
+1. CORCHETES (escritura a mano):
+   - Un corchete puede aparecer a la DERECHA del grupo:  ejercicio1 / ejercicio2 ]
+   - O puede aparecer a la IZQUIERDA del grupo:  [ ejercicio1 / ejercicio2
+   - O abrazando el grupo de los dos lados:  [ ejercicio1 / ejercicio2 ]
+   - Cada grupo unido por un mismo corchete (sin importar su orientación) es UN bloque separado.
+   - Si ves una línea vertical o una llave { } cumpliendo la misma función que un corchete, tratala igual.
+   - NUNCA mezcles ejercicios de distintos corchetes en el mismo bloque.
+
+2. COLORES / FONDOS (tablas digitales o impresas):
+   - Ejercicios con el mismo color de fondo o bajo el mismo encabezado de color forman un bloque.
+
+3. SIN INDICADORES:
+   - Si no hay corchetes ni colores, poné todos en un único bloque llamado "Bloque 1".
+
+FORMATO DE RESPUESTA — respondé SOLO con JSON válido, sin texto ni backticks:
 {"sistema":"Circuito","bloques":[{"nombre":"Bloque 1","ejercicios":[{"nombre":"Burpees","reps":"10"}]},{"nombre":"Bloque 2","ejercicios":[{"nombre":"Plancha","reps":"30s"}]}]}
 
 Sistemas posibles: Tabata, EMOM, Circuito por Tiempo, Circuito, Por Tiempo, Series. Si no podés determinarlo usá Circuito.
-Extraé TODOS los ejercicios visibles y respetá la agrupación en bloques.`;
+Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo, incluilos en "reps".`;
 
         try {
             const resp = await fetch('/api/pizarra-ocr', {
@@ -7900,6 +7915,26 @@ Extraé TODOS los ejercicios visibles y respetá la agrupación en bloques.`;
                 bloques = [{ nombre: 'Bloque 1', ejercicios: parsed.ejercicios }];
             } else {
                 throw new Error('Sin ejercicios en la imagen');
+            }
+
+            // Post-proceso: si el modelo devolvió todo en 1 bloque pero cada ejercicio
+            // trae campo "bloque" o "grupo", reagrupar automáticamente
+            if (bloques.length === 1) {
+                const ejsFlat = bloques[0].ejercicios || [];
+                const tieneSubgrupo = ejsFlat.some(e => e.bloque || e.grupo);
+                if (tieneSubgrupo) {
+                    const mapaB = {};
+                    const orden = [];
+                    ejsFlat.forEach(e => {
+                        const bNom = (e.bloque || e.grupo || 'Bloque 1').trim();
+                        if (!mapaB[bNom]) { mapaB[bNom] = []; orden.push(bNom); }
+                        mapaB[bNom].push(e);
+                    });
+                    if (orden.length > 1) {
+                        bloques = orden.map(n => ({ nombre: n, ejercicios: mapaB[n] }));
+                        pizLog('↳ Reagrupado en '+bloques.length+' bloques por campo "bloque/grupo"', '#4FC3F7');
+                    }
+                }
             }
 
             if (parsed.sistema) {
@@ -7942,18 +7977,76 @@ Extraé TODOS los ejercicios visibles y respetá la agrupación en bloques.`;
         }
     }
 
-    function pizCheckVT(nombre) {
-        if (!nombre) return false;
+    // Similitud de cadenas: porcentaje de caracteres coincidentes (Dice bigrams)
+    function pizSimilitud(a, b) {
+        if (!a || !b) return 0;
+        if (a === b) return 1;
+        const bigrams = s => { const set = new Map(); for (let i=0;i<s.length-1;i++){const k=s[i]+s[i+1];set.set(k,(set.get(k)||0)+1);} return set; };
+        const ba=bigrams(a), bb=bigrams(b);
+        let inter=0;
+        for (const [k,v] of ba) inter += Math.min(v, bb.get(k)||0);
+        return (2*inter) / (Math.max(a.length-1,0) + Math.max(b.length-1,0) + 0.001);
+    }
+
+    // Devuelve el ejercicio de la videoteca que mejor coincide (exacto o fuzzy ≥50%)
+    function pizFindBestVT(nombre) {
+        if (!nombre) return null;
         const up = nombre.trim().toUpperCase();
+        let best = null, bestScore = 0;
         for (const lista of Object.values(videotecaCache || {})) {
-            if (Array.isArray(lista) && lista.some(e => (e.nombre||e[0]||'').toUpperCase() === up)) return true;
+            if (!Array.isArray(lista)) continue;
+            for (const e of lista) {
+                const n = (e.nombre||e[0]||'').toUpperCase();
+                if (n === up) return { ej: e, score: 1 };
+                const s = pizSimilitud(up, n);
+                if (s > bestScore) { bestScore = s; best = e; }
+            }
         }
-        return false;
+        if (bestScore >= 0.50) return { ej: best, score: bestScore };
+        return null;
+    }
+
+    function pizCheckVT(nombre) {
+        return !!pizFindBestVT(nombre);
+    }
+
+    // Devuelve el nombre canónico de la videoteca si hay match fuzzy, sino null
+    function pizNombreVT(nombre) {
+        const r = pizFindBestVT(nombre);
+        return r ? (r.ej.nombre || r.ej[0] || nombre) : null;
+    }
+
+    // ── Drag & Drop state for pizarra ──
+    let _pizDragIdx = null;
+
+    function pizMoveUp(i) {
+        if (i <= 0) return;
+        [pizEjs[i-1], pizEjs[i]] = [pizEjs[i], pizEjs[i-1]];
+        pizRender();
+    }
+    function pizMoveDown(i) {
+        if (i >= pizEjs.length-1) return;
+        [pizEjs[i], pizEjs[i+1]] = [pizEjs[i+1], pizEjs[i]];
+        pizRender();
+    }
+    function pizCambiarBloque(i, nuevoBloque) {
+        if (!pizEjs[i]) return;
+        pizEjs[i].bloque = nuevoBloque;
+        // Sync pizBloques
+        if (!pizBloques.find(b=>b.nombre===nuevoBloque)) {
+            pizBloques.push({nombre:nuevoBloque,ejercicios:[]});
+        }
+        pizRender();
     }
 
     function pizRender() {
         const cont = document.getElementById('piz-ejs-lista');
         if (!pizEjs.length) { cont.innerHTML='<p class="text-xs text-textoSuave text-center py-3">Sin ejercicios</p>'; return; }
+
+        // Recopilar bloques únicos para el selector
+        const bloquesUnicos = [...new Set(pizEjs.map(e=>e.bloque||'Bloque 1').filter(Boolean))];
+        if (!bloquesUnicos.length) bloquesUnicos.push('Bloque 1');
+
         let html = '';
         let bloqueActual = null;
         pizEjs.forEach((ej, i) => {
@@ -7965,17 +8058,47 @@ Extraé TODOS los ejercicios visibles y respetá la agrupación en bloques.`;
                     <div class="flex-1 h-px" style="background:#2a2a35"></div>
                 </div>`;
             }
-            const cls   = ej.enVT ? 'piz-ej-vt' : 'piz-ej-no';
-            const badge = ej.enVT
-                ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(105,240,174,.15);color:#69F0AE">✓ En Videoteca</span>'
+
+            const vtMatch = pizFindBestVT(ej.nombre);
+            const enVT = !!vtMatch;
+            const esFuzzy = enVT && vtMatch.score < 1;
+            const nombreVT = enVT ? (vtMatch.ej.nombre||vtMatch.ej[0]||ej.nombre) : '';
+
+            const badge = enVT
+                ? (esFuzzy
+                    ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(255,213,79,.15);color:#FFD54F" title="Match: ${Math.round(vtMatch.score*100)}% con &quot;${escapeHtml(nombreVT)}&quot;">≈ Similar en Videoteca</span>`
+                    : '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(105,240,174,.15);color:#69F0AE">✓ En Videoteca</span>')
                 : '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(255,107,53,.15);color:#FF6B35">Sin Videoteca</span>';
-            const btnVT = ej.enVT ? '' :
+
+            const btnVT = enVT ? '' :
                 `<button onclick="pizAbrirModalVT(${i})" class="text-[11px] font-bold px-2.5 py-1 rounded-lg whitespace-nowrap" style="background:rgba(255,107,53,.2);color:#FF6B35;border:1px solid rgba(255,107,53,.3);cursor:pointer" onmouseover="this.style.background='rgba(255,107,53,.35)'" onmouseout="this.style.background='rgba(255,107,53,.2)'">💾 Guardar en Videoteca</button>`;
-            html += `<div class="rounded-xl p-3 ${cls}">
-                <div class="flex items-center gap-2 mb-2 flex-wrap">${badge}<span class="flex-1"></span>
+
+            const btnUsarNombreVT = esFuzzy
+                ? `<button onclick="pizUsarNombreVT(${i})" class="text-[11px] font-bold px-2.5 py-1 rounded-lg whitespace-nowrap" style="background:rgba(255,213,79,.15);color:#FFD54F;border:1px solid rgba(255,213,79,.3);cursor:pointer" title="Reemplazar nombre por el de la Videoteca" onmouseover="this.style.background='rgba(255,213,79,.3)'" onmouseout="this.style.background='rgba(255,213,79,.15)'">↳ Usar &quot;${escapeHtml(nombreVT)}&quot;</button>`
+                : '';
+
+            // Selector de bloque
+            const bloqueOpts = bloquesUnicos.map(b=>`<option value="${escapeHtml(b)}" ${(ej.bloque||'Bloque 1')===b?'selected':''}>${escapeHtml(b)}</option>`).join('');
+
+            html += `<div class="rounded-xl p-3 ${enVT?'piz-ej-vt':'piz-ej-no'}"
+                draggable="true"
+                data-piz-idx="${i}"
+                ondragstart="_pizDragIdx=${i};this.classList.add('dragging')"
+                ondragend="this.classList.remove('dragging');document.querySelectorAll('[data-piz-idx]').forEach(el=>el.classList.remove('drag-over'))"
+                ondragover="event.preventDefault();this.classList.add('drag-over')"
+                ondragleave="this.classList.remove('drag-over')"
+                ondrop="event.preventDefault();this.classList.remove('drag-over');if(_pizDragIdx!==null&&_pizDragIdx!==${i}){const tmp=pizEjs.splice(_pizDragIdx,1)[0];pizEjs.splice(${i},0,tmp);_pizDragIdx=null;pizRender();}">
+                <div class="flex items-center gap-2 mb-2 flex-wrap">
+                    <!-- Drag handle -->
+                    <span class="drag-handle select-none text-textoSuave" title="Arrastrar para reordenar" style="cursor:grab;font-size:16px;line-height:1;padding:0 2px">⠿</span>
+                    ${badge}
+                    <span class="flex-1"></span>
+                    <!-- Flechas reorden -->
+                    <button onclick="pizMoveUp(${i})" ${i===0?'disabled':''} style="background:none;border:none;cursor:pointer;color:${i===0?'#3a3a45':'#8a8a9a'};font-size:14px;padding:0 3px;line-height:1" title="Subir" onmouseover="if(${i}!==0)this.style.color='#4FC3F7'" onmouseout="if(${i}!==0)this.style.color='#8a8a9a'">▲</button>
+                    <button onclick="pizMoveDown(${i})" ${i===pizEjs.length-1?'disabled':''} style="background:none;border:none;cursor:pointer;color:${i===pizEjs.length-1?'#3a3a45':'#8a8a9a'};font-size:14px;padding:0 3px;line-height:1" title="Bajar" onmouseover="if(${i}!==pizEjs.length-1)this.style.color='#4FC3F7'" onmouseout="if(${i}!==pizEjs.length-1)this.style.color='#8a8a9a'">▼</button>
                     <button onclick="pizDelEj(${i})" style="background:none;border:none;cursor:pointer;color:#8a8a9a;font-size:18px;line-height:1;padding:0 4px" onmouseover="this.style.color='#EF5350'" onmouseout="this.style.color='#8a8a9a'">×</button>
                 </div>
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-2 gap-2 mb-2">
                     <input type="text" value="${escapeHtml(ej.nombre)}" placeholder="Nombre ejercicio"
                         class="rounded-lg px-3 py-2 text-sm" style="background:#0f0f13;border:1px solid #2a2a35;color:#f0f0f5"
                         onchange="pizUpd(${i},'nombre',this.value)">
@@ -7983,17 +8106,51 @@ Extraé TODOS los ejercicios visibles y respetá la agrupación en bloques.`;
                         class="rounded-lg px-3 py-2 text-sm" style="background:#0f0f13;border:1px solid #2a2a35;color:#f0f0f5"
                         onchange="pizUpd(${i},'reps',this.value)">
                 </div>
-                ${btnVT ? `<div class="mt-2 flex justify-end">${btnVT}</div>` : ''}
+                <!-- Selector de bloque + botones -->
+                <div class="flex items-center gap-2 flex-wrap">
+                    <select onchange="pizCambiarBloque(${i},this.value)" class="rounded-lg px-2 py-1 text-xs flex-1" style="background:#0f0f13;border:1px solid #2a2a35;color:#8a8a9a;min-width:90px">
+                        ${bloqueOpts}
+                        <option value="__nuevo__">+ Nuevo bloque…</option>
+                    </select>
+                    ${btnVT ? btnVT : ''}
+                    ${btnUsarNombreVT}
+                </div>
             </div>`;
         });
         cont.innerHTML = html;
 
-        const enVT = pizEjs.filter(e=>e.enVT).length;
-        const noVT = pizEjs.filter(e=>!e.enVT).length;
+        // Manejar opción "nuevo bloque"
+        cont.querySelectorAll('select').forEach(sel => {
+            sel.addEventListener('change', function() {
+                if (this.value === '__nuevo__') {
+                    const nuevo = prompt('Nombre del nuevo bloque:');
+                    if (nuevo && nuevo.trim()) {
+                        const idx = parseInt(this.closest('[data-piz-idx]').dataset.pizIdx);
+                        pizCambiarBloque(idx, nuevo.trim());
+                    } else {
+                        pizRender(); // reset
+                    }
+                }
+            });
+        });
+
+        const enVT = pizEjs.filter(e=>e.enVT||pizCheckVT(e.nombre)).length;
+        const noVT = pizEjs.length - enVT;
         document.getElementById('piz-cnt-vt').textContent = enVT;
         document.getElementById('piz-cnt-no').textContent = noVT;
         const adv = document.getElementById('piz-advertencia');
         (noVT>0&&enVT>0) ? adv.classList.remove('hidden') : adv.classList.add('hidden');
+    }
+
+    function pizUsarNombreVT(i) {
+        const ej = pizEjs[i]; if (!ej) return;
+        const r = pizFindBestVT(ej.nombre);
+        if (!r) return;
+        const nombreCanon = r.ej.nombre || r.ej[0] || ej.nombre;
+        pizEjs[i].nombre = nombreCanon;
+        pizEjs[i].enVT = true;
+        pizRender();
+        pizLog(`↳ "${escapeHtml(ej.nombre)}" → "${escapeHtml(nombreCanon)}"`, '#FFD54F');
     }
 
     function pizUpd(i,f,v) {
@@ -8039,17 +8196,38 @@ Extraé TODOS los ejercicios visibles y respetá la agrupación en bloques.`;
     function pizArmarRutina() {
         const ejsV = pizEjs.filter(e=>e.nombre.trim());
         if (!ejsV.length) { toast('⚠️ Agregá al menos un ejercicio'); return; }
-        const noVT = ejsV.filter(e=>!e.enVT);
+
+        // Normalizar nombres con fuzzy match antes de verificar "sin videoteca"
+        ejsV.forEach(ej => {
+            const r = pizFindBestVT(ej.nombre);
+            if (r && r.score < 1) {
+                // Reemplazar nombre silenciosamente por el canónico
+                const canon = r.ej.nombre || r.ej[0] || ej.nombre;
+                pizLog(`↳ "${escapeHtml(ej.nombre)}" → "${escapeHtml(canon)}" (${Math.round(r.score*100)}%)`, '#FFD54F');
+                ej.nombre = canon;
+                ej.enVT = true;
+            }
+        });
+
+        const noVT = ejsV.filter(e=>!pizCheckVT(e.nombre));
         if (noVT.length>0) {
             if (!confirm(noVT.length+' ejercicio(s) sin Videoteca:\n'+noVT.map(e=>'• '+e.nombre).join('\n')+'\n\nSe incluirán SIN video. ¿Continuás?')) return;
         }
         const params = pizGetParams();
 
-        // Construir bloques: si hay pizBloques usarlos, sino un único bloque con todos
+        // Reconstruir bloques desde pizEjs (respeta el bloque asignado a cada ejercicio)
+        const bloquePorNombre = {};
+        ejsV.forEach(ej => {
+            const bNombre = ej.bloque || 'Bloque 1';
+            if (!bloquePorNombre[bNombre]) bloquePorNombre[bNombre] = [];
+            bloquePorNombre[bNombre].push(ej);
+        });
+        const bloquesOrdenados = [...new Set(ejsV.map(e=>e.bloque||'Bloque 1'))];
+
         let bloquesFinales = [];
-        if (pizBloques && pizBloques.length > 1) {
-            bloquesFinales = pizBloques.map(b => {
-                const ejsBloque = (b.ejercicios||[]).filter(e=>(e.nombre||'').trim()).map(ej => {
+        if (bloquesOrdenados.length > 1) {
+            bloquesFinales = bloquesOrdenados.map(bNombre => {
+                const ejsBloque = (bloquePorNombre[bNombre]||[]).map(ej => {
                     const vtD = buscarEjEnVideoteca(ej.nombre.trim().toUpperCase());
                     return { nombre:ej.nombre.trim(), link:vtD?(vtD.link||vtD.video||''):'', reps:ej.reps||'10', unit:'Reps', elemento:vtD&&vtD.elemento||'', con_carga:vtD&&vtD.con_carga||false };
                 });
