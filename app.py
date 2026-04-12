@@ -574,6 +574,34 @@ def calcular_pausa_endpoint():
 
 
 # ──────────────────────────────────────────────────────────────
+#  API - REPOSITORIO DE RUTINAS (Firebase)
+# ──────────────────────────────────────────────────────────────
+
+@app.route("/api/repositorio", methods=["GET"])
+def obtener_repositorio():
+    """Obtiene el repositorio de rutinas del profesor desde Firebase."""
+    try:
+        ref = get_db_ref("/repositorio")
+        data = ref.get()
+        return jsonify({"ok": True, "repositorio": data or []})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/repositorio", methods=["POST"])
+def guardar_repositorio():
+    """Guarda el repositorio completo de rutinas del profesor en Firebase."""
+    try:
+        body = request.json
+        repositorio = body.get("repositorio", [])
+        ref = get_db_ref("/repositorio")
+        ref.set(repositorio)
+        return jsonify({"ok": True, "mensaje": "Repositorio guardado"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ──────────────────────────────────────────────────────────────
 #  API - PIZARRA OCR (proxy seguro para OpenRouter)
 # ──────────────────────────────────────────────────────────────
 
