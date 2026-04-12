@@ -313,13 +313,34 @@
     </header>
 
     <!-- TABS -->
-    <nav class="bg-tarjeta border-b border-borde">
-        <div class="max-w-6xl mx-auto flex gap-0">
+    <nav class="bg-tarjeta border-b border-borde relative">
+        <!-- DESKTOP: tabs normales (ocultas en mobile) -->
+        <div class="max-w-6xl mx-auto hidden sm:flex gap-0">
             <button onclick="showTab('dashboard')" id="tab-dashboard" class="tab-active px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Dashboard</button>
             <button onclick="showTab('rutina')" id="tab-rutina" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Crear Rutina</button>
             <button onclick="showTab('repositorio')" id="tab-repositorio" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Repositorio</button>
             <button onclick="showTab('videoteca')" id="tab-videoteca" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Videoteca</button>
             <button onclick="showTab('historial')" id="tab-historial" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Historial</button>
+        </div>
+
+        <!-- MOBILE: botón hamburguesa + nombre sección activa (visible solo en mobile) -->
+        <div class="sm:hidden flex items-center justify-between px-4 py-3">
+            <span id="mob-tab-label" class="text-sm font-bold text-naranja uppercase tracking-widest">Dashboard</span>
+            <button onclick="mobMenuToggle()" id="mob-menu-btn" aria-label="Menú de navegación"
+                style="background:none;border:none;cursor:pointer;padding:6px;color:#f0f0f5;display:flex;align-items:center;justify-content:center;">
+                <svg id="mob-icon-ham" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- MOBILE: menú desplegable -->
+        <div id="mob-menu-dropdown" class="sm:hidden hidden absolute left-0 right-0 top-full z-50 border-b border-borde shadow-2xl" style="background:#141418">
+            <button onclick="showTab('dashboard');mobMenuClose()" id="mob-tab-dashboard" class="w-full text-left px-5 py-4 text-sm font-bold uppercase tracking-widest border-b border-borde/50 transition-colors" style="color:#FF6B35;background:rgba(255,107,53,.07)">Dashboard</button>
+            <button onclick="showTab('rutina');mobMenuClose()" id="mob-tab-rutina" class="w-full text-left px-5 py-4 text-sm font-bold uppercase tracking-widest border-b border-borde/50 transition-colors" style="color:#8a8a9a;background:none">Crear Rutina</button>
+            <button onclick="showTab('repositorio');mobMenuClose()" id="mob-tab-repositorio" class="w-full text-left px-5 py-4 text-sm font-bold uppercase tracking-widest border-b border-borde/50 transition-colors" style="color:#8a8a9a;background:none">Repositorio</button>
+            <button onclick="showTab('videoteca');mobMenuClose()" id="mob-tab-videoteca" class="w-full text-left px-5 py-4 text-sm font-bold uppercase tracking-widest border-b border-borde/50 transition-colors" style="color:#8a8a9a;background:none">Videoteca</button>
+            <button onclick="showTab('historial');mobMenuClose()" id="mob-tab-historial" class="w-full text-left px-5 py-4 text-sm font-bold uppercase tracking-widest transition-colors" style="color:#8a8a9a;background:none">Historial</button>
         </div>
     </nav>
 
@@ -1613,6 +1634,16 @@
                 ? 'tab-active px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors'
                 : 'tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors';
         });
+        // Sincronizar menú mobile
+        const LABELS = { dashboard:'Dashboard', rutina:'Crear Rutina', repositorio:'Repositorio', videoteca:'Videoteca', historial:'Historial' };
+        const labelEl = document.getElementById('mob-tab-label');
+        if (labelEl) labelEl.textContent = LABELS[tab] || tab;
+        ['dashboard','rutina','repositorio','videoteca','historial'].forEach(t => {
+            const btn = document.getElementById('mob-tab-' + t);
+            if (!btn) return;
+            if (t === tab) { btn.style.color = '#FF6B35'; btn.style.background = 'rgba(255,107,53,.07)'; }
+            else           { btn.style.color = '#8a8a9a'; btn.style.background = 'none'; }
+        });
         if (tab === 'rutina') {
             inicializarRutina();
             actualizarModoRepositorio();
@@ -1623,6 +1654,25 @@
             renderizarRepositorio();
         }
     }
+
+    function mobMenuToggle() {
+        const dd = document.getElementById('mob-menu-dropdown');
+        if (!dd) return;
+        dd.classList.toggle('hidden');
+    }
+
+    function mobMenuClose() {
+        const dd = document.getElementById('mob-menu-dropdown');
+        if (dd) dd.classList.add('hidden');
+    }
+
+    // Cerrar menú mobile al tocar fuera
+    document.addEventListener('click', function(e) {
+        const dd  = document.getElementById('mob-menu-dropdown');
+        const btn = document.getElementById('mob-menu-btn');
+        if (!dd || dd.classList.contains('hidden')) return;
+        if (!dd.contains(e.target) && !btn.contains(e.target)) mobMenuClose();
+    });
 
     // Cuando el usuario hace click en el tab "Crear Rutina" directamente, salir del modo repositorio
     document.addEventListener('DOMContentLoaded', () => {
