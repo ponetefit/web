@@ -2079,11 +2079,11 @@
     }
 
     // Guarda directamente con un prompt de nombre (modo repositorio)
-    async function guardarEnRepositorioDirecto() {
+    function guardarEnRepositorioDirecto() {
         document.getElementById('repo-status').textContent = '';
         // Si venimos de "editar rutina completa", pre-rellenar el nombre del ítem original
         if (window._repoEditandoIdx !== undefined && window._repoEditandoIdx !== null) {
-            const repo = await getRepositorio();
+            const repo = getRepositorio();
             const r = repo[window._repoEditandoIdx];
             document.getElementById('repo-nombre-input').value = r ? (r.nombre || '') : '';
         } else {
@@ -6518,30 +6518,18 @@
     }
 
     // ====================================================================
-    // REPOSITORIO DE RUTINAS (Firebase)
+    // REPOSITORIO DE RUTINAS (localStorage)
     // ====================================================================
+    const REPO_KEY = 'ponetefit_repositorio';
     let repoEditandoIdx = null;
     let repoCopiarIdx = null;
-    let _repoCache = null; // cache local para la sesión
 
-    async function getRepositorio() {
-        try {
-            const resp = await fetch('/api/repositorio');
-            const d = await resp.json();
-            _repoCache = d.ok ? (d.repositorio || []) : [];
-            return _repoCache;
-        } catch(e) { return _repoCache || []; }
+    function getRepositorio() {
+        try { return JSON.parse(localStorage.getItem(REPO_KEY) || '[]'); } catch(e) { return []; }
     }
 
-    async function setRepositorio(arr) {
-        _repoCache = arr;
-        try {
-            await fetch('/api/repositorio', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ repositorio: arr })
-            });
-        } catch(e) { console.error('Error guardando repositorio', e); }
+    function setRepositorio(arr) {
+        localStorage.setItem(REPO_KEY, JSON.stringify(arr));
     }
 
     // Abre el modal para guardar la rutina actual en el repositorio
@@ -6554,7 +6542,7 @@
     }
 
     // Captura el estado actual de diasData + DOM y lo guarda en repositorio
-    async function guardarEnRepositorio() {
+    function guardarEnRepositorio() {
         const nombre = (document.getElementById('repo-nombre-input').value || '').trim();
         if (!nombre) {
             document.getElementById('repo-status').textContent = 'Ingresá un nombre para la plantilla';
@@ -6594,14 +6582,14 @@
             })
         };
 
-        const repo = await getRepositorio();
+        const repo = getRepositorio();
         // Si venimos de "editar rutina completa", reemplazar el ítem existente en vez de agregar uno nuevo
         if (window._repoEditandoIdx !== undefined && window._repoEditandoIdx !== null && repo[window._repoEditandoIdx]) {
             repo[window._repoEditandoIdx] = snapshot;
         } else {
             repo.unshift(snapshot);
         }
-        await setRepositorio(repo);
+        setRepositorio(repo);
 
         document.getElementById('repo-status').textContent = '✓ Guardado correctamente';
         document.getElementById('repo-status').className = 'text-xs text-verde text-center min-h-[1.2rem]';
@@ -6615,8 +6603,8 @@
         toast('Rutina guardada en el repositorio');
     }
 
-    async function renderizarRepositorio() {
-        const repo = await getRepositorio();
+    function renderizarRepositorio() {
+        const repo = getRepositorio();
         const lista = document.getElementById('repo-lista');
         if (!repo.length) {
             lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-12">No hay rutinas guardadas en el repositorio aún.<br><span class="text-xs">Andá a "Crear Rutina", armá tu rutina y guardala desde el repositorio.</span></p>';
@@ -6767,8 +6755,8 @@
         }
     }
 
-    async function verEntrenamientoRepo(idx) {
-        const repo = await getRepositorio();
+    function verEntrenamientoRepo(idx) {
+        const repo = getRepositorio();
         const r = repo[idx];
         if (!r) return;
 
@@ -6783,30 +6771,30 @@
         document.getElementById('modal-ver-rutina').classList.remove('hidden');
     }
 
-    async function eliminarDelRepositorio(idx) {
+    function eliminarDelRepositorio(idx) {
         if (!confirm('¿Eliminar esta rutina del repositorio?')) return;
-        const repo = await getRepositorio();
+        const repo = getRepositorio();
         repo.splice(idx, 1);
-        await setRepositorio(repo);
+        setRepositorio(repo);
         renderizarRepositorio();
         toast('Rutina eliminada del repositorio');
     }
 
-    async function editarPlantilla(idx) {
-        const repo = await getRepositorio();
+    function editarPlantilla(idx) {
+        const repo = getRepositorio();
         repoEditandoIdx = idx;
         document.getElementById('repo-editar-nombre').value = repo[idx].nombre || '';
         document.getElementById('modal-repo-editar').classList.remove('hidden');
         setTimeout(() => document.getElementById('repo-editar-nombre').focus(), 100);
     }
 
-    async function confirmarEditarPlantilla() {
+    function confirmarEditarPlantilla() {
         const nuevoNombre = (document.getElementById('repo-editar-nombre').value || '').trim();
         if (!nuevoNombre) return;
-        const repo = await getRepositorio();
+        const repo = getRepositorio();
         if (repoEditandoIdx !== null && repo[repoEditandoIdx]) {
             repo[repoEditandoIdx].nombre = nuevoNombre;
-            await setRepositorio(repo);
+            setRepositorio(repo);
             renderizarRepositorio();
             toast('Nombre actualizado');
         }
@@ -6814,7 +6802,7 @@
     }
 
     async function editarRutinaCompleta() {
-        const repo = await getRepositorio();
+        const repo = getRepositorio();
         if (repoEditandoIdx === null || !repo[repoEditandoIdx]) return;
         const r = repo[repoEditandoIdx];
         document.getElementById('modal-repo-editar').classList.add('hidden');
@@ -6823,7 +6811,7 @@
         const nuevoNombre = (document.getElementById('repo-editar-nombre').value || '').trim();
         if (nuevoNombre && nuevoNombre !== r.nombre) {
             r.nombre = nuevoNombre;
-            await setRepositorio(repo);
+            setRepositorio(repo);
         }
 
         // Cargar la plantilla en el editor (Crear Rutina) en modo repositorio
@@ -6838,9 +6826,9 @@
         toast('Plantilla cargada — editá y guardá en Repositorio');
     }
 
-    async function copiarAAlumnoDesdeRepo(idx) {
+    function copiarAAlumnoDesdeRepo(idx) {
         repoCopiarIdx = idx;
-        const repo = await getRepositorio();
+        const repo = getRepositorio();
         const r = repo[idx];
         document.getElementById('repo-copiar-nombre-plantilla').textContent = r.nombre;
         document.getElementById('repo-copiar-status').textContent = '';
@@ -6869,7 +6857,7 @@
             document.getElementById('repo-copiar-status').className = 'text-xs text-rojo text-center min-h-[1.2rem]';
             return;
         }
-        const repo = await getRepositorio();
+        const repo = getRepositorio();
         const r = repo[repoCopiarIdx];
         if (!r) return;
 
@@ -6934,7 +6922,7 @@
     }
 
     async function cargarPlantillaEnCrear(idx) {
-        const repo = await getRepositorio();
+        const repo = getRepositorio();
         const r = repo[idx];
         if (!r) return;
         if (!confirm('¿Cargar esta plantilla en "Crear Rutina"? Se reemplazará lo que tengas actualmente.')) return;
@@ -6979,8 +6967,8 @@
     }
 
     // Actualiza el panel de fuentes en el modal IA
-    async function _iaActualizarPreviewFuentes() {
-        const repo = await getRepositorio();
+    function _iaActualizarPreviewFuentes() {
+        const repo = getRepositorio();
         const panelRepo = document.getElementById('ia-repo-preview');
         if (!panelRepo) return;
         if (repo.length === 0) {
@@ -7704,7 +7692,7 @@
         const numDias    = parseInt(document.getElementById('ia-num-dias')?.value) || 1;
         const numBloques = parseInt(document.getElementById('ia-num-bloques')?.value) || 1;
         try {
-            const patrones   = _iaExtraerPatrones(_iaHistorialCache, await getRepositorio());
+            const patrones   = _iaExtraerPatrones(_iaHistorialCache, getRepositorio());
             const nuevaData  = _iaGenerarDias(videotecaCache, patrones, numDias, numBloques);
             if (!nuevaData) { toast('Sin ejercicios. Revisá la Videoteca.'); return; }
             _iaUltimaGeneracion = nuevaData;
@@ -7777,7 +7765,7 @@
         const numDias    = parseInt(document.getElementById('ia-num-dias')?.value) || 1;
         const numBloques = parseInt(document.getElementById('ia-num-bloques')?.value) || 1;
         try {
-            const patrones  = _iaExtraerPatrones(_iaHistorialCache, await getRepositorio());
+            const patrones  = _iaExtraerPatrones(_iaHistorialCache, getRepositorio());
             const nuevaData = _iaGenerarDias(videotecaCache, patrones, numDias, numBloques);
             if (!nuevaData) { toast('Sin ejercicios.'); return; }
             _iaUltimaGeneracion = nuevaData;
@@ -7796,7 +7784,7 @@
 
         toast('🤖 Generando rutina...');
         try {
-            const patrones  = _iaExtraerPatrones(_iaHistorialCache, await getRepositorio());
+            const patrones  = _iaExtraerPatrones(_iaHistorialCache, getRepositorio());
             const nuevaData = _iaGenerarDias(videotecaCache, patrones, numDias, numBloques);
             if (!nuevaData || nuevaData.length === 0) { toast('No se pudo generar. Revisá la Videoteca.'); return; }
 
@@ -7814,7 +7802,7 @@
     // ====================================================================
     // DIGITALIZACIÓN DE PIZARRA
     // ====================================================================
-
+    
 
     let pizEjs     = [];
     let pizBloques  = [];
@@ -7873,17 +7861,17 @@ IMPORTANTE - Detectá bloques de ejercicios:
 - En imágenes escritas a mano: los corchetes ] agrupan ejercicios en un bloque. Cada grupo entre corchetes es un bloque separado.
 - En tablas digitales: los ejercicios con el mismo color de fondo o bajo el mismo título forman un bloque.
 - Si no hay indicadores de bloques, poné todos los ejercicios en un único bloque.
-
 Respondé SOLO con JSON válido, sin texto adicional ni backticks:
 {"sistema":"Circuito","bloques":[{"nombre":"Bloque 1","ejercicios":[{"nombre":"Burpees","reps":"10"}]},{"nombre":"Bloque 2","ejercicios":[{"nombre":"Plancha","reps":"30s"}]}]}
-
 Sistemas posibles: Tabata, EMOM, Circuito por Tiempo, Circuito, Por Tiempo, Series. Si no podés determinarlo usá Circuito.
-Extraé TODOS los ejercicios visibles y respetá la agrupación en bloques.`;
+Extraé TODOS los ejercicios visibles y respetá la agrupación en bloques.\`;
 
         try {
             const resp = await fetch('/api/pizarra-ocr', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                },
                 body: JSON.stringify({
                     model: 'google/gemini-2.0-flash-lite-001',
                     messages: [{ role:'user', content:[
@@ -7904,7 +7892,7 @@ Extraé TODOS los ejercicios visibles y respetá la agrupación en bloques.`;
             const mj = raw.match(/\{[\s\S]*\}/); if (mj) raw = mj[0];
             const parsed = JSON.parse(raw);
 
-            // Soporte para formato nuevo (bloques) y viejo (ejercicios planos)
+            // Soporte formato nuevo (bloques) y viejo (ejercicios planos)
             let bloques = [];
             if (parsed.bloques && parsed.bloques.length) {
                 bloques = parsed.bloques;
@@ -7928,16 +7916,14 @@ Extraé TODOS los ejercicios visibles y respetá la agrupación en bloques.`;
                 pizCambiarSistema();
             }
 
-            // Guardar bloques y aplanar ejercicios para la vista
             pizBloques = bloques;
             pizEjs = bloques.flatMap(b => (b.ejercicios||[]).map(ej => {
                 const nombreRaw = (ej.nombre||'').trim();
-                const { enVT, nombreFinal } = pizResolverVT(nombreRaw);
+                const {enVT, nombreFinal} = pizResolverVT(nombreRaw);
                 return { nombre: nombreFinal, reps: ej.reps||'', enVT, bloque: b.nombre||'Bloque 1' };
             }));
-
             st.classList.add('hidden');
-            pizLog('\u2713 '+pizEjs.length+' ejercicios en '+bloques.length+' bloque(s) \u00b7 Sistema: '+(parsed.sistema||'\u2014'), '#69F0AE');
+            pizLog('✓ '+pizEjs.length+' ejercicios en '+bloques.length+' bloque(s) · Sistema: '+(parsed.sistema||'—'), '#69F0AE');
             pizRender();
             document.getElementById('piz-resultado').classList.remove('hidden');
             document.getElementById('piz-resumen').classList.remove('hidden');
@@ -7953,18 +7939,13 @@ Extraé TODOS los ejercicios visibles y respetá la agrupación en bloques.`;
         }
     }
 
-    // Similaridad de Jaccard por palabras (0-1)
     function pizSimilitud(a, b) {
-        const tok = s => new Set(s.toUpperCase().replace(/[^A-ZÁÉÍÓÚÑ0-9 ]/g,'').split(/\s+/).filter(Boolean));
+        const tok = s => new Set(s.toUpperCase().replace(/[^A-Z0-9 ]/g,'').split(/\s+/).filter(Boolean));
         const A = tok(a), B = tok(b);
         if (!A.size || !B.size) return 0;
-        let inter = 0;
-        A.forEach(w => { if (B.has(w)) inter++; });
+        let inter = 0; A.forEach(w => { if (B.has(w)) inter++; });
         return inter / (A.size + B.size - inter);
     }
-
-    // Busca el ejercicio más similar en videoteca (umbral 0.5)
-    // Retorna { enVT: bool, nombreVT: string|null }
     function pizCheckVT(nombre) {
         if (!nombre) return false;
         const up = nombre.trim().toUpperCase();
@@ -7972,58 +7953,89 @@ Extraé TODOS los ejercicios visibles y respetá la agrupación en bloques.`;
         for (const lista of Object.values(videotecaCache || {})) {
             if (!Array.isArray(lista)) continue;
             for (const e of lista) {
-                const vtNombre = (e.nombre||e[0]||'');
-                if (vtNombre.toUpperCase() === up) return true; // exacto
-                const score = pizSimilitud(nombre, vtNombre);
-                if (score > mejorScore) { mejorScore = score; mejorNombre = vtNombre; }
+                const vtN = (e.nombre||e[0]||'');
+                if (vtN.toUpperCase() === up) return true;
+                const sc = pizSimilitud(nombre, vtN);
+                if (sc > mejorScore) { mejorScore = sc; mejorNombre = vtN; }
             }
         }
         return mejorScore >= 0.5 ? mejorNombre : false;
     }
-
-    // Devuelve true/false para el badge, y el nombre corregido si hay match
     function pizResolverVT(nombre) {
         const res = pizCheckVT(nombre);
         if (res === true) return { enVT: true, nombreFinal: nombre };
-        if (res) return { enVT: true, nombreFinal: res }; // nombre corregido
+        if (res) return { enVT: true, nombreFinal: res };
         return { enVT: false, nombreFinal: nombre };
+    }
+
+    function pizSyncBloques() {
+        const mapa = {};
+        const orden = [];
+        pizEjs.forEach(ej => {
+            if (!mapa[ej.bloque]) { mapa[ej.bloque] = []; orden.push(ej.bloque); }
+            mapa[ej.bloque].push({ nombre: ej.nombre, reps: ej.reps });
+        });
+        pizBloques = orden.map(n => ({ nombre: n, ejercicios: mapa[n] }));
+    }
+    function pizMoverArriba(i) {
+        if (i === 0) return;
+        const bloqueVecino = pizEjs[i-1].bloque;
+        [pizEjs[i-1], pizEjs[i]] = [pizEjs[i], pizEjs[i-1]];
+        pizEjs[i-1].bloque = bloqueVecino;
+        pizSyncBloques(); pizRender();
+    }
+    function pizMoverAbajo(i) {
+        if (i >= pizEjs.length-1) return;
+        const bloqueVecino = pizEjs[i+1].bloque;
+        [pizEjs[i], pizEjs[i+1]] = [pizEjs[i+1], pizEjs[i]];
+        pizEjs[i+1].bloque = bloqueVecino;
+        pizSyncBloques(); pizRender();
+    }
+    function pizCambiarBloque(i, nb) {
+        if (!pizEjs[i]) return;
+        pizEjs[i].bloque = nb; pizSyncBloques(); pizRender();
+    }
+    let _pizDragIdx = null;
+    function pizDragStart(e,i){ _pizDragIdx=i; e.dataTransfer.effectAllowed='move'; e.currentTarget.style.opacity='0.4'; }
+    function pizDragOver(e,i){ e.preventDefault(); e.currentTarget.style.outline='2px solid #4FC3F7'; }
+    function pizDragLeave(e){ e.currentTarget.style.outline=''; }
+    function pizDrop(e,i){
+        e.preventDefault(); e.currentTarget.style.outline='';
+        if(_pizDragIdx===null||_pizDragIdx===i){_pizDragIdx=null;return;}
+        const moved=pizEjs.splice(_pizDragIdx,1)[0];
+        const ti=_pizDragIdx<i?i-1:i;
+        moved.bloque=pizEjs[ti]?pizEjs[ti].bloque:(pizEjs[ti-1]?.bloque||moved.bloque);
+        pizEjs.splice(ti,0,moved);
+        _pizDragIdx=null; pizSyncBloques(); pizRender();
     }
 
     function pizRender() {
         const cont = document.getElementById('piz-ejs-lista');
         if (!pizEjs.length) { cont.innerHTML='<p class="text-xs text-textoSuave text-center py-3">Sin ejercicios</p>'; return; }
-        const bloqueNames = [...new Set(pizEjs.map(e => e.bloque).filter(Boolean))];
-        let html = '';
-        let bloqueActual = null;
-        pizEjs.forEach((ej, i) => {
-            // Separador de bloque
-            if (ej.bloque && ej.bloque !== bloqueActual) {
-                bloqueActual = ej.bloque;
-                html += `<div class="flex items-center gap-2 mt-3 mb-1">
+        const bloqueNames = [...new Set(pizEjs.map(e=>e.bloque).filter(Boolean))];
+        let html='', bloqueActual=null;
+        pizEjs.forEach((ej,i) => {
+            if (ej.bloque && ej.bloque!==bloqueActual) {
+                bloqueActual=ej.bloque;
+                html+=`<div class="flex items-center gap-2 mt-3 mb-1">
                     <span class="text-[11px] font-bold px-3 py-1 rounded-full" style="background:rgba(79,195,247,.15);color:#4FC3F7;border:1px solid rgba(79,195,247,.3)">📦 ${escapeHtml(bloqueActual)}</span>
-                    <div class="flex-1 h-px" style="background:#2a2a35"></div>
-                </div>`;
+                    <div class="flex-1 h-px" style="background:#2a2a35"></div></div>`;
             }
-            const cls   = ej.enVT ? 'piz-ej-vt' : 'piz-ej-no';
-            const badge = ej.enVT
-                ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(105,240,174,.15);color:#69F0AE">✓ Videoteca</span>'
-                : '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(255,107,53,.15);color:#FF6B35">Sin Videoteca</span>';
-            const btnVT = ej.enVT ? '' :
-                `<button onclick="pizAbrirModalVT(${i})" class="text-[11px] font-bold px-2.5 py-1 rounded-lg whitespace-nowrap" style="background:rgba(255,107,53,.2);color:#FF6B35;border:1px solid rgba(255,107,53,.3);cursor:pointer">💾 Guardar</button>`;
-            // Selector de bloque (solo si hay más de uno)
-            const selectorBloque = bloqueNames.length > 1
-                ? `<select onchange="pizCambiarBloque(${i},this.value)" class="text-[11px] rounded-lg px-2 py-1" style="background:#0f0f13;border:1px solid #2a2a35;color:#4FC3F7">
-                    ${bloqueNames.map(b => `<option value="${escapeHtml(b)}" ${b===ej.bloque?'selected':''}>${escapeHtml(b)}</option>`).join('')}
-                   </select>`
-                : '';
-            html += `<div class="rounded-xl p-3 mb-1 ${cls}" draggable="true"
+            const cls=ej.enVT?'piz-ej-vt':'piz-ej-no';
+            const badge=ej.enVT
+                ?'<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(105,240,174,.15);color:#69F0AE">✓ Videoteca</span>'
+                :'<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(255,107,53,.15);color:#FF6B35">Sin Videoteca</span>';
+            const btnVT=ej.enVT?'':
+                `<button onclick="pizAbrirModalVT(${i})" class="text-[11px] font-bold px-2.5 py-1 rounded-lg" style="background:rgba(255,107,53,.2);color:#FF6B35;border:1px solid rgba(255,107,53,.3);cursor:pointer">💾 Guardar</button>`;
+            const selBloque=bloqueNames.length>1
+                ?`<select onchange="pizCambiarBloque(${i},this.value)" class="text-[11px] rounded px-1 py-0.5" style="background:#0f0f13;border:1px solid #2a2a35;color:#4FC3F7">${bloqueNames.map(b=>`<option value="${escapeHtml(b)}"${b===ej.bloque?' selected':''}>${escapeHtml(b)}</option>`).join('')}</select>`
+                :'';
+            html+=`<div class="rounded-xl p-3 mb-1 ${cls}" draggable="true"
                 ondragstart="pizDragStart(event,${i})" ondragover="pizDragOver(event,${i})" ondrop="pizDrop(event,${i})" ondragleave="pizDragLeave(event)">
-                <div class="flex items-center gap-1 mb-2 flex-wrap">
-                    ${badge}
-                    <span class="flex-1"></span>
-                    ${selectorBloque}
-                    <button onclick="pizMoverArriba(${i})" title="Subir" style="background:none;border:none;cursor:pointer;color:#8a8a9a;font-size:15px;padding:0 2px" ${i===0?'disabled':''}>▲</button>
-                    <button onclick="pizMoverAbajo(${i})" title="Bajar" style="background:none;border:none;cursor:pointer;color:#8a8a9a;font-size:15px;padding:0 2px" ${i===pizEjs.length-1?'disabled':''}>▼</button>
+                <div class="flex items-center gap-1 mb-2 flex-wrap">${badge}<span class="flex-1"></span>
+                    ${selBloque}
+                    <button onclick="pizMoverArriba(${i})" style="background:none;border:none;cursor:pointer;color:#8a8a9a;font-size:13px;padding:0 2px"${i===0?' disabled':''}>▲</button>
+                    <button onclick="pizMoverAbajo(${i})" style="background:none;border:none;cursor:pointer;color:#8a8a9a;font-size:13px;padding:0 2px"${i===pizEjs.length-1?' disabled':''}>▼</button>
                     <button onclick="pizDelEj(${i})" style="background:none;border:none;cursor:pointer;color:#8a8a9a;font-size:18px;line-height:1;padding:0 4px" onmouseover="this.style.color='#EF5350'" onmouseout="this.style.color='#8a8a9a'">×</button>
                 </div>
                 <div class="grid grid-cols-2 gap-2">
@@ -8034,86 +8046,29 @@ Extraé TODOS los ejercicios visibles y respetá la agrupación en bloques.`;
                         class="rounded-lg px-3 py-2 text-sm" style="background:#0f0f13;border:1px solid #2a2a35;color:#f0f0f5"
                         onchange="pizUpd(${i},'reps',this.value)">
                 </div>
-                ${btnVT ? `<div class="mt-2 flex justify-end">${btnVT}</div>` : ''}
+                ${btnVT?`<div class="mt-2 flex justify-end">${btnVT}</div>`:''}
             </div>`;
         });
-        cont.innerHTML = html;
-
-        const enVT = pizEjs.filter(e=>e.enVT).length;
-        const noVT = pizEjs.filter(e=>!e.enVT).length;
-        document.getElementById('piz-cnt-vt').textContent = enVT;
-        document.getElementById('piz-cnt-no').textContent = noVT;
-        const adv = document.getElementById('piz-advertencia');
-        (noVT>0&&enVT>0) ? adv.classList.remove('hidden') : adv.classList.add('hidden');
+        cont.innerHTML=html;
+        const enVT=pizEjs.filter(e=>e.enVT).length, noVT=pizEjs.filter(e=>!e.enVT).length;
+        document.getElementById('piz-cnt-vt').textContent=enVT;
+        document.getElementById('piz-cnt-no').textContent=noVT;
+        const adv=document.getElementById('piz-advertencia');
+        (noVT>0&&enVT>0)?adv.classList.remove('hidden'):adv.classList.add('hidden');
     }
 
     function pizUpd(i,f,v) {
         if (!pizEjs[i]) return;
         pizEjs[i][f]=v;
         if (f==='nombre') {
-            const { enVT, nombreFinal } = pizResolverVT(v);
-            pizEjs[i].enVT = enVT;
-            if (nombreFinal !== v) { pizEjs[i].nombre = nombreFinal; }
-            pizRender();
+            const {enVT,nombreFinal}=pizResolverVT(v);
+            pizEjs[i].enVT=enVT; pizEjs[i].nombre=nombreFinal; pizRender();
         }
     }
-    function pizMoverArriba(i) {
-        if (i === 0) return;
-        // Si cruza bloque, actualizar bloque también
-        [pizEjs[i-1], pizEjs[i]] = [pizEjs[i], pizEjs[i-1]];
-        pizEjs[i].bloque = pizEjs[i+1] ? pizEjs[i+1].bloque : pizEjs[i].bloque;
-        pizEjs[i-1].bloque = pizEjs[i-2] ? pizEjs[i-2].bloque : pizEjs[i-1].bloque;
-        pizSyncBloques(); pizRender();
-    }
-    function pizMoverAbajo(i) {
-        if (i >= pizEjs.length - 1) return;
-        [pizEjs[i], pizEjs[i+1]] = [pizEjs[i+1], pizEjs[i]];
-        pizEjs[i].bloque = pizEjs[i-1] ? pizEjs[i-1].bloque : pizEjs[i].bloque;
-        pizEjs[i+1].bloque = pizEjs[i+2] ? pizEjs[i+2].bloque : pizEjs[i+1].bloque;
-        pizSyncBloques(); pizRender();
-    }
-    function pizCambiarBloque(i, nuevoBloque) {
-        if (!pizEjs[i]) return;
-        pizEjs[i].bloque = nuevoBloque;
-        pizSyncBloques(); pizRender();
-    }
-    // Reconstruye pizBloques desde pizEjs (source of truth)
-    function pizSyncBloques() {
-        const mapa = {};
-        pizEjs.forEach(ej => {
-            if (!mapa[ej.bloque]) mapa[ej.bloque] = [];
-            mapa[ej.bloque].push({ nombre: ej.nombre, reps: ej.reps });
-        });
-        pizBloques = Object.entries(mapa).map(([nombre, ejercicios]) => ({ nombre, ejercicios }));
-    }
-    function pizDelEj(i) { pizEjs.splice(i,1); pizRender(); }
-    function pizAgregarManual() { pizEjs.push({nombre:'',reps:'',enVT:false}); pizRender(); }
-
-    // ── Drag & Drop ──
-    let _pizDragIdx = null;
-    function pizDragStart(e, i) {
-        _pizDragIdx = i;
-        e.dataTransfer.effectAllowed = 'move';
-        e.currentTarget.style.opacity = '0.4';
-    }
-    function pizDragOver(e, i) {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        e.currentTarget.style.outline = '2px solid #4FC3F7';
-    }
-    function pizDragLeave(e) { e.currentTarget.style.outline = ''; }
-    function pizDrop(e, i) {
-        e.preventDefault();
-        e.currentTarget.style.outline = '';
-        if (_pizDragIdx === null || _pizDragIdx === i) { _pizDragIdx = null; return; }
-        const moved = pizEjs.splice(_pizDragIdx, 1)[0];
-        const targetIdx = _pizDragIdx < i ? i - 1 : i;
-        // Adoptar el bloque del vecino de destino
-        moved.bloque = pizEjs[targetIdx] ? pizEjs[targetIdx].bloque : (pizEjs[targetIdx-1]?.bloque || moved.bloque);
-        pizEjs.splice(targetIdx, 0, moved);
-        _pizDragIdx = null;
-        pizSyncBloques();
-        pizRender();
+    function pizDelEj(i) { pizEjs.splice(i,1); pizSyncBloques(); pizRender(); }
+    function pizAgregarManual() { 
+        const bloque = pizEjs.length ? pizEjs[pizEjs.length-1].bloque : 'Bloque 1';
+        pizEjs.push({nombre:'',reps:'',enVT:false,bloque}); pizRender(); 
     }
 
     function pizLog(msg, color) {
@@ -8156,38 +8111,29 @@ Extraé TODOS los ejercicios visibles y respetá la agrupación en bloques.`;
             if (!confirm(noVT.length+' ejercicio(s) sin Videoteca:\n'+noVT.map(e=>'• '+e.nombre).join('\n')+'\n\nSe incluirán SIN video. ¿Continuás?')) return;
         }
         const params = pizGetParams();
-
-        // Construir bloques: si hay pizBloques usarlos, sino un único bloque con todos
-        let bloquesFinales = [];
-        if (pizBloques && pizBloques.length > 1) {
-            bloquesFinales = pizBloques.map(b => {
-                const ejsBloque = (b.ejercicios||[]).filter(e=>(e.nombre||'').trim()).map(ej => {
-                    const vtD = buscarEjEnVideoteca(ej.nombre.trim().toUpperCase());
-                    return { nombre:ej.nombre.trim(), link:vtD?(vtD.link||vtD.video||''):'', reps:ej.reps||'10', unit:'Reps', elemento:vtD&&vtD.elemento||'', con_carga:vtD&&vtD.con_carga||false };
-                });
-                const bloque = { tipo:params.tipo, ejercicios:ejsBloque };
-                if (params.tipo==='Tabata') { bloque.trabajo=params.trabajo; bloque.pausa=params.pausa; bloque.rondas=params.rondas; }
-                else if (params.tipo==='EMOM') { bloque.minutos_totales=params.minutos_totales; bloque.emom_config_por_minuto=ejsBloque.map(ej=>({ejercicios:[ej]})); }
-                else if (params.tipo==='Circuito por Tiempo') { bloque.duracion_min=params.duracion_min; }
-                else if (params.tipo==='Circuito') { bloque.vueltas=params.vueltas; bloque.pausa_vuelta=params.pausa_vuelta; }
-                else if (params.tipo==='Por Tiempo') { bloque.vueltas=params.vueltas; }
-                else if (params.tipo==='Series') { bloque.series=params.series; bloque.pausa=params.pausa; }
-                return bloque;
-            });
-        } else {
-            const ejsCons = ejsV.map(ej => {
+        function buildBloque(ejsArr) {
+            const cons = ejsArr.map(ej => {
                 const vtD = buscarEjEnVideoteca(ej.nombre.trim().toUpperCase());
                 return { nombre:ej.nombre.trim(), link:vtD?(vtD.link||vtD.video||''):'', reps:ej.reps||'10', unit:'Reps', elemento:vtD&&vtD.elemento||'', con_carga:vtD&&vtD.con_carga||false };
             });
-            const bloque = { tipo:params.tipo, ejercicios:ejsCons };
-            if (params.tipo==='Tabata') { bloque.trabajo=params.trabajo; bloque.pausa=params.pausa; bloque.rondas=params.rondas; }
-            else if (params.tipo==='EMOM') { bloque.minutos_totales=params.minutos_totales; bloque.emom_config_por_minuto=ejsCons.map(ej=>({ejercicios:[ej]})); }
-            else if (params.tipo==='Circuito por Tiempo') { bloque.duracion_min=params.duracion_min; }
-            else if (params.tipo==='Circuito') { bloque.vueltas=params.vueltas; bloque.pausa_vuelta=params.pausa_vuelta; }
-            else if (params.tipo==='Por Tiempo') { bloque.vueltas=params.vueltas; }
-            else if (params.tipo==='Series') { bloque.series=params.series; bloque.pausa=params.pausa; }
-            bloquesFinales = [bloque];
+            const b = { tipo:params.tipo, ejercicios:cons };
+            if (params.tipo==='Tabata') { b.trabajo=params.trabajo; b.pausa=params.pausa; b.rondas=params.rondas; }
+            else if (params.tipo==='EMOM') { b.minutos_totales=params.minutos_totales; b.emom_config_por_minuto=cons.map(ej=>({ejercicios:[ej]})); }
+            else if (params.tipo==='Circuito por Tiempo') { b.duracion_min=params.duracion_min; }
+            else if (params.tipo==='Circuito') { b.vueltas=params.vueltas; b.pausa_vuelta=params.pausa_vuelta; }
+            else if (params.tipo==='Por Tiempo') { b.vueltas=params.vueltas; }
+            else if (params.tipo==='Series') { b.series=params.series; b.pausa=params.pausa; }
+            return b;
         }
+        // Si hay múltiples bloques, crear uno por cada grupo
+        let bloquesFinales = [];
+        if (pizBloques && pizBloques.length > 1) {
+            pizBloques.forEach(pb => {
+                const ejsB = (pb.ejercicios||[]).filter(e=>(e.nombre||'').trim());
+                if (ejsB.length) bloquesFinales.push(buildBloque(ejsB));
+            });
+        }
+        if (!bloquesFinales.length) bloquesFinales = [buildBloque(ejsV)];
 
         showTab('rutina'); inicializarRutina();
         setTimeout(()=>{
