@@ -7,6 +7,7 @@ import random
 import re
 import time
 import os
+import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from firebase_config import get_db_ref, init_firebase
@@ -104,7 +105,6 @@ def obtener_videoteca():
         ref = get_db_ref("/videoteca")
         data = ref.get()
         if not data:
-            # Inicializar con datos por defecto
             ref.set(VIDEOTECA_DEFAULTS)
             data = VIDEOTECA_DEFAULTS
         return jsonify({"ok": True, "videoteca": data})
@@ -160,7 +160,6 @@ def guardar_ejercicio():
         if not categoria or not nombre or not link:
             return jsonify({"ok": False, "error": "Categoria, nombre y link son obligatorios"}), 400
 
-        # Construir objeto del ejercicio con campos de musculos
         ej_data = {"nombre": nombre, "link": link}
         if musculo1:
             ej_data["musculo1"] = musculo1
@@ -179,7 +178,6 @@ def guardar_ejercicio():
         ref = get_db_ref(f"/videoteca/{categoria}")
         ejercicios = ref.get() or []
 
-        # Buscar si ya existe para actualizar
         encontrado = False
         for i, ej in enumerate(ejercicios):
             if isinstance(ej, dict) and ej.get("nombre") == nombre:
@@ -264,9 +262,7 @@ def eliminar_categoria():
 
 @app.route("/api/ejercicios/aleatorios", methods=["POST"])
 def ejercicios_aleatorios():
-    """Genera ejercicios aleatorios segun zona muscular.
-    Body: { "zonas": ["Piernas", "Brazos", ...] }
-    """
+    """Genera ejercicios aleatorios segun zona muscular."""
     try:
         body = request.json
         zonas = body.get("zonas", [])
@@ -316,38 +312,23 @@ def todos_los_ejercicios():
 
 @app.route("/api/rutina/compartir", methods=["POST"])
 def compartir_rutina():
-    """Sube una rutina a Firebase y genera un codigo unico.
-    Body: {
-        "alumno": "NOMBRE",
-        "tipo": "Circuito|Tabata|EMOM|Series|ENTRENAMIENTO|MULTIDIA",
-        "datos": { ... payload completo de la rutina ... },
-        "dias": [  <-- opcional, para rutinas multi-dia
-            { "titulo": "Dia 1", "tipo": "...", "datos": { ... } },
-            { "titulo": "Dia 2", "tipo": "...", "datos": { ... } },
-            ...
-        ]
-    }
-    Si se envian "dias", se guarda como rutina multi-dia.
-    Si no hay "dias", se guarda como rutina clasica (retrocompatible).
-    """
+    """Sube una rutina a Firebase y genera un codigo unico."""
     try:
         body = request.json
         nombre_alumno = body.get("alumno", "ALUMNO").strip().upper()
         tipo_rutina = body.get("tipo", "Rutina")
         datos_paquete = body.get("datos", {})
-        dias = body.get("dias", None)  # Lista de dias para rutinas multi-dia
+        dias = body.get("dias", None)
 
         if not nombre_alumno:
             nombre_alumno = "ALUMNO"
         nombre_lower = nombre_alumno.lower()
 
-        # Obtener y actualizar contador del alumno
         contador_ref = get_db_ref(f"/alumnos/{nombre_lower}/contador")
         contador_actual = contador_ref.get() or 0
         nuevo_contador = contador_actual + 1
         codigo = f"{nombre_lower}-{nuevo_contador:04d}"
 
-        # Preparar payload base
         payload = {
             "app": "ponetefit",
             "tipo": tipo_rutina,
@@ -356,12 +337,9 @@ def compartir_rutina():
         }
 
         if dias and isinstance(dias, list) and len(dias) > 1:
-            # ── RUTINA MULTI-DIA ──────────────────────────────────────────
-            # Estructura: dias = [ {titulo, tipo, datos: {...warmup, bloques...}}, ... ]
             payload["es_multidia"] = True
             payload["total_dias"] = len(dias)
             payload["tipo"] = "MULTIDIA"
-            # Serializar cada dia como dia_1, dia_2, ...
             for i, dia in enumerate(dias):
                 key = f"dia_{i + 1}"
                 payload[key] = {
@@ -369,16 +347,12 @@ def compartir_rutina():
                     "tipo": dia.get("tipo", "ENTRENAMIENTO"),
                     "datos": dia.get("datos", {})
                 }
-            # Descripcion global opcional
             if datos_paquete.get("descripcion"):
                 payload["descripcion"] = datos_paquete["descripcion"]
         else:
-            # ── RUTINA CLASICA (un solo dia) ──────────────────────────────
-            # Retrocompatible: mismo formato de siempre
             payload["es_multidia"] = False
             payload.update(datos_paquete)
 
-        # Guardar rutina y actualizar contador
         rutina_ref = get_db_ref(f"/rutinas/{codigo}")
         rutina_ref.set(payload)
         contador_ref.set(nuevo_contador)
@@ -398,18 +372,13 @@ def compartir_rutina():
 
 @app.route("/api/rutina/<codigo>", methods=["GET"])
 def obtener_rutina(codigo):
-    """Obtiene una rutina por su codigo.
-    Retrocompatibilidad: si la rutina no tiene 'es_multidia', se trata como un solo dia.
-    """
+    """Obtiene una rutina por su codigo."""
     try:
         ref = get_db_ref(f"/rutinas/{codigo}")
         data = ref.get()
         if not data:
             return jsonify({"ok": False, "error": "Codigo no encontrado"}), 404
 
-        # ── RETROCOMPATIBILIDAD ──────────────────────────────────────────
-        # Si la rutina no tiene el campo es_multidia, es una rutina clasica.
-        # La marcamos explicitamente para que el frontend la trate bien.
         if "es_multidia" not in data:
             data["es_multidia"] = False
 
@@ -428,13 +397,9 @@ def eliminar_rutina(codigo):
         if not data:
             return jsonify({"ok": False, "error": "Rutina no encontrada"}), 404
 
-        # Obtener el alumno antes de eliminar
         alumno = data.get("alumno", "").strip().lower()
-
-        # Eliminar la rutina
         ref.delete()
 
-        # Decrementar el contador del alumno
         if alumno:
             contador_ref = get_db_ref(f"/alumnos/{alumno}/contador")
             contador_actual = contador_ref.get() or 0
@@ -448,18 +413,13 @@ def eliminar_rutina(codigo):
 
 @app.route("/api/rutinas/renumerar/<nombre>", methods=["POST"])
 def renumerar_rutinas(nombre):
-    """Renumera todas las rutinas de un alumno para que sean consecutivas.
-    Ejemplo: si se elimina rafa-0002 de [rafa-0001, rafa-0002, rafa-0003],
-    rafa-0003 se renombra a rafa-0002 y el contador se ajusta a 2.
-    """
+    """Renumera todas las rutinas de un alumno para que sean consecutivas."""
     try:
         nombre_lower = nombre.strip().lower()
 
-        # Obtener todas las rutinas del alumno
         ref_rutinas = get_db_ref("/rutinas")
         todas = ref_rutinas.get() or {}
 
-        # Filtrar rutinas del alumno y ordenarlas por codigo
         rutinas_alumno = {}
         for cod, data in todas.items():
             if isinstance(data, dict) and data.get("alumno", "").lower() == nombre_lower:
@@ -470,7 +430,6 @@ def renumerar_rutinas(nombre):
         if not codigos_ordenados:
             return jsonify({"ok": True, "mensaje": "No hay rutinas para renumerar", "cambios": 0})
 
-        # Extraer el prefijo (ej: "rafa-" de "rafa-0001")
         primer_codigo = codigos_ordenados[0]
         match = re.match(r'^(.+?)(\d+)$', primer_codigo)
         if not match:
@@ -479,13 +438,11 @@ def renumerar_rutinas(nombre):
         prefijo = match.group(1)
         cambios = 0
 
-        # Renumerar secuencialmente
         for i, codigo_viejo in enumerate(codigos_ordenados):
             num_nuevo = i + 1
             codigo_nuevo = f"{prefijo}{num_nuevo:04d}"
 
             if codigo_viejo != codigo_nuevo:
-                # Mover la rutina al nuevo codigo
                 data_rutina = rutinas_alumno[codigo_viejo]
                 ref_nuevo = get_db_ref(f"/rutinas/{codigo_nuevo}")
                 ref_viejo = get_db_ref(f"/rutinas/{codigo_viejo}")
@@ -493,7 +450,6 @@ def renumerar_rutinas(nombre):
                 ref_viejo.delete()
                 cambios += 1
 
-        # Actualizar el contador del alumno
         total = len(codigos_ordenados)
         contador_ref = get_db_ref(f"/alumnos/{nombre_lower}/contador")
         contador_ref.set(total)
@@ -510,9 +466,7 @@ def renumerar_rutinas(nombre):
 
 @app.route("/api/rutina/renombrar", methods=["POST"])
 def renombrar_rutina():
-    """Renombra el codigo de una rutina (usado como fallback para renumeracion manual).
-    Body: { "codigo_viejo": "rafa-0005", "codigo_nuevo": "rafa-0004" }
-    """
+    """Renombra el codigo de una rutina."""
     try:
         body = request.json
         codigo_viejo = body.get("codigo_viejo", "").strip().lower()
@@ -524,18 +478,15 @@ def renombrar_rutina():
         if codigo_viejo == codigo_nuevo:
             return jsonify({"ok": True, "mensaje": "Los codigos son iguales, nada que hacer"})
 
-        # Obtener datos de la rutina vieja
         ref_viejo = get_db_ref(f"/rutinas/{codigo_viejo}")
         data = ref_viejo.get()
         if not data:
             return jsonify({"ok": False, "error": f"Rutina {codigo_viejo} no encontrada"}), 404
 
-        # Verificar que el nuevo codigo no exista ya
         ref_nuevo = get_db_ref(f"/rutinas/{codigo_nuevo}")
         if ref_nuevo.get():
             return jsonify({"ok": False, "error": f"El codigo {codigo_nuevo} ya existe"}), 409
 
-        # Mover: crear nuevo y eliminar viejo
         ref_nuevo.set(data)
         ref_viejo.delete()
 
@@ -588,7 +539,6 @@ def eliminar_alumno(nombre):
     try:
         nombre_lower = nombre.strip().lower()
 
-        # 1. Obtener y eliminar todas las rutinas del alumno
         ref_rutinas = get_db_ref("/rutinas")
         todas = ref_rutinas.get() or {}
 
@@ -598,7 +548,6 @@ def eliminar_alumno(nombre):
                 get_db_ref(f"/rutinas/{cod}").delete()
                 rutinas_eliminadas += 1
 
-        # 2. Eliminar el nodo del alumno en /alumnos
         ref_alumno = get_db_ref(f"/alumnos/{nombre_lower}")
         ref_alumno.delete()
 
@@ -622,6 +571,35 @@ def calcular_pausa_endpoint():
     reps = body.get("reps", 12)
     pausa = calcular_pausa(reps)
     return jsonify({"ok": True, "pausa": pausa, "formato": fmt_pausa(pausa)})
+
+
+# ──────────────────────────────────────────────────────────────
+#  API - PIZARRA OCR (proxy seguro para OpenRouter)
+# ──────────────────────────────────────────────────────────────
+
+@app.route("/api/pizarra-ocr", methods=["POST"])
+def pizarra_ocr():
+    """Proxy para OpenRouter - evita exponer la API key en el frontend."""
+    try:
+        body = request.json
+        api_key = os.environ.get("OPENROUTER_API_KEY")
+        if not api_key:
+            return jsonify({"ok": False, "error": "API key no configurada"}), 500
+
+        resp = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://ponetefit.app",
+                "X-Title": "PONETE FIT"
+            },
+            json=body,
+            timeout=30
+        )
+        return jsonify(resp.json()), resp.status_code
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 # ──────────────────────────────────────────────────────────────
