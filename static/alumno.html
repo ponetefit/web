@@ -1687,6 +1687,13 @@
             transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
+        @media (min-width: 768px) {
+            #overlay-video .video-container {
+                width: 75vw;
+                max-width: 75vw;
+            }
+        }
+
         #overlay-video.visible .video-container {
             transform: scale(1) translateY(0);
         }
@@ -5511,6 +5518,47 @@
         }
 
         function volverADias() {
+            // Detener todos los timers activos
+            bgClearInterval(tInterval);
+            bgClearInterval(pausaRondaInterval);
+            bgClearInterval(emomInterval);
+            bgClearInterval(warmupTabInterval);
+            bgClearInterval(warmupEmomInterval);
+            bgClearInterval(_wPorTiempoIv);
+            bgClearInterval(_wPorTiempoMotivoIv);
+            Object.keys(_emomBloqueIvs).forEach(function(k) { bgClearInterval(_emomBloqueIvs[k]); });
+            _emomBloqueIvs = {};
+            if (_spInterval) { bgClearInterval(_spInterval); _spInterval = null; }
+            _spSerieIdx = -1;
+            var _spOvVD = document.getElementById('overlay-series-pausa');
+            if (_spOvVD) _spOvVD.style.display = 'none';
+            Object.keys(_porTiempoState).forEach(function(k) {
+                var s = _porTiempoState[k];
+                if (s.iv) bgClearInterval(s.iv);
+                if (s.motivoIv) bgClearInterval(s.motivoIv);
+            });
+            _porTiempoState = {};
+            if (_ptFsSyncIv) { clearInterval(_ptFsSyncIv); _ptFsSyncIv = null; }
+            timerActivo = false;
+            timerPausado = false;
+            emomRunning = false;
+            warmupRunning = false;
+            _wPorTiempoRunning = false;
+            desactivarTimerGlobal();
+            detenerCoach();
+            liberarWakeLock();
+            // Cerrar overlays
+            var _ptFsOvVD = document.getElementById('overlay-pt-fs');
+            if (_ptFsOvVD) _ptFsOvVD.classList.remove('visible');
+            var _ctFsOvVD = document.getElementById('overlay-ct-fs');
+            if (_ctFsOvVD) _ctFsOvVD.classList.remove('visible');
+            if (_ctFsSyncIv) { clearInterval(_ctFsSyncIv); _ctFsSyncIv = null; }
+            document.getElementById('overlay-descanso').classList.remove('visible');
+            document.getElementById('overlay-descanso').style.display = 'none';
+            document.getElementById('overlay-pausa-ronda').classList.remove('visible');
+            document.getElementById('overlay-pausa-ronda').style.display = 'none';
+            document.getElementById('sec-timer-ui').style.display = 'none';
+            document.getElementById('sec-emom-ui').style.display = 'none';
             var secWarmup = document.getElementById('sec-warmup');
             var secPrincipal = document.getElementById('sec-principal');
             if (secWarmup) secWarmup.style.display = 'none';
@@ -7608,6 +7656,7 @@
             document.getElementById('btnReiniciarTimer').style.display = "none";
             var _volverRein = document.getElementById('timer-volver-container');
             if (_volverRein) _volverRein.style.display = 'block';
+            detenerCoach();
             liberarWakeLock();
         }
 
@@ -7936,11 +7985,13 @@
             document.getElementById('emom-clock').className = '';
             document.getElementById('emom-subtexto').innerText = "Preparate";
             var fillEl = document.getElementById('emom-progress-fill');
-            if (fillEl) fillEl.style.width = '100%';
+            if (fillEl) fillEl.style.width = '0%';
+            if (_progresoSegmentos[_progresoSegActual]) _progresoSegmentos[_progresoSegActual].completados = 0;
             document.getElementById('btnStartEmom').style.display = "block";
             document.getElementById('btnPausaEmom').style.display = "none";
             document.getElementById('btnPausaEmom').innerText = "⏸ PAUSAR";
             document.getElementById('btnReiniciarEmom').style.display = "none";
+            detenerCoach();
             liberarWakeLock();
         }
 
@@ -8092,6 +8143,7 @@
 
         // ─── EMOM BLOQUE MIX ───
         var emomBloquePausado = {};
+        var _emomBloqueIvs = {}; // interval activo por clockId (para poder cancelar al reiniciar)
 
         function togglePausaEmomBloque(clockId, pausaBtn) {
             emomBloquePausado[clockId] = !emomBloquePausado[clockId];
@@ -8153,9 +8205,9 @@
                     btn.disabled = false;
                     btn.innerText = "Reiniciar";
                     emomBloquePausado[clockId] = false;
+                    delete _emomBloqueIvs[clockId];
                     desactivarTimerGlobal();
                     if (pausaBtnEl) pausaBtnEl.style.display = 'none';
-                    if (reinBtnEl) reinBtnEl.style.display = 'none';
                     liberarWakeLock();
                     return;
                 }
@@ -8177,12 +8229,14 @@
                     if (rem <= 3 && rem > 0) beep(400);
                     if (rem <= 0) {
                         bgClearInterval(iv);
+                        delete _emomBloqueIvs[clockId];
                         beep(800);
                         minActual++;
                         incrementarProgreso(1);
                         sig();
                     }
                 }, 1000);
+                _emomBloqueIvs[clockId] = iv;
             }
         }
 
@@ -8227,6 +8281,7 @@
                     timerActivo = false;
                     timerPausado = false;
                     desactivarTimerGlobal();
+                    detenerCoach();
                     liberarWakeLock();
                 } else {
                     return;
@@ -8361,12 +8416,14 @@
                     if (rem <= 3 && rem > 0) beep(400);
                     if (rem <= 0) {
                         bgClearInterval(iv);
+                        delete _emomBloqueIvs[clockId];
                         beep(800);
                         minActual++;
                         incrementarProgreso(1);
                         sig();
                     }
                 }, 1000);
+                _emomBloqueIvs[clockId] = iv;
             }
         }
 
@@ -8411,11 +8468,16 @@
         // ─── REINICIAR EMOM BLOQUE MIX INLINE ───
         function reiniciarEmomMixInline(btnId, statusId, roundId, clockId, ejId, pausaId, reinId) {
             // Cancel any running interval
+            if (_emomBloqueIvs[clockId]) {
+                bgClearInterval(_emomBloqueIvs[clockId]);
+                delete _emomBloqueIvs[clockId];
+            }
             var pausaBtnEl = document.getElementById(pausaId);
             var reinBtnEl = document.getElementById(reinId);
             var btn = document.getElementById(btnId);
             emomBloquePausado[clockId] = false;
             desactivarTimerGlobal();
+            detenerCoach();
             liberarWakeLock();
             if (btn) { btn.dataset.running = "0"; btn.disabled = false; btn.innerText = "INICIAR EMOM"; }
             if (pausaBtnEl) { pausaBtnEl.style.display = 'none'; pausaBtnEl.innerText = '⏸ PAUSAR'; }
@@ -8437,11 +8499,34 @@
             bgClearInterval(emomInterval);
             bgClearInterval(warmupTabInterval);
             bgClearInterval(warmupEmomInterval);
+            Object.keys(_emomBloqueIvs).forEach(function(k) { bgClearInterval(_emomBloqueIvs[k]); });
+            _emomBloqueIvs = {};
+            if (_spInterval) { bgClearInterval(_spInterval); _spInterval = null; }
+            _spSerieIdx = -1;
+            var _spOvS = document.getElementById('overlay-series-pausa');
+            if (_spOvS) _spOvS.style.display = 'none';
+            Object.keys(_porTiempoState).forEach(function(k) {
+                var s = _porTiempoState[k];
+                if (s.iv) bgClearInterval(s.iv);
+                if (s.motivoIv) bgClearInterval(s.motivoIv);
+            });
+            _porTiempoState = {};
+            if (_ptFsSyncIv) { clearInterval(_ptFsSyncIv); _ptFsSyncIv = null; }
+            bgClearInterval(_wPorTiempoIv);
+            bgClearInterval(_wPorTiempoMotivoIv);
+            _wPorTiempoRunning = false;
+            var _ptFsOvS = document.getElementById('overlay-pt-fs');
+            if (_ptFsOvS) _ptFsOvS.classList.remove('visible');
+            var _ctFsOvS = document.getElementById('overlay-ct-fs');
+            if (_ctFsOvS) _ctFsOvS.classList.remove('visible');
+            if (_ctFsSyncIv) { clearInterval(_ctFsSyncIv); _ctFsSyncIv = null; }
             timerActivo = false;
             timerPausado = false;
             emomRunning = false;
             warmupRunning = false;
             desactivarTimerGlobal();
+            document.getElementById('overlay-descanso').classList.remove('visible');
+            document.getElementById('overlay-descanso').style.display = 'none';
             document.getElementById('overlay-pausa-ronda').classList.remove('visible');
             document.getElementById('overlay-pausa-ronda').style.display = 'none';
             document.getElementById('sec-timer-ui').style.display = 'none';
@@ -8467,6 +8552,7 @@
                     block: 'start'
                 });
             }
+            detenerCoach();
             liberarWakeLock();
         }
 
@@ -8492,6 +8578,8 @@
             bgClearInterval(pausaRondaInterval);
             bgClearInterval(warmupTabInterval);
             bgClearInterval(warmupEmomInterval);
+            Object.keys(_emomBloqueIvs).forEach(function(k) { bgClearInterval(_emomBloqueIvs[k]); });
+            _emomBloqueIvs = {};
             Object.values(restIntervals).forEach(bgClearInterval);
             Object.values(bloqueTiempoIntervals).forEach(function(v) {
                 if (typeof v === 'number') bgClearInterval(v);
@@ -8511,6 +8599,21 @@
             timerPausado = false;
             timerActivo = false;
             desactivarTimerGlobal();
+            Object.keys(_porTiempoState).forEach(function(k) {
+                var s = _porTiempoState[k];
+                if (s.iv) bgClearInterval(s.iv);
+                if (s.motivoIv) bgClearInterval(s.motivoIv);
+            });
+            _porTiempoState = {};
+            if (_ptFsSyncIv) { clearInterval(_ptFsSyncIv); _ptFsSyncIv = null; }
+            bgClearInterval(_wPorTiempoIv);
+            bgClearInterval(_wPorTiempoMotivoIv);
+            _wPorTiempoRunning = false;
+            var _ptFsOv = document.getElementById('overlay-pt-fs');
+            if (_ptFsOv) _ptFsOv.classList.remove('visible');
+            var _ctFsOv = document.getElementById('overlay-ct-fs');
+            if (_ctFsOv) _ctFsOv.classList.remove('visible');
+            if (_ctFsSyncIv) { clearInterval(_ctFsSyncIv); _ctFsSyncIv = null; }
             restIntervals = {};
             bloqueTiempoIntervals = {};
             seriesRestantes = {};
