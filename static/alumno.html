@@ -4379,8 +4379,15 @@
         }
 
         function _bvContarBloques(data) {
+            if (data.dias && data.dias.length) {
+                // Multi-día: contar bloques totales de todos los días
+                var totalB = 0;
+                data.dias.forEach(function(d) {
+                    totalB += (d.bloques && d.bloques.length) ? d.bloques.length : 1;
+                });
+                return totalB;
+            }
             if (data.bloques && data.bloques.length) return data.bloques.length;
-            if (data.dias && data.dias.length) return data.dias.length;
             return 1;
         }
 
@@ -4435,7 +4442,15 @@
             document.getElementById('bv-tipo-tag').innerText = tipo;
             // Stats
             var durMin = _bvCalcDuracion(data);
-            document.getElementById('bv-duracion').innerText = '~' + durMin + ' min';
+            var esMultidiaLocal = data.es_multidia === true && (data.total_dias || 1) > 1;
+            if (esMultidiaLocal && data.dias && data.dias.length) {
+                // Mostrar duración del primer día como referencia
+                var durDia = _bvCalcDuracion(data.dias[0]);
+                document.getElementById('bv-duracion').innerText = '~' + durDia + ' min';
+                document.querySelector('.bv-stat:first-child .bv-stat-lbl') && (document.querySelector('#bv-duracion').closest('.bv-stat').querySelector('.bv-stat-lbl').innerText = 'Por día');
+            } else {
+                document.getElementById('bv-duracion').innerText = '~' + durMin + ' min';
+            }
             document.getElementById('bv-bloques').innerText = _bvContarBloques(data);
             document.getElementById('bv-ejercicios').innerText = _bvContarEjercicios(data);
             // Records
@@ -6111,8 +6126,9 @@
             desactivarTimerGlobal();
             detenerCoach();
             liberarWakeLock();
+            document.getElementById('overlay-bienvenida').classList.remove('visible');
+            _bvDataPendiente = null;
             // Cerrar overlays
-            var _ptFsOvVD = document.getElementById('overlay-pt-fs');
             if (_ptFsOvVD) _ptFsOvVD.classList.remove('visible');
             var _ctFsOvVD = document.getElementById('overlay-ct-fs');
             if (_ctFsOvVD) _ctFsOvVD.classList.remove('visible');
