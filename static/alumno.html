@@ -3879,7 +3879,18 @@
             // Mostrar pantalla de finalización al llegar al 100%
             if (pct >= 100) {
                 setTimeout(function() {
-                    if (!_pantallaFinBloqueadaPorTiempo) mostrarPantallaFin();
+                    if (!_pantallaFinBloqueadaPorTiempo) {
+                        // Cerrar overlay circuito por tiempo si está visible (evita que tape la pantalla fin)
+                        var _ctOvProg = document.getElementById('overlay-ct-fs');
+                        if (_ctOvProg && _ctOvProg.classList.contains('visible')) {
+                            _ctOvProg.classList.remove('visible');
+                            if (typeof _ctFsSyncIv !== 'undefined' && _ctFsSyncIv) {
+                                clearInterval(_ctFsSyncIv);
+                                _ctFsSyncIv = null;
+                            }
+                        }
+                        mostrarPantallaFin();
+                    }
                 }, 600);
             }
         }
@@ -7811,6 +7822,36 @@
                     var _btRemaining = _btTotalMin - _btMinProgressed;
                     if (_btRemaining > 0) incrementarProgreso(_btRemaining);
                     liberarWakeLock();
+
+                    // ─── CIRCUITO POR TIEMPO: verificar si es el último bloque en modo MIX ───
+                    // Si el timer que terminó es un bloque del entrenamiento mix (no warmup),
+                    // verificar si el progreso ya llegó al 100% y mostrar pantalla fin con confetti.
+                    if (timerId !== 'warmup-clock') {
+                        setTimeout(function() {
+                            // Calcular progreso actual
+                            var _pct = 0;
+                            for (var _si = 0; _si < _progresoSegmentos.length; _si++) {
+                                var _seg = _progresoSegmentos[_si];
+                                if (_si < _progresoSegActual) {
+                                    _pct = _seg.pctEnd;
+                                } else if (_si === _progresoSegActual) {
+                                    var _ratio = _seg.totalItems > 0 ? (_seg.completados / _seg.totalItems) : 0;
+                                    _pct = _seg.pctStart + _ratio * (_seg.pctEnd - _seg.pctStart);
+                                    break;
+                                }
+                            }
+                            if (_pct >= 100 && !_pantallaFinMostrada) {
+                                // Cerrar overlay circuito por tiempo antes de mostrar pantalla fin
+                                var _ctOv = document.getElementById('overlay-ct-fs');
+                                if (_ctOv && _ctOv.classList.contains('visible')) {
+                                    _ctOv.classList.remove('visible');
+                                    if (_ctFsSyncIv) { clearInterval(_ctFsSyncIv); _ctFsSyncIv = null; }
+                                }
+                                // Mostrar pantalla fin (ya incluye confetti y frase motivadora)
+                                mostrarPantallaFin();
+                            }
+                        }, 800);
+                    }
                 }
             }, 1000);
         }
