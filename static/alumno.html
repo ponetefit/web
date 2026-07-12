@@ -4285,6 +4285,20 @@
             document.querySelectorAll('.bv-trapecio').forEach(function(el) { el.setAttribute('fill', '#2a2a35'); });
         }
 
+        // Normaliza los dias de una rutina multi-dia: soporta tanto el formato
+        // { dias: [...] } como el formato real de exportacion { total_dias, dia_1, dia_2, ... }
+        function _bvObtenerDiasNormalizados(data) {
+            if (data.dias && data.dias.length) return data.dias;
+            var arr = [];
+            var total = data.total_dias || 0;
+            for (var i = 1; i <= total; i++) {
+                var diaD = data['dia_' + i];
+                if (!diaD) continue;
+                arr.push(diaD.datos || diaD);
+            }
+            return arr;
+        }
+
         function _bvColorearMusculos(muscleCount) {
             _bvResetMuscles();
             var values = Object.values(muscleCount);
@@ -4324,7 +4338,7 @@
                 (b.rutina || []).forEach(function(sub) { _contarLista(sub.ejercicios); });
             });
             (data.minutos_ciclo || []).forEach(function(m) { _contarLista(m.ejercicios); });
-            (data.dias || []).forEach(function(dia) {
+            _bvObtenerDiasNormalizados(data).forEach(function(dia) {
                 _contarLista(dia.rutina); _contarLista(dia.datos); _contarLista(dia.ejercicios);
                 (dia.bloques || []).forEach(function(b) {
                     _contarLista(b.rutina); _contarLista(b.ejercicios);
@@ -4366,7 +4380,7 @@
             if (data.warmup_ejercicios && data.warmup_ejercicios.length) mins += 5;
             (data.bloques || []).forEach(_estimarBloque);
             if (!data.bloques || !data.bloques.length) _estimarBloque(data);
-            (data.dias || []).forEach(function(dia) {
+            _bvObtenerDiasNormalizados(data).forEach(function(dia) {
                 if (dia.warmup_ejercicios && dia.warmup_ejercicios.length) mins += 5;
                 (dia.bloques || []).forEach(_estimarBloque);
                 if (!dia.bloques || !dia.bloques.length) _estimarBloque(dia);
@@ -4382,7 +4396,7 @@
                 _contar(b.rutina); _contar(b.ejercicios);
                 (b.rutina || []).forEach(function(sub) { _contar(sub.ejercicios); });
             });
-            (data.dias || []).forEach(function(dia) {
+            _bvObtenerDiasNormalizados(data).forEach(function(dia) {
                 _contar(dia.rutina); _contar(dia.datos); _contar(dia.ejercicios);
                 (dia.bloques || []).forEach(function(b) { _contar(b.rutina); _contar(b.ejercicios); });
             });
@@ -4390,13 +4404,15 @@
         }
 
         function _bvContarBloques(data) {
-            if (data.dias && data.dias.length) {
+            var esMulti = data.es_multidia === true && (data.total_dias || 1) > 1;
+            if (esMulti || (data.dias && data.dias.length)) {
                 // Multi-día: contar bloques totales de todos los días
+                var diasNorm = _bvObtenerDiasNormalizados(data);
                 var totalB = 0;
-                data.dias.forEach(function(d) {
+                diasNorm.forEach(function(d) {
                     totalB += (d.bloques && d.bloques.length) ? d.bloques.length : 1;
                 });
-                return totalB;
+                return totalB || 1;
             }
             if (data.bloques && data.bloques.length) return data.bloques.length;
             return 1;
@@ -4454,9 +4470,10 @@
             // Stats
             var durMin = _bvCalcDuracion(data);
             var esMultidiaLocal = data.es_multidia === true && (data.total_dias || 1) > 1;
-            if (esMultidiaLocal && data.dias && data.dias.length) {
+            var diasNormLocal = esMultidiaLocal ? _bvObtenerDiasNormalizados(data) : [];
+            if (esMultidiaLocal && diasNormLocal.length) {
                 // Mostrar duración del primer día como referencia
-                var durDia = _bvCalcDuracion(data.dias[0]);
+                var durDia = _bvCalcDuracion(diasNormLocal[0]);
                 document.getElementById('bv-duracion').innerText = '~' + durDia + ' min';
                 document.querySelector('.bv-stat:first-child .bv-stat-lbl') && (document.querySelector('#bv-duracion').closest('.bv-stat').querySelector('.bv-stat-lbl').innerText = 'Por día');
             } else {
