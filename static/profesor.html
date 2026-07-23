@@ -4563,7 +4563,11 @@
             function normEjs(src) {
                 return toArray(src).map(ej => {
                     const e = normalizeEj(ej);
-                    return { nombre: e.nombre, link: e.link, reps: e.reps || '12', unit: e.unit || 'Reps', series: parseInt(e.series) || 4, nota_tecnica: e.nota_tecnica || '' };
+                    const out = { nombre: e.nombre, link: e.link, reps: e.reps || '12', unit: e.unit || 'Reps', series: parseInt(e.series) || 4, nota_tecnica: e.nota_tecnica || '' };
+                    if (e.reps_por_vuelta) out.reps_por_vuelta = e.reps_por_vuelta;
+                    if (e.reps_por_serie) out.reps_por_serie = e.reps_por_serie;
+                    if (e.pausa_por_serie) out.pausa_por_serie = e.pausa_por_serie;
+                    return out;
                 }).filter(e => e.nombre);
             }
 
@@ -4614,7 +4618,11 @@
             function normWarmupEjs(src) {
                 return toArray(src).map(ej => {
                     const e = normalizeEj(ej);
-                    return { nombre: e.nombre, link: e.link, reps: e.reps, unit: e.unit || 'Reps', con_carga: ej.con_carga || false, tip1: ej.tip1 || '', tip2: ej.tip2 || '' };
+                    const out = { nombre: e.nombre, link: e.link, reps: e.reps, unit: e.unit || 'Reps', con_carga: ej.con_carga || false, tip1: ej.tip1 || '', tip2: ej.tip2 || '' };
+                    if (e.reps_por_vuelta) out.reps_por_vuelta = e.reps_por_vuelta;
+                    if (e.reps_por_serie) out.reps_por_serie = e.reps_por_serie;
+                    if (e.pausa_por_serie) out.pausa_por_serie = e.pausa_por_serie;
+                    return out;
                 }).filter(e => e.nombre);
             }
 
