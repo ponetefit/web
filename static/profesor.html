@@ -2623,6 +2623,7 @@
                 '<div class="flex items-center justify-between">' +
                 '<div class="flex items-center gap-2 flex-1 min-w-0">' +
                 '<span class="drag-handle flex-shrink-0" title="Arrastrar">' + svgHandle + '</span>' +
+                _flechasHtml('warmup-dia-' + idx, i, ejs.length) +
                 '<span class="text-xs text-textoSuave font-mono flex-shrink-0">' + (i+1) + '</span>' +
                 '<span class="text-sm font-bold ej-hover-preview truncate" data-video-url="' + linkEsc + '" data-ej-nombre="' + nombreEsc + '" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">' + ej.nombre + '</span>' + cargaBadgeW +
                 '</div>' +
@@ -2854,6 +2855,7 @@
             return `<div class="exercise-chip flex items-center justify-between bg-fondoAlt rounded-xl px-4 py-2.5 border border-borde/50" draggable="true" data-idx="${i}" data-list="warmup" ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)">
                 <div class="flex items-center gap-3 flex-wrap">
                     <span class="drag-handle" title="Arrastrar para reordenar"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
+                    ${_flechasHtml('warmup', i, warmupEjercicios.length)}
                     <span class="text-xs text-textoSuave font-mono">${i+1}</span>
                     <span class="text-sm font-bold ej-hover-preview" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">${ej.nombre}</span>
                     ${repsBadge}${cargaBadge}
@@ -3503,6 +3505,7 @@
                 <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center gap-2">
                         <span class="drag-handle" title="Arrastrar para reordenar"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
+                        ${_flechasHtml('bloque', i, bloqueEjsTemp.length)}
                         <span class="text-sm font-bold ej-hover-preview" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">${i+1}. ${ej.nombre}</span>${cargaBadge}
                     </div>
                     <button onclick="quitarEjBloque(${i})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none">&times;</button>
@@ -3739,6 +3742,32 @@
         if (wmMatch) { const i = parseInt(wmMatch[1]); renderWarmupEjsDia(i); actualizarBadgeDia(i); return; }
         const blMatch = listType.match(/^bloques-dia-(\d+)$/);
         if (blMatch) { const i = parseInt(blMatch[1]); renderBloquesDia(i); actualizarBadgeDia(i); return; }
+    }
+
+    // Mueve un item de la lista una posicion arriba (direccion=-1) o abajo (direccion=1).
+    // Usa el mismo getDataArray/rerenderList que ya usa el drag & drop, para no duplicar logica.
+    // Genera el HTML de las flechas subir/bajar para un item de una lista reordenable
+    function _flechasHtml(listType, i, total) {
+        const arribaDisabled = i === 0 ? ' style="opacity:0.25;pointer-events:none;"' : '';
+        const abajoDisabled = i === total - 1 ? ' style="opacity:0.25;pointer-events:none;"' : '';
+        return '<span class="flex flex-col leading-none flex-shrink-0" style="gap:2px;">' +
+            '<button type="button" onclick="moverEjercicio(\'' + listType + '\',' + i + ',-1)" title="Subir"' + arribaDisabled + ' class="text-textoSuave hover:text-white">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>' +
+            '</button>' +
+            '<button type="button" onclick="moverEjercicio(\'' + listType + '\',' + i + ',1)" title="Bajar"' + abajoDisabled + ' class="text-textoSuave hover:text-white">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>' +
+            '</button>' +
+            '</span>';
+    }
+
+    function moverEjercicio(listType, idx, direccion) {
+        const arr = getDataArray(listType);
+        if (!arr) return;
+        const destIdx = idx + direccion;
+        if (destIdx < 0 || destIdx >= arr.length) return;
+        const [moved] = arr.splice(idx, 1);
+        arr.splice(destIdx, 0, moved);
+        rerenderList(listType);
     }
 
     function getDraggableParent(el) {
