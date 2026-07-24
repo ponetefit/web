@@ -1510,10 +1510,11 @@
                 <!-- Ejercicios del bloque -->
                 <div id="bloque-ejercicios-panel">
                     <label class="text-xs text-textoSuave uppercase tracking-wider block mb-2">Ejercicios</label>
-                    <div class="mb-2">
+                    <!-- Busqueda DESKTOP/TABLET: input + categoria + elemento + select (sin cambios) -->
+                    <div class="hidden sm:block mb-2">
                         <input id="bloque-buscar-ej" type="text" placeholder="Buscar ejercicio..." onkeyup="filtrarEjsBloque()" class="w-full rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-verde focus:ring-2 focus:ring-verde/30 transition">
                     </div>
-                    <div class="flex gap-2 mb-3 flex-wrap">
+                    <div class="hidden sm:flex gap-2 mb-3 flex-wrap">
                         <select id="bloque-cat-select" onchange="cargarEjsBloque()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
                         </select>
                         <select id="bloque-elemento-select" onchange="cargarEjsBloque()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
@@ -1522,6 +1523,10 @@
                         <select id="bloque-ej-select" class="rounded-lg px-3 py-2 text-sm flex-1">
                         </select>
                         <button onclick="agregarEjBloque()" class="bg-verde/20 text-verde px-3 py-2 rounded-lg text-sm font-bold hover:bg-verde/30 transition whitespace-nowrap">+</button>
+                    </div>
+                    <!-- Busqueda MOBILE: un solo buscador con sugerencias tocables -->
+                    <div class="sm:hidden mb-3">
+                        <input id="bloque-buscar-ej-mobile" type="text" autocomplete="off" placeholder="Buscar ejercicio para agregar..." class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-verde focus:ring-2 focus:ring-verde/30 transition">
                     </div>
                     <div id="bloque-ejercicios-lista" class="space-y-2 max-h-96 overflow-y-auto">
                     </div>
@@ -1667,6 +1672,110 @@
                 e.preventDefault();
                 if (activeIdx >= 0) { seleccionar(activeIdx); }
                 else if (currentMatches.length === 1) { seleccionar(0); }
+            }
+        });
+
+        input.addEventListener('blur', () => { setTimeout(ocultar, 150); });
+    }
+
+    // ====================================================================
+    // BUSCADOR DE EJERCICIOS PARA MOBILE (solo se usa en pantallas < 640px)
+    // Reemplaza visualmente el combo categoria->elemento->select por un buscador
+    // unico con sugerencias tocables. Reutiliza el <select> real de desktop
+    // (poblando una opcion en el) para no duplicar la logica de "agregar ejercicio".
+    // ====================================================================
+    function _initBusquedaEjercicioMobile(inputId, selectElId, agregarCallback) {
+        const input = document.getElementById(inputId);
+        if (!input || input._acEjInit) return;
+        input._acEjInit = true;
+
+        let wrap = input.parentElement;
+        if (!wrap || !wrap.classList.contains('ac-wrap')) {
+            wrap = document.createElement('div');
+            wrap.className = 'ac-wrap';
+            wrap.style.position = 'relative';
+            input.parentNode.insertBefore(wrap, input);
+            wrap.appendChild(input);
+        }
+        const box = document.createElement('div');
+        box.className = 'ac-suggestions hidden bg-tarjeta border-borde';
+        box.style.cssText = 'position:absolute;top:100%;left:0;right:0;z-index:40;max-height:260px;overflow-y:auto;margin-top:4px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 8px 24px rgba(0,0,0,0.4);';
+        wrap.appendChild(box);
+
+        let activeIdx = -1;
+        let currentMatches = [];
+
+        function todosLosEjercicios() {
+            const out = [];
+            Object.keys(videotecaCache).forEach(cat => {
+                (videotecaCache[cat] || []).forEach(e => {
+                    const nombre = e.nombre || e[0];
+                    if (nombre) out.push({ nombre, cat });
+                });
+            });
+            return out;
+        }
+
+        function ocultar() { box.classList.add('hidden'); box.innerHTML = ''; activeIdx = -1; }
+
+        function resaltar() {
+            box.querySelectorAll('.ac-item').forEach((el, i) => {
+                el.style.background = i === activeIdx ? 'rgba(255,255,255,0.08)' : '';
+            });
+        }
+
+        function seleccionar(item) {
+            if (!item) return;
+            const sel = document.getElementById(selectElId);
+            if (!sel) return;
+            let opt = Array.from(sel.options).find(o => o.value === item.nombre);
+            if (!opt) {
+                opt = document.createElement('option');
+                opt.value = item.nombre;
+                opt.dataset.cat = item.cat;
+                sel.appendChild(opt);
+            }
+            sel.value = item.nombre;
+            input.value = '';
+            ocultar();
+            agregarCallback();
+        }
+
+        function mostrarMatches(q) {
+            const matches = todosLosEjercicios().filter(e => e.nombre.toLowerCase().includes(q)).slice(0, 8);
+            currentMatches = matches;
+            activeIdx = -1;
+            if (matches.length === 0) { ocultar(); return; }
+            box.innerHTML = matches.map((m, i) =>
+                '<div class="ac-item" data-idx="' + i + '" style="padding:10px 12px;cursor:pointer;font-size:0.85rem;">' +
+                m.nombre + ' <span style="font-size:10px;color:var(--tw-text-opacity,1);opacity:0.5;">· ' + m.cat + '</span></div>'
+            ).join('');
+            box.classList.remove('hidden');
+            box.querySelectorAll('.ac-item').forEach(el => {
+                el.addEventListener('mousedown', (e) => { e.preventDefault(); seleccionar(currentMatches[parseInt(el.dataset.idx)]); });
+            });
+        }
+
+        input.addEventListener('input', () => {
+            const q = input.value.trim().toLowerCase();
+            if (!q) { ocultar(); return; }
+            mostrarMatches(q);
+        });
+
+        input.addEventListener('focus', () => {
+            const q = input.value.trim().toLowerCase();
+            if (q) mostrarMatches(q);
+        });
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') { ocultar(); return; }
+            if (box.classList.contains('hidden') || currentMatches.length === 0) return;
+            if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, currentMatches.length - 1); resaltar(); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); resaltar(); }
+            else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (activeIdx >= 0) { seleccionar(currentMatches[activeIdx]); }
+                else if (currentMatches.length === 1) { seleccionar(currentMatches[0]); }
             }
         });
 
@@ -2372,10 +2481,11 @@
                             <div id="warmup-params-container-${idx}" class="md:col-span-2"></div>
                         </div>
                         <div id="warmup-ej-panel-${idx}">
-                        <div class="mb-2">
+                        <!-- Busqueda DESKTOP/TABLET (sin cambios) -->
+                        <div class="hidden sm:block mb-2">
                             <input id="warmup-buscar-ej-${idx}" type="text" placeholder="Buscar ejercicio..." onkeyup="filtrarEjsWarmupDia(${idx})" class="w-full rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-azul focus:ring-2 focus:ring-azul/30 transition">
                         </div>
-                        <div class="flex gap-2 mb-2 flex-wrap">
+                        <div class="hidden sm:flex gap-2 mb-2 flex-wrap">
                             <select id="warmup-cat-select-${idx}" onchange="cargarEjsWarmupDia(${idx})" class="rounded-lg px-3 py-2 text-sm flex-shrink-0"></select>
                             <select id="warmup-elemento-select-${idx}" onchange="cargarEjsWarmupDia(${idx})" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
                                 <option value="">Todo elemento</option>
@@ -2386,8 +2496,12 @@
                                 <option>Reps</option><option>Segs</option>
                             </select>
                         </div>
-                        <div class="flex gap-2 mb-3">
+                        <div class="hidden sm:flex gap-2 mb-3">
                             <button onclick="agregarEjWarmupDia(${idx})" class="bg-azul/20 text-azul px-3 py-2 rounded-lg text-sm font-bold hover:bg-azul/30 transition whitespace-nowrap w-full">+ Agregar</button>
+                        </div>
+                        <!-- Busqueda MOBILE: un solo buscador con sugerencias tocables -->
+                        <div class="sm:hidden mb-3">
+                            <input id="warmup-buscar-ej-mobile-${idx}" type="text" autocomplete="off" placeholder="Buscar ejercicio para agregar..." class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-azul focus:ring-2 focus:ring-azul/30 transition">
                         </div>
                         </div>
                         <div id="warmup-ejercicios-lista-${idx}" class="space-y-2"></div>
@@ -2624,7 +2738,12 @@
         // Auto-actualizar el contador "Cantidad de ejercicios" para Tabata calentamiento
         const cantidadEl = document.getElementById('warmup-cantidad-' + idx);
         if (cantidadEl) { cantidadEl.value = ejs.length || 0; }
-        if (ejs.length === 0) { lista.innerHTML = ''; actualizarMiniTimelineDia(idx); return; }
+        if (ejs.length === 0) {
+            lista.innerHTML = '';
+            actualizarMiniTimelineDia(idx);
+            _initBusquedaEjercicioMobile('warmup-buscar-ej-mobile-' + idx, 'warmup-ej-select-' + idx, function() { agregarEjWarmupDia(idx); });
+            return;
+        }
 
         // Detectar tipo de warmup para este dia
         const tipoSel = document.getElementById('warmup-tipo-' + idx);
@@ -2740,6 +2859,7 @@
         // Activar touch drag para esta lista
         initTouchDragForListDia(lista, 'warmup-dia-' + idx, idx);
         actualizarMiniTimelineDia(idx);
+        _initBusquedaEjercicioMobile('warmup-buscar-ej-mobile-' + idx, 'warmup-ej-select-' + idx, function() { agregarEjWarmupDia(idx); });
     }
 
     // ── Bloques por dia ───────────────────────────────────────────────────
@@ -8641,8 +8761,8 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
                 return;
             }
 
-            // Enter en el buscador de ejercicios de calentamiento (multi-dia) -> agrega el primer resultado
-            if (e.key === 'Enter' && e.target && typeof e.target.id === 'string' && e.target.id.indexOf('warmup-buscar-ej-') === 0) {
+            // Enter en el buscador de ejercicios de calentamiento (multi-dia, DESKTOP) -> agrega el primer resultado
+            if (e.key === 'Enter' && e.target && typeof e.target.id === 'string' && e.target.id.indexOf('warmup-buscar-ej-') === 0 && e.target.id.indexOf('warmup-buscar-ej-mobile-') !== 0) {
                 const idx = parseInt(e.target.id.slice('warmup-buscar-ej-'.length));
                 if (!isNaN(idx)) {
                     e.preventDefault();
@@ -8663,6 +8783,8 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
         cargarAlumnosDash();
         // Autocompletado de alumno en "Crear Rutina" (texto libre, sugiere alumnos existentes)
         _obtenerAlumnosCache().then(() => _initAutocompleteAlumno('alumno-nombre', null, null));
+        // Buscador de ejercicios mobile (bloque): reusa el select de desktop y agregarEjBloque()
+        _initBusquedaEjercicioMobile('bloque-buscar-ej-mobile', 'bloque-ej-select', agregarEjBloque);
         // Inicializar el sistema multi-dia con Dia 1 por defecto
         initMultiDia();
         // Atajos de teclado del editor de rutina
