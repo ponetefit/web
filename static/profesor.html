@@ -359,9 +359,7 @@
                         <p class="text-xs text-textoSuave">Selecciona un alumno para ver su analisis completo</p>
                     </div>
                     <div class="flex gap-3 items-center w-full md:w-auto">
-                        <select id="dash-select-alumno" onchange="cargarDashboard()" class="rounded-lg px-4 py-2.5 text-sm flex-1 md:min-w-[220px]">
-                            <option value="">-- Seleccionar alumno --</option>
-                        </select>
+                        <input id="dash-select-alumno" type="text" autocomplete="off" placeholder="Buscar alumno..." class="rounded-lg px-4 py-2.5 text-sm flex-1 md:min-w-[220px]">
                         <button onclick="cargarAlumnosDash()" class="bg-naranja/20 text-naranja px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition whitespace-nowrap">Actualizar</button>
                     </div>
                 </div>
@@ -1044,9 +1042,7 @@
             <div class="bg-tarjeta rounded-2xl border border-borde p-6">
                 <h2 class="text-lg font-bold text-purpura uppercase tracking-wider mb-4">Rutinas Compartidas</h2>
                 <div class="flex gap-3 mb-4">
-                    <select id="select-alumno" onchange="buscarRutinasAlumno()" class="rounded-lg px-3 py-2.5 text-sm flex-1">
-                        <option value="">-- Seleccionar alumno --</option>
-                    </select>
+                    <input id="select-alumno" type="text" autocomplete="off" placeholder="Buscar alumno..." class="rounded-lg px-3 py-2.5 text-sm flex-1">
                     <button onclick="cargarListaAlumnos()" class="bg-purpura/20 text-purpura px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition whitespace-nowrap">Actualizar</button>
                     <button onclick="eliminarAlumno()" id="btn-eliminar-alumno" class="bg-rojo/20 text-rojo px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition whitespace-nowrap hidden">Eliminar Alumno</button>
                 </div>
@@ -1569,6 +1565,110 @@
     let historialRutinasCache = {};
     let rutinaModalActual = null;
     let currentData = null; // Rutina actualmente visible en el modal
+
+    // ====================================================================
+    // BUSCADOR DE ALUMNOS CON AUTOCOMPLETADO
+    // ====================================================================
+    let _alumnosCache = [];
+    let _alumnosCacheLoaded = false;
+
+    // Trae (o refresca) la lista de alumnos desde el backend y la cachea.
+    async function _obtenerAlumnosCache(forzar) {
+        if (_alumnosCacheLoaded && !forzar) return _alumnosCache;
+        try {
+            const res = await fetch(API_BASE + '/api/alumnos');
+            const data = await res.json();
+            if (data.ok && data.alumnos) {
+                _alumnosCache = data.alumnos.slice().sort((a, b) => a.localeCompare(b));
+                _alumnosCacheLoaded = true;
+            }
+        } catch (e) {
+            console.error('Error cargando cache de alumnos:', e);
+        }
+        return _alumnosCache;
+    }
+
+    // Convierte un <input type="text"> en un buscador con autocompletado de alumnos.
+    // onSelect(nombre): se llama cuando el usuario elige una sugerencia (click / Enter).
+    // onClear(): se llama cuando el usuario deja el input vacío (equivalente a elegir "-- Seleccionar --").
+    function _initAutocompleteAlumno(inputId, onSelect, onClear) {
+        const input = document.getElementById(inputId);
+        if (!input || input._acInit) return;
+        input._acInit = true;
+
+        let wrap = input.parentElement;
+        if (!wrap || !wrap.classList.contains('ac-wrap')) {
+            wrap = document.createElement('div');
+            wrap.className = 'ac-wrap';
+            wrap.style.position = 'relative';
+            wrap.style.flex = '1';
+            input.parentNode.insertBefore(wrap, input);
+            wrap.appendChild(input);
+        }
+        const box = document.createElement('div');
+        box.className = 'ac-suggestions hidden';
+        box.style.cssText = 'position:absolute;top:100%;left:0;right:0;z-index:40;max-height:220px;overflow-y:auto;margin-top:4px;border-radius:12px;background:var(--tw-bg-opacity,1) #1a1a22;border:1px solid rgba(255,255,255,0.1);box-shadow:0 8px 24px rgba(0,0,0,0.4);';
+        box.classList.add('bg-tarjeta', 'border-borde');
+        wrap.appendChild(box);
+
+        let activeIdx = -1;
+        let currentMatches = [];
+
+        function ocultar() { box.classList.add('hidden'); box.innerHTML = ''; }
+
+        function resaltar() {
+            box.querySelectorAll('.ac-item').forEach((el, i) => {
+                el.style.background = i === activeIdx ? 'rgba(255,255,255,0.08)' : '';
+            });
+        }
+
+        function seleccionar(idx) {
+            const nombre = currentMatches[idx];
+            if (nombre === undefined) return;
+            input.value = nombre;
+            ocultar();
+            if (onSelect) onSelect(nombre);
+        }
+
+        function mostrarMatches(q) {
+            const matches = _alumnosCache.filter(a => a.toLowerCase().includes(q)).slice(0, 8);
+            currentMatches = matches;
+            activeIdx = -1;
+            if (matches.length === 0) { ocultar(); return; }
+            box.innerHTML = matches.map((m, i) =>
+                '<div class="ac-item" data-idx="' + i + '" style="padding:8px 12px;cursor:pointer;font-size:0.85rem;">' + m.toUpperCase() + '</div>'
+            ).join('');
+            box.classList.remove('hidden');
+            box.querySelectorAll('.ac-item').forEach(el => {
+                el.addEventListener('mousedown', (e) => { e.preventDefault(); seleccionar(parseInt(el.dataset.idx)); });
+            });
+        }
+
+        input.addEventListener('input', () => {
+            const q = input.value.trim().toLowerCase();
+            if (!q) { ocultar(); if (onClear) onClear(); return; }
+            mostrarMatches(q);
+        });
+
+        input.addEventListener('focus', () => {
+            const q = input.value.trim().toLowerCase();
+            if (q) mostrarMatches(q);
+        });
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') { ocultar(); return; }
+            if (box.classList.contains('hidden') || currentMatches.length === 0) return;
+            if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, currentMatches.length - 1); resaltar(); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); resaltar(); }
+            else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (activeIdx >= 0) { seleccionar(activeIdx); }
+                else if (currentMatches.length === 1) { seleccionar(0); }
+            }
+        });
+
+        input.addEventListener('blur', () => { setTimeout(ocultar, 150); });
+    }
 
     // ====================================================================
     // ELEMENTOS (EQUIPAMIENTO)
@@ -4328,15 +4428,10 @@
     // ====================================================================
 
     async function cargarListaAlumnos() {
-        const sel = document.getElementById('select-alumno');
         try {
-            const res = await fetch(API_BASE + '/api/alumnos');
-            const data = await res.json();
-            if (data.ok && data.alumnos) {
-                sel.innerHTML = '<option value="">-- Seleccionar alumno --</option>' +
-                    data.alumnos.map(a => `<option value="${a}">${a.toUpperCase()}</option>`).join('');
-                toast('Alumnos cargados');
-            }
+            await _obtenerAlumnosCache(true);
+            _initAutocompleteAlumno('select-alumno', buscarRutinasAlumno, buscarRutinasAlumno);
+            toast('Alumnos cargados');
         } catch (e) {
             console.error('Error cargando alumnos:', e);
         }
@@ -5771,17 +5866,11 @@
     let dashRutinasData = {};
 
     async function cargarAlumnosDash() {
-        const sel = document.getElementById('dash-select-alumno');
-        if (!sel) return;
+        const inp = document.getElementById('dash-select-alumno');
+        if (!inp) return;
         try {
-            const res = await fetch(API_BASE + '/api/alumnos');
-            const data = await res.json();
-            if (data.ok && data.alumnos) {
-                const current = sel.value;
-                sel.innerHTML = '<option value="">-- Seleccionar alumno --</option>' +
-                    data.alumnos.map(a => `<option value="${a}">${a.toUpperCase()}</option>`).join('');
-                if (current) sel.value = current;
-            }
+            await _obtenerAlumnosCache(true);
+            _initAutocompleteAlumno('dash-select-alumno', cargarDashboard, cargarDashboard);
         } catch (e) {
             console.error('Error cargando alumnos para dashboard:', e);
         }
@@ -6925,18 +7014,13 @@
         // Poblar select de alumnos
         const sel = document.getElementById('repo-copiar-alumno');
         sel.innerHTML = '<option value="">-- Seleccionar alumno --</option>';
-        // Reusar la lista de alumnos cargada
-        const selOrig = document.getElementById('select-alumno');
-        if (selOrig) {
-            Array.from(selOrig.options).forEach(opt => {
-                if (opt.value) {
-                    const o = document.createElement('option');
-                    o.value = opt.value;
-                    o.textContent = opt.textContent;
-                    sel.appendChild(o);
-                }
-            });
-        }
+        // Reusar la lista de alumnos cargada (cache compartido)
+        _alumnosCache.forEach(nombre => {
+            const o = document.createElement('option');
+            o.value = nombre;
+            o.textContent = nombre.toUpperCase();
+            sel.appendChild(o);
+        });
         document.getElementById('modal-repo-copiar').classList.remove('hidden');
     }
 
@@ -7038,18 +7122,13 @@
         // Poblar el select de alumnos en el modal IA
         const selIA = document.getElementById('ia-alumno-select');
         if (selIA) {
-            const selOrig = document.getElementById('select-alumno');
             selIA.innerHTML = '<option value="">-- Sin alumno (solo repositorio) --</option>';
-            if (selOrig) {
-                Array.from(selOrig.options).forEach(opt => {
-                    if (opt.value) {
-                        const o = document.createElement('option');
-                        o.value = opt.value;
-                        o.textContent = opt.textContent;
-                        selIA.appendChild(o);
-                    }
-                });
-            }
+            _alumnosCache.forEach(nombre => {
+                const o = document.createElement('option');
+                o.value = nombre;
+                o.textContent = nombre.toUpperCase();
+                selIA.appendChild(o);
+            });
         }
         // Poblar repositorio preview
         _iaActualizarPreviewFuentes();
@@ -8405,6 +8484,76 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
 
 
     // ====================================================================
+    // ATAJOS DE TECLADO DEL EDITOR DE RUTINA
+    // ====================================================================
+    // IDs de los contenedores modales reales (fixed inset-0), en el orden en que aparecen en el DOM.
+    const MODAL_IDS = ['modal-dash-rutina', 'modal-codigo', 'modal-repo-guardar', 'modal-repo-editar',
+        'modal-repo-copiar', 'modal-ver-rutina', 'modal-piz-vt', 'modal-ia-config', 'modal-ia-preview',
+        'modal-nueva-cat', 'modal-bloque'];
+
+    // Cierra el modal visible con mayor z-index (el "de más arriba" si hay varios apilados).
+    // Devuelve true si cerró alguno.
+    function _cerrarModalMasAlto() {
+        let mejor = null, mejorZ = -1;
+        MODAL_IDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el || el.classList.contains('hidden')) return;
+            const z = parseInt(getComputedStyle(el).zIndex) || 0;
+            if (z >= mejorZ) { mejorZ = z; mejor = el; }
+        });
+        if (mejor) { mejor.classList.add('hidden'); return true; }
+        return false;
+    }
+
+    function _hayModalAbierto() {
+        return MODAL_IDS.some(id => {
+            const el = document.getElementById(id);
+            return el && !el.classList.contains('hidden');
+        });
+    }
+
+    function initAtajosTeclado() {
+        document.addEventListener('keydown', (e) => {
+            // Escape: cerrar el modal abierto de mayor prioridad (si hay alguno)
+            if (e.key === 'Escape') {
+                _cerrarModalMasAlto();
+                return;
+            }
+
+            // Ctrl/Cmd + S: guardar la rutina. Solo si estamos en el editor "Crear Rutina" y no hay un modal abierto.
+            if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+                const secRutina = document.getElementById('sec-rutina');
+                if (secRutina && !secRutina.classList.contains('hidden') && !_hayModalAbierto()) {
+                    e.preventDefault();
+                    if (modoRepositorio) {
+                        guardarEnRepositorioDirecto();
+                    } else {
+                        compartirRutina();
+                    }
+                }
+                return;
+            }
+
+            // Enter en el buscador de ejercicios de un bloque -> agrega el primer resultado de la busqueda
+            if (e.key === 'Enter' && e.target && e.target.id === 'bloque-buscar-ej') {
+                e.preventDefault();
+                agregarEjBloque();
+                return;
+            }
+
+            // Enter en el buscador de ejercicios de calentamiento (multi-dia) -> agrega el primer resultado
+            if (e.key === 'Enter' && e.target && typeof e.target.id === 'string' && e.target.id.indexOf('warmup-buscar-ej-') === 0) {
+                const idx = parseInt(e.target.id.slice('warmup-buscar-ej-'.length));
+                if (!isNaN(idx)) {
+                    e.preventDefault();
+                    agregarEjWarmupDia(idx);
+                }
+                return;
+            }
+        });
+    }
+
+    // ====================================================================
     // INIT
     // ====================================================================
     document.addEventListener('DOMContentLoaded', () => {
@@ -8412,9 +8561,14 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
         cargarVideoteca();
         cargarListaAlumnos();
         cargarAlumnosDash();
+        // Autocompletado de alumno en "Crear Rutina" (texto libre, sugiere alumnos existentes)
+        _obtenerAlumnosCache().then(() => _initAutocompleteAlumno('alumno-nombre', null, null));
         // Inicializar el sistema multi-dia con Dia 1 por defecto
         initMultiDia();
+        // Atajos de teclado del editor de rutina
+        initAtajosTeclado();
     });
+
 
 
 
