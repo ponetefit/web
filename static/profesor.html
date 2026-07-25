@@ -2740,14 +2740,19 @@
                             <h3 class="text-sm font-bold text-azul uppercase tracking-wider">1. Calentamiento</h3>
                             <button id="warmup-btn-agregar-${idx}" onclick="abrirModalCalentamientoDia(${idx})" class="bg-azul/20 text-azul px-3 py-2 rounded-lg text-xs font-bold hover:bg-azul/30 transition">+ Agregar Calentamiento</button>
                         </div>
-                        <div id="warmup-resumen-${idx}" class="hidden bg-fondoAlt rounded-xl border border-azul/30 p-3 flex items-center justify-between gap-2">
-                            <div class="min-w-0">
-                                <span class="text-sm font-bold text-azul">🔥 Calentamiento</span>
-                                <div class="text-xs text-textoSuave mt-0.5" id="warmup-resumen-detalle-${idx}"></div>
-                            </div>
-                            <div class="flex items-center gap-2 flex-shrink-0">
-                                <button onclick="abrirModalCalentamientoDia(${idx})" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">Editar</button>
-                                <button onclick="eliminarCalentamientoDia(${idx})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none px-1">&times;</button>
+                        <div id="warmup-resumen-${idx}" class="hidden bg-fondoAlt rounded-2xl border border-azul/30 p-3">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2 mb-1.5">
+                                        <span class="px-2 py-0.5 rounded text-xs font-bold bg-azul/20 text-azul uppercase tracking-wider">🔥 Calentamiento</span>
+                                        <span class="text-xs text-textoSuave" id="warmup-resumen-tipo-${idx}"></span>
+                                    </div>
+                                    <div id="warmup-resumen-pills-${idx}" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;"></div>
+                                </div>
+                                <div class="flex gap-1.5 flex-shrink-0">
+                                    <button onclick="abrirModalCalentamientoDia(${idx})" class="bg-azul/20 text-azul px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">Editar</button>
+                                    <button onclick="eliminarCalentamientoDia(${idx})" class="bg-rojo/20 text-rojo px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition">✕</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -9070,20 +9075,30 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
     }
 
     // Muestra el boton "+ Agregar Calentamiento" o la tarjeta resumen (Editar / X),
-    // segun si el dia ya tiene ejercicios de calentamiento cargados.
+    // segun si el dia ya tiene ejercicios de calentamiento cargados. La tarjeta resumen
+    // muestra los nombres de los ejercicios (pills), igual que la tarjeta compacta de un bloque.
     function actualizarResumenCalentamientoDia(idx) {
         const dia = diasData[idx];
         const btnAgregar = document.getElementById('warmup-btn-agregar-' + idx);
         const resumen = document.getElementById('warmup-resumen-' + idx);
         if (!dia || !btnAgregar || !resumen) return;
-        const cant = (dia.warmupEjercicios || []).length;
-        if (cant > 0) {
+        const ejs = dia.warmupEjercicios || [];
+        if (ejs.length > 0) {
             btnAgregar.classList.add('hidden');
             resumen.classList.remove('hidden');
             const tipoSel = document.getElementById('warmup-tipo-' + idx);
             const tipo = tipoSel ? tipoSel.value : '';
-            const detalle = document.getElementById('warmup-resumen-detalle-' + idx);
-            if (detalle) detalle.textContent = (tipo ? tipo + ' · ' : '') + cant + ' ejercicio' + (cant === 1 ? '' : 's');
+            const tipoEl = document.getElementById('warmup-resumen-tipo-' + idx);
+            if (tipoEl) tipoEl.textContent = tipo;
+            const pillsEl = document.getElementById('warmup-resumen-pills-' + idx);
+            if (pillsEl) {
+                const ejPills = ejs.slice(0, 6).map(e => {
+                    const n = typeof e === 'object' ? (e.nombre || '') : (Array.isArray(e) ? e[0] : '');
+                    return n ? '<span style="display:inline-block;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;font-size:0.65rem;color:#8a8a9a;white-space:nowrap;">' + n + '</span>' : '';
+                }).filter(Boolean).join('');
+                const masEjs = ejs.length > 6 ? '<span style="font-size:0.65rem;color:#8a8a9a;padding:2px 4px;">+' + (ejs.length - 6) + '</span>' : '';
+                pillsEl.innerHTML = ejPills + masEjs;
+            }
         } else {
             btnAgregar.classList.remove('hidden');
             resumen.classList.add('hidden');
