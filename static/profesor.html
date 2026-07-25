@@ -346,6 +346,10 @@
             0% { background-color: rgba(76, 217, 100, 0.35); }
             100% { background-color: transparent; }
         }
+        /* Vista compacta de bloques: mas denso, pero sin ocultar los nombres de ejercicios */
+        .bloques-lista-container.vista-compacta .exercise-chip { padding: 6px 10px !important; border-radius: 10px !important; }
+        .bloques-lista-container.vista-compacta .drag-handle { display: none !important; }
+        .bloques-lista-container.vista-compacta .bloque-card-pills { flex-wrap: nowrap !important; overflow-x: auto !important; }
     </style>
 
     <!-- PWA: Inline Manifest + Service Worker + Icons -->
@@ -1600,10 +1604,11 @@
                             <select id="bloque-elemento-select" onchange="cargarEjsBloque()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
                                 <option value="">Todo elemento</option>
                             </select>
-                            <select id="bloque-ej-select" class="rounded-lg px-3 py-2 text-sm flex-1">
+                            <select id="bloque-ej-select" onchange="_pfActualizarAvisoDuplicadoBloque()" class="rounded-lg px-3 py-2 text-sm flex-1">
                             </select>
                             <button onclick="agregarEjBloque()" class="bg-verde/20 text-verde px-3 py-2 rounded-lg text-sm font-bold hover:bg-verde/30 transition whitespace-nowrap">+</button>
                         </div>
+                        <div id="bloque-aviso-duplicado" class="hidden text-xs text-amarillo mb-2"></div>
                         <!-- Busqueda MOBILE: un solo buscador con sugerencias tocables -->
                         <div class="sm:hidden mb-3">
                             <input id="bloque-buscar-ej-mobile" type="text" autocomplete="off" placeholder="Buscar ejercicio para agregar..." class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-verde focus:ring-2 focus:ring-verde/30 transition">
@@ -1620,6 +1625,16 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal compartido: elegir dia destino para copiar/duplicar un bloque o el calentamiento -->
+    <div id="modal-copiar-destino" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-tarjeta rounded-2xl border border-borde p-5 max-w-sm w-full">
+            <h3 id="modal-copiar-titulo" class="text-sm font-bold text-texto uppercase tracking-wider mb-4">Copiar a...</h3>
+            <div id="modal-copiar-opciones" class="space-y-2 mb-4 max-h-64 overflow-y-auto"></div>
+            <button onclick="document.getElementById('modal-copiar-destino').classList.add('hidden')" class="w-full py-2.5 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
+        </div>
+    </div>
+
 
     <script>
     // ====================================================================
@@ -1828,10 +1843,12 @@
             currentMatches = matches;
             activeIdx = -1;
             if (matches.length === 0) { ocultar(); return; }
-            box.innerHTML = matches.map((m, i) =>
-                '<div class="ac-item" data-idx="' + i + '" style="padding:10px 12px;cursor:pointer;font-size:0.85rem;">' +
-                m.nombre + ' <span style="font-size:10px;color:var(--tw-text-opacity,1);opacity:0.5;">· ' + m.cat + '</span></div>'
-            ).join('');
+            box.innerHTML = matches.map((m, i) => {
+                const usos = (typeof _pfUsosDeEjercicio === 'function') ? _pfUsosDeEjercicio(m.nombre) : [];
+                const avisoBadge = usos.length ? ' <span style="color:#c4a820;font-size:10px;" title="Ya usado en: ' + usos.join(', ') + '">⚠ usado</span>' : '';
+                return '<div class="ac-item" data-idx="' + i + '" style="padding:10px 12px;cursor:pointer;font-size:0.85rem;">' +
+                m.nombre + ' <span style="font-size:10px;color:var(--tw-text-opacity,1);opacity:0.5;">· ' + m.cat + '</span>' + avisoBadge + '</div>';
+            }).join('');
             box.classList.remove('hidden');
             box.querySelectorAll('.ac-item').forEach(el => {
                 el.addEventListener('mousedown', (e) => { e.preventDefault(); seleccionar(currentMatches[parseInt(el.dataset.idx)]); });
@@ -2720,6 +2737,7 @@
                         style="max-width:220px;"
                     >
                     <span class="text-xs text-textoSuave whitespace-nowrap flex-shrink-0 dia-badge-count">${dia.warmupEjercicios.length} cal · ${dia.bloquesRutina.length} bloque(s)</span>
+                    <span class="text-xs font-bold text-naranja whitespace-nowrap flex-shrink-0 dia-badge-duracion">⏱ ~0 min</span>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
                     <button onclick="duplicarDia(${idx})" title="Duplicar día" class="text-azul/50 hover:text-azul text-xs font-bold px-2 py-1 rounded transition" style="font-size:1rem;">⧉</button>
@@ -2750,6 +2768,7 @@
                                     <div id="warmup-resumen-pills-${idx}" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;"></div>
                                 </div>
                                 <div class="flex gap-1.5 flex-shrink-0">
+                                    <button onclick="abrirModalCopiarCalentamiento(${idx})" title="Copiar a otro día" class="bg-purpura/20 text-purpura px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">⧉</button>
                                     <button onclick="abrirModalCalentamientoDia(${idx})" class="bg-azul/20 text-azul px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">Editar</button>
                                     <button onclick="eliminarCalentamientoDia(${idx})" class="bg-rojo/20 text-rojo px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition">✕</button>
                                 </div>
@@ -2793,12 +2812,13 @@
                                     <select id="warmup-elemento-select-${idx}" onchange="cargarEjsWarmupDia(${idx})" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
                                         <option value="">Todo elemento</option>
                                     </select>
-                                    <select id="warmup-ej-select-${idx}" class="rounded-lg px-3 py-2 text-sm flex-1"></select>
+                                    <select id="warmup-ej-select-${idx}" onchange="_pfActualizarAvisoDuplicadoWarmup(${idx})" class="rounded-lg px-3 py-2 text-sm flex-1"></select>
                                     <input id="warmup-ej-reps-${idx}" type="text" placeholder="Reps" class="rounded-lg px-3 py-2 text-sm w-20">
                                     <select id="warmup-ej-unit-${idx}" class="rounded-lg px-3 py-2 text-sm w-20">
                                         <option>Reps</option><option>Segs</option>
                                     </select>
                                 </div>
+                                <div id="warmup-aviso-duplicado-${idx}" class="hidden text-xs text-amarillo mb-2"></div>
                                 <div class="hidden sm:flex gap-2 mb-3">
                                     <button onclick="agregarEjWarmupDia(${idx})" class="bg-azul/20 text-azul px-3 py-2 rounded-lg text-sm font-bold hover:bg-azul/30 transition whitespace-nowrap w-full">+ Agregar</button>
                                 </div>
@@ -2817,11 +2837,14 @@
 
                     <!-- Bloque Principal del dia -->
                     <div>
-                        <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
                             <h3 class="text-sm font-bold text-verde uppercase tracking-wider">2. Bloque Principal</h3>
-                            <button onclick="agregarBloqueDia(${idx})" class="bg-purpura/20 text-purpura px-3 py-2 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">+ Agregar Bloque</button>
+                            <div class="flex items-center gap-2">
+                                <button id="btn-vista-compacta-${idx}" onclick="_pfToggleVistaCompacta(${idx})" title="Ver todos los bloques de un vistazo" class="text-textoSuave hover:text-texto px-2.5 py-2 rounded-lg text-xs font-bold border border-borde transition">☰ Vista compacta</button>
+                                <button onclick="agregarBloqueDia(${idx})" class="bg-purpura/20 text-purpura px-3 py-2 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">+ Agregar Bloque</button>
+                            </div>
                         </div>
-                        <div id="bloques-lista-${idx}" class="space-y-3"></div>
+                        <div id="bloques-lista-${idx}" class="space-y-3 bloques-lista-container"></div>
                         <div id="sin-bloques-${idx}" class="text-textoSuave text-xs text-center py-6">
                             Haz clic en "+ Agregar Bloque" para armar el ${dia.titulo}
                         </div>
@@ -2937,6 +2960,7 @@
         ejSel.innerHTML = ejs.length
             ? ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + (e.nombre||e[0]) + '</option>').join('')
             : '<option value="">Sin ejercicios</option>';
+        _pfActualizarAvisoDuplicadoWarmup(idx);
     }
 
     function filtrarEjsWarmupDia(idx) {
@@ -2958,6 +2982,7 @@
         sel.innerHTML = resultados.length
             ? resultados.map(r => '<option value="' + r.nombre + '" data-cat="' + r.cat + '">' + r.nombre + ' (' + r.cat + ')</option>').join('')
             : '<option value="">Sin resultados</option>';
+        _pfActualizarAvisoDuplicadoWarmup(idx);
     }
 
     // Actualiza el selector de minutos EMOM en la barra de agregar del calentamiento
@@ -3227,10 +3252,11 @@
                 '<span class="px-2 py-0.5 rounded text-xs font-bold bg-' + color + '/20 text-' + color + ' uppercase tracking-wider">' + b.tipo + '</span>' +
                 (b.descripcion ? '<span class="text-xs text-textoSuave truncate">' + b.descripcion + '</span>' : '') +
                 '</div>' +
-                (ejPills || masEjs ? '<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">' + ejPills + masEjs + '</div>' : '<p class="text-xs text-textoSuave">' + ejs.length + ' ejercicio(s)</p>') +
+                (ejPills || masEjs ? '<div class="bloque-card-pills" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">' + ejPills + masEjs + '</div>' : '<p class="text-xs text-textoSuave bloque-card-pills">' + ejs.length + ' ejercicio(s)</p>') +
                 '</div>' +
                 '</div>' +
                 '<div class="flex gap-1.5 flex-shrink-0">' +
+                '<button onclick="abrirModalCopiarBloque(' + idx + ',' + i + ')" title="Duplicar bloque" class="bg-purpura/20 text-purpura px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">⧉</button>' +
                 '<button onclick="editarBloqueDia(' + idx + ',' + i + ')" class="bg-azul/20 text-azul px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">Editar</button>' +
                 '<button onclick="eliminarBloqueDia(' + idx + ',' + i + ')" class="bg-rojo/20 text-rojo px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition">✕</button>' +
                 '</div>' +
@@ -3301,6 +3327,10 @@
                 calCount = diasData[idx].warmupEjercicios.length;
             }
             badge.textContent = calCount + ' cal · ' + diasData[idx].bloquesRutina.length + ' bloque(s)';
+        }
+        const badgeDuracion = card.querySelector('.dia-badge-duracion');
+        if (badgeDuracion) {
+            badgeDuracion.textContent = '⏱ ~' + _pfEstimarDuracionTotalDia(idx) + ' min';
         }
     }
 
@@ -3467,6 +3497,7 @@
         sel.innerHTML = ejs.length
             ? ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + (e.nombre||e[0]) + '</option>').join('')
             : '<option value="">Sin ejercicios</option>';
+        _pfActualizarAvisoDuplicadoBloque();
     }
 
     function filtrarEjsBloque() {
@@ -3490,6 +3521,7 @@
         sel.innerHTML = resultados.length
             ? resultados.map(r => '<option value="' + r.nombre + '" data-cat="' + r.cat + '">' + r.nombre + ' (' + r.cat + ')</option>').join('')
             : '<option value="">Sin resultados</option>';
+        _pfActualizarAvisoDuplicadoBloque();
     }
 
     function actualizarBloqueParams() {
@@ -9025,7 +9057,7 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
     // IDs de los contenedores modales reales (fixed inset-0), en el orden en que aparecen en el DOM.
     const MODAL_IDS = ['modal-dash-rutina', 'modal-codigo', 'modal-repo-guardar', 'modal-repo-editar',
         'modal-repo-copiar', 'modal-ver-rutina', 'modal-piz-vt', 'modal-ia-config', 'modal-ia-preview',
-        'modal-nueva-cat', 'modal-bloque'];
+        'modal-nueva-cat', 'modal-bloque', 'modal-copiar-destino'];
 
     // Devuelve tambien los modales de calentamiento (uno por dia, id dinamico modal-calentamiento-N)
     function _pfTodosLosModalesVisibles() {
@@ -9055,6 +9087,192 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
     // Wizard del calentamiento por dia: paso 1 (tipo/parametros) <-> paso 2 (ejercicios).
     // Activo siempre (mobile y desktop), a diferencia del modal de bloque que es un popup.
     // Abre el modal de calentamiento de un dia especifico (misma logica que agregar/editar un bloque)
+    // ====================================================================
+    // COPIAR / DUPLICAR BLOQUE Y CALENTAMIENTO A OTRO DIA (o al mismo dia)
+    // ====================================================================
+    let _pfCopiarContexto = null;
+
+    function abrirModalCopiarBloque(diaIdx, bloqueIdx) {
+        _pfCopiarContexto = { tipo: 'bloque', diaIdx, bloqueIdx };
+        document.getElementById('modal-copiar-titulo').textContent = 'Duplicar bloque a...';
+        const opciones = document.getElementById('modal-copiar-opciones');
+        opciones.innerHTML = diasData.map((d, i) => {
+            const label = (i === diaIdx) ? (d.titulo + ' (este día · duplicar acá)') : d.titulo;
+            return '<button onclick="_pfConfirmarCopiar(' + i + ')" class="w-full text-left px-4 py-2.5 rounded-lg bg-fondoAlt hover:bg-borde text-sm text-texto transition">' + label + '</button>';
+        }).join('');
+        document.getElementById('modal-copiar-destino').classList.remove('hidden');
+    }
+
+    function abrirModalCopiarCalentamiento(diaIdx) {
+        _pfCopiarContexto = { tipo: 'calentamiento', diaIdx };
+        document.getElementById('modal-copiar-titulo').textContent = 'Copiar calentamiento a...';
+        const opciones = document.getElementById('modal-copiar-opciones');
+        const otrosDias = diasData.map((d, i) => i).filter(i => i !== diaIdx);
+        if (otrosDias.length === 0) {
+            opciones.innerHTML = '<p class="text-xs text-textoSuave">No hay otros días para copiar.</p>';
+        } else {
+            opciones.innerHTML = otrosDias.map(i => {
+                const tieneCal = diasData[i].warmupEjercicios && diasData[i].warmupEjercicios.length > 0;
+                const label = diasData[i].titulo + (tieneCal ? ' (se reemplaza el actual)' : '');
+                return '<button onclick="_pfConfirmarCopiar(' + i + ')" class="w-full text-left px-4 py-2.5 rounded-lg bg-fondoAlt hover:bg-borde text-sm text-texto transition">' + label + '</button>';
+            }).join('');
+        }
+        document.getElementById('modal-copiar-destino').classList.remove('hidden');
+    }
+
+    function _pfConfirmarCopiar(targetIdx) {
+        if (!_pfCopiarContexto) return;
+        const ctx = _pfCopiarContexto;
+        if (ctx.tipo === 'bloque') {
+            const bloqueOriginal = diasData[ctx.diaIdx] && diasData[ctx.diaIdx].bloquesRutina[ctx.bloqueIdx];
+            if (!bloqueOriginal) return;
+            const copia = JSON.parse(JSON.stringify(bloqueOriginal));
+            diasData[targetIdx].bloquesRutina.push(copia);
+            renderBloquesDia(targetIdx);
+            actualizarBadgeDia(targetIdx);
+            toast('Bloque copiado a ' + diasData[targetIdx].titulo);
+        } else if (ctx.tipo === 'calentamiento') {
+            if (targetIdx === ctx.diaIdx) { toast('Elegí un día distinto'); return; }
+            const origen = diasData[ctx.diaIdx];
+            diasData[targetIdx].warmupEjercicios = JSON.parse(JSON.stringify(origen.warmupEjercicios || []));
+            diasData[targetIdx]._warmupCfg = JSON.parse(JSON.stringify(origen._warmupCfg || {}));
+            const tipoOrigen = document.getElementById('warmup-tipo-' + ctx.diaIdx)?.value || (origen._warmupCfg && origen._warmupCfg.tipo) || 'Circuito (Vueltas)';
+            const tipoSelDestino = document.getElementById('warmup-tipo-' + targetIdx);
+            if (tipoSelDestino) tipoSelDestino.value = tipoOrigen;
+            actualizarWarmupUIDia(targetIdx); // regenera params y re-renderiza ejercicios
+            toast('Calentamiento copiado a ' + diasData[targetIdx].titulo);
+        }
+        document.getElementById('modal-copiar-destino').classList.add('hidden');
+        _pfCopiarContexto = null;
+    }
+
+    // ====================================================================
+    // DURACION TOTAL DEL DIA (calentamiento + todos los bloques ya guardados)
+    // ====================================================================
+    function _pfEstimarDuracionBloqueGuardado(b) {
+        if (!b) return 0;
+        const ejs = b.ejercicios || [];
+        let mins = 0;
+        if (b.tipo === 'Series') {
+            let totalSeries = 0;
+            ejs.forEach(e => totalSeries += parseInt(e.series) || 3);
+            mins = totalSeries * 1.5;
+        } else if (b.tipo === 'Circuito') {
+            const vueltas = b.vueltas || 3;
+            const pausaVuelta = b.pausa_vuelta || 60;
+            mins = (vueltas * ejs.length * 0.5) + (vueltas * pausaVuelta / 60);
+        } else if (b.tipo === 'Circuito por Tiempo') {
+            mins = b.duracion_min || 5;
+        } else if (b.tipo === 'Tabata') {
+            const trabajo = b.trabajo || 20;
+            const pausa = b.pausa || 10;
+            const cantidad = b.cantidad || 8;
+            const rondas = b.rondas || 1;
+            const pausaRondas = b.pausa_entre_rondas || 0;
+            mins = (rondas * cantidad * (trabajo + pausa) + rondas * pausaRondas) / 60;
+        } else if (b.tipo === 'EMOM') {
+            mins = b.minutos_totales || 10;
+        } else if (b.tipo === 'Por Tiempo') {
+            mins = b.vueltas || 3;
+        }
+        return Math.max(0, mins);
+    }
+
+    function _pfEstimarDuracionCalentamientoDia(idx) {
+        const dia = diasData[idx];
+        if (!dia) return 0;
+        const cantEj = (dia.warmupEjercicios || []).length;
+        if (cantEj === 0) return 0;
+        const cfg = dia._warmupCfg || {};
+        const tipo = cfg.tipo || (document.getElementById('warmup-tipo-' + idx)?.value) || 'Circuito (Vueltas)';
+        let mins = 0;
+        if (tipo === 'Series/Reps') {
+            mins = cantEj * (cfg.series || 3) * 0.5;
+        } else if (tipo === 'Circuito (Vueltas)') {
+            const vueltas = cfg.vueltas || 2;
+            const pausaVuelta = cfg.pausa_vuelta || 30;
+            mins = (vueltas * cantEj * 0.5) + (vueltas * pausaVuelta / 60);
+        } else if (tipo === 'Circuito por Tiempo') {
+            mins = cfg.duracion_bloque || 3;
+        } else if (tipo === 'Tabata') {
+            const trabajo = cfg.trabajo || 20;
+            const pausa = cfg.pausa || 10;
+            const cantidad = cfg.cantidad || cantEj || 8;
+            mins = (cantidad * (trabajo + pausa)) / 60;
+        } else if (tipo === 'EMOM') {
+            mins = cfg.minutos || 5;
+        } else if (tipo === 'Por Tiempo') {
+            mins = cfg.vueltas || 3;
+        }
+        return Math.max(0, mins);
+    }
+
+    function _pfEstimarDuracionTotalDia(idx) {
+        const dia = diasData[idx];
+        if (!dia) return 0;
+        let total = _pfEstimarDuracionCalentamientoDia(idx);
+        (dia.bloquesRutina || []).forEach(b => { total += _pfEstimarDuracionBloqueGuardado(b); });
+        return Math.ceil(total);
+    }
+
+    // ====================================================================
+    // AVISO (NO BLOQUEANTE) DE EJERCICIOS REPETIDOS EN LA RUTINA
+    // ====================================================================
+    // Devuelve en que lugares (de toda la rutina, todos los dias) ya se uso ese ejercicio.
+    function _pfUsosDeEjercicio(nombre) {
+        if (!nombre) return [];
+        const nombreNorm = nombre.trim().toUpperCase();
+        const usos = [];
+        (typeof diasData !== 'undefined' ? diasData : []).forEach((dia, dIdx) => {
+            (dia.warmupEjercicios || []).forEach(e => {
+                const n = ((e && e.nombre) || '').trim().toUpperCase();
+                if (n === nombreNorm) usos.push('Día ' + (dIdx + 1) + ' - Calentamiento');
+            });
+            (dia.bloquesRutina || []).forEach((b, bIdx) => {
+                (b.ejercicios || []).forEach(e => {
+                    const n = ((e && e.nombre) || '').trim().toUpperCase();
+                    if (n === nombreNorm) usos.push('Día ' + (dIdx + 1) + ' - Bloque ' + (bIdx + 1) + ' (' + b.tipo + ')');
+                });
+            });
+        });
+        // El bloque que se esta armando ahora mismo (todavia no guardado en diasData)
+        if (typeof bloqueEjsTemp !== 'undefined') {
+            bloqueEjsTemp.forEach(e => {
+                const n = ((e && e.nombre) || '').trim().toUpperCase();
+                if (n === nombreNorm) usos.push('Este bloque (sin guardar aún)');
+            });
+        }
+        return usos;
+    }
+
+    // Aviso visual (no bloqueante) para el select de ejercicios de bloque (desktop)
+    function _pfActualizarAvisoDuplicadoBloque() {
+        const sel = document.getElementById('bloque-ej-select');
+        const aviso = document.getElementById('bloque-aviso-duplicado');
+        if (!sel || !aviso) return;
+        const usos = _pfUsosDeEjercicio(sel.value);
+        if (usos.length) {
+            aviso.textContent = '⚠ Ya usado en: ' + usos.join(', ');
+            aviso.classList.remove('hidden');
+        } else {
+            aviso.classList.add('hidden');
+        }
+    }
+
+    // Aviso visual (no bloqueante) para el select de ejercicios de calentamiento (desktop, por dia)
+    function _pfActualizarAvisoDuplicadoWarmup(idx) {
+        const sel = document.getElementById('warmup-ej-select-' + idx);
+        const aviso = document.getElementById('warmup-aviso-duplicado-' + idx);
+        if (!sel || !aviso) return;
+        const usos = _pfUsosDeEjercicio(sel.value);
+        if (usos.length) {
+            aviso.textContent = '⚠ Ya usado en: ' + usos.join(', ');
+            aviso.classList.remove('hidden');
+        } else {
+            aviso.classList.add('hidden');
+        }
+    }
+
     function abrirModalCalentamientoDia(idx) {
         _pfWarmupPaso(idx, 1);
         const modal = document.getElementById('modal-calentamiento-' + idx);
@@ -9103,6 +9321,19 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
             btnAgregar.classList.remove('hidden');
             resumen.classList.add('hidden');
         }
+    }
+
+    // Alterna entre vista expandida (normal) y vista compacta (mas densa, para ver
+    // todos los bloques del dia de un vistazo) en la lista de bloques de un dia.
+    function _pfToggleVistaCompacta(idx) {
+        const lista = document.getElementById('bloques-lista-' + idx);
+        const btn = document.getElementById('btn-vista-compacta-' + idx);
+        if (!lista || !btn) return;
+        const activa = lista.classList.toggle('vista-compacta');
+        btn.textContent = activa ? '☰ Vista expandida' : '☰ Vista compacta';
+        btn.classList.toggle('bg-verde/20', activa);
+        btn.classList.toggle('text-verde', activa);
+        btn.classList.toggle('border-verde/40', activa);
     }
 
     function _pfWarmupPaso(idx, n) {
