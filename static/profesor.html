@@ -279,6 +279,72 @@
             img, svg, video, canvas, iframe { max-width: 100%; height: auto; }
             /* Prevent horizontal scroll globally */
             html, body { overflow-x: hidden; }
+
+            /* ── Mejora #5: areas de toque mas grandes en flechas / drag-handle / eliminar ── */
+            .flechas-reorden button { min-width: 32px; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; }
+            .drag-handle { min-width: 32px; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; }
+            .exercise-chip button[onclick*="quitar"] { min-width: 32px; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; }
+
+            /* ── Mejora #8: modales tipo "hoja inferior" (bottom sheet) en mobile ── */
+            .fixed.inset-0.modal-bottom-sheet-mobile { align-items: flex-end !important; padding: 0 !important; }
+            .fixed.inset-0.modal-bottom-sheet-mobile > div {
+                width: 100% !important;
+                max-width: 100% !important;
+                max-height: 88vh !important;
+                margin: 0 !important;
+                border-bottom-left-radius: 0 !important;
+                border-bottom-right-radius: 0 !important;
+                border-top-left-radius: 20px !important;
+                border-top-right-radius: 20px !important;
+                animation: pfSheetUp 0.25s ease-out;
+            }
+            @keyframes pfSheetUp {
+                from { transform: translateY(100%); }
+                to { transform: translateY(0); }
+            }
+            /* Agarradera visual arriba del sheet, para reforzar que se puede deslizar */
+            .modal-bottom-sheet-mobile > div::before {
+                content: '';
+                display: block;
+                width: 40px;
+                height: 4px;
+                background: rgba(255,255,255,0.25);
+                border-radius: 999px;
+                margin: 10px auto 4px auto;
+            }
+
+            /* ── Mejora #9: mini-timeline del dia pegajosa (sticky) al scrollear ── */
+            [id^="dia-timeline-"] {
+                position: sticky;
+                top: 0;
+                z-index: 10;
+                background: rgb(23 23 28 / 0.97);
+                backdrop-filter: blur(4px);
+                padding-top: 8px;
+                margin-top: -8px;
+                margin-left: -1rem; margin-right: -1rem; padding-left: 1rem; padding-right: 1rem;
+            }
+
+            /* ── Mejora #1: boton "Guardar" flotante fijo en Crear Rutina ── */
+            #mob-sticky-guardar {
+                position: fixed;
+                left: 0; right: 0; bottom: 0;
+                z-index: 45;
+                padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px)) 12px;
+                background: rgb(20 20 24 / 0.97);
+                backdrop-filter: blur(6px);
+                border-top: 1px solid rgba(255,255,255,0.08);
+            }
+            /* Dejar espacio abajo para que el boton fijo no tape el ultimo contenido */
+            #sec-rutina { padding-bottom: 72px; }
+        }
+        /* Estilos del stepper mobile (+/-) y swipe-to-delete (siempre definidos;
+           los elementos que los usan ya llevan su propia clase sm:hidden) */
+        .pf-stepper-btn { touch-action: manipulation; user-select: none; }
+        .pf-flash-agregado { animation: pfFlashVerde 0.9s ease; }
+        @keyframes pfFlashVerde {
+            0% { background-color: rgba(76, 217, 100, 0.35); }
+            100% { background-color: transparent; }
         }
     </style>
 
@@ -715,6 +781,10 @@
         <!-- TAB: CREAR RUTINA -->
         <!-- ═══════════════════════════════════════════ -->
         <section id="sec-rutina" class="hidden">
+            <!-- Boton fijo "Guardar" solo mobile (aparece siempre visible en Crear Rutina) -->
+            <div id="mob-sticky-guardar" class="sm:hidden hidden">
+                <button onclick="_pfGuardarMobile()" class="btn-primary w-full py-3 rounded-xl text-white font-bold text-sm uppercase tracking-widest">💾 Guardar Rutina</button>
+            </div>
 
             <!-- Paso 1: Nombre del alumno -->
             <div class="bg-tarjeta rounded-2xl border border-borde p-6 mb-6">
@@ -1481,60 +1551,71 @@
     </div>
 
     <!-- Modal Agregar Bloque -->
-    <div id="modal-bloque" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start sm:items-center justify-center p-2 sm:p-6 overflow-y-auto">
+    <div id="modal-bloque" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start sm:items-center justify-center p-2 sm:p-6 overflow-y-auto modal-bottom-sheet-mobile">
         <div class="bg-tarjeta rounded-2xl border border-borde p-3 sm:p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto my-2 sm:my-0">
             <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <h3 class="text-sm font-bold text-purpura uppercase tracking-wider">Configurar Bloque</h3>
                 <span id="bp-duracion-viva" class="text-xs font-bold bg-purpura/15 text-purpura px-3 py-1.5 rounded-full flex items-center gap-1.5" title="Duración estimada del bloque">⏱ ~0 min</span>
             </div>
             <div class="space-y-4">
-                <div>
-                    <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Tipo de Entrenamiento</label>
-                    <select id="bloque-tipo" onchange="actualizarBloqueParams()" class="w-full rounded-lg px-3 py-2.5 text-sm">
-                        <option value="Circuito">Circuito (Vueltas)</option>
-                        <option value="Circuito por Tiempo">Circuito por Tiempo</option>
-                        <option value="Por Tiempo">Por Tiempo (Cronómetro)</option>
-                        <option value="Tabata">Tabata</option>
-                        <option value="EMOM">EMOM</option>
-                        <option value="Series">Series / Repeticiones</option>
-                    </select>
-                </div>
-                <div id="bloque-params-container" class="space-y-3">
-                    <!-- Se llena dinamicamente -->
-                </div>
-                <div>
-                    <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Descripcion (opcional)</label>
-                    <textarea id="bloque-desc" rows="2" placeholder="Ej: Enfocarse en la tecnica..." class="w-full rounded-lg px-3 py-2.5 text-sm"></textarea>
-                </div>
-
-                <!-- Ejercicios del bloque -->
-                <div id="bloque-ejercicios-panel">
-                    <label class="text-xs text-textoSuave uppercase tracking-wider block mb-2">Ejercicios</label>
-                    <!-- Busqueda DESKTOP/TABLET: input + categoria + elemento + select (sin cambios) -->
-                    <div class="hidden sm:block mb-2">
-                        <input id="bloque-buscar-ej" type="text" placeholder="Buscar ejercicio..." onkeyup="filtrarEjsBloque()" class="w-full rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-verde focus:ring-2 focus:ring-verde/30 transition">
-                    </div>
-                    <div class="hidden sm:flex gap-2 mb-3 flex-wrap">
-                        <select id="bloque-cat-select" onchange="cargarEjsBloque()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
+                <div id="bloque-paso-1">
+                    <div>
+                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Tipo de Entrenamiento</label>
+                        <select id="bloque-tipo" onchange="actualizarBloqueParams()" class="w-full rounded-lg px-3 py-2.5 text-sm">
+                            <option value="Circuito">Circuito (Vueltas)</option>
+                            <option value="Circuito por Tiempo">Circuito por Tiempo</option>
+                            <option value="Por Tiempo">Por Tiempo (Cronómetro)</option>
+                            <option value="Tabata">Tabata</option>
+                            <option value="EMOM">EMOM</option>
+                            <option value="Series">Series / Repeticiones</option>
                         </select>
-                        <select id="bloque-elemento-select" onchange="cargarEjsBloque()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
-                            <option value="">Todo elemento</option>
-                        </select>
-                        <select id="bloque-ej-select" class="rounded-lg px-3 py-2 text-sm flex-1">
-                        </select>
-                        <button onclick="agregarEjBloque()" class="bg-verde/20 text-verde px-3 py-2 rounded-lg text-sm font-bold hover:bg-verde/30 transition whitespace-nowrap">+</button>
                     </div>
-                    <!-- Busqueda MOBILE: un solo buscador con sugerencias tocables -->
-                    <div class="sm:hidden mb-3">
-                        <input id="bloque-buscar-ej-mobile" type="text" autocomplete="off" placeholder="Buscar ejercicio para agregar..." class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-verde focus:ring-2 focus:ring-verde/30 transition">
+                    <div id="bloque-params-container" class="space-y-3 mt-3">
+                        <!-- Se llena dinamicamente -->
                     </div>
-                    <div id="bloque-ejercicios-lista" class="space-y-2 max-h-96 overflow-y-auto">
+                    <div class="mt-3">
+                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Descripcion (opcional)</label>
+                        <textarea id="bloque-desc" rows="2" placeholder="Ej: Enfocarse en la tecnica..." class="w-full rounded-lg px-3 py-2.5 text-sm"></textarea>
+                    </div>
+                    <!-- Mobile: avanzar al paso de ejercicios -->
+                    <div class="sm:hidden pt-3">
+                        <button type="button" onclick="_pfBloquePaso(2)" class="btn-primary w-full py-3 rounded-xl text-white font-bold text-sm">Siguiente: Ejercicios →</button>
                     </div>
                 </div>
 
-                <div class="flex gap-3 pt-2">
-                    <button onclick="confirmarBloque()" class="btn-primary flex-1 py-3 rounded-xl text-white font-bold text-sm">Agregar Bloque</button>
-                    <button onclick="document.getElementById('modal-bloque').classList.add('hidden')" class="flex-1 py-3 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
+                <div id="bloque-paso-2" class="hidden sm:block">
+                    <!-- Mobile: volver al paso de tipo/parametros -->
+                    <button type="button" onclick="_pfBloquePaso(1)" class="sm:hidden text-xs text-textoSuave mb-3 flex items-center gap-1">← Volver a Tipo y Parámetros</button>
+
+                    <!-- Ejercicios del bloque -->
+                    <div id="bloque-ejercicios-panel">
+                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-2">Ejercicios</label>
+                        <!-- Busqueda DESKTOP/TABLET: input + categoria + elemento + select (sin cambios) -->
+                        <div class="hidden sm:block mb-2">
+                            <input id="bloque-buscar-ej" type="text" placeholder="Buscar ejercicio..." onkeyup="filtrarEjsBloque()" class="w-full rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-verde focus:ring-2 focus:ring-verde/30 transition">
+                        </div>
+                        <div class="hidden sm:flex gap-2 mb-3 flex-wrap">
+                            <select id="bloque-cat-select" onchange="cargarEjsBloque()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
+                            </select>
+                            <select id="bloque-elemento-select" onchange="cargarEjsBloque()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
+                                <option value="">Todo elemento</option>
+                            </select>
+                            <select id="bloque-ej-select" class="rounded-lg px-3 py-2 text-sm flex-1">
+                            </select>
+                            <button onclick="agregarEjBloque()" class="bg-verde/20 text-verde px-3 py-2 rounded-lg text-sm font-bold hover:bg-verde/30 transition whitespace-nowrap">+</button>
+                        </div>
+                        <!-- Busqueda MOBILE: un solo buscador con sugerencias tocables -->
+                        <div class="sm:hidden mb-3">
+                            <input id="bloque-buscar-ej-mobile" type="text" autocomplete="off" placeholder="Buscar ejercicio para agregar..." class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-verde focus:ring-2 focus:ring-verde/30 transition">
+                        </div>
+                        <div id="bloque-ejercicios-lista" class="space-y-2 max-h-96 overflow-y-auto">
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3 pt-2">
+                        <button onclick="confirmarBloque()" class="btn-primary flex-1 py-3 rounded-xl text-white font-bold text-sm">Agregar Bloque</button>
+                        <button onclick="document.getElementById('modal-bloque').classList.add('hidden')" class="flex-1 py-3 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1684,7 +1765,7 @@
     // unico con sugerencias tocables. Reutiliza el <select> real de desktop
     // (poblando una opcion en el) para no duplicar la logica de "agregar ejercicio".
     // ====================================================================
-    function _initBusquedaEjercicioMobile(inputId, selectElId, agregarCallback) {
+    function _initBusquedaEjercicioMobile(inputId, selectElId, agregarCallback, postAgregarCallback) {
         const input = document.getElementById(inputId);
         if (!input || input._acEjInit) return;
         input._acEjInit = true;
@@ -1739,6 +1820,7 @@
             input.value = '';
             ocultar();
             agregarCallback();
+            if (postAgregarCallback) postAgregarCallback();
         }
 
         function mostrarMatches(q) {
@@ -1780,6 +1862,192 @@
         });
 
         input.addEventListener('blur', () => { setTimeout(ocultar, 150); });
+    }
+
+    // ====================================================================
+    // MEJORAS MOBILE PARA ARMADO DE RUTINAS (solo pantallas < 640px)
+    // ====================================================================
+
+    // ── #2: Steppers +/- para campos numericos cortos (reps/series/pausa) ──
+    // No reescribe los 6 tipos de bloque: recorre el HTML ya renderizado y le
+    // agrega +/- alrededor de cada input corto, reusando su propio onchange.
+    function _pfAjustarValorInput(inputId, delta, min) {
+        const el = document.getElementById(inputId);
+        if (!el) return;
+        let val = parseFloat(el.value);
+        if (isNaN(val)) val = 0;
+        val = Math.max(min || 0, val + delta);
+        el.value = val;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        const valSpan = document.getElementById(inputId + '_val');
+        if (valSpan) valSpan.textContent = val;
+    }
+
+    function _pfEnvolverConStepperMobile(input) {
+        if (!input || input._stepperInit) return;
+        input._stepperInit = true;
+        if (!input.id) input.id = '_pfstep_' + Math.random().toString(36).slice(2, 9);
+        const min = input.type === 'number' ? (parseFloat(input.min) || 0) : 0;
+        input.classList.add('hidden', 'sm:inline-block'); // oculto en mobile, visible en desktop (sin cambios)
+
+        const valSpan = document.createElement('span');
+        valSpan.id = input.id + '_val';
+        valSpan.className = 'sm:hidden inline-flex items-center justify-center text-xs font-bold';
+        valSpan.style.cssText = 'min-width:22px;text-align:center;';
+        valSpan.textContent = input.value || '0';
+
+        const btnMinus = document.createElement('button');
+        btnMinus.type = 'button';
+        btnMinus.textContent = '−';
+        btnMinus.setAttribute('aria-label', 'Restar');
+        btnMinus.className = 'pf-stepper-btn sm:hidden w-7 h-7 flex-shrink-0 inline-flex items-center justify-center rounded-md bg-fondoAlt text-textoSuave text-sm font-bold active:bg-borde';
+        btnMinus.onclick = function() { _pfAjustarValorInput(input.id, -1, min); };
+
+        const btnPlus = document.createElement('button');
+        btnPlus.type = 'button';
+        btnPlus.textContent = '+';
+        btnPlus.setAttribute('aria-label', 'Sumar');
+        btnPlus.className = 'pf-stepper-btn sm:hidden w-7 h-7 flex-shrink-0 inline-flex items-center justify-center rounded-md bg-fondoAlt text-textoSuave text-sm font-bold active:bg-borde';
+        btnPlus.onclick = function() { _pfAjustarValorInput(input.id, 1, min); };
+
+        input.parentNode.insertBefore(btnMinus, input);
+        input.parentNode.insertBefore(valSpan, input);
+        input.parentNode.insertBefore(btnPlus, input.nextSibling);
+    }
+
+    function _pfAgregarSteppersMobileEnContenedor(containerId) {
+        const lista = document.getElementById(containerId);
+        if (!lista) return;
+        lista.querySelectorAll('input[type="text"], input[type="number"]').forEach(input => {
+            if (input.classList.contains('flex-1')) return; // nota tecnica: sigue siendo texto libre
+            _pfEnvolverConStepperMobile(input);
+        });
+    }
+
+    // ── #7: Recordar los ultimos valores usados (reps/series/pausa) para precargarlos ──
+    let _pfUltimosValoresEj = { reps: null, series: null, descanso: null };
+
+    function _pfCapturarUltimosValores(ej) {
+        if (!ej) return;
+        if (ej.reps) _pfUltimosValoresEj.reps = ej.reps;
+        else if (ej.reps_por_vuelta && ej.reps_por_vuelta.length) {
+            const v = ej.reps_por_vuelta.find(r => r);
+            if (v) _pfUltimosValoresEj.reps = v;
+        } else if (ej.reps_por_serie && ej.reps_por_serie.length) {
+            const v = ej.reps_por_serie.find(r => r);
+            if (v) _pfUltimosValoresEj.reps = v;
+        }
+        if (ej.series) _pfUltimosValoresEj.series = ej.series;
+        if (ej.descanso) _pfUltimosValoresEj.descanso = ej.descanso;
+        else if (ej.pausa_por_serie && ej.pausa_por_serie.length) {
+            const v = ej.pausa_por_serie.find(p => p !== '' && p !== null && p !== undefined);
+            if (v) _pfUltimosValoresEj.descanso = v;
+        }
+    }
+
+    function _pfAplicarUltimosValores(ej, tipo) {
+        if (!ej) return;
+        if (_pfUltimosValoresEj.reps != null) ej.reps = _pfUltimosValoresEj.reps;
+        if (_pfUltimosValoresEj.descanso != null) ej.descanso = _pfUltimosValoresEj.descanso;
+        if (tipo === 'Series' && _pfUltimosValoresEj.series != null) ej.series = _pfUltimosValoresEj.series;
+    }
+
+    // ── #6: Confirmacion visual al agregar (scroll + flash), solo mobile ──
+    function _pfDestacarUltimoAgregado(containerId) {
+        if (window.innerWidth >= 640) return; // solo mobile
+        const cont = document.getElementById(containerId);
+        if (!cont) return;
+        const chips = cont.querySelectorAll('.exercise-chip');
+        const ultimo = chips[chips.length - 1];
+        if (!ultimo) return;
+        ultimo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        ultimo.classList.add('pf-flash-agregado');
+        setTimeout(() => ultimo.classList.remove('pf-flash-agregado'), 900);
+    }
+
+    // Post-agregar (bloque): recuerda los valores del ejercicio anterior, se los aplica
+    // al recien agregado, y dispara la confirmacion visual. Solo tiene efecto en mobile
+    // (los steppers/flash son sm:hidden y el destacado ya chequea el ancho de pantalla).
+    function _pfPostAgregarBloqueMobile() {
+        if (!bloqueEjsTemp.length) return;
+        const nuevo = bloqueEjsTemp[bloqueEjsTemp.length - 1];
+        const anterior = bloqueEjsTemp.length > 1 ? bloqueEjsTemp[bloqueEjsTemp.length - 2] : null;
+        const tipo = document.getElementById('bloque-tipo')?.value || '';
+        if (anterior) _pfCapturarUltimosValores(anterior);
+        _pfAplicarUltimosValores(nuevo, tipo);
+        renderBloqueEjsTemp();
+        _pfDestacarUltimoAgregado('bloque-ejercicios-lista');
+    }
+
+    function _pfPostAgregarWarmupMobile(idx) {
+        const arr = diasData[idx] ? diasData[idx].warmupEjercicios : null;
+        if (!arr || !arr.length) return;
+        const nuevo = arr[arr.length - 1];
+        const anterior = arr.length > 1 ? arr[arr.length - 2] : null;
+        if (anterior) _pfCapturarUltimosValores(anterior);
+        _pfAplicarUltimosValores(nuevo, '');
+        renderWarmupEjsDia(idx);
+        _pfDestacarUltimoAgregado('warmup-ejercicios-lista-' + idx);
+    }
+
+    // ── #3: Deslizar para eliminar (swipe to delete), solo touch (no dispara con mouse) ──
+    let _pfSwipeState = null;
+
+    function _pfInitSwipeToDelete() {
+        document.addEventListener('touchstart', (e) => {
+            const chip = e.target.closest('.exercise-chip');
+            if (!chip || !chip.dataset.list) { _pfSwipeState = null; return; }
+            const touch = e.touches[0];
+            chip.style.position = 'relative';
+            _pfSwipeState = {
+                chip, listType: chip.dataset.list, idx: parseInt(chip.dataset.idx),
+                startX: touch.clientX, startY: touch.clientY, dx: 0, activo: false
+            };
+        }, { passive: true });
+
+        document.addEventListener('touchmove', (e) => {
+            if (!_pfSwipeState) return;
+            const touch = e.touches[0];
+            const dx = touch.clientX - _pfSwipeState.startX;
+            const dy = touch.clientY - _pfSwipeState.startY;
+            if (!_pfSwipeState.activo) {
+                if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+                    _pfSwipeState.activo = true;
+                } else if (Math.abs(dy) > 12) {
+                    _pfSwipeState = null;
+                    return;
+                } else {
+                    return;
+                }
+            }
+            const clamped = Math.max(-90, Math.min(0, dx));
+            _pfSwipeState.dx = clamped;
+            _pfSwipeState.chip.style.transition = 'none';
+            _pfSwipeState.chip.style.transform = 'translateX(' + clamped + 'px)';
+            const ratio = Math.min(1, -clamped / 70);
+            _pfSwipeState.chip.style.boxShadow = ratio > 0 ? 'inset 0 0 0 999px rgba(196,30,30,' + (ratio * 0.28) + ')' : '';
+            _pfSwipeState.chip.style.borderColor = ratio > 0.3 ? 'rgba(196,30,30,0.6)' : '';
+        }, { passive: true });
+
+        document.addEventListener('touchend', () => {
+            if (!_pfSwipeState) return;
+            const st = _pfSwipeState;
+            st.chip.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
+            if (st.activo && st.dx < -60) {
+                st.chip.style.transform = 'translateX(-100%)';
+                st.chip.style.opacity = '0';
+                const listType = st.listType, idx = st.idx;
+                setTimeout(() => {
+                    const arr = getDataArray(listType);
+                    if (arr) { arr.splice(idx, 1); rerenderList(listType); }
+                }, 180);
+            } else {
+                st.chip.style.transform = 'translateX(0)';
+                st.chip.style.boxShadow = '';
+                st.chip.style.borderColor = '';
+            }
+            _pfSwipeState = null;
+        });
     }
 
     // ====================================================================
@@ -1865,6 +2133,9 @@
             modoRepositorio = false;
             renderizarRepositorio();
         }
+        // Boton "Guardar" flotante mobile: visible solo en Crear Rutina
+        const stickyGuardar = document.getElementById('mob-sticky-guardar');
+        if (stickyGuardar) stickyGuardar.classList.toggle('hidden', tab !== 'rutina');
     }
 
     function mobMenuToggle() {
@@ -2741,7 +3012,7 @@
         if (ejs.length === 0) {
             lista.innerHTML = '';
             actualizarMiniTimelineDia(idx);
-            _initBusquedaEjercicioMobile('warmup-buscar-ej-mobile-' + idx, 'warmup-ej-select-' + idx, function() { agregarEjWarmupDia(idx); });
+            _initBusquedaEjercicioMobile('warmup-buscar-ej-mobile-' + idx, 'warmup-ej-select-' + idx, function() { agregarEjWarmupDia(idx); }, function() { _pfPostAgregarWarmupMobile(idx); });
             return;
         }
 
@@ -2859,7 +3130,8 @@
         // Activar touch drag para esta lista
         initTouchDragForListDia(lista, 'warmup-dia-' + idx, idx);
         actualizarMiniTimelineDia(idx);
-        _initBusquedaEjercicioMobile('warmup-buscar-ej-mobile-' + idx, 'warmup-ej-select-' + idx, function() { agregarEjWarmupDia(idx); });
+        _initBusquedaEjercicioMobile('warmup-buscar-ej-mobile-' + idx, 'warmup-ej-select-' + idx, function() { agregarEjWarmupDia(idx); }, function() { _pfPostAgregarWarmupMobile(idx); });
+        _pfAgregarSteppersMobileEnContenedor('warmup-ejercicios-lista-' + idx);
     }
 
     // ── Bloques por dia ───────────────────────────────────────────────────
@@ -2877,6 +3149,7 @@
         cargarEjsBloque();
         const btnConfirmar = document.querySelector('#modal-bloque button[onclick="confirmarBloque()"]');
         if (btnConfirmar) btnConfirmar.textContent = 'Agregar Bloque';
+        _pfBloquePaso(1);
         document.getElementById('modal-bloque').classList.remove('hidden');
     }
 
@@ -3135,6 +3408,7 @@
         cargarEjsBloque();
         const btnConfirmar = document.querySelector('#modal-bloque button[onclick="confirmarBloque()"]');
         if (btnConfirmar) btnConfirmar.textContent = 'Agregar Bloque';
+        _pfBloquePaso(1);
         document.getElementById('modal-bloque').classList.remove('hidden');
     }
 
@@ -3834,6 +4108,7 @@
         }).join('');
         initTouchDragForList(lista, 'bloque');
         _pfActualizarDuracionViva();
+        _pfAgregarSteppersMobileEnContenedor('bloque-ejercicios-lista');
     }
 
     function confirmarBloque() {
@@ -3970,6 +4245,7 @@
         // Actualizar texto del botón de confirmar para indicar que se está editando
         const btnConfirmar = document.querySelector('#modal-bloque button[onclick="confirmarBloque()"]');
         if (btnConfirmar) btnConfirmar.textContent = 'Guardar Cambios';
+        _pfBloquePaso(1);
         document.getElementById('modal-bloque').classList.remove('hidden');
     }
 
@@ -4070,7 +4346,7 @@
     function _flechasHtml(listType, i, total) {
         const arribaDisabled = i === 0 ? ' style="opacity:0.25;pointer-events:none;"' : '';
         const abajoDisabled = i === total - 1 ? ' style="opacity:0.25;pointer-events:none;"' : '';
-        return '<span class="flex flex-col leading-none flex-shrink-0" style="gap:2px;">' +
+        return '<span class="flechas-reorden flex flex-col leading-none flex-shrink-0" style="gap:2px;">' +
             '<button type="button" onclick="moverEjercicio(\'' + listType + '\',' + i + ',-1)" title="Subir"' + arribaDisabled + ' class="text-textoSuave hover:text-white">' +
             '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>' +
             '</button>' +
@@ -8732,6 +9008,26 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
         });
     }
 
+    // Wizard mobile del modal de bloque: paso 1 (tipo/parametros) <-> paso 2 (ejercicios/confirmar).
+    // En desktop ambos pasos se muestran siempre juntos (via sm:block), esto solo afecta mobile.
+    function _pfBloquePaso(n) {
+        const p1 = document.getElementById('bloque-paso-1');
+        const p2 = document.getElementById('bloque-paso-2');
+        if (!p1 || !p2) return;
+        if (n === 1) { p1.classList.remove('hidden'); p2.classList.add('hidden'); }
+        else { p1.classList.add('hidden'); p2.classList.remove('hidden'); }
+        const modalBody = document.querySelector('#modal-bloque > div');
+        if (modalBody) modalBody.scrollTop = 0;
+    }
+
+    function _pfGuardarMobile() {
+        if (modoRepositorio) {
+            guardarEnRepositorioDirecto();
+        } else {
+            compartirRutina();
+        }
+    }
+
     function initAtajosTeclado() {
         document.addEventListener('keydown', (e) => {
             // Escape: cerrar el modal abierto de mayor prioridad (si hay alguno)
@@ -8784,11 +9080,13 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
         // Autocompletado de alumno en "Crear Rutina" (texto libre, sugiere alumnos existentes)
         _obtenerAlumnosCache().then(() => _initAutocompleteAlumno('alumno-nombre', null, null));
         // Buscador de ejercicios mobile (bloque): reusa el select de desktop y agregarEjBloque()
-        _initBusquedaEjercicioMobile('bloque-buscar-ej-mobile', 'bloque-ej-select', agregarEjBloque);
+        _initBusquedaEjercicioMobile('bloque-buscar-ej-mobile', 'bloque-ej-select', agregarEjBloque, _pfPostAgregarBloqueMobile);
         // Inicializar el sistema multi-dia con Dia 1 por defecto
         initMultiDia();
         // Atajos de teclado del editor de rutina
         initAtajosTeclado();
+        // Deslizar para eliminar ejercicios (mobile, solo touch)
+        _pfInitSwipeToDelete();
     });
 
 
