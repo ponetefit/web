@@ -2736,53 +2736,80 @@
                     <div id="dia-timeline-${idx}" class="flex items-center gap-1.5 overflow-x-auto" style="scrollbar-width:thin;padding-bottom:2px;"></div>
                     <!-- Calentamiento del dia -->
                     <div>
-                        <h3 class="text-sm font-bold text-azul uppercase tracking-wider mb-3">1. Calentamiento</h3>
-                        <div id="warmup-paso-1-${idx}">
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-                                <div>
-                                    <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Tipo</label>
-                                    <select id="warmup-tipo-${idx}" onchange="actualizarWarmupUIDia(${idx})" class="w-full rounded-lg px-3 py-2.5 text-sm">
-                                        <option>Circuito (Vueltas)</option>
-                                        <option>Circuito por Tiempo</option>
-                                        <option>Por Tiempo</option>
-                                        <option>Tabata</option>
-                                        <option>EMOM</option>
-                                        <option>Series/Reps</option>
-                                    </select>
-                                </div>
-                                <div id="warmup-params-container-${idx}" class="md:col-span-2"></div>
-                            </div>
-                            <button type="button" onclick="_pfWarmupPaso(${idx},2)" class="btn-primary w-full py-3 rounded-xl text-white font-bold text-sm mb-3">Siguiente: Ejercicios →</button>
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-sm font-bold text-azul uppercase tracking-wider">1. Calentamiento</h3>
+                            <button id="warmup-btn-agregar-${idx}" onclick="abrirModalCalentamientoDia(${idx})" class="bg-azul/20 text-azul px-3 py-2 rounded-lg text-xs font-bold hover:bg-azul/30 transition">+ Agregar Calentamiento</button>
                         </div>
-                        <div id="warmup-paso-2-${idx}" class="hidden">
-                            <button type="button" onclick="_pfWarmupPaso(${idx},1)" class="text-xs text-textoSuave mb-3 flex items-center gap-1 hover:text-texto transition">← Volver a Tipo</button>
-                            <div id="warmup-ej-panel-${idx}">
-                            <!-- Busqueda DESKTOP/TABLET (sin cambios) -->
-                            <div class="hidden sm:block mb-2">
-                                <input id="warmup-buscar-ej-${idx}" type="text" placeholder="Buscar ejercicio..." onkeyup="filtrarEjsWarmupDia(${idx})" class="w-full rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-azul focus:ring-2 focus:ring-azul/30 transition">
+                        <div id="warmup-resumen-${idx}" class="hidden bg-fondoAlt rounded-xl border border-azul/30 p-3 flex items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <span class="text-sm font-bold text-azul">🔥 Calentamiento</span>
+                                <div class="text-xs text-textoSuave mt-0.5" id="warmup-resumen-detalle-${idx}"></div>
                             </div>
-                            <div class="hidden sm:flex gap-2 mb-2 flex-wrap">
-                                <select id="warmup-cat-select-${idx}" onchange="cargarEjsWarmupDia(${idx})" class="rounded-lg px-3 py-2 text-sm flex-shrink-0"></select>
-                                <select id="warmup-elemento-select-${idx}" onchange="cargarEjsWarmupDia(${idx})" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
-                                    <option value="">Todo elemento</option>
-                                </select>
-                                <select id="warmup-ej-select-${idx}" class="rounded-lg px-3 py-2 text-sm flex-1"></select>
-                                <input id="warmup-ej-reps-${idx}" type="text" placeholder="Reps" class="rounded-lg px-3 py-2 text-sm w-20">
-                                <select id="warmup-ej-unit-${idx}" class="rounded-lg px-3 py-2 text-sm w-20">
-                                    <option>Reps</option><option>Segs</option>
-                                </select>
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                <button onclick="abrirModalCalentamientoDia(${idx})" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">Editar</button>
+                                <button onclick="eliminarCalentamientoDia(${idx})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none px-1">&times;</button>
                             </div>
-                            <div class="hidden sm:flex gap-2 mb-3">
-                                <button onclick="agregarEjWarmupDia(${idx})" class="bg-azul/20 text-azul px-3 py-2 rounded-lg text-sm font-bold hover:bg-azul/30 transition whitespace-nowrap w-full">+ Agregar</button>
-                            </div>
-                            <!-- Busqueda MOBILE: un solo buscador con sugerencias tocables -->
-                            <div class="sm:hidden mb-3">
-                                <input id="warmup-buscar-ej-mobile-${idx}" type="text" autocomplete="off" placeholder="Buscar ejercicio para agregar..." class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-azul focus:ring-2 focus:ring-azul/30 transition">
-                            </div>
-                            </div>
-                            <div id="warmup-ejercicios-lista-${idx}" class="space-y-2"></div>
                         </div>
                     </div>
+
+                    <!-- Modal de Calentamiento (por dia, se abre con "+ Agregar Calentamiento") -->
+                    <div id="modal-calentamiento-${idx}" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start sm:items-center justify-center p-2 sm:p-6 overflow-y-auto modal-bottom-sheet-mobile">
+                        <div class="bg-tarjeta rounded-2xl border border-borde p-3 sm:p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto my-2 sm:my-0">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-sm font-bold text-azul uppercase tracking-wider">Configurar Calentamiento</h3>
+                                <button onclick="cerrarModalCalentamientoDia(${idx})" class="text-textoSuave hover:text-texto text-xl leading-none px-2">&times;</button>
+                            </div>
+                            <div id="warmup-paso-1-${idx}">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                                    <div>
+                                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Tipo</label>
+                                        <select id="warmup-tipo-${idx}" onchange="actualizarWarmupUIDia(${idx})" class="w-full rounded-lg px-3 py-2.5 text-sm">
+                                            <option>Circuito (Vueltas)</option>
+                                            <option>Circuito por Tiempo</option>
+                                            <option>Por Tiempo</option>
+                                            <option>Tabata</option>
+                                            <option>EMOM</option>
+                                            <option>Series/Reps</option>
+                                        </select>
+                                    </div>
+                                    <div id="warmup-params-container-${idx}" class="md:col-span-2"></div>
+                                </div>
+                                <button type="button" onclick="_pfWarmupPaso(${idx},2)" class="btn-primary w-full py-3 rounded-xl text-white font-bold text-sm mb-3">Siguiente: Ejercicios →</button>
+                            </div>
+                            <div id="warmup-paso-2-${idx}" class="hidden">
+                                <button type="button" onclick="_pfWarmupPaso(${idx},1)" class="text-xs text-textoSuave mb-3 flex items-center gap-1 hover:text-texto transition">← Volver a Tipo</button>
+                                <div id="warmup-ej-panel-${idx}">
+                                <!-- Busqueda DESKTOP/TABLET (sin cambios) -->
+                                <div class="hidden sm:block mb-2">
+                                    <input id="warmup-buscar-ej-${idx}" type="text" placeholder="Buscar ejercicio..." onkeyup="filtrarEjsWarmupDia(${idx})" class="w-full rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-azul focus:ring-2 focus:ring-azul/30 transition">
+                                </div>
+                                <div class="hidden sm:flex gap-2 mb-2 flex-wrap">
+                                    <select id="warmup-cat-select-${idx}" onchange="cargarEjsWarmupDia(${idx})" class="rounded-lg px-3 py-2 text-sm flex-shrink-0"></select>
+                                    <select id="warmup-elemento-select-${idx}" onchange="cargarEjsWarmupDia(${idx})" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
+                                        <option value="">Todo elemento</option>
+                                    </select>
+                                    <select id="warmup-ej-select-${idx}" class="rounded-lg px-3 py-2 text-sm flex-1"></select>
+                                    <input id="warmup-ej-reps-${idx}" type="text" placeholder="Reps" class="rounded-lg px-3 py-2 text-sm w-20">
+                                    <select id="warmup-ej-unit-${idx}" class="rounded-lg px-3 py-2 text-sm w-20">
+                                        <option>Reps</option><option>Segs</option>
+                                    </select>
+                                </div>
+                                <div class="hidden sm:flex gap-2 mb-3">
+                                    <button onclick="agregarEjWarmupDia(${idx})" class="bg-azul/20 text-azul px-3 py-2 rounded-lg text-sm font-bold hover:bg-azul/30 transition whitespace-nowrap w-full">+ Agregar</button>
+                                </div>
+                                <!-- Busqueda MOBILE: un solo buscador con sugerencias tocables -->
+                                <div class="sm:hidden mb-3">
+                                    <input id="warmup-buscar-ej-mobile-${idx}" type="text" autocomplete="off" placeholder="Buscar ejercicio para agregar..." class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-azul focus:ring-2 focus:ring-azul/30 transition">
+                                </div>
+                                </div>
+                                <div id="warmup-ejercicios-lista-${idx}" class="space-y-2"></div>
+                                <div class="pt-3">
+                                    <button onclick="cerrarModalCalentamientoDia(${idx})" class="btn-primary w-full py-3 rounded-xl text-white font-bold text-sm">Listo</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Bloque Principal del dia -->
                     <div>
                         <div class="flex items-center justify-between mb-3">
@@ -3018,6 +3045,7 @@
         if (ejs.length === 0) {
             lista.innerHTML = '';
             actualizarMiniTimelineDia(idx);
+            actualizarResumenCalentamientoDia(idx);
             _initBusquedaEjercicioMobile('warmup-buscar-ej-mobile-' + idx, 'warmup-ej-select-' + idx, function() { agregarEjWarmupDia(idx); }, function() { _pfPostAgregarWarmupMobile(idx); });
             return;
         }
@@ -3136,6 +3164,7 @@
         // Activar touch drag para esta lista
         initTouchDragForListDia(lista, 'warmup-dia-' + idx, idx);
         actualizarMiniTimelineDia(idx);
+        actualizarResumenCalentamientoDia(idx);
         _initBusquedaEjercicioMobile('warmup-buscar-ej-mobile-' + idx, 'warmup-ej-select-' + idx, function() { agregarEjWarmupDia(idx); }, function() { _pfPostAgregarWarmupMobile(idx); });
         _pfAgregarSteppersMobileEnContenedor('warmup-ejercicios-lista-' + idx);
     }
@@ -8993,13 +9022,18 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
         'modal-repo-copiar', 'modal-ver-rutina', 'modal-piz-vt', 'modal-ia-config', 'modal-ia-preview',
         'modal-nueva-cat', 'modal-bloque'];
 
+    // Devuelve tambien los modales de calentamiento (uno por dia, id dinamico modal-calentamiento-N)
+    function _pfTodosLosModalesVisibles() {
+        const fijos = MODAL_IDS.map(id => document.getElementById(id)).filter(el => el && !el.classList.contains('hidden'));
+        const calentamiento = Array.from(document.querySelectorAll('[id^="modal-calentamiento-"]')).filter(el => !el.classList.contains('hidden'));
+        return fijos.concat(calentamiento);
+    }
+
     // Cierra el modal visible con mayor z-index (el "de más arriba" si hay varios apilados).
     // Devuelve true si cerró alguno.
     function _cerrarModalMasAlto() {
         let mejor = null, mejorZ = -1;
-        MODAL_IDS.forEach(id => {
-            const el = document.getElementById(id);
-            if (!el || el.classList.contains('hidden')) return;
+        _pfTodosLosModalesVisibles().forEach(el => {
             const z = parseInt(getComputedStyle(el).zIndex) || 0;
             if (z >= mejorZ) { mejorZ = z; mejor = el; }
         });
@@ -9008,16 +9042,54 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
     }
 
     function _hayModalAbierto() {
-        return MODAL_IDS.some(id => {
-            const el = document.getElementById(id);
-            return el && !el.classList.contains('hidden');
-        });
+        return _pfTodosLosModalesVisibles().length > 0;
     }
 
     // Wizard mobile del modal de bloque: paso 1 (tipo/parametros) <-> paso 2 (ejercicios/confirmar).
     // En desktop ambos pasos se muestran siempre juntos (via sm:block), esto solo afecta mobile.
     // Wizard del calentamiento por dia: paso 1 (tipo/parametros) <-> paso 2 (ejercicios).
     // Activo siempre (mobile y desktop), a diferencia del modal de bloque que es un popup.
+    // Abre el modal de calentamiento de un dia especifico (misma logica que agregar/editar un bloque)
+    function abrirModalCalentamientoDia(idx) {
+        _pfWarmupPaso(idx, 1);
+        const modal = document.getElementById('modal-calentamiento-' + idx);
+        if (modal) modal.classList.remove('hidden');
+    }
+
+    function cerrarModalCalentamientoDia(idx) {
+        const modal = document.getElementById('modal-calentamiento-' + idx);
+        if (modal) modal.classList.add('hidden');
+        actualizarResumenCalentamientoDia(idx);
+    }
+
+    function eliminarCalentamientoDia(idx) {
+        if (!diasData[idx]) return;
+        if (!confirm('¿Eliminar el calentamiento de este día?')) return;
+        diasData[idx].warmupEjercicios = [];
+        renderWarmupEjsDia(idx);
+    }
+
+    // Muestra el boton "+ Agregar Calentamiento" o la tarjeta resumen (Editar / X),
+    // segun si el dia ya tiene ejercicios de calentamiento cargados.
+    function actualizarResumenCalentamientoDia(idx) {
+        const dia = diasData[idx];
+        const btnAgregar = document.getElementById('warmup-btn-agregar-' + idx);
+        const resumen = document.getElementById('warmup-resumen-' + idx);
+        if (!dia || !btnAgregar || !resumen) return;
+        const cant = (dia.warmupEjercicios || []).length;
+        if (cant > 0) {
+            btnAgregar.classList.add('hidden');
+            resumen.classList.remove('hidden');
+            const tipoSel = document.getElementById('warmup-tipo-' + idx);
+            const tipo = tipoSel ? tipoSel.value : '';
+            const detalle = document.getElementById('warmup-resumen-detalle-' + idx);
+            if (detalle) detalle.textContent = (tipo ? tipo + ' · ' : '') + cant + ' ejercicio' + (cant === 1 ? '' : 's');
+        } else {
+            btnAgregar.classList.remove('hidden');
+            resumen.classList.add('hidden');
+        }
+    }
+
     function _pfWarmupPaso(idx, n) {
         const p1 = document.getElementById('warmup-paso-1-' + idx);
         const p2 = document.getElementById('warmup-paso-2-' + idx);
