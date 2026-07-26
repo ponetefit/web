@@ -803,6 +803,13 @@
                         <input id="rutina-desc" type="text" placeholder="Ej: Rutina de fuerza semana 1" class="w-full rounded-lg px-3 py-2.5 text-sm">
                     </div>
                 </div>
+                <div id="historial-alumno-card" class="hidden mt-4 bg-fondoAlt rounded-xl border border-amarillo/30 p-3 flex items-center justify-between gap-2 flex-wrap">
+                    <div class="text-sm">
+                        <span class="font-bold text-amarillo">📋 Historial</span>
+                        <span class="text-textoSuave"> — últimas <span id="historial-alumno-cant">5</span> rutinas de este alumno</span>
+                    </div>
+                    <button onclick="abrirModalHistorialAlumno()" class="bg-amarillo/20 text-amarillo px-3 py-2 rounded-lg text-xs font-bold hover:bg-amarillo/30 transition">Ver</button>
+                </div>
             </div>
 
             <!-- ══════════════════════════════════════════ -->
@@ -1632,6 +1639,17 @@
             <h3 id="modal-copiar-titulo" class="text-sm font-bold text-texto uppercase tracking-wider mb-4">Copiar a...</h3>
             <div id="modal-copiar-opciones" class="space-y-2 mb-4 max-h-64 overflow-y-auto"></div>
             <button onclick="document.getElementById('modal-copiar-destino').classList.add('hidden')" class="w-full py-2.5 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
+        </div>
+    </div>
+
+    <!-- Modal: historial de las ultimas rutinas del alumno que se esta cargando en Crear Rutina -->
+    <div id="modal-historial-alumno" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start sm:items-center justify-center p-2 sm:p-6 overflow-y-auto modal-bottom-sheet-mobile">
+        <div class="bg-tarjeta rounded-2xl border border-borde p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto my-2 sm:my-0">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-bold text-amarillo uppercase tracking-wider">Historial de <span id="historial-alumno-nombre-modal"></span></h3>
+                <button onclick="document.getElementById('modal-historial-alumno').classList.add('hidden')" class="text-textoSuave hover:text-texto text-xl leading-none px-2">&times;</button>
+            </div>
+            <div id="historial-alumno-lista" class="space-y-3"></div>
         </div>
     </div>
 
@@ -9057,7 +9075,7 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
     // IDs de los contenedores modales reales (fixed inset-0), en el orden en que aparecen en el DOM.
     const MODAL_IDS = ['modal-dash-rutina', 'modal-codigo', 'modal-repo-guardar', 'modal-repo-editar',
         'modal-repo-copiar', 'modal-ver-rutina', 'modal-piz-vt', 'modal-ia-config', 'modal-ia-preview',
-        'modal-nueva-cat', 'modal-bloque', 'modal-copiar-destino'];
+        'modal-nueva-cat', 'modal-bloque', 'modal-copiar-destino', 'modal-historial-alumno'];
 
     // Devuelve tambien los modales de calentamiento (uno por dia, id dinamico modal-calentamiento-N)
     function _pfTodosLosModalesVisibles() {
@@ -9087,6 +9105,223 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
     // Wizard del calentamiento por dia: paso 1 (tipo/parametros) <-> paso 2 (ejercicios).
     // Activo siempre (mobile y desktop), a diferencia del modal de bloque que es un popup.
     // Abre el modal de calentamiento de un dia especifico (misma logica que agregar/editar un bloque)
+    // ====================================================================
+    // HISTORIAL DE ULTIMAS RUTINAS DEL ALUMNO (en Crear Rutina)
+    // ====================================================================
+    let _pfHistorialAlumnoCache = [];   // ultimas (hasta 5) rutinas del alumno tipeado
+    let _pfHistorialParseado = null;    // dias parseados de la rutina historica actualmente desglosada
+
+    // Chequea si el alumno tipeado tiene rutinas previas y muestra/oculta la tarjeta
+    async function _pfChequearHistorialAlumno() {
+        const nombre = (document.getElementById('alumno-nombre')?.value || '').trim();
+        const card = document.getElementById('historial-alumno-card');
+        if (!nombre) { _pfHistorialAlumnoCache = []; if (card) card.classList.add('hidden'); return; }
+        try {
+            const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre));
+            const data = await res.json();
+            if (data.ok && data.rutinas && Object.keys(data.rutinas).length > 0) {
+                const keys = Object.keys(data.rutinas).sort().reverse().slice(0, 5);
+                _pfHistorialAlumnoCache = keys.map(k => Object.assign({ codigo: k }, data.rutinas[k]));
+                const cantEl = document.getElementById('historial-alumno-cant');
+                if (cantEl) cantEl.textContent = _pfHistorialAlumnoCache.length;
+                if (card) card.classList.remove('hidden');
+            } else {
+                _pfHistorialAlumnoCache = [];
+                if (card) card.classList.add('hidden');
+            }
+        } catch (e) {
+            _pfHistorialAlumnoCache = [];
+            if (card) card.classList.add('hidden');
+        }
+    }
+
+    // Abre el modal con las ultimas rutinas del alumno (Ver / Copiar toda / desglosar por dia)
+    function abrirModalHistorialAlumno() {
+        const nombre = (document.getElementById('alumno-nombre')?.value || '').trim();
+        document.getElementById('historial-alumno-nombre-modal').textContent = nombre.toUpperCase();
+        const lista = document.getElementById('historial-alumno-lista');
+        if (_pfHistorialAlumnoCache.length === 0) {
+            lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-6">No hay rutinas previas para este alumno</p>';
+        } else {
+            lista.innerHTML = _pfHistorialAlumnoCache.map((r, i) => {
+                const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
+                return '<div class="bg-fondoAlt rounded-xl border border-borde/50 p-3">' +
+                    '<div class="flex items-center justify-between mb-2 gap-2 flex-wrap">' +
+                        '<div><span class="font-mono font-bold text-amarillo text-sm">' + r.codigo.toUpperCase() + '</span>' +
+                        '<span class="text-xs text-textoSuave ml-2">' + (r.tipo || 'ENTRENAMIENTO') + (fecha ? ' · ' + fecha : '') + '</span></div>' +
+                    '</div>' +
+                    '<div class="flex flex-wrap gap-2 mb-2">' +
+                        '<button onclick="verRutina(\'' + r.codigo + '\')" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">👁 Ver</button>' +
+                        '<button onclick="_pfCopiarRutinaCompletaDesdeHistorial(\'' + r.codigo + '\')" class="bg-verde/20 text-verde px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-verde/30 transition">📋 Copiar toda la rutina</button>' +
+                        '<button onclick="_pfDesglosarHistorial(\'' + r.codigo + '\', ' + i + ')" class="bg-purpura/20 text-purpura px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">Ver días y copiar por partes</button>' +
+                    '</div>' +
+                    '<div id="historial-dias-' + i + '" class="hidden mt-2 space-y-2"></div>' +
+                '</div>';
+            }).join('');
+        }
+        document.getElementById('modal-historial-alumno').classList.remove('hidden');
+    }
+
+    // "Copiar toda la rutina en todos los días": reemplaza por completo lo que hay en Crear Rutina
+    function _pfCopiarRutinaCompletaDesdeHistorial(codigo) {
+        if (!confirm('¿Copiar esta rutina completa? Se reemplazará todo lo que tengas actualmente en "Crear Rutina".')) return;
+        document.getElementById('modal-historial-alumno').classList.add('hidden');
+        editarRutinaDesdeHistorial(codigo);
+    }
+
+    // Muestra (o esconde, si ya estaba mostrado) el desglose dia por dia de una rutina historica,
+    // con botones para copiar solo el calentamiento o solo un bloque especifico.
+    async function _pfDesglosarHistorial(codigo, i) {
+        const cont = document.getElementById('historial-dias-' + i);
+        if (!cont) return;
+        if (!cont.classList.contains('hidden')) { cont.classList.add('hidden'); return; }
+        cont.innerHTML = '<p class="text-xs text-textoSuave">Cargando...</p>';
+        cont.classList.remove('hidden');
+        try {
+            let r = historialRutinasCache[codigo];
+            if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia)) {
+                const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+                const data = await res.json();
+                if (!data.ok) { cont.innerHTML = '<p class="text-xs text-rojo">Error al cargar</p>'; return; }
+                r = data.rutina;
+                historialRutinasCache[codigo] = r;
+            }
+            const dias = _pfParsearDiasHistorial(r);
+            _pfHistorialParseado = dias;
+            if (dias.length === 0) { cont.innerHTML = '<p class="text-xs text-textoSuave">Sin días para mostrar</p>'; return; }
+            cont.innerHTML = dias.map((d, di) => {
+                const bloquesBtns = (d.bloquesRutina || []).map((b, bi) =>
+                    '<button onclick="abrirModalCopiarBloqueDesdeHistorial(' + di + ',' + bi + ')" class="bg-fondo hover:bg-borde border border-borde rounded-lg px-2 py-1 text-[11px] text-texto transition">📋 ' + (b.tipo || 'Bloque') + ' (' + (b.ejercicios || []).length + ' ej)</button>'
+                ).join(' ');
+                const calBtn = (d.warmupEjercicios && d.warmupEjercicios.length)
+                    ? '<button onclick="abrirModalCopiarCalentamientoDesdeHistorial(' + di + ')" class="bg-azul/20 hover:bg-azul/30 text-azul rounded-lg px-2 py-1 text-[11px] font-bold transition">🔥 Copiar calentamiento (' + d.warmupEjercicios.length + ' ej)</button>'
+                    : '';
+                return '<div class="bg-fondo rounded-lg p-2 border border-borde/40">' +
+                    '<div class="text-xs font-bold text-texto mb-1">' + (d.titulo || ('Día ' + (di + 1))) + '</div>' +
+                    '<div class="flex flex-wrap gap-1.5">' + (calBtn || bloquesBtns ? calBtn + ' ' + bloquesBtns : '<span class="text-[11px] text-textoSuave">Vacío</span>') + '</div>' +
+                '</div>';
+            }).join('');
+        } catch (e) {
+            cont.innerHTML = '<p class="text-xs text-rojo">Error de conexión</p>';
+        }
+    }
+
+    // Abre el selector de dia destino para copiar un bloque especifico de una rutina historica
+    function abrirModalCopiarBloqueDesdeHistorial(histDiaIdx, bloqueIdx) {
+        if (!_pfHistorialParseado) return;
+        _pfCopiarContexto = { tipo: 'bloque', diaIdx: histDiaIdx, bloqueIdx, origenExterno: _pfHistorialParseado };
+        document.getElementById('modal-copiar-titulo').textContent = 'Copiar bloque a...';
+        const opciones = document.getElementById('modal-copiar-opciones');
+        opciones.innerHTML = diasData.map((d, i) =>
+            '<button onclick="_pfConfirmarCopiar(' + i + ')" class="w-full text-left px-4 py-2.5 rounded-lg bg-fondoAlt hover:bg-borde text-sm text-texto transition">' + d.titulo + '</button>'
+        ).join('');
+        document.getElementById('modal-copiar-destino').classList.remove('hidden');
+    }
+
+    // Abre el selector de dia destino para copiar el calentamiento de una rutina historica
+    function abrirModalCopiarCalentamientoDesdeHistorial(histDiaIdx) {
+        if (!_pfHistorialParseado) return;
+        _pfCopiarContexto = { tipo: 'calentamiento', diaIdx: histDiaIdx, origenExterno: _pfHistorialParseado };
+        document.getElementById('modal-copiar-titulo').textContent = 'Copiar calentamiento a...';
+        const opciones = document.getElementById('modal-copiar-opciones');
+        opciones.innerHTML = diasData.map((d, i) => {
+            const tieneCal = d.warmupEjercicios && d.warmupEjercicios.length > 0;
+            const label = d.titulo + (tieneCal ? ' (se reemplaza el actual)' : '');
+            return '<button onclick="_pfConfirmarCopiar(' + i + ')" class="w-full text-left px-4 py-2.5 rounded-lg bg-fondoAlt hover:bg-borde text-sm text-texto transition">' + label + '</button>';
+        }).join('');
+        document.getElementById('modal-copiar-destino').classList.remove('hidden');
+    }
+
+    // Version "pura" del parseo usado en editarRutinaDesdeHistorial: en vez de reemplazar
+    // el estado global (diasData) y navegar de pestaña, devuelve el array de dias parseado
+    // para poder copiar piezas sueltas (un calentamiento, un bloque) sin tocar el editor actual.
+    function _pfParsearDiasHistorial(r) {
+        const datos = resolverDatos(r);
+        const tipo = r.tipo || 'ENTRENAMIENTO';
+        const dias = [];
+
+        function normEjs(src) {
+            return toArray(src).map(ej => {
+                const e = normalizeEj(ej);
+                const out = { nombre: e.nombre, link: e.link, reps: e.reps || '12', unit: e.unit || 'Reps', series: parseInt(e.series) || 4, nota_tecnica: e.nota_tecnica || '' };
+                if (e.reps_por_vuelta) out.reps_por_vuelta = e.reps_por_vuelta;
+                if (e.reps_por_serie) out.reps_por_serie = e.reps_por_serie;
+                if (e.pausa_por_serie) out.pausa_por_serie = e.pausa_por_serie;
+                return out;
+            }).filter(e => e.nombre);
+        }
+        function normBloques(bSrc) {
+            return toArray(bSrc).map(b => {
+                const bl = { tipo: b.tipo || 'Circuito', descripcion: b.descripcion || '', ejercicios: normEjs(b.ejercicios || b.rutina || []) };
+                if (b.tipo === 'Circuito')            { bl.vueltas = b.vueltas || 3; bl.pausa_vuelta = b.pausa_vuelta || 60; }
+                else if (b.tipo === 'Circuito por Tiempo') { bl.duracion_min = b.duracion_min || b.tiempo_min || 5; }
+                else if (b.tipo === 'Tabata')          { bl.trabajo = b.trabajo || 20; bl.pausa = b.pausa || 10; bl.rondas = b.rondas || 1; bl.pausa_entre_rondas = b.pausa_entre_rondas || 0; bl.cantidad = b.cantidad || bl.ejercicios.length || 8; }
+                else if (b.tipo === 'EMOM')             { bl.minutos_totales = b.minutos_totales || 10; bl.ejercicios_por_minuto = b.ejercicios_por_minuto || 1; if (b.emom_config_por_minuto) bl.emom_config_por_minuto = b.emom_config_por_minuto; }
+                return bl;
+            });
+        }
+        function bloquesDesdePlano(tipoR, datosR) {
+            let ejsFlat = [];
+            if (tipoR === 'Tabata' || tipoR === 'EMOM' || tipoR === 'Series') {
+                ejsFlat = toArray(datosR.rutina || datosR.datos || []);
+            } else if (tipoR === 'Circuito' || tipoR === 'Circuito por Tiempo') {
+                const gruposC = toArray(datosR.datos || datosR.rutina || []);
+                ejsFlat = (gruposC.length && gruposC[0] && gruposC[0].ejercicios !== undefined) ? toArray(gruposC[0].ejercicios) : gruposC;
+            } else {
+                ejsFlat = toArray(datosR.datos || datosR.rutina || []);
+            }
+            if (!ejsFlat.length) return [];
+            const bl = { tipo: (tipoR === 'ENTRENAMIENTO') ? 'Circuito' : tipoR, descripcion: datosR.descripcion || '', ejercicios: normEjs(ejsFlat) };
+            if (bl.tipo === 'Circuito')            { bl.vueltas = datosR.vueltas_bloque || 3; bl.pausa_vuelta = datosR.pausa_vuelta || 60; }
+            else if (bl.tipo === 'Circuito por Tiempo') { bl.duracion_min = datosR.duracion_min || 5; }
+            else if (bl.tipo === 'Tabata')          { bl.trabajo = datosR.trabajo || 20; bl.pausa = datosR.pausa || 10; bl.rondas = datosR.rondas || 1; bl.pausa_entre_rondas = datosR.pausa_entre_rondas || 0; bl.cantidad = datosR.cantidad || bl.ejercicios.length || 8; }
+            else if (bl.tipo === 'EMOM')             { bl.minutos_totales = datosR.minutos_totales || 10; bl.ejercicios_por_minuto = datosR.ejercicios_por_minuto || 1; if (datosR.minutos_ciclo) bl.emom_config_por_minuto = toArray(datosR.minutos_ciclo).map((mc, mi) => ({ minuto: mi + 1, ejercicios: mc.ejercicios || [], ejercicios_cantidad: (mc.ejercicios || []).length, ejercicios_nombres: (mc.ejercicios || []).map(e => e.nombre) })); }
+            return [bl];
+        }
+        function normWarmupEjs(src) {
+            return toArray(src).map(ej => {
+                const e = normalizeEj(ej);
+                const out = { nombre: e.nombre, link: e.link, reps: e.reps, unit: e.unit || 'Reps', con_carga: ej.con_carga || false, tip1: ej.tip1 || '', tip2: ej.tip2 || '' };
+                if (e.reps_por_vuelta) out.reps_por_vuelta = e.reps_por_vuelta;
+                if (e.reps_por_serie) out.reps_por_serie = e.reps_por_serie;
+                if (e.pausa_por_serie) out.pausa_por_serie = e.pausa_por_serie;
+                return out;
+            }).filter(e => e.nombre);
+        }
+
+        if (tipo === 'MULTIDIA') {
+            const totalDM = r.total_dias || 0;
+            for (let di = 1; di <= totalDM; di++) {
+                const diaR = r['dia_' + di];
+                if (!diaR || !diaR.datos) continue;
+                const dd = diaR.datos;
+                const dWTipo = dd.warmup_tipo || 'Circuito (Vueltas)';
+                const dWCfg = dd.warmup_config_detalle || {};
+                const dBloques = toArray(dd.bloques).length > 0 ? normBloques(dd.bloques) : bloquesDesdePlano(diaR.tipo || 'ENTRENAMIENTO', dd);
+                dias.push({
+                    titulo: diaR.titulo || ('Dia ' + di),
+                    warmupEjercicios: normWarmupEjs(dd.warmup_ejercicios),
+                    warmupEmomConfig: toArray(dWCfg.emom_config_por_minuto),
+                    bloquesRutina: dBloques,
+                    _wTipo: dWTipo,
+                    _wCfg: dWCfg
+                });
+            }
+        } else {
+            const bloquesDelDia = toArray(datos.bloques).length > 0 ? normBloques(datos.bloques) : bloquesDesdePlano(tipo, datos);
+            const _wCfgB = datos.warmup_config_detalle || {};
+            dias.push({
+                titulo: 'Dia 1',
+                warmupEjercicios: normWarmupEjs(datos.warmup_ejercicios),
+                warmupEmomConfig: toArray(_wCfgB.emom_config_por_minuto),
+                bloquesRutina: bloquesDelDia,
+                _wTipo: datos.warmup_tipo || 'Circuito (Vueltas)',
+                _wCfg: _wCfgB
+            });
+        }
+        return dias;
+    }
+
     // ====================================================================
     // COPIAR / DUPLICAR BLOQUE Y CALENTAMIENTO A OTRO DIA (o al mismo dia)
     // ====================================================================
@@ -9123,8 +9358,9 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
     function _pfConfirmarCopiar(targetIdx) {
         if (!_pfCopiarContexto) return;
         const ctx = _pfCopiarContexto;
+        const origenDias = ctx.origenExterno || diasData; // de donde se copia: rutina actual o una historica parseada
         if (ctx.tipo === 'bloque') {
-            const bloqueOriginal = diasData[ctx.diaIdx] && diasData[ctx.diaIdx].bloquesRutina[ctx.bloqueIdx];
+            const bloqueOriginal = origenDias[ctx.diaIdx] && origenDias[ctx.diaIdx].bloquesRutina[ctx.bloqueIdx];
             if (!bloqueOriginal) return;
             const copia = JSON.parse(JSON.stringify(bloqueOriginal));
             diasData[targetIdx].bloquesRutina.push(copia);
@@ -9132,11 +9368,15 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
             actualizarBadgeDia(targetIdx);
             toast('Bloque copiado a ' + diasData[targetIdx].titulo);
         } else if (ctx.tipo === 'calentamiento') {
-            if (targetIdx === ctx.diaIdx) { toast('Elegí un día distinto'); return; }
-            const origen = diasData[ctx.diaIdx];
+            // El chequeo de "mismo dia" solo aplica cuando se copia dentro de la rutina actual
+            if (!ctx.origenExterno && targetIdx === ctx.diaIdx) { toast('Elegí un día distinto'); return; }
+            const origen = origenDias[ctx.diaIdx];
+            if (!origen) return;
             diasData[targetIdx].warmupEjercicios = JSON.parse(JSON.stringify(origen.warmupEjercicios || []));
-            diasData[targetIdx]._warmupCfg = JSON.parse(JSON.stringify(origen._warmupCfg || {}));
-            const tipoOrigen = document.getElementById('warmup-tipo-' + ctx.diaIdx)?.value || (origen._warmupCfg && origen._warmupCfg.tipo) || 'Circuito (Vueltas)';
+            diasData[targetIdx]._warmupCfg = JSON.parse(JSON.stringify(origen._warmupCfg || origen._wCfg || {}));
+            const tipoOrigen = ctx.origenExterno
+                ? (origen._wTipo || 'Circuito (Vueltas)')
+                : (document.getElementById('warmup-tipo-' + ctx.diaIdx)?.value || (origen._warmupCfg && origen._warmupCfg.tipo) || 'Circuito (Vueltas)');
             const tipoSelDestino = document.getElementById('warmup-tipo-' + targetIdx);
             if (tipoSelDestino) tipoSelDestino.value = tipoOrigen;
             actualizarWarmupUIDia(targetIdx); // regenera params y re-renderiza ejercicios
@@ -9412,7 +9652,8 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
         cargarListaAlumnos();
         cargarAlumnosDash();
         // Autocompletado de alumno en "Crear Rutina" (texto libre, sugiere alumnos existentes)
-        _obtenerAlumnosCache().then(() => _initAutocompleteAlumno('alumno-nombre', null, null));
+        _obtenerAlumnosCache().then(() => _initAutocompleteAlumno('alumno-nombre', _pfChequearHistorialAlumno, null));
+        document.getElementById('alumno-nombre')?.addEventListener('blur', _pfChequearHistorialAlumno);
         // Buscador de ejercicios mobile (bloque): reusa el select de desktop y agregarEjBloque()
         _initBusquedaEjercicioMobile('bloque-buscar-ej-mobile', 'bloque-ej-select', agregarEjBloque, _pfPostAgregarBloqueMobile);
         // Inicializar el sistema multi-dia con Dia 1 por defecto
