@@ -9152,10 +9152,11 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
                         '<span class="text-xs text-textoSuave ml-2">' + (r.tipo || 'ENTRENAMIENTO') + (fecha ? ' · ' + fecha : '') + '</span></div>' +
                     '</div>' +
                     '<div class="flex flex-wrap gap-2 mb-2">' +
-                        '<button onclick="_pfVerCompacto(\'' + r.codigo + '\')" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">👁 Ver</button>' +
+                        '<button onclick="_pfVerInline(\'' + r.codigo + '\', ' + i + ')" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">👁 Ver</button>' +
                         '<button onclick="_pfCopiarRutinaCompletaDesdeHistorial(\'' + r.codigo + '\')" class="bg-verde/20 text-verde px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-verde/30 transition">📋 Copiar toda la rutina</button>' +
                         '<button onclick="_pfDesglosarHistorial(\'' + r.codigo + '\', ' + i + ')" class="bg-purpura/20 text-purpura px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">Ver días y copiar por partes</button>' +
                     '</div>' +
+                    '<div id="historial-ver-inline-' + i + '" class="hidden mt-2 space-y-2"></div>' +
                     '<div id="historial-dias-' + i + '" class="hidden mt-2 space-y-2"></div>' +
                 '</div>';
             }).join('');
@@ -9172,6 +9173,30 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
 
     // Muestra (o esconde, si ya estaba mostrado) el desglose dia por dia de una rutina historica,
     // con botones para copiar solo el calentamiento o solo un bloque especifico.
+    // "Ver" (solo lectura): se despliega hacia abajo dentro de la misma tarjeta, igual que
+    // "Ver días y copiar por partes", para poder tener varias rutinas abiertas a la vez.
+    async function _pfVerInline(codigo, i) {
+        const cont = document.getElementById('historial-ver-inline-' + i);
+        if (!cont) return;
+        if (!cont.classList.contains('hidden')) { cont.classList.add('hidden'); return; }
+        cont.innerHTML = '<p class="text-xs text-textoSuave">Cargando...</p>';
+        cont.classList.remove('hidden');
+        try {
+            let r = historialRutinasCache[codigo];
+            if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia)) {
+                const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+                const data = await res.json();
+                if (!data.ok) { cont.innerHTML = '<p class="text-xs text-rojo">Error al cargar</p>'; return; }
+                r = data.rutina;
+                historialRutinasCache[codigo] = r;
+            }
+            const dias = _pfParsearDiasHistorial(r);
+            cont.innerHTML = _pfGenerarHTMLCompacto(dias, false);
+        } catch (e) {
+            cont.innerHTML = '<p class="text-xs text-rojo">Error de conexión</p>';
+        }
+    }
+
     async function _pfDesglosarHistorial(codigo, i) {
         const cont = document.getElementById('historial-dias-' + i);
         if (!cont) return;
