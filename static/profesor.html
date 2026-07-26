@@ -350,6 +350,7 @@
         .bloques-lista-container.vista-compacta .exercise-chip { padding: 6px 10px !important; border-radius: 10px !important; }
         .bloques-lista-container.vista-compacta .drag-handle { display: none !important; }
         .bloques-lista-container.vista-compacta .bloque-card-pills { flex-wrap: nowrap !important; overflow-x: auto !important; }
+        .hist-pill { display: inline-block; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 2px 8px; font-size: 0.7rem; color: #8a8a9a; white-space: nowrap; }
     </style>
 
     <!-- PWA: Inline Manifest + Service Worker + Icons -->
@@ -9151,7 +9152,7 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
                         '<span class="text-xs text-textoSuave ml-2">' + (r.tipo || 'ENTRENAMIENTO') + (fecha ? ' · ' + fecha : '') + '</span></div>' +
                     '</div>' +
                     '<div class="flex flex-wrap gap-2 mb-2">' +
-                        '<button onclick="verRutina(\'' + r.codigo + '\')" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">👁 Ver</button>' +
+                        '<button onclick="_pfVerCompacto(\'' + r.codigo + '\')" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">👁 Ver</button>' +
                         '<button onclick="_pfCopiarRutinaCompletaDesdeHistorial(\'' + r.codigo + '\')" class="bg-verde/20 text-verde px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-verde/30 transition">📋 Copiar toda la rutina</button>' +
                         '<button onclick="_pfDesglosarHistorial(\'' + r.codigo + '\', ' + i + ')" class="bg-purpura/20 text-purpura px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">Ver días y copiar por partes</button>' +
                     '</div>' +
@@ -9188,19 +9189,7 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
             }
             const dias = _pfParsearDiasHistorial(r);
             _pfHistorialParseado = dias;
-            if (dias.length === 0) { cont.innerHTML = '<p class="text-xs text-textoSuave">Sin días para mostrar</p>'; return; }
-            cont.innerHTML = dias.map((d, di) => {
-                const bloquesBtns = (d.bloquesRutina || []).map((b, bi) =>
-                    '<button onclick="abrirModalCopiarBloqueDesdeHistorial(' + di + ',' + bi + ')" class="bg-fondo hover:bg-borde border border-borde rounded-lg px-2 py-1 text-[11px] text-texto transition">📋 ' + (b.tipo || 'Bloque') + ' (' + (b.ejercicios || []).length + ' ej)</button>'
-                ).join(' ');
-                const calBtn = (d.warmupEjercicios && d.warmupEjercicios.length)
-                    ? '<button onclick="abrirModalCopiarCalentamientoDesdeHistorial(' + di + ')" class="bg-azul/20 hover:bg-azul/30 text-azul rounded-lg px-2 py-1 text-[11px] font-bold transition">🔥 Copiar calentamiento (' + d.warmupEjercicios.length + ' ej)</button>'
-                    : '';
-                return '<div class="bg-fondo rounded-lg p-2 border border-borde/40">' +
-                    '<div class="text-xs font-bold text-texto mb-1">' + (d.titulo || ('Día ' + (di + 1))) + '</div>' +
-                    '<div class="flex flex-wrap gap-1.5">' + (calBtn || bloquesBtns ? calBtn + ' ' + bloquesBtns : '<span class="text-[11px] text-textoSuave">Vacío</span>') + '</div>' +
-                '</div>';
-            }).join('');
+            cont.innerHTML = _pfGenerarHTMLCompacto(dias, true);
         } catch (e) {
             cont.innerHTML = '<p class="text-xs text-rojo">Error de conexión</p>';
         }
@@ -9235,6 +9224,65 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
     // Version "pura" del parseo usado en editarRutinaDesdeHistorial: en vez de reemplazar
     // el estado global (diasData) y navegar de pestaña, devuelve el array de dias parseado
     // para poder copiar piezas sueltas (un calentamiento, un bloque) sin tocar el editor actual.
+    // Genera el HTML de tarjetas compactas (calentamiento + bloques, con pills de ejercicios)
+    // para un array de dias ya parseado. Se usa tanto para "Ver" (solo lectura) como para
+    // "Ver días y copiar por partes" (con botones de Copiar en cada tarjeta).
+    function _pfGenerarHTMLCompacto(dias, conCopiar) {
+        const colores = { 'Circuito': 'naranja', 'Circuito por Tiempo': 'azul', 'Por Tiempo': 'purpura', 'Tabata': 'rojo', 'EMOM': 'amarillo', 'Series': 'verde' };
+        if (!dias || dias.length === 0) return '<p class="text-textoSuave text-sm text-center py-6">Sin días para mostrar</p>';
+        return dias.map((d, di) => {
+            const calEjs = d.warmupEjercicios || [];
+            const calPills = calEjs.map(e => '<span class="hist-pill">' + (e.nombre || '') + '</span>').join('');
+            const calCard = calEjs.length ? (
+                '<div class="bg-fondoAlt rounded-xl border border-azul/30 p-3 mb-2">' +
+                    '<div class="flex items-center justify-between mb-1.5 flex-wrap gap-2">' +
+                        '<span class="px-2 py-0.5 rounded text-xs font-bold bg-azul/20 text-azul uppercase tracking-wider">🔥 Calentamiento</span>' +
+                        (conCopiar ? '<button onclick="abrirModalCopiarCalentamientoDesdeHistorial(' + di + ')" class="bg-azul/20 text-azul px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-azul/30 transition">Copiar</button>' : '') +
+                    '</div>' +
+                    '<div style="display:flex;flex-wrap:wrap;gap:4px;">' + calPills + '</div>' +
+                '</div>'
+            ) : '';
+            const bloquesCards = (d.bloquesRutina || []).map((b, bi) => {
+                const color = colores[b.tipo] || 'purpura';
+                const pills = (b.ejercicios || []).map(e => '<span class="hist-pill">' + (e.nombre || '') + '</span>').join('');
+                return '<div class="bg-fondoAlt rounded-xl border border-' + color + '/30 p-3 mb-2">' +
+                    '<div class="flex items-center justify-between mb-1.5 flex-wrap gap-2">' +
+                        '<span class="px-2 py-0.5 rounded text-xs font-bold bg-' + color + '/20 text-' + color + ' uppercase tracking-wider">' + (bi + 1) + '. ' + (b.tipo || 'Bloque') + '</span>' +
+                        (conCopiar ? '<button onclick="abrirModalCopiarBloqueDesdeHistorial(' + di + ',' + bi + ')" class="bg-purpura/20 text-purpura px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-purpura/30 transition">Copiar</button>' : '') +
+                    '</div>' +
+                    '<div style="display:flex;flex-wrap:wrap;gap:4px;">' + pills + '</div>' +
+                '</div>';
+            }).join('');
+            return '<div class="mb-4">' +
+                '<h4 class="text-sm font-bold text-texto uppercase tracking-wider mb-2">' + (d.titulo || ('Día ' + (di + 1))) + '</h4>' +
+                (calCard + bloquesCards || '<p class="text-xs text-textoSuave">Día vacío</p>') +
+            '</div>';
+        }).join('');
+    }
+
+    // "Ver" desde el historial del alumno: en vez del PDF (generarHTMLRutina), muestra
+    // la rutina como tarjetas compactas (calentamiento + bloques con pills de ejercicios),
+    // solo lectura, en el mismo modal que ya se usaba para ver rutinas.
+    async function _pfVerCompacto(codigo) {
+        const content = document.getElementById('modal-rutina-content');
+        content.innerHTML = '<p style="text-align:center;color:#888;padding:40px;">Cargando rutina...</p>';
+        document.getElementById('modal-ver-rutina').classList.remove('hidden');
+        try {
+            let r = historialRutinasCache[codigo];
+            if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia)) {
+                const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+                const data = await res.json();
+                if (!data.ok) { content.innerHTML = '<p style="text-align:center;color:#EF5350;padding:40px;">Error: ' + (data.error || 'No encontrada') + '</p>'; return; }
+                r = data.rutina;
+                historialRutinasCache[codigo] = r;
+            }
+            const dias = _pfParsearDiasHistorial(r);
+            content.innerHTML = '<h3 class="text-sm font-bold text-amarillo uppercase tracking-wider mb-4">' + codigo.toUpperCase() + '</h3>' + _pfGenerarHTMLCompacto(dias, false);
+        } catch (e) {
+            content.innerHTML = '<p style="text-align:center;color:#EF5350;padding:40px;">Error de conexión</p>';
+        }
+    }
+
     function _pfParsearDiasHistorial(r) {
         const datos = resolverDatos(r);
         const tipo = r.tipo || 'ENTRENAMIENTO';
