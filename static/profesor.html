@@ -1654,6 +1654,17 @@
         </div>
     </div>
 
+    <!-- Modal: vista compacta de toda la rutina actual (todos los dias, calentamiento + bloques) -->
+    <div id="modal-vista-compacta-rutina" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start sm:items-center justify-center p-2 sm:p-6 overflow-y-auto modal-bottom-sheet-mobile">
+        <div class="bg-tarjeta rounded-2xl border border-borde p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto my-2 sm:my-0">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-bold text-verde uppercase tracking-wider">Vista compacta de la rutina</h3>
+                <button onclick="document.getElementById('modal-vista-compacta-rutina').classList.add('hidden')" class="text-textoSuave hover:text-texto text-xl leading-none px-2">&times;</button>
+            </div>
+            <div id="vista-compacta-rutina-content"></div>
+        </div>
+    </div>
+
 
     <script>
     // ====================================================================
@@ -2859,7 +2870,7 @@
                         <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
                             <h3 class="text-sm font-bold text-verde uppercase tracking-wider">2. Bloque Principal</h3>
                             <div class="flex items-center gap-2">
-                                <button id="btn-vista-compacta-${idx}" onclick="_pfToggleVistaCompacta(${idx})" title="Ver todos los bloques de un vistazo" class="text-textoSuave hover:text-texto px-2.5 py-2 rounded-lg text-xs font-bold border border-borde transition">☰ Vista compacta</button>
+                                <button id="btn-vista-compacta-${idx}" onclick="_pfAbrirVistaCompactaRutina()" title="Ver toda la rutina (todos los días) de un vistazo" class="text-textoSuave hover:text-texto px-2.5 py-2 rounded-lg text-xs font-bold border border-borde transition">☰ Vista compacta</button>
                                 <button onclick="agregarBloqueDia(${idx})" class="bg-purpura/20 text-purpura px-3 py-2 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">+ Agregar Bloque</button>
                             </div>
                         </div>
@@ -9076,7 +9087,7 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
     // IDs de los contenedores modales reales (fixed inset-0), en el orden en que aparecen en el DOM.
     const MODAL_IDS = ['modal-dash-rutina', 'modal-codigo', 'modal-repo-guardar', 'modal-repo-editar',
         'modal-repo-copiar', 'modal-ver-rutina', 'modal-piz-vt', 'modal-ia-config', 'modal-ia-preview',
-        'modal-nueva-cat', 'modal-bloque', 'modal-copiar-destino', 'modal-historial-alumno'];
+        'modal-nueva-cat', 'modal-bloque', 'modal-copiar-destino', 'modal-historial-alumno', 'modal-vista-compacta-rutina'];
 
     // Devuelve tambien los modales de calentamiento (uno por dia, id dinamico modal-calentamiento-N)
     function _pfTodosLosModalesVisibles() {
@@ -9252,6 +9263,40 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
     // Genera el HTML de tarjetas compactas (calentamiento + bloques, con pills de ejercicios)
     // para un array de dias ya parseado. Se usa tanto para "Ver" (solo lectura) como para
     // "Ver días y copiar por partes" (con botones de Copiar en cada tarjeta).
+    // Texto de detalle de un bloque: vueltas, pausas, series, etc. segun el tipo.
+    // Sirve tanto para bloques del editor actual como para bloques parseados de una rutina historica
+    // (ambos usan el mismo shape: b.vueltas, b.pausa_vuelta, b.trabajo, b.pausa, b.cantidad, etc.)
+    function _pfDetalleBloque(b) {
+        if (!b) return '';
+        const cantEj = (b.ejercicios || []).length;
+        if (b.tipo === 'Circuito') return (b.vueltas || 3) + ' vueltas · ' + (b.pausa_vuelta || 60) + 's pausa entre vueltas';
+        if (b.tipo === 'Circuito por Tiempo') return (b.duracion_min || 5) + ' min';
+        if (b.tipo === 'Tabata') return (b.rondas || 1) + ' ronda(s) · ' + (b.cantidad || cantEj || 8) + ' ej · ' + (b.trabajo || 20) + 's trabajo / ' + (b.pausa || 10) + 's pausa';
+        if (b.tipo === 'EMOM') return (b.minutos_totales || 10) + ' min';
+        if (b.tipo === 'Por Tiempo') return (b.vueltas || 3) + ' vueltas';
+        if (b.tipo === 'Series') {
+            const seriesVals = (b.ejercicios || []).map(e => parseInt(e.series) || 4);
+            const avgSeries = seriesVals.length ? Math.round(seriesVals.reduce((a, c) => a + c, 0) / seriesVals.length) : 4;
+            return '~' + avgSeries + ' series por ejercicio';
+        }
+        return '';
+    }
+
+    // Texto de detalle del calentamiento de un dia (metodo, vueltas, repeticiones).
+    // Acepta tanto _wCfg (viene de _pfParsearDiasHistorial) como _warmupCfg (editor actual, en vivo).
+    function _pfDetalleCalentamiento(d) {
+        if (!d) return '';
+        const tipo = d._wTipo || (d._warmupCfg && d._warmupCfg.tipo) || '';
+        const cfg = d._wCfg || d._warmupCfg || {};
+        if (tipo === 'Circuito (Vueltas)') return (cfg.vueltas || 2) + ' vueltas · ' + (cfg.pausa_vuelta || 30) + 's pausa';
+        if (tipo === 'Circuito por Tiempo') return (cfg.duracion_bloque || 3) + ' min';
+        if (tipo === 'Tabata') return (cfg.cantidad || (d.warmupEjercicios || []).length || 8) + ' ej · ' + (cfg.trabajo || 20) + 's trabajo / ' + (cfg.pausa || 10) + 's pausa';
+        if (tipo === 'EMOM') return (cfg.minutos || 5) + ' min';
+        if (tipo === 'Por Tiempo') return (cfg.vueltas || 3) + ' vueltas';
+        if (tipo === 'Series/Reps') return (cfg.series || 3) + ' series · ' + (cfg.reps || 10) + ' reps';
+        return '';
+    }
+
     function _pfGenerarHTMLCompacto(dias, conCopiar) {
         const colores = { 'Circuito': 'naranja', 'Circuito por Tiempo': 'azul', 'Por Tiempo': 'purpura', 'Tabata': 'rojo', 'EMOM': 'amarillo', 'Series': 'verde' };
         if (!dias || dias.length === 0) return '<p class="text-textoSuave text-sm text-center py-6">Sin días para mostrar</p>';
@@ -9259,6 +9304,7 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
             const calEjs = d.warmupEjercicios || [];
             const calPills = calEjs.map(e => '<span class="hist-pill">' + (e.nombre || '') + '</span>').join('');
             const calTipo = d._wTipo || d._warmupCfg?.tipo || '';
+            const calDetalle = _pfDetalleCalentamiento(d);
             const calCard = calEjs.length ? (
                 '<div class="bg-fondoAlt rounded-xl border border-azul/30 p-3 mb-2">' +
                     '<div class="flex items-center justify-between mb-1.5 flex-wrap gap-2">' +
@@ -9268,17 +9314,20 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
                         '</div>' +
                         (conCopiar ? '<button onclick="abrirModalCopiarCalentamientoDesdeHistorial(' + di + ')" class="bg-azul/20 text-azul px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-azul/30 transition">Copiar</button>' : '') +
                     '</div>' +
+                    (calDetalle ? '<div class="text-[11px] text-textoSuave/80 mb-1.5">' + calDetalle + '</div>' : '') +
                     '<div style="display:flex;flex-wrap:wrap;gap:4px;">' + calPills + '</div>' +
                 '</div>'
             ) : '';
             const bloquesCards = (d.bloquesRutina || []).map((b, bi) => {
                 const color = colores[b.tipo] || 'purpura';
                 const pills = (b.ejercicios || []).map(e => '<span class="hist-pill">' + (e.nombre || '') + '</span>').join('');
+                const detalle = _pfDetalleBloque(b);
                 return '<div class="bg-fondoAlt rounded-xl border border-' + color + '/30 p-3 mb-2">' +
                     '<div class="flex items-center justify-between mb-1.5 flex-wrap gap-2">' +
                         '<span class="px-2 py-0.5 rounded text-xs font-bold bg-' + color + '/20 text-' + color + ' uppercase tracking-wider">' + (bi + 1) + '. ' + (b.tipo || 'Bloque') + '</span>' +
                         (conCopiar ? '<button onclick="abrirModalCopiarBloqueDesdeHistorial(' + di + ',' + bi + ')" class="bg-purpura/20 text-purpura px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-purpura/30 transition">Copiar</button>' : '') +
                     '</div>' +
+                    (detalle ? '<div class="text-[11px] text-textoSuave/80 mb-1.5">' + detalle + '</div>' : '') +
                     '<div style="display:flex;flex-wrap:wrap;gap:4px;">' + pills + '</div>' +
                 '</div>';
             }).join('');
@@ -9640,17 +9689,15 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
         }
     }
 
-    // Alterna entre vista expandida (normal) y vista compacta (mas densa, para ver
-    // todos los bloques del dia de un vistazo) en la lista de bloques de un dia.
-    function _pfToggleVistaCompacta(idx) {
-        const lista = document.getElementById('bloques-lista-' + idx);
-        const btn = document.getElementById('btn-vista-compacta-' + idx);
-        if (!lista || !btn) return;
-        const activa = lista.classList.toggle('vista-compacta');
-        btn.textContent = activa ? '☰ Vista expandida' : '☰ Vista compacta';
-        btn.classList.toggle('bg-verde/20', activa);
-        btn.classList.toggle('text-verde', activa);
-        btn.classList.toggle('border-verde/40', activa);
+    // Abre un modal con toda la rutina actual (todos los dias), mostrando el calentamiento
+    // y cada bloque como tarjetas con metodo, vueltas/repeticiones y los ejercicios de cada uno.
+    function _pfAbrirVistaCompactaRutina() {
+        const content = document.getElementById('vista-compacta-rutina-content');
+        if (!content) return;
+        const alumno = (document.getElementById('alumno-nombre')?.value || '').trim();
+        content.innerHTML = (alumno ? '<h3 class="text-sm font-bold text-amarillo uppercase tracking-wider mb-4">' + alumno.toUpperCase() + '</h3>' : '') +
+            _pfGenerarHTMLCompacto(diasData, false);
+        document.getElementById('modal-vista-compacta-rutina').classList.remove('hidden');
     }
 
     function _pfWarmupPaso(idx, n) {
