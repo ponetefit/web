@@ -1135,7 +1135,7 @@
         </section>
 
         <!-- Modal Ver Rutina -->
-        <div id="modal-ver-rutina" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div id="modal-ver-rutina" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
             <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 <div id="modal-rutina-content" class="p-8">
                 </div>
@@ -9233,10 +9233,14 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
         return dias.map((d, di) => {
             const calEjs = d.warmupEjercicios || [];
             const calPills = calEjs.map(e => '<span class="hist-pill">' + (e.nombre || '') + '</span>').join('');
+            const calTipo = d._wTipo || d._warmupCfg?.tipo || '';
             const calCard = calEjs.length ? (
                 '<div class="bg-fondoAlt rounded-xl border border-azul/30 p-3 mb-2">' +
                     '<div class="flex items-center justify-between mb-1.5 flex-wrap gap-2">' +
-                        '<span class="px-2 py-0.5 rounded text-xs font-bold bg-azul/20 text-azul uppercase tracking-wider">🔥 Calentamiento</span>' +
+                        '<div class="flex items-center gap-2 flex-wrap">' +
+                            '<span class="px-2 py-0.5 rounded text-xs font-bold bg-azul/20 text-azul uppercase tracking-wider">🔥 Calentamiento</span>' +
+                            (calTipo ? '<span class="text-[11px] text-textoSuave">' + calTipo + '</span>' : '') +
+                        '</div>' +
                         (conCopiar ? '<button onclick="abrirModalCopiarCalentamientoDesdeHistorial(' + di + ')" class="bg-azul/20 text-azul px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-azul/30 transition">Copiar</button>' : '') +
                     '</div>' +
                     '<div style="display:flex;flex-wrap:wrap;gap:4px;">' + calPills + '</div>' +
