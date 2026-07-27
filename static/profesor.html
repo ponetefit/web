@@ -2862,7 +2862,7 @@
                                 </div>
                                 <div id="warmup-ejercicios-lista-${idx}" class="space-y-2"></div>
                                 <div class="pt-3">
-                                    <button onclick="cerrarModalCalentamientoDia(${idx})" class="btn-primary w-full py-3 rounded-xl text-white font-bold text-sm">Listo</button>
+                                    <button onclick="intentarGuardarCalentamientoDia(${idx})" class="btn-primary w-full py-3 rounded-xl text-white font-bold text-sm">Listo</button>
                                 </div>
                             </div>
                         </div>
@@ -4222,11 +4222,24 @@
         if (tipo === 'EMOM') {
             const mins = parseInt(document.getElementById('bp-minutos')?.value || 10);
             let totalEjs = 0;
+            let faltaRepsEmom = false;
             for (let _em = 0; _em < mins; _em++) {
                 const _listEl = document.getElementById('emom-min-' + _em + '-lista');
-                if (_listEl) { try { totalEjs += JSON.parse(_listEl.dataset.ejs || '[]').length; } catch(e) {} }
+                if (_listEl) {
+                    try {
+                        const _ejsMin = JSON.parse(_listEl.dataset.ejs || '[]');
+                        totalEjs += _ejsMin.length;
+                        if (_ejsMin.some(e => !e.reps || String(e.reps).trim() === '')) faltaRepsEmom = true;
+                    } catch(e) {}
+                }
             }
             if (totalEjs === 0) { toast('Agrega al menos un ejercicio en algun minuto'); return; }
+            if (faltaRepsEmom) { toast('⚠ No se cargó la cantidad de repeticiones o segundos de uno o más ejercicios'); return; }
+        }
+        // Para el resto de los tipos: validar que no falten reps/pausa en ningun ejercicio del bloque
+        if (tipo !== 'EMOM' && tipo !== 'Tabata') {
+            const faltaDatos = bloqueEjsTemp.some(ej => _pfEjercicioIncompleto(ej, tipo));
+            if (faltaDatos) { toast('⚠ No se cargó la cantidad de repeticiones o segundos de uno o más ejercicios'); return; }
         }
         const desc = (document.getElementById('bloque-desc')?.value || '').trim();
 
@@ -9188,6 +9201,12 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
     // "Ver" (solo lectura): se despliega hacia abajo dentro de la misma tarjeta, igual que
     // "Ver días y copiar por partes", para poder tener varias rutinas abiertas a la vez.
     async function _pfVerInline(codigo, i) {
+        // En PC/desktop: abrir el historial en una ventana nueva. En mobile: se mantiene el comportamiento actual (despliegue inline).
+        const esMobile = window.innerWidth < 640;
+        if (!esMobile) {
+            _pfVerHistorialVentanaNueva(codigo);
+            return;
+        }
         const cont = document.getElementById('historial-ver-inline-' + i);
         if (!cont) return;
         if (!cont.classList.contains('hidden')) { cont.classList.add('hidden'); return; }
@@ -9207,6 +9226,54 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
         } catch (e) {
             cont.innerHTML = '<p class="text-xs text-rojo">Error de conexión</p>';
         }
+    }
+
+    // Abre el detalle de una rutina del historial en una ventana/pestaña nueva (solo desktop/PC).
+    // La ventana se abre de forma sincronica (antes de cualquier await) para evitar el bloqueo
+    // de popups del navegador; el contenido se completa despues, cuando llegan los datos.
+    function _pfVerHistorialVentanaNueva(codigo) {
+        const ventana = window.open('', '_blank');
+        if (ventana) {
+            ventana.document.write(
+                '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">' +
+                '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+                '<title>Historial — ' + codigo.toUpperCase() + '</title>' +
+                '<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700;900&display=swap" rel="stylesheet">' +
+                '<script src="https://cdn.tailwindcss.com"><\/script>' +
+                '<script>tailwind.config={theme:{extend:{colors:{' +
+                'fondo:"#0a0a0c",fondoAlt:"#0f0f13",tarjeta:"#141418",tarjetaAlt:"#1a1a20",' +
+                'texto:"#f0f0f5",textoSuave:"#8a8a9a",borde:"#2a2a35",naranja:"#FF6B35",' +
+                'azul:"#4FC3F7",verde:"#69F0AE",rojo:"#EF5350",amarillo:"#FFD54F",purpura:"#CE93D8"' +
+                '}}}}<\/script>' +
+                '<style>body{font-family:"Roboto",sans-serif;background:#0a0a0c;color:#f0f0f5;padding:24px;}' +
+                '.hist-pill{display:inline-block;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;font-size:0.7rem;color:#8a8a9a;white-space:nowrap;}' +
+                '</style></head><body>' +
+                '<div id="historial-contenido" class="max-w-3xl mx-auto">' +
+                '<p class="text-textoSuave text-sm">Cargando...</p>' +
+                '</div></body></html>'
+            );
+            ventana.document.close();
+        }
+        (async () => {
+            try {
+                let r = historialRutinasCache[codigo];
+                if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia)) {
+                    const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+                    const data = await res.json();
+                    if (!data.ok) {
+                        if (ventana && !ventana.closed) ventana.document.getElementById('historial-contenido').innerHTML = '<p class="text-rojo text-sm">Error al cargar</p>';
+                        return;
+                    }
+                    r = data.rutina;
+                    historialRutinasCache[codigo] = r;
+                }
+                const dias = _pfParsearDiasHistorial(r);
+                const html = '<h1 class="text-lg font-bold text-amarillo uppercase tracking-wider mb-4">' + codigo.toUpperCase() + '</h1>' + _pfGenerarHTMLCompacto(dias, false);
+                if (ventana && !ventana.closed) ventana.document.getElementById('historial-contenido').innerHTML = html;
+            } catch (e) {
+                if (ventana && !ventana.closed) ventana.document.getElementById('historial-contenido').innerHTML = '<p class="text-rojo text-sm">Error de conexión</p>';
+            }
+        })();
     }
 
     async function _pfDesglosarHistorial(codigo, i) {
@@ -9666,6 +9733,45 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
         _pfWarmupPaso(idx, 1);
         const modal = document.getElementById('modal-calentamiento-' + idx);
         if (modal) modal.classList.remove('hidden');
+    }
+
+    // Detecta si a un ejercicio del calentamiento le falta cargar reps/segs (y pausa, si corresponde)
+    function _pfWarmupEjIncompleto(ej, tipo) {
+        if (tipo === 'Tabata') return false; // se configura a nivel de bloque
+        if (Array.isArray(ej.reps_por_vuelta) && ej.reps_por_vuelta.length) {
+            return ej.reps_por_vuelta.some(r => !r || String(r).trim() === '');
+        }
+        if (Array.isArray(ej.reps_por_serie) && ej.reps_por_serie.length) {
+            const repsVacio = ej.reps_por_serie.some(r => !r || String(r).trim() === '');
+            const pausaVacia = (ej.pausa_por_serie || []).some(p => p === '' || p === null || p === undefined);
+            return repsVacio || pausaVacia;
+        }
+        return !ej.reps || String(ej.reps).trim() === '';
+    }
+
+    // Revisa todos los ejercicios del calentamiento de un dia (incluido EMOM) y devuelve
+    // true si a alguno le falta la cantidad de repeticiones o segundos
+    function _pfWarmupTieneIncompletos(idx) {
+        const dia = diasData[idx];
+        if (!dia) return false;
+        const tipoSel = document.getElementById('warmup-tipo-' + idx);
+        const tipo = tipoSel ? tipoSel.value : ((dia._warmupCfg && dia._warmupCfg.tipo) || '');
+        if (tipo === 'EMOM') {
+            const cfg = dia.warmupEmomConfig || [];
+            return cfg.some(m => (m.ejercicios || []).some(ej => !ej.reps || String(ej.reps).trim() === ''));
+        }
+        const ejs = dia.warmupEjercicios || [];
+        if (ejs.length === 0) return false;
+        return ejs.some(ej => _pfWarmupEjIncompleto(ej, tipo));
+    }
+
+    // Handler del boton "Listo": valida antes de cerrar/guardar el calentamiento del dia
+    function intentarGuardarCalentamientoDia(idx) {
+        if (_pfWarmupTieneIncompletos(idx)) {
+            toast('⚠ No se cargó la cantidad de repeticiones o segundos de uno o más ejercicios');
+            return;
+        }
+        cerrarModalCalentamientoDia(idx);
     }
 
     function cerrarModalCalentamientoDia(idx) {
