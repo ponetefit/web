@@ -826,6 +826,9 @@
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     Agregar Día
                 </button>
+                <button id="btn-vista-compacta-global" onclick="_pfAbrirVistaCompactaRutina()" title="Ver toda la rutina (todos los días) de un vistazo" class="hidden flex-1 py-3 rounded-2xl border-2 border-verde/40 text-verde font-bold text-sm uppercase tracking-wider hover:border-verde hover:bg-verde/5 transition items-center justify-center gap-2">
+                    ☰ Vista Compacta
+                </button>
                 <button onclick="generarRutinaIA()" class="flex-1 py-3 rounded-2xl font-bold text-sm uppercase tracking-wider transition flex items-center justify-center gap-2" style="background: linear-gradient(135deg, #7c3aed, #4f46e5); box-shadow: 0 8px 24px rgba(124,58,237,0.35); color: #fff;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
                     🤖 Armar Rutina con IA
                 </button>
@@ -2869,10 +2872,7 @@
                     <div>
                         <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
                             <h3 class="text-sm font-bold text-verde uppercase tracking-wider">2. Bloque Principal</h3>
-                            <div class="flex items-center gap-2">
-                                <button id="btn-vista-compacta-${idx}" onclick="_pfAbrirVistaCompactaRutina()" title="Ver toda la rutina (todos los días) de un vistazo" class="text-textoSuave hover:text-texto px-2.5 py-2 rounded-lg text-xs font-bold border border-borde transition">☰ Vista compacta</button>
-                                <button onclick="agregarBloqueDia(${idx})" class="bg-purpura/20 text-purpura px-3 py-2 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">+ Agregar Bloque</button>
-                            </div>
+                            <button onclick="agregarBloqueDia(${idx})" class="bg-purpura/20 text-purpura px-3 py-2 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">+ Agregar Bloque</button>
                         </div>
                         <div id="bloques-lista-${idx}" class="space-y-3 bloques-lista-container"></div>
                         <div id="sin-bloques-${idx}" class="text-textoSuave text-xs text-center py-6">
@@ -3341,6 +3341,7 @@
     }
 
     function actualizarBadgeDia(idx) {
+        _pfActualizarVisibilidadVistaCompacta();
         const card = document.getElementById('dia-card-' + idx);
         if (!card || !diasData[idx]) return;
         // Use the specific class we set in crearHTMLDia
@@ -9297,12 +9298,31 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
         return '';
     }
 
+    // Texto de reps/seg de un ejercicio para mostrar junto al nombre en la pill.
+    // Soporta los 3 formatos posibles: reps_por_vuelta (Circuito), reps_por_serie (Series), reps plano (resto).
+    function _pfRepsEjercicio(e) {
+        if (!e) return '';
+        if (e.reps_por_vuelta && e.reps_por_vuelta.length) {
+            const vals = e.reps_por_vuelta.filter(v => v);
+            return vals.length ? vals.join('/') : '';
+        }
+        if (e.reps_por_serie && e.reps_por_serie.length) {
+            const vals = e.reps_por_serie.filter(v => v);
+            return vals.length ? vals.join('/') : '';
+        }
+        if (e.reps) return e.reps + (e.unit && e.unit !== 'Reps' ? ' ' + e.unit.toLowerCase() : '');
+        return '';
+    }
+
     function _pfGenerarHTMLCompacto(dias, conCopiar) {
         const colores = { 'Circuito': 'naranja', 'Circuito por Tiempo': 'azul', 'Por Tiempo': 'purpura', 'Tabata': 'rojo', 'EMOM': 'amarillo', 'Series': 'verde' };
         if (!dias || dias.length === 0) return '<p class="text-textoSuave text-sm text-center py-6">Sin días para mostrar</p>';
         return dias.map((d, di) => {
             const calEjs = d.warmupEjercicios || [];
-            const calPills = calEjs.map(e => '<span class="hist-pill">' + (e.nombre || '') + '</span>').join('');
+            const calPills = calEjs.map(e => {
+                const reps = _pfRepsEjercicio(e);
+                return '<span class="hist-pill">' + (e.nombre || '') + (reps ? ' <b class="text-texto">· ' + reps + '</b>' : '') + '</span>';
+            }).join('');
             const calTipo = d._wTipo || d._warmupCfg?.tipo || '';
             const calDetalle = _pfDetalleCalentamiento(d);
             const calCard = calEjs.length ? (
@@ -9320,7 +9340,10 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
             ) : '';
             const bloquesCards = (d.bloquesRutina || []).map((b, bi) => {
                 const color = colores[b.tipo] || 'purpura';
-                const pills = (b.ejercicios || []).map(e => '<span class="hist-pill">' + (e.nombre || '') + '</span>').join('');
+                const pills = (b.ejercicios || []).map(e => {
+                    const reps = _pfRepsEjercicio(e);
+                    return '<span class="hist-pill">' + (e.nombre || '') + (reps ? ' <b class="text-texto">· ' + reps + '</b>' : '') + '</span>';
+                }).join('');
                 const detalle = _pfDetalleBloque(b);
                 return '<div class="bg-fondoAlt rounded-xl border border-' + color + '/30 p-3 mb-2">' +
                     '<div class="flex items-center justify-between mb-1.5 flex-wrap gap-2">' +
@@ -9691,6 +9714,23 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
 
     // Abre un modal con toda la rutina actual (todos los dias), mostrando el calentamiento
     // y cada bloque como tarjetas con metodo, vueltas/repeticiones y los ejercicios de cada uno.
+    // Muestra el boton global de "Vista Compacta" solo si al menos un dia tiene
+    // calentamiento cargado Y al menos un bloque agregado.
+    function _pfActualizarVisibilidadVistaCompacta() {
+        const btn = document.getElementById('btn-vista-compacta-global');
+        if (!btn || typeof diasData === 'undefined') return;
+        const hayDiaCompleto = (diasData || []).some(d =>
+            (d.warmupEjercicios || []).length > 0 && (d.bloquesRutina || []).length > 0
+        );
+        if (hayDiaCompleto) {
+            btn.classList.remove('hidden');
+            btn.classList.add('flex');
+        } else {
+            btn.classList.add('hidden');
+            btn.classList.remove('flex');
+        }
+    }
+
     function _pfAbrirVistaCompactaRutina() {
         const content = document.getElementById('vista-compacta-rutina-content');
         if (!content) return;
@@ -9782,6 +9822,7 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
         _initBusquedaEjercicioMobile('bloque-buscar-ej-mobile', 'bloque-ej-select', agregarEjBloque, _pfPostAgregarBloqueMobile);
         // Inicializar el sistema multi-dia con Dia 1 por defecto
         initMultiDia();
+        _pfActualizarVisibilidadVistaCompacta();
         // Atajos de teclado del editor de rutina
         initAtajosTeclado();
         // Deslizar para eliminar ejercicios (mobile, solo touch)
