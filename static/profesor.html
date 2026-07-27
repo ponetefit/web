@@ -5462,18 +5462,18 @@
         document.getElementById('modal-ver-rutina').classList.remove('hidden');
 
         try {
-            // Primero verificar si ya lo tenemos en cache (con datos completos)
-            let r = historialRutinasCache[codigo];
-            if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia)) {
-                const res  = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
-                const data = await res.json();
-                if (!data.ok) {
-                    content.innerHTML = '<p style="text-align:center;color:#EF5350;padding:40px;">Error: ' + (data.error || 'No encontrada') + '</p>';
-                    return;
-                }
-                r = data.rutina;
-                historialRutinasCache[codigo] = r;
+            // Siempre hacer fetch completo: la cache del listado de historial puede
+            // venir "liviana" (con warmup_ejercicios de preview pero sin los bloques
+            // completos), lo que hacia que la vista previa mostrara solo el calentamiento.
+            let r;
+            const res  = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+            const data = await res.json();
+            if (!data.ok) {
+                content.innerHTML = '<p style="text-align:center;color:#EF5350;padding:40px;">Error: ' + (data.error || 'No encontrada') + '</p>';
+                return;
             }
+            r = data.rutina;
+            historialRutinasCache[codigo] = r;
 
             // Guardar en globales para que el sistema sepa qué rutina estamos viendo
             currentData        = r;
@@ -5897,18 +5897,18 @@
         const jsPDFLib = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
         if (!jsPDFLib) { toast('Libreria PDF no disponible, recarga la pagina'); return; }
 
-        // Obtener datos (cache o API) - verificar que tenga datos completos
-        let r = historialRutinasCache[codigo];
-        if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia)) {
-            toast('Cargando rutina para PDF...');
-            try {
-                const res  = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
-                const data = await res.json();
-                if (!data.ok) { toast('Error cargando rutina'); return; }
-                r = data.rutina;
-                historialRutinasCache[codigo] = r;
-            } catch (e) { toast('Error de conexion'); return; }
-        }
+        // Siempre hacer fetch completo para el PDF: la cache del listado de historial
+        // puede venir "liviana" (con warmup_ejercicios de preview pero sin los bloques
+        // completos), y eso hacia que el PDF se generara solo con el calentamiento.
+        let r;
+        toast('Cargando rutina para PDF...');
+        try {
+            const res  = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+            const data = await res.json();
+            if (!data.ok) { toast('Error cargando rutina'); return; }
+            r = data.rutina;
+            historialRutinasCache[codigo] = r;
+        } catch (e) { toast('Error de conexion'); return; }
 
         try {
             const doc      = new jsPDFLib({ unit: 'mm', format: 'a4' });
