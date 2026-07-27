@@ -1576,7 +1576,7 @@
                 <div id="bloque-paso-1">
                     <div>
                         <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Tipo de Entrenamiento</label>
-                        <select id="bloque-tipo" onchange="actualizarBloqueParams()" class="w-full rounded-lg px-3 py-2.5 text-sm">
+                        <select id="bloque-tipo" onchange="actualizarBloqueParams();renderBloqueEjsTemp()" class="w-full rounded-lg px-3 py-2.5 text-sm">
                             <option value="Circuito">Circuito (Vueltas)</option>
                             <option value="Circuito por Tiempo">Circuito por Tiempo</option>
                             <option value="Por Tiempo">Por Tiempo (Cronómetro)</option>
@@ -4218,6 +4218,15 @@
         const tipo = document.getElementById('bloque-tipo')?.value || 'Circuito';
         // Para EMOM, los ejercicios se cargan en los slots por minuto, no en bloqueEjsTemp
         if (tipo !== 'EMOM' && bloqueEjsTemp.length === 0) { toast('Agrega al menos un ejercicio'); return; }
+        // Tabata: validar que se hayan cargado tantos ejercicios como se configuraron en "Cantidad de ejercicios"
+        if (tipo === 'Tabata') {
+            const cantidadObjetivo = parseInt(document.getElementById('bp-cantidad')?.value || 0);
+            if (cantidadObjetivo > 0 && bloqueEjsTemp.length < cantidadObjetivo) {
+                const faltan = cantidadObjetivo - bloqueEjsTemp.length;
+                toast('⚠ Falta agregar ' + faltan + ' ejercicio' + (faltan !== 1 ? 's' : '') + ' (configuraste ' + cantidadObjetivo + ')');
+                return;
+            }
+        }
         // Para EMOM, verificar que haya al menos un ejercicio en algun minuto
         if (tipo === 'EMOM') {
             const mins = parseInt(document.getElementById('bp-minutos')?.value || 10);
@@ -4248,6 +4257,12 @@
             descripcion: desc,
             ejercicios: JSON.parse(JSON.stringify(bloqueEjsTemp))
         };
+        // Limpiar campos de reps que hayan quedado de un tipo de bloque anterior (ej: reps_por_vuelta
+        // de un Circuito previo) para que no queden "pisando" a la reps actual en Vista Compacta y demas vistas.
+        bloque.ejercicios.forEach(ej => {
+            if (tipo !== 'Circuito') delete ej.reps_por_vuelta;
+            if (tipo !== 'Series') { delete ej.reps_por_serie; delete ej.pausa_por_serie; }
+        });
 
         // Parametros segun tipo
         if (tipo === 'Circuito') {
@@ -4284,6 +4299,7 @@
             }
             bloque.ejercicios_por_minuto = bloque.emom_config_por_minuto.reduce((mx, m) => Math.max(mx, m.ejercicios_cantidad), 1);
             // Poblar ejercicios con lista unica para compatibilidad con otras partes del codigo
+            _todosEjs.forEach(e => { delete e.reps_por_vuelta; delete e.reps_por_serie; delete e.pausa_por_serie; });
             bloque.ejercicios = _todosEjs;
         }
         // Series: los datos ya estan en cada ejercicio
@@ -9228,52 +9244,83 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
         }
     }
 
-    // Abre el detalle de una rutina del historial en una ventana/pestaña nueva (solo desktop/PC).
-    // La ventana se abre de forma sincronica (antes de cualquier await) para evitar el bloqueo
-    // de popups del navegador; el contenido se completa despues, cuando llegan los datos.
-    function _pfVerHistorialVentanaNueva(codigo) {
+    // Abre el detalle de una rutina del historial en una ventana/pestaña nueva (solo desktop/PC),
+    // incluyendo un listado lateral con el resto de las rutinas del historial del alumno para
+    // poder navegar entre ellas sin cerrar la ventana. La ventana se abre de forma sincronica
+    // (antes de cualquier await) para evitar el bloqueo de popups del navegador.
+    function _pfVerHistorialVentanaNueva(codigoInicial) {
         const ventana = window.open('', '_blank');
-        if (ventana) {
-            ventana.document.write(
-                '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">' +
-                '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
-                '<title>Historial — ' + codigo.toUpperCase() + '</title>' +
-                '<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700;900&display=swap" rel="stylesheet">' +
-                '<script src="https://cdn.tailwindcss.com"><\/script>' +
-                '<script>tailwind.config={theme:{extend:{colors:{' +
-                'fondo:"#0a0a0c",fondoAlt:"#0f0f13",tarjeta:"#141418",tarjetaAlt:"#1a1a20",' +
-                'texto:"#f0f0f5",textoSuave:"#8a8a9a",borde:"#2a2a35",naranja:"#FF6B35",' +
-                'azul:"#4FC3F7",verde:"#69F0AE",rojo:"#EF5350",amarillo:"#FFD54F",purpura:"#CE93D8"' +
-                '}}}}<\/script>' +
-                '<style>body{font-family:"Roboto",sans-serif;background:#0a0a0c;color:#f0f0f5;padding:24px;}' +
-                '.hist-pill{display:inline-block;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;font-size:0.7rem;color:#8a8a9a;white-space:nowrap;}' +
-                '</style></head><body>' +
-                '<div id="historial-contenido" class="max-w-3xl mx-auto">' +
-                '<p class="text-textoSuave text-sm">Cargando...</p>' +
-                '</div></body></html>'
-            );
-            ventana.document.close();
-        }
-        (async () => {
+        if (!ventana) return;
+
+        const itemsHtml = _pfHistorialAlumnoCache.map((r) => {
+            const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
+            return '<button data-codigo="' + r.codigo + '" class="hv-item" ' +
+                'style="display:block;width:100%;text-align:left;background:rgba(255,255,255,0.03);' +
+                'border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:8px 10px;margin-bottom:6px;cursor:pointer;">' +
+                '<span style="font-family:\'Roboto Mono\',monospace;font-weight:700;color:#FFD54F;font-size:0.8rem;">' + r.codigo.toUpperCase() + '</span><br>' +
+                '<span style="color:#8a8a9a;font-size:0.7rem;">' + (r.tipo || 'ENTRENAMIENTO') + (fecha ? ' · ' + fecha : '') + '</span>' +
+                '</button>';
+        }).join('');
+
+        ventana.document.write(
+            '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">' +
+            '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+            '<title>Historial del alumno</title>' +
+            '<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700;900&family=Roboto+Mono:wght@700&display=swap" rel="stylesheet">' +
+            '<style>' +
+            'body{font-family:"Roboto",sans-serif;background:#0a0a0c;color:#f0f0f5;padding:24px;margin:0;}' +
+            '.hist-pill{display:inline-block;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;font-size:0.7rem;color:#8a8a9a;white-space:nowrap;}' +
+            '.hv-item:hover{border-color:#FF6B35 !important;}' +
+            '.hv-item.activo{border-color:#FF6B35 !important;box-shadow:0 0 0 1px #FF6B35;}' +
+            '</style></head><body>' +
+            '<div style="display:flex;gap:24px;max-width:1100px;margin:0 auto;align-items:flex-start;">' +
+                '<div style="width:250px;flex-shrink:0;">' +
+                    '<h2 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;color:#FFD54F;font-weight:700;margin:0 0 10px;">📋 Historial del alumno</h2>' +
+                    '<div id="hv-lista">' + (itemsHtml || '<p style="color:#8a8a9a;font-size:0.75rem;">Sin rutinas previas</p>') + '</div>' +
+                '</div>' +
+                '<div id="historial-contenido" style="flex:1;min-width:0;">' +
+                    '<p style="color:#8a8a9a;font-size:0.85rem;">Cargando...</p>' +
+                '</div>' +
+            '</div>' +
+            '</body></html>'
+        );
+        ventana.document.close();
+
+        // Carga y muestra una rutina puntual dentro del panel derecho de la ventana nueva.
+        // Reutiliza las funciones/datos ya disponibles en la pestaña principal (fetch, cache,
+        // parseo y armado de HTML compacto), solo actualiza el DOM de la ventana emergente.
+        const cargarEnVentana = async (codigo) => {
+            const cont = ventana.document.getElementById('historial-contenido');
+            if (!cont) return;
+            const marcarActivo = () => {
+                ventana.document.querySelectorAll('.hv-item').forEach(btn => {
+                    btn.classList.toggle('activo', btn.dataset.codigo === codigo);
+                });
+            };
+            marcarActivo();
+            cont.innerHTML = '<p style="color:#8a8a9a;font-size:0.85rem;">Cargando...</p>';
             try {
                 let r = historialRutinasCache[codigo];
                 if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia)) {
                     const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
                     const data = await res.json();
-                    if (!data.ok) {
-                        if (ventana && !ventana.closed) ventana.document.getElementById('historial-contenido').innerHTML = '<p class="text-rojo text-sm">Error al cargar</p>';
-                        return;
-                    }
+                    if (!data.ok) { if (!ventana.closed) cont.innerHTML = '<p style="color:#EF5350;font-size:0.85rem;">Error al cargar</p>'; return; }
                     r = data.rutina;
                     historialRutinasCache[codigo] = r;
                 }
                 const dias = _pfParsearDiasHistorial(r);
-                const html = '<h1 class="text-lg font-bold text-amarillo uppercase tracking-wider mb-4">' + codigo.toUpperCase() + '</h1>' + _pfGenerarHTMLCompacto(dias, false);
-                if (ventana && !ventana.closed) ventana.document.getElementById('historial-contenido').innerHTML = html;
+                const html = '<h1 style="font-size:1rem;font-weight:700;color:#FFD54F;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 16px;">' + codigo.toUpperCase() + '</h1>' + _pfGenerarHTMLCompacto(dias, false);
+                if (!ventana.closed) cont.innerHTML = html;
             } catch (e) {
-                if (ventana && !ventana.closed) ventana.document.getElementById('historial-contenido').innerHTML = '<p class="text-rojo text-sm">Error de conexión</p>';
+                if (!ventana.closed) cont.innerHTML = '<p style="color:#EF5350;font-size:0.85rem;">Error de conexión</p>';
             }
-        })();
+        };
+
+        ventana.document.querySelectorAll('.hv-item').forEach(btn => {
+            btn.onclick = () => cargarEnVentana(btn.dataset.codigo);
+        });
+
+        cargarEnVentana(codigoInicial);
     }
 
     async function _pfDesglosarHistorial(codigo, i) {
@@ -9765,8 +9812,22 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
         return ejs.some(ej => _pfWarmupEjIncompleto(ej, tipo));
     }
 
+    // Limpia campos de reps que hayan quedado de un tipo de calentamiento anterior (ej: reps_por_vuelta
+    // de un Circuito previo) para que Vista Compacta y demas vistas siempre reflejen el valor actual.
+    function _pfSanearWarmupEjercicios(idx) {
+        const dia = diasData[idx];
+        if (!dia) return;
+        const tipoSel = document.getElementById('warmup-tipo-' + idx);
+        const tipo = tipoSel ? tipoSel.value : ((dia._warmupCfg && dia._warmupCfg.tipo) || '');
+        (dia.warmupEjercicios || []).forEach(ej => {
+            if (tipo !== 'Circuito (Vueltas)') delete ej.reps_por_vuelta;
+            if (tipo !== 'Series/Reps') { delete ej.reps_por_serie; delete ej.pausa_por_serie; }
+        });
+    }
+
     // Handler del boton "Listo": valida antes de cerrar/guardar el calentamiento del dia
     function intentarGuardarCalentamientoDia(idx) {
+        _pfSanearWarmupEjercicios(idx);
         if (_pfWarmupTieneIncompletos(idx)) {
             toast('⚠ No se cargó la cantidad de repeticiones o segundos de uno o más ejercicios');
             return;
