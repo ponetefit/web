@@ -3579,8 +3579,8 @@
                 <input id="bp-trabajo" type="number" value="20" min="5" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label>
                 <input id="bp-pausa" type="number" value="10" min="5" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
-                <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de ejercicios</label>
-                <input id="bp-cantidad" type="number" value="4" min="1" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+                <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de ejercicios (opcional, solo si querés que se valide al guardar)</label>
+                <input id="bp-cantidad" type="number" value="${bloqueEjsTemp.length > 0 ? bloqueEjsTemp.length : ''}" min="1" placeholder="Ej: 4" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Rondas</label>
                 <input id="bp-rondas" type="number" value="1" min="1" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre rondas (seg)</label>
@@ -4275,7 +4275,7 @@
         } else if (tipo === 'Tabata') {
             bloque.trabajo = parseInt(document.getElementById('bp-trabajo')?.value || 20);
             bloque.pausa = parseInt(document.getElementById('bp-pausa')?.value || 10);
-            bloque.cantidad = parseInt(document.getElementById('bp-cantidad')?.value || 8);
+            bloque.cantidad = parseInt(document.getElementById('bp-cantidad')?.value || bloqueEjsTemp.length || 8);
             bloque.rondas = parseInt(document.getElementById('bp-rondas')?.value || 1);
             bloque.pausa_entre_rondas = parseInt(document.getElementById('bp-pausa-rondas')?.value || 0);
         } else if (tipo === 'EMOM') {
@@ -4359,7 +4359,7 @@
         } else if (b.tipo === 'Tabata') {
             const t = document.getElementById('bp-trabajo'); if(t) t.value = b.trabajo || 20;
             const p = document.getElementById('bp-pausa'); if(p) p.value = b.pausa || 10;
-            const c = document.getElementById('bp-cantidad'); if(c) c.value = b.cantidad || 8;
+            const c = document.getElementById('bp-cantidad'); if(c) c.value = b.cantidad || (b.ejercicios ? b.ejercicios.length : '') || '';
             const r = document.getElementById('bp-rondas'); if(r) r.value = b.rondas || 1;
             const pr = document.getElementById('bp-pausa-rondas'); if(pr) pr.value = b.pausa_entre_rondas || 0;
         } else if (b.tipo === 'EMOM') {
@@ -5322,7 +5322,11 @@
                         ? toArray(gruposC[0].ejercicios)
                         : gruposC;
                 } else {
-                    ejsFlat = toArray(datosR.datos || datosR.rutina || []);
+                    // "Por Tiempo" (y cualquier otro tipo plano) guarda los ejercicios bajo la
+                    // clave "ejercicios" (ver buildDatosDia) — antes solo se buscaba en "datos"/"rutina"
+                    // y por eso, al copiar una rutina "Por Tiempo" desde el historial, el bloque
+                    // quedaba sin ejercicios.
+                    ejsFlat = toArray(datosR.ejercicios || datosR.datos || datosR.rutina || []);
                 }
                 if (!ejsFlat.length) return [];
                 const bl = {
@@ -9531,7 +9535,8 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
                 const gruposC = toArray(datosR.datos || datosR.rutina || []);
                 ejsFlat = (gruposC.length && gruposC[0] && gruposC[0].ejercicios !== undefined) ? toArray(gruposC[0].ejercicios) : gruposC;
             } else {
-                ejsFlat = toArray(datosR.datos || datosR.rutina || []);
+                // "Por Tiempo" guarda los ejercicios bajo la clave "ejercicios" (ver buildDatosDia)
+                ejsFlat = toArray(datosR.ejercicios || datosR.datos || datosR.rutina || []);
             }
             if (!ejsFlat.length) return [];
             const bl = { tipo: (tipoR === 'ENTRENAMIENTO') ? 'Circuito' : tipoR, descripcion: datosR.descripcion || '', ejercicios: normEjs(ejsFlat) };
