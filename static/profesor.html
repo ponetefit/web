@@ -398,6 +398,7 @@
             <button onclick="showTab('rutina')" id="tab-rutina" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Crear Rutina</button>
             <button onclick="showTab('repositorio')" id="tab-repositorio" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Repositorio</button>
             <button onclick="showTab('videoteca')" id="tab-videoteca" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Videoteca</button>
+            <button onclick="showTab('crear-alumno')" id="tab-crear-alumno" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Crear Alumno</button>
             <button onclick="showTab('historial')" id="tab-historial" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Historial</button>
         </div>
 
@@ -418,6 +419,7 @@
             <button onclick="showTab('rutina');mobMenuClose()" id="mob-tab-rutina" class="w-full text-left px-5 py-4 text-sm font-bold uppercase tracking-widest border-b border-borde/50 transition-colors" style="color:#8a8a9a;background:none">Crear Rutina</button>
             <button onclick="showTab('repositorio');mobMenuClose()" id="mob-tab-repositorio" class="w-full text-left px-5 py-4 text-sm font-bold uppercase tracking-widest border-b border-borde/50 transition-colors" style="color:#8a8a9a;background:none">Repositorio</button>
             <button onclick="showTab('videoteca');mobMenuClose()" id="mob-tab-videoteca" class="w-full text-left px-5 py-4 text-sm font-bold uppercase tracking-widest border-b border-borde/50 transition-colors" style="color:#8a8a9a;background:none">Videoteca</button>
+            <button onclick="showTab('crear-alumno');mobMenuClose()" id="mob-tab-crear-alumno" class="w-full text-left px-5 py-4 text-sm font-bold uppercase tracking-widest border-b border-borde/50 transition-colors" style="color:#8a8a9a;background:none">Crear Alumno</button>
             <button onclick="showTab('historial');mobMenuClose()" id="mob-tab-historial" class="w-full text-left px-5 py-4 text-sm font-bold uppercase tracking-widest transition-colors" style="color:#8a8a9a;background:none">Historial</button>
         </div>
     </nav>
@@ -830,6 +832,14 @@
                     </div>
                     <button onclick="abrirModalHistorialAlumno()" class="bg-amarillo/20 text-amarillo px-3 py-2 rounded-lg text-xs font-bold hover:bg-amarillo/30 transition">Ver</button>
                 </div>
+                <div id="ficha-alumno-card" class="hidden mt-3 bg-fondoAlt rounded-xl border border-rojo/30 p-3">
+                    <div class="flex items-center justify-between gap-2 flex-wrap mb-1">
+                        <span class="font-bold text-rojo text-sm">🩺 Ficha del alumno</span>
+                        <span id="ficha-alumno-edad" class="text-xs text-textoSuave"></span>
+                    </div>
+                    <p id="ficha-alumno-lesiones" class="text-xs text-textoSuave hidden mb-1"></p>
+                    <p id="ficha-alumno-prohibidos" class="text-xs text-amarillo hidden"></p>
+                </div>
             </div>
 
             <!-- Mapa de calor muscular en vivo -->
@@ -1162,6 +1172,57 @@
                 </div>
             </div>
         </div>
+
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- TAB: CREAR ALUMNO -->
+        <!-- ═══════════════════════════════════════════ -->
+        <section id="sec-crear-alumno" class="hidden">
+            <div class="bg-tarjeta rounded-2xl border border-borde p-6 mb-6">
+                <h2 id="ca-form-titulo" class="text-lg font-bold text-naranja uppercase tracking-wider mb-4">Nueva Ficha de Alumno</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Nombre del Alumno</label>
+                        <input id="ca-nombre" type="text" placeholder="Ej: MARIA" class="w-full rounded-lg px-3 py-2.5 text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Edad</label>
+                        <input id="ca-edad" type="number" min="1" max="120" placeholder="Ej: 28" class="w-full rounded-lg px-3 py-2.5 text-sm">
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <label class="text-xs text-textoSuave uppercase tracking-wider block mb-2">Elementos que tiene disponibles</label>
+                    <div id="ca-elementos-check" class="flex flex-wrap gap-2"></div>
+                </div>
+
+                <div class="mt-4">
+                    <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Lesiones / limitaciones</label>
+                    <textarea id="ca-lesiones" rows="2" placeholder="Ej: Hernia de disco lumbar, molestia en hombro derecho..." class="w-full rounded-lg px-3 py-2.5 text-sm"></textarea>
+                </div>
+
+                <div class="mt-4">
+                    <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Ejercicios que NO puede hacer</label>
+                    <div class="flex gap-2">
+                        <input id="ca-ej-prohibido-input" type="text" list="ca-datalist-ejercicios" placeholder="Buscar y agregar ejercicio..." class="w-full rounded-lg px-3 py-2.5 text-sm flex-1" onkeydown="if(event.key==='Enter'){event.preventDefault();agregarEjercicioProhibidoAlumno();}">
+                        <datalist id="ca-datalist-ejercicios"></datalist>
+                        <button onclick="agregarEjercicioProhibidoAlumno()" class="bg-naranja/20 text-naranja px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition whitespace-nowrap">+ Agregar</button>
+                    </div>
+                    <div id="ca-chips-ejercicios" class="flex flex-wrap gap-2 mt-3"></div>
+                </div>
+
+                <div class="flex gap-3 mt-6">
+                    <button id="btn-guardar-alumno" onclick="guardarPerfilAlumno()" class="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold text-sm uppercase tracking-wider">Guardar Alumno</button>
+                    <button onclick="limpiarFormAlumno()" class="px-5 py-2.5 rounded-xl border border-borde text-textoSuave text-sm font-bold hover:text-texto transition">Cancelar</button>
+                </div>
+            </div>
+
+            <div class="bg-tarjeta rounded-2xl border border-borde p-6">
+                <h2 class="text-lg font-bold text-naranja uppercase tracking-wider mb-4">Alumnos Cargados</h2>
+                <div id="ca-lista-alumnos" class="space-y-3">
+                    <p class="text-textoSuave text-sm text-center py-8">Cargando alumnos...</p>
+                </div>
+            </div>
+        </section>
 
         <!-- ═══════════════════════════════════════════ -->
         <!-- TAB: HISTORIAL -->
@@ -1700,6 +1761,23 @@
         </div>
     </div>
 
+    <!-- Modal: advertencia de ejercicio que el alumno no puede hacer -->
+    <div id="modal-advertencia-ejercicio" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+        <div class="bg-tarjeta rounded-3xl border border-rojo p-6 max-w-md w-full">
+            <div class="flex items-center gap-3 mb-3">
+                <span class="text-3xl">⚠️</span>
+                <h3 class="text-base font-bold text-rojo uppercase tracking-wider">Cuidado</h3>
+            </div>
+            <p class="text-sm text-texto mb-2"><span id="adv-alumno-nombre" class="font-bold"></span> no puede hacer el ejercicio <span id="adv-ejercicio-nombre" class="font-bold text-amarillo"></span>.</p>
+            <p id="adv-lesion-detalle" class="text-xs text-textoSuave mb-4"></p>
+            <div class="flex gap-3">
+                <button onclick="confirmarAdvertenciaEjercicio()" class="flex-1 py-2.5 rounded-xl border border-borde text-textoSuave text-sm font-bold hover:text-texto transition">Agregar igual</button>
+                <button onclick="cancelarAdvertenciaEjercicio()" class="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold text-sm">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+
     <!-- Modal: vista compacta de toda la rutina actual (todos los dias, calentamiento + bloques) -->
     <div id="modal-vista-compacta-rutina" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start sm:items-center justify-center p-2 sm:p-6 overflow-y-auto modal-bottom-sheet-mobile">
         <div class="bg-tarjeta rounded-2xl border border-borde p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto my-2 sm:my-0">
@@ -2199,20 +2277,270 @@
     }
 
     // ====================================================================
+    // TAB: CREAR ALUMNO (ficha de alumno: edad, elementos, lesiones, ejercicios prohibidos)
+    // ====================================================================
+    let _perfilAlumnosCache = {};       // clave -> {nombre, edad, elementos:[], lesiones:'', ejerciciosProhibidos:[]}
+    let _caEjerciciosProhibidosTemp = [];
+    let _caEditandoClave = null;
+
+    // Convierte un nombre de alumno en una clave valida para usar como key de Firebase
+    function _claveAlumno(nombre) {
+        return (nombre || '').trim().toUpperCase().replace(/[.#$\[\]\/\s]+/g, '_');
+    }
+
+    // Pinta los checkboxes de "Elementos que tiene disponibles" usando la misma lista ELEMENTOS de la videoteca
+    function poblarElementosCheckAlumno() {
+        const cont = document.getElementById('ca-elementos-check');
+        if (!cont || cont.dataset.poblado) return;
+        cont.innerHTML = ELEMENTOS.filter(e => e !== 'Sin elemento').map(e =>
+            '<label class="flex items-center gap-1.5 bg-fondoAlt border border-borde rounded-lg px-3 py-1.5 text-xs cursor-pointer">' +
+            '<input type="checkbox" class="ca-elemento-check" value="' + e + '" style="accent-color:#FF6B35"> ' + e +
+            '</label>'
+        ).join('');
+        cont.dataset.poblado = '1';
+    }
+
+    // Pobla el datalist de ejercicios (todos los de la videoteca) para el buscador de "ejercicios que no puede hacer"
+    function poblarDatalistEjerciciosAlumno() {
+        const dl = document.getElementById('ca-datalist-ejercicios');
+        if (!dl) return;
+        const nombres = new Set();
+        Object.keys(videotecaCache || {}).forEach(cat => {
+            (videotecaCache[cat] || []).forEach(e => {
+                const n = e.nombre || e[0];
+                if (n) nombres.add(n);
+            });
+        });
+        dl.innerHTML = Array.from(nombres).sort((a, b) => a.localeCompare(b))
+            .map(n => '<option value="' + n.replace(/"/g, '&quot;') + '">').join('');
+    }
+
+    // Carga todas las fichas de alumnos guardadas en Firebase
+    async function cargarPerfilesAlumnos() {
+        try {
+            const res = await fetch(FIREBASE_BASE + '/alumnos_perfil.json');
+            const data = await res.json();
+            _perfilAlumnosCache = data || {};
+        } catch (e) {
+            console.error('Error cargando fichas de alumnos:', e);
+        }
+        await _obtenerAlumnosCache();
+        renderizarListaAlumnosPerfil();
+    }
+
+    function agregarEjercicioProhibidoAlumno() {
+        const input = document.getElementById('ca-ej-prohibido-input');
+        if (!input) return;
+        const val = input.value.trim();
+        if (!val) return;
+        if (!_caEjerciciosProhibidosTemp.some(e => e.toUpperCase() === val.toUpperCase())) {
+            _caEjerciciosProhibidosTemp.push(val);
+        }
+        input.value = '';
+        renderizarChipsEjerciciosProhibidos();
+    }
+
+    function quitarEjercicioProhibidoAlumno(idx) {
+        _caEjerciciosProhibidosTemp.splice(idx, 1);
+        renderizarChipsEjerciciosProhibidos();
+    }
+
+    function renderizarChipsEjerciciosProhibidos() {
+        const cont = document.getElementById('ca-chips-ejercicios');
+        if (!cont) return;
+        if (_caEjerciciosProhibidosTemp.length === 0) {
+            cont.innerHTML = '<p class="text-textoSuave text-xs">Ningún ejercicio agregado todavía</p>';
+            return;
+        }
+        cont.innerHTML = _caEjerciciosProhibidosTemp.map((e, i) =>
+            '<span class="exercise-chip inline-flex items-center gap-1.5 bg-rojo/15 text-rojo border border-rojo/30 rounded-full px-3 py-1 text-xs font-bold">🚫 ' +
+            e.toUpperCase() + ' <button onclick="quitarEjercicioProhibidoAlumno(' + i + ')" class="hover:text-red-300 leading-none">&times;</button></span>'
+        ).join('');
+    }
+
+    function limpiarFormAlumno() {
+        _caEditandoClave = null;
+        document.getElementById('ca-nombre').value = '';
+        document.getElementById('ca-edad').value = '';
+        document.getElementById('ca-lesiones').value = '';
+        document.querySelectorAll('.ca-elemento-check').forEach(chk => chk.checked = false);
+        _caEjerciciosProhibidosTemp = [];
+        renderizarChipsEjerciciosProhibidos();
+        const titulo = document.getElementById('ca-form-titulo');
+        if (titulo) titulo.textContent = 'Nueva Ficha de Alumno';
+    }
+
+    async function guardarPerfilAlumno() {
+        const nombre = document.getElementById('ca-nombre').value.trim();
+        if (!nombre) { toast('Ingresá el nombre del alumno'); return; }
+        const edad = document.getElementById('ca-edad').value.trim();
+        const lesiones = document.getElementById('ca-lesiones').value.trim();
+        const elementos = Array.from(document.querySelectorAll('.ca-elemento-check:checked')).map(el => el.value);
+        const ejerciciosProhibidos = _caEjerciciosProhibidosTemp.slice();
+        const clave = _claveAlumno(nombre);
+        const perfil = { nombre: nombre.toUpperCase(), edad, elementos, lesiones, ejerciciosProhibidos };
+
+        const btn = document.getElementById('btn-guardar-alumno');
+        if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+        try {
+            await fetch(FIREBASE_BASE + '/alumnos_perfil/' + clave + '.json', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(perfil)
+            });
+            _perfilAlumnosCache[clave] = perfil;
+            toast('Ficha de ' + perfil.nombre + ' guardada');
+            limpiarFormAlumno();
+            renderizarListaAlumnosPerfil();
+        } catch (e) {
+            console.error('Error guardando ficha de alumno:', e);
+            toast('Error de conexion al guardar la ficha');
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Guardar Alumno'; }
+        }
+    }
+
+    function editarPerfilAlumno(clave) {
+        const p = _perfilAlumnosCache[clave];
+        if (!p) return;
+        _caEditandoClave = clave;
+        poblarElementosCheckAlumno();
+        document.getElementById('ca-nombre').value = p.nombre || '';
+        document.getElementById('ca-edad').value = p.edad || '';
+        document.getElementById('ca-lesiones').value = p.lesiones || '';
+        document.querySelectorAll('.ca-elemento-check').forEach(chk => {
+            chk.checked = (p.elementos || []).includes(chk.value);
+        });
+        _caEjerciciosProhibidosTemp = (p.ejerciciosProhibidos || []).slice();
+        renderizarChipsEjerciciosProhibidos();
+        const titulo = document.getElementById('ca-form-titulo');
+        if (titulo) titulo.textContent = 'Editando Ficha de ' + p.nombre;
+        const sec = document.getElementById('sec-crear-alumno');
+        if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        toast('Editando ficha de ' + p.nombre);
+    }
+
+    async function eliminarPerfilAlumno(clave) {
+        const p = _perfilAlumnosCache[clave];
+        if (!p) return;
+        if (!confirm('¿Eliminar la ficha de ' + p.nombre + '? (No se eliminan sus rutinas ni su historial)')) return;
+        try {
+            await fetch(FIREBASE_BASE + '/alumnos_perfil/' + clave + '.json', { method: 'DELETE' });
+            delete _perfilAlumnosCache[clave];
+            renderizarListaAlumnosPerfil();
+            toast('Ficha eliminada');
+        } catch (e) {
+            toast('Error de conexion al eliminar la ficha');
+        }
+    }
+
+    function renderizarListaAlumnosPerfil() {
+        const cont = document.getElementById('ca-lista-alumnos');
+        if (!cont) return;
+        const claves = Object.keys(_perfilAlumnosCache);
+        const nombresConFicha = new Set(claves.map(k => (_perfilAlumnosCache[k].nombre || '').toUpperCase()));
+        const extras = (_alumnosCache || []).filter(n => !nombresConFicha.has(n.toUpperCase()));
+
+        let html = '';
+        claves.sort((a, b) => (_perfilAlumnosCache[a].nombre || '').localeCompare(_perfilAlumnosCache[b].nombre || ''))
+            .forEach(clave => {
+                const p = _perfilAlumnosCache[clave];
+                const prohibidos = p.ejerciciosProhibidos || [];
+                const elementos = p.elementos || [];
+                html += '<div class="bg-fondoAlt rounded-xl border border-borde p-3 flex items-start justify-between gap-3 flex-wrap">' +
+                    '<div class="min-w-0">' +
+                    '<p class="font-bold text-sm">' + (p.nombre || '') + (p.edad ? ' <span class="text-textoSuave font-normal">(' + p.edad + ' años)</span>' : '') + '</p>' +
+                    (elementos.length ? '<p class="text-xs text-azul mt-0.5">🏋️ ' + elementos.join(', ') + '</p>' : '') +
+                    (p.lesiones ? '<p class="text-xs text-rojo mt-0.5">⚠️ ' + p.lesiones + '</p>' : '') +
+                    (prohibidos.length ? '<p class="text-xs text-amarillo mt-0.5">🚫 ' + prohibidos.join(', ') + '</p>' : '') +
+                    '</div>' +
+                    '<div class="flex gap-2 flex-shrink-0">' +
+                    '<button onclick="editarPerfilAlumno(\'' + clave + '\')" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">Editar</button>' +
+                    '<button onclick="eliminarPerfilAlumno(\'' + clave + '\')" class="bg-rojo/20 text-rojo px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition">✕</button>' +
+                    '</div>' +
+                    '</div>';
+            });
+        extras.sort((a, b) => a.localeCompare(b)).forEach(n => {
+            const nEsc = n.replace(/'/g, "\\'");
+            html += '<div class="bg-fondoAlt rounded-xl border border-borde/50 p-3 flex items-center justify-between gap-3 flex-wrap" style="border-style:dashed">' +
+                '<p class="text-sm text-textoSuave">' + n.toUpperCase() + ' <span class="text-[10px]">(sin ficha todavía)</span></p>' +
+                '<button onclick="document.getElementById(\'ca-nombre\').value=\'' + nEsc + '\'; document.getElementById(\'ca-nombre\').scrollIntoView({behavior:\'smooth\'});" class="bg-naranja/20 text-naranja px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition">Crear ficha</button>' +
+                '</div>';
+        });
+        if (!html) html = '<p class="text-textoSuave text-sm text-center py-8">Todavía no hay alumnos cargados</p>';
+        cont.innerHTML = html;
+    }
+
+    // ── Advertencia al agregar un ejercicio prohibido en Crear Rutina ──────
+    let _advertenciaCallbackPendiente = null;
+
+    // Muestra el cartel de advertencia si el alumno cargado en "Nombre del Alumno" tiene ese
+    // ejercicio marcado como prohibido en su ficha. Devuelve true si bloqueó el agregado (modal abierto).
+    function mostrarAdvertenciaSiProhibido(nombreEjercicio, onConfirmar) {
+        const alumnoInput = document.getElementById('alumno-nombre');
+        const alumno = alumnoInput ? alumnoInput.value.trim() : '';
+        if (!alumno || !nombreEjercicio) return false;
+        const clave = _claveAlumno(alumno);
+        const perfil = _perfilAlumnosCache[clave];
+        if (!perfil || !Array.isArray(perfil.ejerciciosProhibidos)) return false;
+        const prohibido = perfil.ejerciciosProhibidos.find(e => e.toUpperCase() === nombreEjercicio.toUpperCase());
+        if (!prohibido) return false;
+
+        document.getElementById('adv-alumno-nombre').textContent = (perfil.nombre || alumno).toUpperCase();
+        document.getElementById('adv-ejercicio-nombre').textContent = nombreEjercicio;
+        const detalleEl = document.getElementById('adv-lesion-detalle');
+        detalleEl.textContent = perfil.lesiones ? ('Motivo: ' + perfil.lesiones) : '';
+        detalleEl.classList.toggle('hidden', !perfil.lesiones);
+        document.getElementById('modal-advertencia-ejercicio').classList.remove('hidden');
+        _advertenciaCallbackPendiente = onConfirmar;
+        return true;
+    }
+
+    function confirmarAdvertenciaEjercicio() {
+        document.getElementById('modal-advertencia-ejercicio').classList.add('hidden');
+        const cb = _advertenciaCallbackPendiente;
+        _advertenciaCallbackPendiente = null;
+        if (cb) cb();
+    }
+
+    function cancelarAdvertenciaEjercicio() {
+        document.getElementById('modal-advertencia-ejercicio').classList.add('hidden');
+        _advertenciaCallbackPendiente = null;
+    }
+
+    // Muestra/oculta la tarjeta "Ficha del alumno" en Crear Rutina cuando se carga un nombre de alumno
+    function _pfChequearFichaAlumno() {
+        const card = document.getElementById('ficha-alumno-card');
+        if (!card) return;
+        const alumno = (document.getElementById('alumno-nombre')?.value || '').trim();
+        const perfil = alumno ? _perfilAlumnosCache[_claveAlumno(alumno)] : null;
+        if (!perfil) { card.classList.add('hidden'); return; }
+        document.getElementById('ficha-alumno-edad').textContent = perfil.edad ? (perfil.edad + ' años') : '';
+        const lesEl = document.getElementById('ficha-alumno-lesiones');
+        if (perfil.lesiones) { lesEl.textContent = '⚠️ ' + perfil.lesiones; lesEl.classList.remove('hidden'); }
+        else { lesEl.classList.add('hidden'); }
+        const prohEl = document.getElementById('ficha-alumno-prohibidos');
+        const proh = perfil.ejerciciosProhibidos || [];
+        if (proh.length) { prohEl.textContent = '🚫 No puede hacer: ' + proh.join(', '); prohEl.classList.remove('hidden'); }
+        else { prohEl.classList.add('hidden'); }
+        card.classList.remove('hidden');
+    }
+
+    // ====================================================================
     // TABS
     // ====================================================================
     function showTab(tab) {
-        ['dashboard', 'videoteca', 'rutina', 'historial', 'repositorio'].forEach(t => {
+        ['dashboard', 'videoteca', 'rutina', 'historial', 'repositorio', 'crear-alumno'].forEach(t => {
             document.getElementById('sec-' + t).classList.toggle('hidden', t !== tab);
             document.getElementById('tab-' + t).className = t === tab
                 ? 'tab-active px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors'
                 : 'tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors';
         });
         // Sincronizar menú mobile
-        const LABELS = { dashboard:'Dashboard', rutina:'Crear Rutina', repositorio:'Repositorio', videoteca:'Videoteca', historial:'Historial' };
+        const LABELS = { dashboard:'Dashboard', rutina:'Crear Rutina', repositorio:'Repositorio', videoteca:'Videoteca', historial:'Historial', 'crear-alumno':'Crear Alumno' };
         const labelEl = document.getElementById('mob-tab-label');
         if (labelEl) labelEl.textContent = LABELS[tab] || tab;
-        ['dashboard','rutina','repositorio','videoteca','historial'].forEach(t => {
+        ['dashboard','rutina','repositorio','videoteca','historial','crear-alumno'].forEach(t => {
             const btn = document.getElementById('mob-tab-' + t);
             if (!btn) return;
             if (t === tab) { btn.style.color = '#FF6B35'; btn.style.background = 'rgba(255,107,53,.07)'; }
@@ -2226,6 +2554,11 @@
         if (tab === 'repositorio') {
             modoRepositorio = false;
             renderizarRepositorio();
+        }
+        if (tab === 'crear-alumno') {
+            poblarElementosCheckAlumno();
+            poblarDatalistEjerciciosAlumno();
+            cargarPerfilesAlumnos();
         }
         // Boton "Guardar" flotante mobile: visible solo en Crear Rutina
         const stickyGuardar = document.getElementById('mob-sticky-guardar');
@@ -3274,6 +3607,7 @@
         const reps = document.getElementById('warmup-ej-reps-' + idx)?.value.trim() || '';
         const unit = document.getElementById('warmup-ej-unit-' + idx)?.value || 'Reps';
         if (!nombre || nombre === 'Sin ejercicios' || nombre === 'Sin resultados') return;
+        if (mostrarAdvertenciaSiProhibido(nombre, () => agregarEjWarmupDia(idx))) return;
         const selectedOption = selEj.options[selEj.selectedIndex];
         const catHint = (selectedOption && selectedOption.dataset.cat) || document.getElementById('warmup-cat-select-' + idx)?.value;
         // Buscar globalmente si no esta en la categoria detectada
@@ -3684,6 +4018,7 @@
         const reps = (document.getElementById('warmup-ej-reps')?.value || '').trim();
         const unit = document.getElementById('warmup-ej-unit').value;
         if (!nombre || nombre === 'Sin ejercicios' || nombre === 'Sin resultados') return;
+        if (mostrarAdvertenciaSiProhibido(nombre, () => agregarEjWarmup())) return;
         const selectedOption = selEj.options[selEj.selectedIndex];
         const catHint = (selectedOption && selectedOption.dataset.cat) || document.getElementById('warmup-cat-select').value;
         let ejData = catHint && videotecaCache[catHint] ? (videotecaCache[catHint] || []).find(e => (e.nombre||e[0]) === nombre) : null;
@@ -3972,6 +4307,7 @@
         const sel = document.getElementById('emom-ejsel-' + minIdx);
         const nombre = sel ? sel.value : '';
         if (!nombre) return;
+        if (mostrarAdvertenciaSiProhibido(nombre, () => emomBloqueAgregarEj(minIdx))) return;
         const reps = document.getElementById('emom-reps-' + minIdx)?.value.trim() || '';
         const unit = document.getElementById('emom-unit-' + minIdx)?.value || 'Reps';
         const listEl = document.getElementById('emom-min-' + minIdx + '-lista');
@@ -4121,6 +4457,7 @@
         const sel = document.getElementById('emow-ejsel-' + idxOrKey + '-' + minIdx);
         const nombre = sel ? sel.value : '';
         if (!nombre) return;
+        if (mostrarAdvertenciaSiProhibido(nombre, () => emomWarmupAgregarEj(idxOrKey, minIdx))) return;
         const reps = document.getElementById('emow-reps-' + idxOrKey + '-' + minIdx)?.value.trim() || '';
         const unit = document.getElementById('emow-unit-' + idxOrKey + '-' + minIdx)?.value || 'Reps';
         const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-lista');
@@ -4202,6 +4539,7 @@
         if (!selEj) return;
         const nombre = selEj.value;
         if (!nombre || nombre === 'Sin ejercicios' || nombre === 'Sin resultados') return;
+        if (mostrarAdvertenciaSiProhibido(nombre, () => agregarEjBloque())) return;
         // Tabata: no se pueden agregar más ejercicios que la "cantidad" configurada
         const tipoBlq = document.getElementById('bloque-tipo')?.value || '';
         if (tipoBlq === 'Tabata') {
@@ -9443,7 +9781,8 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
     // IDs de los contenedores modales reales (fixed inset-0), en el orden en que aparecen en el DOM.
     const MODAL_IDS = ['modal-dash-rutina', 'modal-codigo', 'modal-repo-guardar', 'modal-repo-editar',
         'modal-repo-copiar', 'modal-ver-rutina', 'modal-piz-vt', 'modal-ia-config', 'modal-ia-preview',
-        'modal-nueva-cat', 'modal-bloque', 'modal-copiar-destino', 'modal-historial-alumno', 'modal-vista-compacta-rutina'];
+        'modal-nueva-cat', 'modal-bloque', 'modal-copiar-destino', 'modal-historial-alumno', 'modal-vista-compacta-rutina',
+        'modal-advertencia-ejercicio'];
 
     // Devuelve tambien los modales de calentamiento (uno por dia, id dinamico modal-calentamiento-N)
     function _pfTodosLosModalesVisibles() {
@@ -10329,8 +10668,9 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
         cargarListaAlumnos();
         cargarAlumnosDash();
         // Autocompletado de alumno en "Crear Rutina" (texto libre, sugiere alumnos existentes)
-        _obtenerAlumnosCache().then(() => _initAutocompleteAlumno('alumno-nombre', _pfChequearHistorialAlumno, null));
-        document.getElementById('alumno-nombre')?.addEventListener('blur', _pfChequearHistorialAlumno);
+        _obtenerAlumnosCache().then(() => _initAutocompleteAlumno('alumno-nombre', function(n) { _pfChequearHistorialAlumno(n); _pfChequearFichaAlumno(); }, null));
+        document.getElementById('alumno-nombre')?.addEventListener('blur', function() { _pfChequearHistorialAlumno(); _pfChequearFichaAlumno(); });
+        cargarPerfilesAlumnos();
         // Buscador de ejercicios mobile (bloque): reusa el select de desktop y agregarEjBloque()
         _initBusquedaEjercicioMobile('bloque-buscar-ej-mobile', 'bloque-ej-select', agregarEjBloque, _pfPostAgregarBloqueMobile);
         // Inicializar el sistema multi-dia con Dia 1 por defecto
