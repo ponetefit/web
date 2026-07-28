@@ -9221,9 +9221,13 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
     // "Ver" (solo lectura): se despliega hacia abajo dentro de la misma tarjeta, igual que
     // "Ver días y copiar por partes", para poder tener varias rutinas abiertas a la vez.
     async function _pfVerInline(codigo, i) {
-        // Siempre se despliega inline dentro de la misma tarjeta, en el estilo de la
-        // vista compacta (calentamiento + bloques de todos los dias), tanto en mobile
-        // como en PC, para poder tener varias rutinas abiertas a la vez sin salir del modal.
+        // En PC/desktop: abrir el historial en una ventana nueva (listado a un costado +
+        // vista compacta a la derecha). En mobile: se despliega inline dentro de la misma tarjeta.
+        const esMobile = window.innerWidth < 640;
+        if (!esMobile) {
+            _pfVerHistorialVentanaNueva(codigo);
+            return;
+        }
         const cont = document.getElementById('historial-ver-inline-' + i);
         if (!cont) return;
         if (!cont.classList.contains('hidden')) { cont.classList.add('hidden'); return; }
@@ -9301,14 +9305,11 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
             marcarActivo();
             cont.innerHTML = '<p style="color:#8a8a9a;font-size:0.85rem;">Cargando...</p>';
             try {
-                let r = historialRutinasCache[codigo];
-                if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia)) {
-                    const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
-                    const data = await res.json();
-                    if (!data.ok) { if (!ventana.closed) cont.innerHTML = '<p style="color:#EF5350;font-size:0.85rem;">Error al cargar</p>'; return; }
-                    r = data.rutina;
-                    historialRutinasCache[codigo] = r;
-                }
+                const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+                const data = await res.json();
+                if (!data.ok) { if (!ventana.closed) cont.innerHTML = '<p style="color:#EF5350;font-size:0.85rem;">Error al cargar</p>'; return; }
+                const r = data.rutina;
+                historialRutinasCache[codigo] = r;
                 const dias = _pfParsearDiasHistorial(r);
                 const html = '<h1 style="font-size:1rem;font-weight:700;color:#FFD54F;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 16px;">' + codigo.toUpperCase() + '</h1>' + _pfGenerarHTMLCompacto(dias, false);
                 if (!ventana.closed) cont.innerHTML = html;
@@ -9331,14 +9332,11 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
         cont.innerHTML = '<p class="text-xs text-textoSuave">Cargando...</p>';
         cont.classList.remove('hidden');
         try {
-            let r = historialRutinasCache[codigo];
-            if (!r || !(r.datos || r.bloques || r.rutina || r.warmup_ejercicios || r.es_multidia)) {
-                const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
-                const data = await res.json();
-                if (!data.ok) { cont.innerHTML = '<p class="text-xs text-rojo">Error al cargar</p>'; return; }
-                r = data.rutina;
-                historialRutinasCache[codigo] = r;
-            }
+            const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+            const data = await res.json();
+            if (!data.ok) { cont.innerHTML = '<p class="text-xs text-rojo">Error al cargar</p>'; return; }
+            const r = data.rutina;
+            historialRutinasCache[codigo] = r;
             const dias = _pfParsearDiasHistorial(r);
             _pfHistorialParseado = dias;
             cont.innerHTML = _pfGenerarHTMLCompacto(dias, true);
