@@ -285,6 +285,13 @@
             .drag-handle { min-width: 32px; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; }
             .exercise-chip button[onclick*="quitar"] { min-width: 32px; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; }
 
+            /* ── Mejora: botones ⧉/Editar/✕ de las tarjetas de bloque y calentamiento, mas grandes y separados ── */
+            button[onclick*="abrirModalCopiarBloque"], button[onclick*="eliminarBloqueDia"], button[onclick*="editarBloqueDia"],
+            button[onclick*="abrirModalCopiarCalentamiento"], button[onclick*="eliminarCalentamientoDia"], button[onclick*="abrirModalCalentamientoDia"] {
+                min-width: 40px; min-height: 40px; padding: 9px 13px !important; font-size: 0.8rem !important;
+            }
+            .flex.gap-1\.5.flex-shrink-0 { gap: 10px !important; }
+
             /* ── Mejora #8: modales tipo "hoja inferior" (bottom sheet) en mobile ── */
             .fixed.inset-0.modal-bottom-sheet-mobile { align-items: flex-end !important; padding: 0 !important; }
             .fixed.inset-0.modal-bottom-sheet-mobile > div {
@@ -786,6 +793,18 @@
         <!-- TAB: CREAR RUTINA -->
         <!-- ═══════════════════════════════════════════ -->
         <section id="sec-rutina" class="hidden">
+            <!-- Banner de borrador recuperado (autoguardado en este dispositivo) -->
+            <div id="borrador-card" class="hidden bg-tarjeta rounded-2xl border border-amarillo/40 p-4 mb-4 flex items-center justify-between gap-3 flex-wrap">
+                <div class="text-sm flex-1 min-w-0">
+                    <span class="font-bold text-amarillo">💾 Borrador sin guardar</span>
+                    <span class="text-textoSuave"> — encontramos una rutina sin compartir de <span id="borrador-info"></span>. ¿Querés recuperarla?</span>
+                </div>
+                <div class="flex gap-2 flex-shrink-0">
+                    <button onclick="_pfRestaurarBorrador()" class="bg-amarillo/20 text-amarillo px-3 py-2 rounded-lg text-xs font-bold hover:bg-amarillo/30 transition">Restaurar</button>
+                    <button onclick="_pfDescartarBorrador()" class="bg-fondoAlt text-textoSuave px-3 py-2 rounded-lg text-xs font-bold hover:text-texto transition">Descartar</button>
+                </div>
+            </div>
+
             <!-- Boton fijo "Guardar" solo mobile (aparece siempre visible en Crear Rutina) -->
             <div id="mob-sticky-guardar" class="sm:hidden hidden">
                 <button onclick="_pfGuardarMobile()" class="btn-primary w-full py-3 rounded-xl text-white font-bold text-sm uppercase tracking-widest">💾 Guardar Rutina</button>
@@ -811,6 +830,30 @@
                     </div>
                     <button onclick="abrirModalHistorialAlumno()" class="bg-amarillo/20 text-amarillo px-3 py-2 rounded-lg text-xs font-bold hover:bg-amarillo/30 transition">Ver</button>
                 </div>
+            </div>
+
+            <!-- Mapa de calor muscular en vivo -->
+            <div class="bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
+                <button type="button" onclick="toggleMapaCalorVivo()" class="w-full flex items-center justify-between gap-2">
+                    <span class="text-sm font-bold text-naranja uppercase tracking-wider flex items-center gap-2">
+                        🔥 Balance Muscular en Vivo
+                        <span id="mapa-calor-vivo-dia-label" class="text-textoSuave normal-case font-normal text-xs"></span>
+                    </span>
+                    <svg id="mapa-calor-vivo-chevron" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-textoSuave transition-transform duration-200 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div id="mapa-calor-vivo-content" class="hidden mt-4">
+                    <p class="text-textoSuave text-xs text-center py-4">Agregá ejercicios para ver el balance muscular</p>
+                </div>
+            </div>
+
+            <!-- Navegador de dias para mobile: swipe o flechas para moverse entre dias -->
+            <div id="dia-pager-mobile" class="hidden items-center justify-between gap-2 bg-tarjeta rounded-2xl border border-borde px-3 py-2.5 mb-3" style="display:none;">
+                <button onclick="irADia(_diaActivoMobile - 1)" class="text-textoSuave hover:text-texto px-2 py-1.5 text-lg leading-none">‹</button>
+                <div class="flex-1 text-center min-w-0">
+                    <p id="dia-pager-titulo" class="text-sm font-bold text-texto truncate"></p>
+                    <div id="dia-pager-dots" class="flex items-center justify-center gap-1.5 mt-1"></div>
+                </div>
+                <button onclick="irADia(_diaActivoMobile + 1)" class="text-textoSuave hover:text-texto px-2 py-1.5 text-lg leading-none">›</button>
             </div>
 
             <!-- ══════════════════════════════════════════ -->
@@ -2087,9 +2130,10 @@
                 st.chip.style.transform = 'translateX(-100%)';
                 st.chip.style.opacity = '0';
                 const listType = st.listType, idx = st.idx;
+                _pfGuardarUndoSnapshot('eliminar (deslizar)');
                 setTimeout(() => {
                     const arr = getDataArray(listType);
-                    if (arr) { arr.splice(idx, 1); rerenderList(listType); }
+                    if (arr) { arr.splice(idx, 1); rerenderList(listType); toastConDeshacer('Eliminado'); }
                 }, 180);
             } else {
                 st.chip.style.transform = 'translateX(0)';
@@ -2711,6 +2755,7 @@
     // Elimina un dia (solo si hay mas de 1)
     function eliminarDia(idx) {
         if (diasData.length <= 1) { toast('Debe haber al menos 1 dia'); return; }
+        _pfGuardarUndoSnapshot('eliminar día');
         diasData.splice(idx, 1);
         // Re-titular dias
         diasData.forEach((d, i) => { d.titulo = 'Dia ' + (i + 1); });
@@ -2718,6 +2763,7 @@
         diaActivoIdx = 0;
         bloquesRutina = diasData[0].bloquesRutina;
         renderDias();
+        toastConDeshacer('Día eliminado');
     }
 
     function duplicarDia(idx) {
@@ -2748,6 +2794,8 @@
             renderWarmupEjsDia(idx);
             renderBloquesDia(idx);
         });
+        if (_diaActivoMobile >= diasData.length) _diaActivoMobile = Math.max(0, diasData.length - 1);
+        _pfRenderDiaPagerMobile();
     }
 
     // Genera el HTML para un dia completo
@@ -2884,6 +2932,189 @@
         </div>`;
     }
 
+    // ====================================================================
+    // NAVEGACION ENTRE DIAS EN MOBILE (pager + swipe)
+    // ====================================================================
+    let _diaActivoMobile = 0;
+
+    // Redibuja la barra "‹ Día X ›" con puntos, y la muestra solo en mobile si hay 2+ dias
+    function _pfRenderDiaPagerMobile() {
+        const pager = document.getElementById('dia-pager-mobile');
+        if (!pager) return;
+        const esMobile = window.innerWidth < 640;
+        const mostrar = esMobile && diasData.length > 1;
+        pager.style.display = mostrar ? 'flex' : 'none';
+        if (!mostrar) return;
+        const dia = diasData[_diaActivoMobile];
+        const titulo = document.getElementById('dia-pager-titulo');
+        if (titulo) titulo.textContent = (dia ? dia.titulo : '') + ' (' + (_diaActivoMobile + 1) + '/' + diasData.length + ')';
+        const dots = document.getElementById('dia-pager-dots');
+        if (dots) {
+            dots.innerHTML = diasData.map((_, i) =>
+                '<span onclick="irADia(' + i + ')" style="display:inline-block;width:' + (i === _diaActivoMobile ? '16px' : '6px') + ';height:6px;border-radius:999px;cursor:pointer;background:' +
+                (i === _diaActivoMobile ? '#FF6B35' : 'rgba(255,255,255,0.15)') + ';transition:width 0.2s;"></span>'
+            ).join('');
+        }
+    }
+
+    // Navega al dia indicado: cierra los demas, abre este y lo lleva a la vista (mobile)
+    function irADia(idx) {
+        if (idx < 0 || idx >= diasData.length) return; // no da la vuelta en los extremos
+        diasData.forEach((_, i) => { if (i !== idx) toggleDia(i, false); });
+        toggleDia(idx, true);
+        const card = document.getElementById('dia-card-' + idx);
+        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // Swipe horizontal para moverse entre dias en mobile (solo dentro de las tarjetas de dia,
+    // ignorando el mini-timeline que ya tiene su propio scroll horizontal)
+    let _pfDiaSwipeState = null;
+    function _pfInitSwipeEntreDias() {
+        document.addEventListener('touchstart', (e) => {
+            if (window.innerWidth >= 640) { _pfDiaSwipeState = null; return; }
+            const card = e.target.closest('.dia-card');
+            if (!card || e.target.closest('[id^="dia-timeline-"]') || e.target.closest('input, select, textarea, button')) { _pfDiaSwipeState = null; return; }
+            const touch = e.touches[0];
+            _pfDiaSwipeState = { startX: touch.clientX, startY: touch.clientY };
+        }, { passive: true });
+
+        document.addEventListener('touchend', (e) => {
+            if (!_pfDiaSwipeState) return;
+            const touch = e.changedTouches[0];
+            const dx = touch.clientX - _pfDiaSwipeState.startX;
+            const dy = touch.clientY - _pfDiaSwipeState.startY;
+            _pfDiaSwipeState = null;
+            if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.8) {
+                if (dx < 0) irADia(_diaActivoMobile + 1); // swipe izquierda -> dia siguiente
+                else irADia(_diaActivoMobile - 1); // swipe derecha -> dia anterior
+            }
+        }, { passive: true });
+
+        window.addEventListener('resize', () => _pfRenderDiaPagerMobile());
+    }
+
+    // ====================================================================
+    // AUTOGUARDADO / BORRADOR (localStorage) - Crear Rutina
+    // ====================================================================
+    const PF_BORRADOR_KEY = 'pf_borrador_rutina_v1';
+    let _pfUltimoBorradorGuardado = '';
+
+    // Guarda el estado actual del editor como borrador si tiene contenido real.
+    // Si no hay nada cargado, no deja un borrador vacio (ni pisa uno existente por error).
+    function _pfGuardarBorrador() {
+        try {
+            if (_editandoRutina) return; // no autoguardar mientras se esta cargando una rutina desde el historial
+            const secRutina = document.getElementById('sec-rutina');
+            if (!secRutina || secRutina.classList.contains('hidden')) return; // solo mientras se esta en "Crear Rutina"
+            const alumno = (document.getElementById('alumno-nombre') || {}).value || '';
+            const desc = (document.getElementById('rutina-desc') || {}).value || '';
+            const hayContenido = (diasData || []).some(d =>
+                (d.warmupEjercicios && d.warmupEjercicios.length > 0) || (d.bloquesRutina && d.bloquesRutina.length > 0)
+            );
+            if (!alumno.trim() && !hayContenido) return; // nada que guardar todavia
+            const payload = { alumno, desc, diasData, ts: Date.now() };
+            const serial = JSON.stringify(payload);
+            if (serial === _pfUltimoBorradorGuardado) return; // sin cambios, no reescribir
+            localStorage.setItem(PF_BORRADOR_KEY, serial);
+            _pfUltimoBorradorGuardado = serial;
+        } catch (e) { /* localStorage puede no estar disponible (modo privado, etc.) */ }
+    }
+
+    // Al iniciar la app: si hay un borrador guardado (y no muy viejo), mostrar el banner para recuperarlo
+    function _pfChequearBorradorAlIniciar() {
+        try {
+            const raw = localStorage.getItem(PF_BORRADOR_KEY);
+            if (!raw) return;
+            const borrador = JSON.parse(raw);
+            const hayContenido = (borrador.diasData || []).some(d =>
+                (d.warmupEjercicios && d.warmupEjercicios.length > 0) || (d.bloquesRutina && d.bloquesRutina.length > 0)
+            );
+            if (!hayContenido && !(borrador.alumno || '').trim()) { localStorage.removeItem(PF_BORRADOR_KEY); return; }
+            // Descartar borradores muy viejos (mas de 14 dias) para no acumular basura
+            if (borrador.ts && (Date.now() - borrador.ts) > 14 * 24 * 60 * 60 * 1000) { localStorage.removeItem(PF_BORRADOR_KEY); return; }
+            const card = document.getElementById('borrador-card');
+            const info = document.getElementById('borrador-info');
+            if (info) {
+                const fecha = borrador.ts ? new Date(borrador.ts).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+                info.textContent = (borrador.alumno ? borrador.alumno.toUpperCase() : 'un alumno') + (fecha ? ' — ' + fecha : '');
+            }
+            if (card) card.classList.remove('hidden');
+        } catch (e) { /* borrador corrupto o localStorage no disponible: se ignora silenciosamente */ }
+    }
+
+    // Restaura el borrador guardado dentro del editor actual
+    function _pfRestaurarBorrador() {
+        try {
+            const raw = localStorage.getItem(PF_BORRADOR_KEY);
+            if (!raw) return;
+            const borrador = JSON.parse(raw);
+            document.getElementById('alumno-nombre').value = borrador.alumno || '';
+            document.getElementById('rutina-desc').value = borrador.desc || '';
+            diasData = (borrador.diasData && borrador.diasData.length > 0) ? borrador.diasData : [{ titulo: 'Dia 1', warmupEjercicios: [], warmupEmomConfig: [], bloquesRutina: [] }];
+            diaActivoIdx = 0;
+            warmupEjercicios = diasData[0].warmupEjercicios;
+            bloquesRutina = diasData[0].bloquesRutina;
+            renderDias();
+            diasData.forEach((_, i) => toggleDia(i, true));
+            _pfActualizarVisibilidadVistaCompacta();
+            document.getElementById('borrador-card').classList.add('hidden');
+            toast('Borrador restaurado');
+        } catch (e) { toast('No se pudo restaurar el borrador'); }
+    }
+
+    // Descarta el borrador guardado sin restaurarlo
+    function _pfDescartarBorrador() {
+        try { localStorage.removeItem(PF_BORRADOR_KEY); } catch (e) {}
+        _pfUltimoBorradorGuardado = '';
+        const card = document.getElementById('borrador-card');
+        if (card) card.classList.add('hidden');
+    }
+
+    // Limpia el borrador (se llama tras compartir o guardar en repositorio con exito)
+    function _pfLimpiarBorrador() {
+        try { localStorage.removeItem(PF_BORRADOR_KEY); } catch (e) {}
+        _pfUltimoBorradorGuardado = '';
+        const card = document.getElementById('borrador-card');
+        if (card) card.classList.add('hidden');
+    }
+
+    // ====================================================================
+    // DESHACER (Ctrl+Z) al borrar un ejercicio, bloque, calentamiento o dia
+    // ====================================================================
+    let _pfUndoStack = [];
+
+    // Guarda una foto del estado actual antes de una accion destructiva
+    function _pfGuardarUndoSnapshot(label) {
+        try {
+            _pfUndoStack.push({ label: label, diasData: JSON.parse(JSON.stringify(diasData)), diaActivoIdx: diaActivoIdx });
+            if (_pfUndoStack.length > 20) _pfUndoStack.shift();
+        } catch (e) { /* si por algun motivo no se puede clonar, simplemente no hay undo para esta accion */ }
+    }
+
+    // Restaura el ultimo snapshot guardado
+    function _pfDeshacer() {
+        if (_pfUndoStack.length === 0) { toast('Nada para deshacer'); return; }
+        const last = _pfUndoStack.pop();
+        diasData = last.diasData;
+        diaActivoIdx = Math.min(last.diaActivoIdx, diasData.length - 1);
+        if (diasData[diaActivoIdx]) {
+            warmupEjercicios = diasData[diaActivoIdx].warmupEjercicios;
+            bloquesRutina = diasData[diaActivoIdx].bloquesRutina;
+        }
+        renderDias();
+        diasData.forEach((_, i) => toggleDia(i, true));
+        toast('↩️ Se deshizo: ' + (last.label || 'la última acción'));
+    }
+
+    // Toast con boton "Deshacer" clickeable (para feedback inmediato tras borrar algo)
+    function toastConDeshacer(msg) {
+        const t = document.getElementById('toast');
+        if (!t) return;
+        t.innerHTML = msg + ' <button onclick="_pfDeshacer()" style="margin-left:10px;text-decoration:underline;font-weight:900;">Deshacer</button>';
+        t.style.transform = 'translateX(-50%) translateY(0)';
+        setTimeout(() => t.style.transform = 'translateX(-50%) translateY(80px)', 4500);
+    }
+
     // Expande/colapsa el cuerpo de un dia
     function toggleDia(idx, forceOpen) {
         const body = document.getElementById('dia-body-' + idx);
@@ -2893,6 +3124,11 @@
         const open = forceOpen !== undefined ? forceOpen : isHidden;
         body.classList.toggle('hidden', !open);
         if (chevron) chevron.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+        if (open) {
+            actualizarMapaCalorEnVivo(idx);
+            _diaActivoMobile = idx;
+            _pfRenderDiaPagerMobile();
+        }
     }
 
     // Pobla los selects de categoria para un dia especifico
@@ -3090,9 +3326,11 @@
 
     function quitarEjWarmupDia(idx, ejIdx) {
         if (!diasData[idx]) return;
+        _pfGuardarUndoSnapshot('quitar ejercicio de calentamiento');
         diasData[idx].warmupEjercicios.splice(ejIdx, 1);
         renderWarmupEjsDia(idx);
         actualizarBadgeDia(idx);
+        toastConDeshacer('Ejercicio quitado');
     }
 
     function renderWarmupEjsDia(idx) {
@@ -3106,6 +3344,7 @@
             lista.innerHTML = '';
             actualizarMiniTimelineDia(idx);
             actualizarResumenCalentamientoDia(idx);
+            actualizarMapaCalorEnVivo(idx);
             _initBusquedaEjercicioMobile('warmup-buscar-ej-mobile-' + idx, 'warmup-ej-select-' + idx, function() { agregarEjWarmupDia(idx); }, function() { _pfPostAgregarWarmupMobile(idx); });
             return;
         }
@@ -3227,6 +3466,7 @@
         actualizarResumenCalentamientoDia(idx);
         _initBusquedaEjercicioMobile('warmup-buscar-ej-mobile-' + idx, 'warmup-ej-select-' + idx, function() { agregarEjWarmupDia(idx); }, function() { _pfPostAgregarWarmupMobile(idx); });
         _pfAgregarSteppersMobileEnContenedor('warmup-ejercicios-lista-' + idx);
+        actualizarMapaCalorEnVivo(idx);
     }
 
     // ── Bloques por dia ───────────────────────────────────────────────────
@@ -3257,6 +3497,7 @@
             lista.innerHTML = '';
             if (sinBloques) sinBloques.style.display = '';
             actualizarMiniTimelineDia(idx);
+            actualizarMapaCalorEnVivo(idx);
             return;
         }
         if (sinBloques) sinBloques.style.display = 'none';
@@ -3296,6 +3537,7 @@
         // Activar drag & drop de bloques
         initTouchDragForListDia(lista, 'bloques-dia-' + idx, idx);
         actualizarMiniTimelineDia(idx);
+        actualizarMapaCalorEnVivo(idx);
     }
 
     // ── Mini-timeline del dia: resumen visual Calentamiento -> Bloque 1 -> Bloque 2... ──
@@ -3335,9 +3577,11 @@
     }
 
     function eliminarBloqueDia(diaIdx, bloqueIdx) {
+        _pfGuardarUndoSnapshot('eliminar bloque');
         diasData[diaIdx].bloquesRutina.splice(bloqueIdx, 1);
         renderBloquesDia(diaIdx);
         actualizarBadgeDia(diaIdx);
+        toastConDeshacer('Bloque eliminado');
     }
 
     function actualizarBadgeDia(idx) {
@@ -4900,6 +5144,7 @@
                 } catch(e) {}
                 document.getElementById('modal-codigo').classList.remove('hidden');
                 toast('Rutina compartida!');
+                _pfLimpiarBorrador();
             } else {
                 toast('Error: ' + data.error);
             }
@@ -6906,6 +7151,82 @@
         }
     }
 
+    // ====================================================================
+    // MAPA DE CALOR MUSCULAR EN VIVO (mientras se arma la rutina en el editor)
+    // ====================================================================
+    let _mapaCalorVivoAbierto = false;
+
+    function toggleMapaCalorVivo() {
+        _mapaCalorVivoAbierto = !_mapaCalorVivoAbierto;
+        const content = document.getElementById('mapa-calor-vivo-content');
+        const chevron = document.getElementById('mapa-calor-vivo-chevron');
+        if (content) content.classList.toggle('hidden', !_mapaCalorVivoAbierto);
+        if (chevron) chevron.style.transform = _mapaCalorVivoAbierto ? 'rotate(180deg)' : 'rotate(0deg)';
+        if (_mapaCalorVivoAbierto) actualizarMapaCalorEnVivo(typeof diaActivoIdx !== 'undefined' ? diaActivoIdx : 0);
+    }
+
+    // Calcula el muscleCount de un dia en edicion (formato interno diasData[i]) sin pasar por el backend
+    function calcularMusculosDiaEnVivo(dia) {
+        const muscleCount = {};
+        if (!dia) return muscleCount;
+        function contar(nombre) {
+            if (!nombre) return;
+            const ejData = buscarEjEnVideoteca(nombre.toUpperCase());
+            if (ejData) {
+                if (ejData.musculo1) muscleCount[ejData.musculo1] = (muscleCount[ejData.musculo1] || 0) + 1;
+                if (ejData.musculo2) muscleCount[ejData.musculo2] = (muscleCount[ejData.musculo2] || 0) + 1;
+                if (ejData.sinergista) muscleCount[ejData.sinergista] = (muscleCount[ejData.sinergista] || 0) + 0.5;
+            }
+        }
+        (dia.warmupEjercicios || []).forEach(ej => contar(ej && ej.nombre));
+        (dia.bloquesRutina || []).forEach(b => {
+            if (b.tipo === 'EMOM' && b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
+                b.emom_config_por_minuto.forEach(minCfg => (minCfg.ejercicios || []).forEach(ej => contar(ej && ej.nombre)));
+            } else {
+                (b.ejercicios || []).forEach(ej => contar(ej && ej.nombre));
+            }
+        });
+        return muscleCount;
+    }
+
+    // Version tema oscuro del mini mapa de calor para la UI del editor (generarMiniHeatMapHTML
+    // esta pensado para el fondo claro del modal "Ver Rutina" / PDF, no sirve para las tarjetas oscuras)
+    function generarMiniHeatMapHTMLDark(muscleCount) {
+        const values = Object.values(muscleCount);
+        if (values.length === 0 || Math.max(...values) === 0) {
+            return '<p class="text-textoSuave text-xs text-center py-4">Agregá ejercicios (con músculo asignado en la Videoteca) para ver el balance muscular</p>';
+        }
+        const maxVal = Math.max(...values);
+        const sorted = Object.entries(muscleCount).sort((a, b) => b[1] - a[1]);
+        const detailHTML = sorted.map(([m, c]) => {
+            const color = getHeatColor(c / maxVal);
+            return '<span style="display:inline-block;margin:2px 4px;padding:2px 8px;border-radius:4px;font-size:11px;background:' + color + '22;color:' + color + ';font-weight:700;">' + m + ' (' + Math.round(c) + ')</span>';
+        }).join('');
+        return '<div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap;">' +
+            '<div style="text-align:center;">' +
+                '<p class="text-xs text-textoSuave uppercase tracking-wider mb-1">Frontal</p>' +
+                generarBodyMapSVG(muscleCount, 'vivo-f', 'frontal') +
+            '</div>' +
+            '<div style="text-align:center;">' +
+                '<p class="text-xs text-textoSuave uppercase tracking-wider mb-1">Posterior</p>' +
+                generarBodyMapSVG(muscleCount, 'vivo-b', 'posterior') +
+            '</div>' +
+        '</div>' +
+        '<div style="text-align:center;margin-top:10px;">' + detailHTML + '</div>';
+    }
+
+    // Actualiza el panel de mapa de calor en vivo para el dia idx. Se llama desde renderBloquesDia,
+    // renderWarmupEjsDia y toggleDia para reflejar los cambios "bloque por bloque" en tiempo real.
+    function actualizarMapaCalorEnVivo(idx) {
+        const label = document.getElementById('mapa-calor-vivo-dia-label');
+        const dia = typeof diasData !== 'undefined' ? diasData[idx] : null;
+        if (label) label.textContent = dia ? ('— ' + (dia.titulo || ('Día ' + (idx + 1)))) : '';
+        if (!_mapaCalorVivoAbierto) return; // no gastar trabajo si el panel esta colapsado
+        const content = document.getElementById('mapa-calor-vivo-content');
+        if (!content) return;
+        content.innerHTML = generarMiniHeatMapHTMLDark(calcularMusculosDiaEnVivo(dia));
+    }
+
     // Genera HTML completo de un mini heat map (frontal + posterior) para inline en modales
     function generarMiniHeatMapHTML(muscleCount) {
         const values = Object.values(muscleCount);
@@ -7401,6 +7722,7 @@
             repo.unshift(snapshot);
         }
         setRepositorio(repo);
+        _pfLimpiarBorrador();
 
         document.getElementById('repo-status').textContent = '✓ Guardado correctamente';
         document.getElementById('repo-status').className = 'text-xs text-verde text-center min-h-[1.2rem]';
@@ -9853,8 +10175,10 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
     function eliminarCalentamientoDia(idx) {
         if (!diasData[idx]) return;
         if (!confirm('¿Eliminar el calentamiento de este día?')) return;
+        _pfGuardarUndoSnapshot('eliminar calentamiento');
         diasData[idx].warmupEjercicios = [];
         renderWarmupEjsDia(idx);
+        toastConDeshacer('Calentamiento eliminado');
     }
 
     // Muestra el boton "+ Agregar Calentamiento" o la tarjeta resumen (Editar / X),
@@ -9964,6 +10288,19 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
                 return;
             }
 
+            // Ctrl/Cmd + Z: deshacer la última eliminación (bloque, ejercicio, calentamiento o día).
+            // Si el foco esta en un campo de texto, se deja el undo nativo del navegador (edicion de texto).
+            if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+                const activo = document.activeElement;
+                const enCampoTexto = activo && (activo.tagName === 'INPUT' || activo.tagName === 'TEXTAREA' || activo.isContentEditable);
+                const secRutina = document.getElementById('sec-rutina');
+                if (!enCampoTexto && secRutina && !secRutina.classList.contains('hidden') && !_hayModalAbierto()) {
+                    e.preventDefault();
+                    _pfDeshacer();
+                }
+                return;
+            }
+
             // Enter en el buscador de ejercicios de un bloque -> agrega el primer resultado de la busqueda
             if (e.key === 'Enter' && e.target && e.target.id === 'bloque-buscar-ej') {
                 e.preventDefault();
@@ -10003,6 +10340,12 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
         initAtajosTeclado();
         // Deslizar para eliminar ejercicios (mobile, solo touch)
         _pfInitSwipeToDelete();
+        // Deslizar para moverse entre dias (mobile, solo touch)
+        _pfInitSwipeEntreDias();
+        // Autoguardado / borrador: chequear si hay uno pendiente y arrancar el guardado periodico
+        _pfChequearBorradorAlIniciar();
+        setInterval(_pfGuardarBorrador, 8000);
+        window.addEventListener('beforeunload', _pfGuardarBorrador);
     });
 
 
