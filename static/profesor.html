@@ -2473,6 +2473,7 @@
 
     // ── Advertencia al agregar un ejercicio prohibido en Crear Rutina ──────
     let _advertenciaCallbackPendiente = null;
+    let _advertenciasAceptadas = new Set(); // claves "ALUMNO|EJERCICIO" ya confirmadas en esta sesion
 
     // Muestra el cartel de advertencia si el alumno cargado en "Nombre del Alumno" tiene ese
     // ejercicio marcado como prohibido en su ficha. Devuelve true si bloqueó el agregado (modal abierto).
@@ -2486,13 +2487,21 @@
         const prohibido = perfil.ejerciciosProhibidos.find(e => e.toUpperCase() === nombreEjercicio.toUpperCase());
         if (!prohibido) return false;
 
+        const claveAceptada = clave + '|' + nombreEjercicio.toUpperCase();
+        if (_advertenciasAceptadas.has(claveAceptada)) return false; // ya se confirmo antes, dejar pasar
+
         document.getElementById('adv-alumno-nombre').textContent = (perfil.nombre || alumno).toUpperCase();
         document.getElementById('adv-ejercicio-nombre').textContent = nombreEjercicio;
         const detalleEl = document.getElementById('adv-lesion-detalle');
         detalleEl.textContent = perfil.lesiones ? ('Motivo: ' + perfil.lesiones) : '';
         detalleEl.classList.toggle('hidden', !perfil.lesiones);
         document.getElementById('modal-advertencia-ejercicio').classList.remove('hidden');
-        _advertenciaCallbackPendiente = onConfirmar;
+        _advertenciaCallbackPendiente = function() {
+            _advertenciasAceptadas.add(claveAceptada);
+            if (onConfirmar) onConfirmar();
+            // Se libera la marca luego de un instante para no interferir con el siguiente ejercicio distinto
+            setTimeout(() => _advertenciasAceptadas.delete(claveAceptada), 500);
+        };
         return true;
     }
 
