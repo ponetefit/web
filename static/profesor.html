@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PONETE FIT | Panel del Profesor</title>a
+    <title>PONETE FIT | Panel del Profesor</title>
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#FF6B35">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -466,12 +466,32 @@
                 </div>
                 <!-- Perfil -->
                 <div id="dash-perfil" class="hidden mt-4 pt-4 border-t border-borde">
-                    <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 rounded-full bg-naranja/20 flex items-center justify-center text-naranja font-black text-lg" id="dash-avatar">?</div>
-                        <div>
-                            <p class="font-bold text-lg" id="dash-nombre-alumno"></p>
-                            <p class="text-xs text-textoSuave"><span id="dash-nivel" class="text-azul font-bold"></span> <span id="dash-objetivo" class="ml-2"></span></p>
+                    <div class="flex items-center justify-between gap-4 flex-wrap">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-full bg-naranja/20 flex items-center justify-center text-naranja font-black text-lg" id="dash-avatar">?</div>
+                            <div>
+                                <p class="font-bold text-lg" id="dash-nombre-alumno"></p>
+                                <p class="text-xs text-textoSuave"><span id="dash-nivel" class="text-azul font-bold"></span> <span id="dash-objetivo" class="ml-2"></span></p>
+                            </div>
                         </div>
+                        <button onclick="dashCrearRutinaParaAlumno()" class="btn-primary px-4 py-2.5 rounded-xl text-white font-bold text-xs uppercase tracking-wider whitespace-nowrap">+ Crear rutina para este alumno</button>
+                    </div>
+                    <!-- Ficha del alumno (lesiones / ejercicios prohibidos), cargada desde "Crear Alumno" -->
+                    <div id="dash-ficha-alumno" class="hidden mt-4 bg-fondoAlt rounded-xl border border-rojo/30 p-3">
+                        <div class="flex items-center justify-between gap-2 flex-wrap mb-1">
+                            <span class="font-bold text-rojo text-sm">🩺 Ficha del alumno</span>
+                            <div class="flex items-center gap-2">
+                                <span id="dash-ficha-edad" class="text-xs text-textoSuave"></span>
+                                <button onclick="dashEditarFichaAlumno()" class="text-xs text-azul font-bold hover:underline">Editar ficha</button>
+                            </div>
+                        </div>
+                        <p id="dash-ficha-elementos" class="text-xs text-azul hidden mb-1"></p>
+                        <p id="dash-ficha-lesiones" class="text-xs text-textoSuave hidden mb-1"></p>
+                        <p id="dash-ficha-prohibidos" class="text-xs text-amarillo hidden"></p>
+                    </div>
+                    <div id="dash-sin-ficha" class="hidden mt-4 bg-fondoAlt rounded-xl border border-borde/50 p-3 flex items-center justify-between gap-2 flex-wrap" style="border-style:dashed">
+                        <span class="text-xs text-textoSuave">Este alumno todavía no tiene ficha cargada (lesiones, elementos, etc.)</span>
+                        <button onclick="dashEditarFichaAlumno()" class="bg-naranja/20 text-naranja px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition whitespace-nowrap">Crear ficha</button>
                     </div>
                 </div>
             </div>
@@ -519,7 +539,9 @@
 
                 <!-- Mapa de Calor Muscular (Body Insights) -->
                 <div class="bg-tarjeta rounded-2xl border border-borde p-5 mb-6">
-                    <h3 class="text-sm font-bold text-naranja uppercase tracking-wider mb-4">Mapa de Calor Muscular (Body Insights)</h3>
+                    <h3 class="text-sm font-bold text-naranja uppercase tracking-wider mb-1">Mapa de Calor Muscular (Body Insights)</h3>
+                    <p class="text-[11px] text-textoSuave mb-3">Tocá un músculo para ver qué ejercicios lo trabajaron</p>
+                    <div id="hm-alertas" class="hidden mb-4 bg-amarillo/10 border border-amarillo/30 rounded-xl p-3"></div>
                     <div class="flex flex-col lg:flex-row items-center justify-center gap-6">
                         <!-- Vista Frontal -->
                         <div class="text-center">
@@ -1260,6 +1282,7 @@
                     <button onclick="cargarListaAlumnos()" class="bg-purpura/20 text-purpura px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition whitespace-nowrap">Actualizar</button>
                     <button onclick="eliminarAlumno()" id="btn-eliminar-alumno" class="bg-rojo/20 text-rojo px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition whitespace-nowrap hidden">Eliminar Alumno</button>
                 </div>
+                                <div id="historial-filtro-tipos" class="flex flex-wrap gap-2 mb-4 hidden"></div>
                 <div id="historial-lista" class="space-y-3">
                     <p class="text-textoSuave text-sm text-center py-8">Selecciona un alumno del desplegable</p>
                 </div>
@@ -1799,6 +1822,18 @@
                 <button onclick="confirmarAdvertenciaEjercicio()" class="flex-1 py-2.5 rounded-xl border border-borde text-textoSuave text-sm font-bold hover:text-texto transition">Agregar igual</button>
                 <button onclick="cancelarAdvertenciaEjercicio()" class="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold text-sm">Cancelar</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal: detalle de ejercicios por musculo (dashboard, mapa de calor) -->
+    <div id="modal-musculo-detalle" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+        <div class="bg-tarjeta rounded-2xl border border-borde p-5 max-w-sm w-full max-h-[80vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-3">
+                <h3 id="musculo-detalle-titulo" class="text-sm font-bold text-naranja uppercase tracking-wider"></h3>
+                <button onclick="document.getElementById('modal-musculo-detalle').classList.add('hidden')" class="text-textoSuave hover:text-texto text-xl leading-none px-2">&times;</button>
+            </div>
+            <div id="musculo-detalle-alerta" class="hidden mb-3 bg-amarillo/10 border border-amarillo/30 rounded-xl p-2.5 text-xs text-amarillo"></div>
+            <div id="musculo-detalle-lista" class="space-y-2"></div>
         </div>
     </div>
 
@@ -5726,13 +5761,17 @@
         }
     }
 
+    let historialFiltroTipoActivo = 'TODOS';
+
     async function buscarRutinasAlumno() {
         const nombre = document.getElementById('select-alumno').value;
         const lista  = document.getElementById('historial-lista');
         const btnEliminar = document.getElementById('btn-eliminar-alumno');
+        const filtrosCont = document.getElementById('historial-filtro-tipos');
         if (!nombre) {
             lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">Selecciona un alumno del desplegable</p>';
             btnEliminar.classList.add('hidden');
+            if (filtrosCont) filtrosCont.classList.add('hidden');
             return;
         }
         btnEliminar.classList.remove('hidden');
@@ -5742,49 +5781,90 @@
             const data = await res.json();
             if (data.ok) {
                 historialRutinasCache = data.rutinas || {};
-                const keys = Object.keys(historialRutinasCache);
-                if (keys.length === 0) {
-                    lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">No se encontraron rutinas</p>';
-                    return;
-                }
-                lista.innerHTML = keys.sort().reverse().map(cod => {
-                    const r    = historialRutinasCache[cod];
-                    const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
-                    const tipo  = r.tipo || 'ENTRENAMIENTO';
-                    return `<div class="bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50">
-                        <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-1">
-                            <div>
-                                <span class="font-mono font-bold text-amarillo text-sm">${cod.toUpperCase()}</span>
-                                <span class="text-xs text-textoSuave ml-2">${tipo} | ${fecha}</span>
-                            </div>
-                            <span class="text-xs text-textoSuave">${r.alumno || nombre}</span>
-                        </div>
-                        <div class="flex flex-wrap gap-2 mt-2">
-                            <button onclick="verRutina('${cod}')"
-                                class="bg-azul/20 text-azul px-3 py-2 rounded-lg text-xs font-bold hover:bg-azul/30 transition flex-1 min-w-[100px]">
-                                Ver Rutina
-                            </button>
-                            <button onclick="editarRutinaDesdeHistorial('${cod}')"
-                                class="bg-verde/20 text-verde px-3 py-2 rounded-lg text-xs font-bold hover:bg-verde/30 transition flex-1 min-w-[100px]">
-                                Editar Rutina
-                            </button>
-                            <button onclick="descargarPDF('${cod}')"
-                                class="bg-naranja/20 text-naranja px-3 py-2 rounded-lg text-xs font-bold hover:bg-naranja/30 transition flex-1 min-w-[100px]">
-                                Descargar PDF
-                            </button>
-                            <button onclick="eliminarRutinaHistorial('${cod}')" 
-                                class="bg-rojo/20 text-rojo px-3 py-2 rounded-lg text-xs font-bold hover:bg-rojo/30 transition flex-1 min-w-[100px]">
-                                Eliminar Rutina
-                            </button>
-                        </div>
-                    </div>`;
-                }).join('');
+                historialFiltroTipoActivo = 'TODOS';
+                renderizarFiltroTiposHistorial();
+                renderizarListaHistorial(nombre);
             } else {
                 lista.innerHTML = '<p class="text-rojo text-sm text-center py-8">Error al buscar rutinas</p>';
+                if (filtrosCont) filtrosCont.classList.add('hidden');
             }
         } catch (e) {
             lista.innerHTML = '<p class="text-rojo text-sm text-center py-8">Error de conexion</p>';
+            if (filtrosCont) filtrosCont.classList.add('hidden');
         }
+    }
+
+    // Arma los chips de filtro segun los tipos de rutina que realmente tiene este alumno
+    function renderizarFiltroTiposHistorial() {
+        const cont = document.getElementById('historial-filtro-tipos');
+        if (!cont) return;
+        const keys = Object.keys(historialRutinasCache);
+        if (keys.length === 0) { cont.classList.add('hidden'); cont.innerHTML = ''; return; }
+        const tiposSet = new Set();
+        keys.forEach(cod => {
+            tiposSet.add((historialRutinasCache[cod].tipo || 'ENTRENAMIENTO').toUpperCase());
+        });
+        const tipos = Array.from(tiposSet).sort();
+        if (tipos.length <= 1) { cont.classList.add('hidden'); cont.innerHTML = ''; return; }
+        const chip = (valor, label) => {
+            const activo = historialFiltroTipoActivo === valor;
+            return '<button onclick="_hFiltrarPorTipo(\'' + valor + '\')" class="px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition ' +
+                (activo ? 'bg-purpura text-white' : 'bg-fondoAlt text-textoSuave border border-borde hover:text-texto') + '">' + label + '</button>';
+        };
+        cont.innerHTML = chip('TODOS', 'Todos') + tipos.map(t => chip(t, t)).join('');
+        cont.classList.remove('hidden');
+    }
+
+    function _hFiltrarPorTipo(tipo) {
+        historialFiltroTipoActivo = tipo;
+        const nombre = document.getElementById('select-alumno').value;
+        renderizarFiltroTiposHistorial();
+        renderizarListaHistorial(nombre);
+    }
+
+    function renderizarListaHistorial(nombre) {
+        const lista = document.getElementById('historial-lista');
+        if (!lista) return;
+        let keys = Object.keys(historialRutinasCache);
+        if (historialFiltroTipoActivo !== 'TODOS') {
+            keys = keys.filter(cod => (historialRutinasCache[cod].tipo || 'ENTRENAMIENTO').toUpperCase() === historialFiltroTipoActivo);
+        }
+        if (keys.length === 0) {
+            lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">No se encontraron rutinas' + (historialFiltroTipoActivo !== 'TODOS' ? ' de tipo "' + historialFiltroTipoActivo + '"' : '') + '</p>';
+            return;
+        }
+        lista.innerHTML = keys.sort().reverse().map(cod => {
+            const r    = historialRutinasCache[cod];
+            const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
+            const tipo  = r.tipo || 'ENTRENAMIENTO';
+            return `<div class="bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-1">
+                    <div>
+                        <span class="font-mono font-bold text-amarillo text-sm">${cod.toUpperCase()}</span>
+                        <span class="text-xs text-textoSuave ml-2">${tipo} | ${fecha}</span>
+                    </div>
+                    <span class="text-xs text-textoSuave">${r.alumno || nombre}</span>
+                </div>
+                <div class="flex flex-wrap gap-2 mt-2">
+                    <button onclick="verRutina('${cod}')"
+                        class="bg-azul/20 text-azul px-3 py-2 rounded-lg text-xs font-bold hover:bg-azul/30 transition flex-1 min-w-[100px]">
+                        Ver Rutina
+                    </button>
+                    <button onclick="editarRutinaDesdeHistorial('${cod}')"
+                        class="bg-verde/20 text-verde px-3 py-2 rounded-lg text-xs font-bold hover:bg-verde/30 transition flex-1 min-w-[100px]">
+                        Editar Rutina
+                    </button>
+                    <button onclick="descargarPDF('${cod}')"
+                        class="bg-naranja/20 text-naranja px-3 py-2 rounded-lg text-xs font-bold hover:bg-naranja/30 transition flex-1 min-w-[100px]">
+                        Descargar PDF
+                    </button>
+                    <button onclick="eliminarRutinaHistorial('${cod}')" 
+                        class="bg-rojo/20 text-rojo px-3 py-2 rounded-lg text-xs font-bold hover:bg-rojo/30 transition flex-1 min-w-[100px]">
+                        Eliminar Rutina
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
     }
 
     // ====================================================================
@@ -7157,6 +7237,8 @@
 
     let dashChartInstance = null;
     let dashRutinasData = {};
+    let dashMuscleExercises = {};   // musculo -> [{nombre, veces}], usado al tocar un musculo del mapa de calor
+    let dashMuscleUltimaFecha = {}; // musculo -> ultimo timestamp trabajado, para detectar desequilibrios
 
     async function cargarAlumnosDash() {
         const inp = document.getElementById('dash-select-alumno');
@@ -7193,6 +7275,7 @@
         const nombreEl = document.getElementById('dash-nombre-alumno');
         if (avatarEl) avatarEl.textContent = nombre.charAt(0).toUpperCase();
         if (nombreEl) nombreEl.textContent = nombre.toUpperCase();
+        dashMostrarFichaAlumno(nombre);
 
         // Mostrar loading
         contenido.classList.remove('hidden');
@@ -7240,6 +7323,66 @@
         }
     }
 
+    // Muestra la ficha del alumno (lesiones, elementos, ejercicios prohibidos) en el Dashboard,
+    // reutilizando los datos ya cargados por "Crear Alumno" (_perfilAlumnosCache).
+    let dashAlumnoActual = '';
+    function dashMostrarFichaAlumno(nombre) {
+        dashAlumnoActual = nombre;
+        const conFicha = document.getElementById('dash-ficha-alumno');
+        const sinFicha = document.getElementById('dash-sin-ficha');
+        if (!conFicha || !sinFicha) return;
+        const perfil = _perfilAlumnosCache[_claveAlumno(nombre)];
+        if (!perfil) {
+            conFicha.classList.add('hidden');
+            sinFicha.classList.remove('hidden');
+            return;
+        }
+        sinFicha.classList.add('hidden');
+        conFicha.classList.remove('hidden');
+        document.getElementById('dash-ficha-edad').textContent = perfil.edad ? (perfil.edad + ' años') : '';
+        const elEl = document.getElementById('dash-ficha-elementos');
+        const elementos = perfil.elementos || [];
+        if (elementos.length) { elEl.textContent = '🏋️ ' + elementos.join(', '); elEl.classList.remove('hidden'); }
+        else { elEl.classList.add('hidden'); }
+        const lesEl = document.getElementById('dash-ficha-lesiones');
+        if (perfil.lesiones) { lesEl.textContent = '⚠️ ' + perfil.lesiones; lesEl.classList.remove('hidden'); }
+        else { lesEl.classList.add('hidden'); }
+        const prohEl = document.getElementById('dash-ficha-prohibidos');
+        const proh = perfil.ejerciciosProhibidos || [];
+        if (proh.length) { prohEl.textContent = '🚫 No puede hacer: ' + proh.join(', '); prohEl.classList.remove('hidden'); }
+        else { prohEl.classList.add('hidden'); }
+    }
+
+    // Ir a "Crear Alumno" con la ficha de este alumno lista para editar (o crear si no tiene)
+    function dashEditarFichaAlumno() {
+        if (!dashAlumnoActual) return;
+        showTab('crear-alumno');
+        const clave = _claveAlumno(dashAlumnoActual);
+        if (_perfilAlumnosCache[clave]) {
+            setTimeout(() => editarPerfilAlumno(clave), 50);
+        } else {
+            setTimeout(() => {
+                const inp = document.getElementById('ca-nombre');
+                if (inp) { inp.value = dashAlumnoActual; inp.scrollIntoView({ behavior: 'smooth' }); }
+            }, 50);
+        }
+    }
+
+    // Ir a "Crear Rutina" con el nombre de este alumno precargado
+    function dashCrearRutinaParaAlumno() {
+        if (!dashAlumnoActual) return;
+        showTab('rutina');
+        setTimeout(() => {
+            const inp = document.getElementById('alumno-nombre');
+            if (inp) {
+                inp.value = dashAlumnoActual;
+                _pfChequearHistorialAlumno();
+                _pfChequearFichaAlumno();
+            }
+        }, 50);
+    }
+
+
     function procesarDashboard(nombre) {
         // Helper para evitar crashes si algún elemento no existe
         function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
@@ -7269,6 +7412,7 @@
         // Recopilar datos de todas las rutinas
         const metodoCount = {};
         const ejercicioCount = {};
+        const ejercicioUltimaFecha = {};
         const timestamps = [];
 
         keys.forEach(cod => {
@@ -7280,6 +7424,9 @@
             const allEjs = extraerEjerciciosDeRutina(r, datos);
             allEjs.forEach(n => {
                 ejercicioCount[n] = (ejercicioCount[n] || 0) + 1;
+                if (r.timestamp && (!ejercicioUltimaFecha[n] || r.timestamp > ejercicioUltimaFecha[n])) {
+                    ejercicioUltimaFecha[n] = r.timestamp;
+                }
             });
 
             // Contar metodos
@@ -7379,11 +7526,25 @@
 
         // -- Mapa de Calor Muscular --
         const muscleCount = {};
+        dashMuscleExercises = {};   // musculo -> [{nombre, veces}]
+        dashMuscleUltimaFecha = {}; // musculo -> timestamp mas reciente
         // Para cada ejercicio usado en rutinas, buscar sus musculos en la videoteca
         Object.keys(ejercicioCount).forEach(ejNombre => {
             const veces = ejercicioCount[ejNombre];
+            const ultimaFecha = ejercicioUltimaFecha[ejNombre] || 0;
             const ejData = buscarEjEnVideoteca(ejNombre);
             if (ejData) {
+                const registrar = (musculo) => {
+                    if (!musculo) return;
+                    if (!dashMuscleExercises[musculo]) dashMuscleExercises[musculo] = [];
+                    dashMuscleExercises[musculo].push({ nombre: ejNombre, veces });
+                    if (!dashMuscleUltimaFecha[musculo] || ultimaFecha > dashMuscleUltimaFecha[musculo]) {
+                        dashMuscleUltimaFecha[musculo] = ultimaFecha;
+                    }
+                };
+                registrar(ejData.musculo1);
+                registrar(ejData.musculo2);
+                registrar(ejData.sinergista);
                 // Musculos principales: peso completo
                 if (ejData.musculo1) muscleCount[ejData.musculo1] = (muscleCount[ejData.musculo1] || 0) + veces;
                 if (ejData.musculo2) muscleCount[ejData.musculo2] = (muscleCount[ejData.musculo2] || 0) + veces;
@@ -7429,6 +7590,8 @@
     }
 
     // Renderiza el mapa de calor muscular coloreando los SVGs del dashboard
+    const HM_DIAS_DESEQUILIBRIO = 21; // dias sin trabajar un musculo para considerarlo "descuidado"
+
     function renderHeatMap(muscleCount) {
         // Resetear todos los musculos al color por defecto
         for (const [muscle, ids] of Object.entries(MUSCLE_SVG_MAP)) {
@@ -7439,17 +7602,34 @@
         }
         document.querySelectorAll('.hm-trapecio').forEach(el => el.setAttribute('fill', HM_DEFAULT_COLOR));
 
+        // Hacer clickeable cada musculo del mapa (siempre, tenga o no datos)
+        for (const [muscle, ids] of Object.entries(MUSCLE_SVG_MAP)) {
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.style.cursor = 'pointer';
+                el.onclick = () => mostrarDetalleMusculo(muscle);
+            });
+        }
+        document.querySelectorAll('.hm-trapecio').forEach(el => {
+            el.style.cursor = 'pointer';
+            el.onclick = () => mostrarDetalleMusculo('Trapecio');
+        });
+
         const detalle = document.getElementById('hm-detalle');
+        const alertasBox = document.getElementById('hm-alertas');
 
         const values = Object.values(muscleCount);
         if (values.length === 0) {
             if (detalle) detalle.innerHTML = '<p class="text-textoSuave italic">Sin datos musculares. Asigna musculos a los ejercicios en la Videoteca.</p>';
+            if (alertasBox) alertasBox.classList.add('hidden');
             return;
         }
 
         const maxVal = Math.max(...values);
         if (maxVal === 0) {
             if (detalle) detalle.innerHTML = '<p class="text-textoSuave italic">Sin datos musculares.</p>';
+            if (alertasBox) alertasBox.classList.add('hidden');
             return;
         }
 
@@ -7466,6 +7646,33 @@
             }
         }
 
+        // -- Alerta de desequilibrio: musculos nunca trabajados o descuidados hace tiempo --
+        const ahoraSeg = Date.now() / 1000;
+        const descuidados = [];
+        GRUPOS_MUSCULARES.forEach(m => {
+            const trabajado = !!muscleCount[m];
+            const ultima = dashMuscleUltimaFecha[m] || 0;
+            if (!trabajado) {
+                descuidados.push({ musculo: m, texto: 'nunca trabajado' });
+            } else if (ultima > 0) {
+                const dias = Math.floor((ahoraSeg - ultima) / 86400);
+                if (dias >= HM_DIAS_DESEQUILIBRIO) {
+                    descuidados.push({ musculo: m, texto: 'hace ' + dias + ' días' });
+                }
+            }
+        });
+        if (alertasBox) {
+            if (descuidados.length > 0) {
+                alertasBox.classList.remove('hidden');
+                alertasBox.innerHTML = '<p class="font-bold text-amarillo text-xs mb-1.5">⚠️ Posible desequilibrio muscular</p>' +
+                    '<div class="flex flex-wrap gap-1.5">' +
+                    descuidados.map(d => '<button onclick="mostrarDetalleMusculo(\'' + d.musculo + '\')" class="bg-amarillo/15 text-amarillo px-2.5 py-1 rounded-full text-[11px] font-bold hover:bg-amarillo/25 transition">' + d.musculo + ' (' + d.texto + ')</button>').join('') +
+                    '</div>';
+            } else {
+                alertasBox.classList.add('hidden');
+            }
+        }
+
         // Mostrar detalle numerico
         if (detalle) {
             const sorted = Object.entries(muscleCount).sort((a, b) => b[1] - a[1]);
@@ -7474,6 +7681,50 @@
                     return `<p>${m}: <span class="font-bold text-naranja">${Math.round(c)}</span> <span class="text-textoSuave/60">(${getHeatLabel(c / maxVal)})</span></p>`;
                 }).join('');
         }
+    }
+
+    // Muestra en un modal que ejercicios trabajaron un musculo especifico (click en el mapa de calor)
+    function mostrarDetalleMusculo(musculo) {
+        const modal = document.getElementById('modal-musculo-detalle');
+        const titulo = document.getElementById('musculo-detalle-titulo');
+        const alertaEl = document.getElementById('musculo-detalle-alerta');
+        const lista = document.getElementById('musculo-detalle-lista');
+        if (!modal) return;
+        if (titulo) titulo.textContent = musculo;
+
+        const ejercicios = (dashMuscleExercises[musculo] || []).slice().sort((a, b) => b.veces - a.veces);
+
+        if (alertaEl) {
+            const ultima = dashMuscleUltimaFecha[musculo] || 0;
+            if (ejercicios.length === 0) {
+                alertaEl.classList.remove('hidden');
+                alertaEl.textContent = '⚠️ Este alumno nunca trabajó este grupo muscular en las rutinas registradas.';
+            } else if (ultima > 0) {
+                const dias = Math.floor((Date.now() / 1000 - ultima) / 86400);
+                if (dias >= HM_DIAS_DESEQUILIBRIO) {
+                    alertaEl.classList.remove('hidden');
+                    alertaEl.textContent = '⚠️ No se trabaja hace ' + dias + ' días. Considerá incluirlo en la próxima rutina.';
+                } else {
+                    alertaEl.classList.add('hidden');
+                }
+            } else {
+                alertaEl.classList.add('hidden');
+            }
+        }
+
+        if (lista) {
+            if (ejercicios.length === 0) {
+                lista.innerHTML = '<p class="text-textoSuave text-xs text-center py-4">Sin ejercicios registrados para este músculo</p>';
+            } else {
+                lista.innerHTML = ejercicios.map(e =>
+                    '<div class="bg-fondoAlt rounded-lg px-3 py-2 flex items-center justify-between gap-2">' +
+                    '<span class="text-sm">' + e.nombre + '</span>' +
+                    '<span class="text-xs font-bold text-naranja whitespace-nowrap">' + e.veces + 'x</span>' +
+                    '</div>'
+                ).join('');
+            }
+        }
+        modal.classList.remove('hidden');
     }
 
     // Calcula muscleCount para una rutina individual
@@ -9923,7 +10174,7 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
     const MODAL_IDS = ['modal-dash-rutina', 'modal-codigo', 'modal-repo-guardar', 'modal-repo-editar',
         'modal-repo-copiar', 'modal-ver-rutina', 'modal-piz-vt', 'modal-ia-config', 'modal-ia-preview',
         'modal-nueva-cat', 'modal-bloque', 'modal-copiar-destino', 'modal-historial-alumno', 'modal-vista-compacta-rutina',
-        'modal-advertencia-ejercicio'];
+        'modal-advertencia-ejercicio', 'modal-musculo-detalle'];
 
     // Devuelve tambien los modales de calentamiento (uno por dia, id dinamico modal-calentamiento-N)
     function _pfTodosLosModalesVisibles() {
