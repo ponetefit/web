@@ -10380,11 +10380,23 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
             }
         };
 
-        ventana.document.querySelectorAll('.hv-item').forEach(btn => {
-            btn.onclick = () => cargarEnVentana(btn.dataset.codigo);
-        });
-
-        cargarEnVentana(codigoInicial);
+        // Importante: esperar a que la ventana termine de cargar (incluye el script de
+        // Tailwind, que al bloquear el parser puede hacer que el body -y el div
+        // "historial-contenido"- todavia no existan si tocamos el DOM inmediatamente
+        // despues de document.close()). Sin este onload, cargarEnVentana() podia
+        // encontrar el contenedor como null, cortar en el primer "if (!cont) return;"
+        // y dejar el panel colgado en el "Cargando..." estatico para siempre.
+        const iniciar = () => {
+            ventana.document.querySelectorAll('.hv-item').forEach(btn => {
+                btn.onclick = () => cargarEnVentana(btn.dataset.codigo);
+            });
+            cargarEnVentana(codigoInicial);
+        };
+        if (ventana.document.readyState === 'complete') {
+            iniciar();
+        } else {
+            ventana.addEventListener('load', iniciar);
+        }
     }
 
     async function _pfDesglosarHistorial(codigo, i) {
