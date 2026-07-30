@@ -1050,6 +1050,11 @@
                                     <img id="piz-previewImg" class="w-full rounded-xl border border-borde" style="max-height:180px;object-fit:cover">
                                     <button onclick="pizResetear()" class="absolute top-2 right-2 text-xs font-bold px-3 py-1 rounded-lg cursor-pointer" style="background:rgba(0,0,0,.75);color:#fff;border:none">✕ Cambiar</button>
                                 </div>
+                                <div class="flex items-center gap-2 mt-2">
+                                    <button onclick="pizRotar()" class="flex-1 text-xs font-bold py-2 rounded-lg" style="background:rgba(255,213,79,.12);color:#FFD54F;border:1px solid rgba(255,213,79,.3);cursor:pointer" title="Girar la foto 90° si quedó de costado">⟳ Rotar</button>
+                                    <button onclick="pizToggleContraste()" id="piz-btn-contraste" class="flex-1 text-xs font-bold py-2 rounded-lg" style="background:rgba(105,240,174,.12);color:#69F0AE;border:1px solid rgba(105,240,174,.3);cursor:pointer" title="Mejora la lectura en fotos con poca luz">🔆 Mejorar contraste</button>
+                                </div>
+                                <button onclick="pizReintentar()" class="w-full mt-2 text-xs font-bold py-2 rounded-lg" style="background:rgba(79,195,247,.12);color:#4FC3F7;border:1px solid rgba(79,195,247,.3);cursor:pointer">🔄 Reintentar análisis (misma foto)</button>
                             </div>
 
                             <!-- Estado OCR -->
@@ -9716,6 +9721,11 @@
     let pizEjs     = [];
     let pizBloques  = [];
     let pizGuardIdx = null;
+    let pizLastB64  = null;
+    let pizLastMime = null;
+    let pizOriginalFile = null;
+    let pizRotacion  = 0;      // 0, 90, 180, 270
+    let pizContraste = false;
 
     function pizTogglePanel() {
         const panel = document.getElementById('piz-panel');
@@ -9731,6 +9741,39 @@
         if (cfg) cfg.classList.remove('hidden');
     }
 
+    // Redimensiona/comprime la foto antes de mandarla a la IA (sube más rápido y
+    // pesa menos), y de paso permite rotarla y mejorar el contraste — ambas cosas
+    // ayudan mucho a que el modelo lea bien fotos de pizarra sacadas rápido y de
+    // costado o con poca luz.
+    function pizRedimensionar(file, { maxDim = 2000, calidad = 0.9, rotacion = 0, contraste = false } = {}) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+            img.onload = () => {
+                URL.revokeObjectURL(url);
+                let { width, height } = img;
+                if (width > maxDim || height > maxDim) {
+                    const ratio = Math.min(maxDim / width, maxDim / height);
+                    width = Math.round(width * ratio);
+                    height = Math.round(height * ratio);
+                }
+                const rotado90 = rotacion === 90 || rotacion === 270;
+                const canvas = document.createElement('canvas');
+                canvas.width  = rotado90 ? height : width;
+                canvas.height = rotado90 ? width  : height;
+                const ctx = canvas.getContext('2d');
+                if (contraste) ctx.filter = 'contrast(1.25) brightness(1.1)';
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.rotate(rotacion * Math.PI / 180);
+                ctx.drawImage(img, -width / 2, -height / 2, width, height);
+                const dataUrl = canvas.toDataURL('image/jpeg', calidad);
+                resolve({ b64: dataUrl.split(',')[1], mime: 'image/jpeg', dataUrl });
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se pudo leer la imagen')); };
+            img.src = url;
+        });
+    }
+
     function pizDragOver(e) { e.preventDefault(); document.getElementById('piz-dropZone').classList.add('border-azul'); }
     function pizDragLeave()  { document.getElementById('piz-dropZone').classList.remove('border-azul'); }
     function pizDrop(e) {
@@ -9740,22 +9783,102 @@
     }
     function pizProcesarArchivo(ev) { const f = ev.target.files[0]; if (f) pizProcFile(f); }
 
-    function pizProcFile(file) {
-        const r = new FileReader();
-        r.onload = async (e) => {
-            const b64full = e.target.result;
-            const b64     = b64full.split(',')[1];
-            const mime    = b64full.split(';')[0].split(':')[1] || 'image/jpeg';
-            document.getElementById('piz-previewImg').src = b64full;
-            document.getElementById('piz-previewContainer').classList.remove('hidden');
-            document.getElementById('piz-dropZone').classList.add('hidden');
-            document.getElementById('piz-resultado').classList.add('hidden');
-            document.getElementById('piz-resumen').classList.add('hidden');
-            pizEjs = [];
-            document.getElementById('piz-nombre').value = 'Sesión ' + new Date().toLocaleDateString('es-AR');
-            await pizOCR(b64, mime);
-        };
-        r.readAsDataURL(file);
+    async function pizProcFile(file) {
+        pizOriginalFile = file;
+        pizRotacion  = 0;
+        pizContraste = false;
+        const btnC = document.getElementById('piz-btn-contraste');
+        if (btnC) btnC.style.background = 'rgba(105,240,174,.12)';
+        let b64, mime, dataUrl;
+        try {
+            ({ b64, mime, dataUrl } = await pizRedimensionar(file, { rotacion: 0, contraste: false }));
+        } catch (e) {
+            // Si falla el redimensionado (formato raro, etc.) mandamos el archivo original tal cual
+            dataUrl = await new Promise((res, rej) => {
+                const r = new FileReader();
+                r.onload = ev => res(ev.target.result);
+                r.onerror = rej;
+                r.readAsDataURL(file);
+            });
+            b64  = dataUrl.split(',')[1];
+            mime = dataUrl.split(';')[0].split(':')[1] || 'image/jpeg';
+        }
+        pizLastB64  = b64;
+        pizLastMime = mime;
+        document.getElementById('piz-previewImg').src = dataUrl;
+        document.getElementById('piz-previewContainer').classList.remove('hidden');
+        document.getElementById('piz-dropZone').classList.add('hidden');
+        document.getElementById('piz-resultado').classList.add('hidden');
+        document.getElementById('piz-resumen').classList.add('hidden');
+        pizEjs = [];
+        document.getElementById('piz-nombre').value = 'Sesión ' + new Date().toLocaleDateString('es-AR');
+        await pizOCR(b64, mime);
+    }
+
+    // Rota la foto 90° y vuelve a analizar automáticamente — clave para fotos
+    // sacadas de costado, que son una causa común de mala detección.
+    async function pizRotar() {
+        if (!pizOriginalFile) return;
+        pizRotacion = (pizRotacion + 90) % 360;
+        const { b64, mime, dataUrl } = await pizRedimensionar(pizOriginalFile, { rotacion: pizRotacion, contraste: pizContraste });
+        pizLastB64 = b64; pizLastMime = mime;
+        document.getElementById('piz-previewImg').src = dataUrl;
+        pizLog('⟳ Foto rotada, reanalizando...', '#FFD54F');
+        await pizOCR(b64, mime);
+    }
+
+    // Sube contraste/brillo y vuelve a analizar — ayuda con fotos con poca luz
+    // o tiza/marcador claro que cuesta distinguir del fondo.
+    async function pizToggleContraste() {
+        if (!pizOriginalFile) return;
+        pizContraste = !pizContraste;
+        const btn = document.getElementById('piz-btn-contraste');
+        if (btn) btn.style.background = pizContraste ? 'rgba(105,240,174,.4)' : 'rgba(105,240,174,.12)';
+        const { b64, mime, dataUrl } = await pizRedimensionar(pizOriginalFile, { rotacion: pizRotacion, contraste: pizContraste });
+        pizLastB64 = b64; pizLastMime = mime;
+        document.getElementById('piz-previewImg').src = dataUrl;
+        pizLog(pizContraste ? '🔆 Contraste mejorado, reanalizando...' : '↩️ Contraste normal, reanalizando...', '#69F0AE');
+        await pizOCR(b64, mime);
+    }
+
+    async function pizReintentar() {
+        if (!pizLastB64 || !pizLastMime) { toast('No hay foto cargada'); return; }
+        pizLog('🔄 Reintentando análisis...', '#4FC3F7');
+        await pizOCR(pizLastB64, pizLastMime);
+    }
+
+    // Helper genérico: fetch con timeout y reintentos automáticos (backoff) para
+    // llamadas a la IA. Reintenta solo en errores transitorios (red caída, 429
+    // "too many requests", 502/503/504 de gateway); NO reintenta en errores del
+    // propio pedido (400, 401, etc.) porque ahí reintentar no cambia nada.
+    async function _pfFetchIA(url, options, { timeoutMs = 45000, retries = 2, onRetry = null } = {}) {
+        let intento = 0;
+        while (true) {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+            try {
+                const resp = await fetch(url, { ...options, signal: ctrl.signal });
+                clearTimeout(timer);
+                if (!resp.ok && [429, 502, 503, 504].includes(resp.status) && intento < retries) {
+                    intento++;
+                    if (onRetry) onRetry(intento, 'HTTP ' + resp.status);
+                    await new Promise(r => setTimeout(r, 800 * Math.pow(2, intento - 1)));
+                    continue;
+                }
+                return resp;
+            } catch (err) {
+                clearTimeout(timer);
+                const esTimeout = err.name === 'AbortError';
+                const esRed     = err instanceof TypeError; // fetch falla con TypeError si no hay red
+                if ((esTimeout || esRed) && intento < retries) {
+                    intento++;
+                    if (onRetry) onRetry(intento, esTimeout ? 'timeout' : 'sin conexión');
+                    await new Promise(r => setTimeout(r, 800 * Math.pow(2, intento - 1)));
+                    continue;
+                }
+                throw esTimeout ? new Error('La IA tardó demasiado en responder (timeout)') : err;
+            }
+        }
     }
 
     async function pizOCR(b64, mime) {
@@ -9767,40 +9890,60 @@
 
         const prompt = `Analizá esta imagen de una hoja o pizarra de entrenamiento funcional escrita a mano o digital.
 
-REGLAS PARA DETECTAR BLOQUES — leé con atención:
+PASO 1 — Transcribí mentalmente cada línea de texto que sea un ejercicio (con sus reps/tiempo si tiene). Ignorá lo que NO es un ejercicio: título de la clase, fecha, nombre del alumno/profe, aclaraciones sueltas, dibujos.
 
-1. CORCHETES (escritura a mano):
-   - Un corchete puede aparecer a la DERECHA del grupo:  ejercicio1 / ejercicio2 ]
-   - O puede aparecer a la IZQUIERDA del grupo:  [ ejercicio1 / ejercicio2
+PASO 2 — Agrupá esos ejercicios en bloques usando ESTAS señales, en este orden de prioridad:
+
+1. CORCHETES / LLAVES (escritura a mano):
+   - Un corchete puede estar a la DERECHA del grupo:  ejercicio1 / ejercicio2 ]
+   - A la IZQUIERDA:  [ ejercicio1 / ejercicio2
    - O abrazando el grupo de los dos lados:  [ ejercicio1 / ejercicio2 ]
-   - Cada grupo unido por un mismo corchete (sin importar su orientación) es UN bloque separado.
-   - Si ves una línea vertical o una llave { } cumpliendo la misma función que un corchete, tratala igual.
-   - NUNCA mezcles ejercicios de distintos corchetes en el mismo bloque.
+   - Una línea vertical o llave { } que cumpla la misma función cuenta igual.
+   - Cada grupo unido por un mismo corchete/llave/línea es UN bloque. NUNCA mezcles ejercicios de distintos corchetes en el mismo bloque, y NUNCA dejes un ejercicio marcado por un corchete fuera de su bloque.
 
-2. COLORES / FONDOS (tablas digitales o impresas):
+2. NUMERACIÓN O LETRAS que agrupan (ej: "1)", "A.", "Circuito 1", "Ronda 2"):
+   - Cada número/letra de grupo distinto es un bloque separado, aunque no haya corchetes.
+
+3. COLORES / FONDOS (tablas digitales o impresas):
    - Ejercicios con el mismo color de fondo o bajo el mismo encabezado de color forman un bloque.
 
-3. SIN INDICADORES:
-   - Si no hay corchetes ni colores, poné todos en un único bloque llamado "Bloque 1".
+4. SIN NINGÚN INDICADOR:
+   - Si de verdad no hay corchetes, numeración de grupo ni colores, poné todos los ejercicios en un único bloque "Bloque 1". No inventes divisiones que no están marcadas en la imagen.
 
-FORMATO DE RESPUESTA — respondé SOLO con JSON válido, sin texto ni backticks:
-{"sistema":"Circuito","bloques":[{"nombre":"Bloque 1","ejercicios":[{"nombre":"Burpees","reps":"10"}]},{"nombre":"Bloque 2","ejercicios":[{"nombre":"Plancha","reps":"30s"}]}]}
+PASO 3 — Antes de responder, revisá cada ejercicio uno por uno y confirmá a qué bloque pertenece según la señal visual real (no supongas). Un ejercicio nunca puede quedar en dos bloques ni faltar.
+
+REGLAS ADICIONALES:
+- No inventes ejercicios que no estén escritos en la imagen.
+- No repitas un mismo ejercicio en más de un bloque salvo que esté escrito dos veces en la imagen.
+- Si el nombre del ejercicio está abreviado o es ambiguo, transcribilo tal cual está escrito, sin "corregirlo" a otro ejercicio distinto.
+- Mantené el orden en que aparecen en la imagen (de arriba hacia abajo, izquierda a derecha).
+- Para cada ejercicio agregá "confianza": "alta" si el texto y su bloque se leen con claridad, "media" si dudaste un poco, "baja" si es letra difícil de leer, está tapado/borroso, o no estás seguro de a qué bloque pertenece.
+
+FORMATO DE RESPUESTA — respondé SOLO con JSON válido, sin texto ni backticks ni explicación:
+{"sistema":"Circuito","bloques":[{"nombre":"Bloque 1","ejercicios":[{"nombre":"Burpees","reps":"10","confianza":"alta"}]},{"nombre":"Bloque 2","ejercicios":[{"nombre":"Plancha","reps":"30s","confianza":"media"}]}]}
 
 Sistemas posibles: Tabata, EMOM, Circuito por Tiempo, Circuito, Por Tiempo, Series. Si no podés determinarlo usá Circuito.
-Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo, incluilos en "reps".`;
+Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece con reps o tiempo, incluilos en "reps".`;
 
         try {
-            const resp = await fetch('/api/pizarra-ocr', {
+            const resp = await _pfFetchIA('/api/pizarra-ocr', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    model: 'google/gemini-2.0-flash-lite-001',
+                    model: 'google/gemini-3.1-flash-lite',
                     messages: [{ role:'user', content:[
                         { type:'image_url', image_url:{ url:'data:'+mime+';base64,'+b64 } },
                         { type:'text', text:prompt }
                     ]}],
                     max_tokens: 2000
                 })
+            }, {
+                timeoutMs: 45000,
+                retries: 2,
+                onRetry: (n, motivo) => {
+                    msg.textContent = 'Reintentando (' + n + '/2) — ' + motivo + '...';
+                    pizLog('⏳ Reintento ' + n + ' por: ' + motivo, '#FFD54F');
+                }
             });
 
             if (!resp.ok) { const t=await resp.text(); throw new Error('HTTP '+resp.status+': '+t.slice(0,200)); }
@@ -9863,11 +10006,14 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
                 nombre: (ej.nombre||'').trim(),
                 reps:   ej.reps||'',
                 enVT:   pizCheckVT(ej.nombre),
-                bloque: b.nombre||'Bloque 1'
+                bloque: b.nombre||'Bloque 1',
+                confianza: ['alta','media','baja'].includes(ej.confianza) ? ej.confianza : 'alta'
             })));
 
             st.classList.add('hidden');
             pizLog('\u2713 '+pizEjs.length+' ejercicios en '+bloques.length+' bloque(s) \u00b7 Sistema: '+(parsed.sistema||'\u2014'), '#69F0AE');
+            const bajaConf = pizEjs.filter(e => e.confianza === 'baja').length;
+            if (bajaConf > 0) pizLog('⚠️ ' + bajaConf + ' ejercicio(s) marcado(s) para revisar (letra poco clara)', '#FF6B35');
             pizRender();
             document.getElementById('piz-resultado').classList.remove('hidden');
             document.getElementById('piz-resumen').classList.remove('hidden');
@@ -9976,6 +10122,12 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
                     : '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(105,240,174,.15);color:#69F0AE">✓ En Videoteca</span>')
                 : '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(255,107,53,.15);color:#FF6B35">Sin Videoteca</span>';
 
+            const badgeConfianza = ej.confianza === 'baja'
+                ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(255,107,53,.2);color:#FF6B35" title="La IA no está segura de este dato — revisalo contra la foto">⚠️ Revisar</span>'
+                : (ej.confianza === 'media'
+                    ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(255,213,79,.15);color:#FFD54F" title="Confianza media">? Dudoso</span>'
+                    : '');
+
             const btnVT = enVT ? '' :
                 `<button onclick="pizAbrirModalVT(${i})" class="text-[11px] font-bold px-2.5 py-1 rounded-lg whitespace-nowrap" style="background:rgba(255,107,53,.2);color:#FF6B35;border:1px solid rgba(255,107,53,.3);cursor:pointer" onmouseover="this.style.background='rgba(255,107,53,.35)'" onmouseout="this.style.background='rgba(255,107,53,.2)'">💾 Guardar en Videoteca</button>`;
 
@@ -9986,7 +10138,8 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
             // Selector de bloque
             const bloqueOpts = bloquesUnicos.map(b=>`<option value="${escapeHtml(b)}" ${(ej.bloque||'Bloque 1')===b?'selected':''}>${escapeHtml(b)}</option>`).join('');
 
-            html += `<div class="rounded-xl p-3 ${enVT?'piz-ej-vt':'piz-ej-no'}"
+            const borderConfianza = ej.confianza === 'baja' ? 'border-left:3px solid #FF6B35;' : '';
+            html += `<div class="rounded-xl p-3 ${enVT?'piz-ej-vt':'piz-ej-no'}" style="${borderConfianza}"
                 draggable="true"
                 data-piz-idx="${i}"
                 ondragstart="_pizDragIdx=${i};this.classList.add('dragging')"
@@ -9997,6 +10150,7 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
                 <div class="flex items-center gap-2 mb-2 flex-wrap">
                     <!-- Drag handle -->
                     <span class="drag-handle select-none text-textoSuave" title="Arrastrar para reordenar" style="cursor:grab;font-size:16px;line-height:1;padding:0 2px">⠿</span>
+                    ${badgeConfianza}
                     ${badge}
                     <span class="flex-1"></span>
                     <!-- Flechas reorden -->
@@ -10065,7 +10219,7 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
         if (f==='nombre') { pizEjs[i].enVT=pizCheckVT(v); pizRender(); }
     }
     function pizDelEj(i) { pizEjs.splice(i,1); pizRender(); }
-    function pizAgregarManual() { pizEjs.push({nombre:'',reps:'',enVT:false}); pizRender(); }
+    function pizAgregarManual() { pizEjs.push({nombre:'',reps:'',enVT:false,confianza:'alta'}); pizRender(); }
 
     function pizLog(msg, color) {
         const log = document.getElementById('piz-log');
@@ -10079,6 +10233,11 @@ Extraé TODOS los ejercicios visibles. Si un ejercicio aparece con reps o tiempo
     function pizResetear() {
         pizEjs=[];
         pizBloques=[];
+        pizLastB64=null;
+        pizLastMime=null;
+        pizOriginalFile=null;
+        pizRotacion=0;
+        pizContraste=false;
         document.getElementById('piz-previewContainer').classList.add('hidden');
         document.getElementById('piz-dropZone').classList.remove('hidden');
         document.getElementById('piz-fileInput').value='';
