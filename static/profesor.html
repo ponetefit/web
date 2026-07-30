@@ -291,6 +291,30 @@
             /* Prevent horizontal scroll globally */
             html, body { overflow-x: hidden; }
 
+            /* ── Mejora #10: red de seguridad general contra texto superpuesto con letra grande ──
+               Con el selector de tamaño de letra (100%-175%) cualquier fila "flex" que antes
+               entraba justo en el ancho de pantalla puede desbordar. Por defecto una fila flex
+               achica sus items al minimo del contenido (min-width:auto), lo que hace que el
+               texto se comprima/se pise en vez de acomodarse. Esta regla hace que, en mobile,
+               toda fila flex pueda partirse a una segunda linea y que el texto largo corte
+               palabra en vez de desbordar y superponerse a lo de al lado.
+               Las barras que a proposito scrollean horizontal (pestañas, timeline del dia,
+               pills en vista compacta) se re-excluyen despues, por eso van con mas prioridad. */
+            .flex { flex-wrap: wrap; row-gap: 4px; }
+            .flex > * { min-width: 0; }
+            body, button, input, select, textarea, p, span, div, h1, h2, h3, h4, label, a {
+                overflow-wrap: break-word;
+                word-break: break-word;
+            }
+            /* Excepciones: elementos que deben seguir en una sola linea con scroll horizontal */
+            nav .flex,
+            .overflow-x-auto,
+            .overflow-x-auto .flex,
+            .bloque-card-pills,
+            [id^="dia-timeline-"] {
+                flex-wrap: nowrap;
+            }
+
             /* ── Mejora #5: areas de toque mas grandes en flechas / drag-handle / eliminar ── */
             .flechas-reorden button { min-width: 32px; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; }
             .drag-handle { min-width: 32px; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; }
@@ -1292,6 +1316,9 @@
         <!-- Modal Ver Rutina -->
         <div id="modal-ver-rutina" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
             <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="sm:hidden sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-2 flex justify-center">
+                    <button onclick="_pfToggleVistaModal()" id="btn-toggle-vista-modal" class="text-xs font-bold px-4 py-1.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition">📱 Vista rápida</button>
+                </div>
                 <div id="modal-rutina-content" class="p-8">
                 </div>
                 <div class="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex gap-3 rounded-b-3xl">
@@ -3965,6 +3992,7 @@
                 '<div class="flex items-start justify-between gap-2">' +
                 '<div class="flex items-start gap-2 flex-1 min-w-0">' +
                 '<span class="drag-handle mt-1 text-textoSuave flex-shrink-0">' + svgHandle + '</span>' +
+                _flechasHtml('bloques-dia-' + idx, i, bloques.length) +
                 '<div class="flex-1 min-w-0">' +
                 '<div class="flex items-center gap-2 mb-1.5">' +
                 '<span class="px-2 py-0.5 rounded text-xs font-bold bg-' + color + '/20 text-' + color + ' uppercase tracking-wider">' + b.tipo + '</span>' +
@@ -6201,6 +6229,8 @@
         const content = document.getElementById('modal-rutina-content');
         content.innerHTML = '<p style="text-align:center;color:#888;padding:40px;">Cargando rutina...</p>';
         document.getElementById('modal-ver-rutina').classList.remove('hidden');
+        const btnToggleInit = document.getElementById('btn-toggle-vista-modal');
+        if (btnToggleInit) btnToggleInit.textContent = _pfVistaModalCompacta ? '📄 Vista completa' : '📱 Vista rápida';
 
         try {
             // Siempre hacer fetch completo: la cache del listado de historial puede
@@ -6220,10 +6250,34 @@
             currentData        = r;
             rutinaModalActual  = { codigo, ...r };
 
-            content.innerHTML  = generarHTMLRutina(codigo, r);
+            content.innerHTML  = _pfVistaModalCompacta ? _pfRenderVistaRapidaModal(codigo, r) : generarHTMLRutina(codigo, r);
         } catch (e) {
             content.innerHTML = '<p style="text-align:center;color:#EF5350;padding:40px;">Error de conexion</p>';
         }
+    }
+
+    // ── Vista rápida (mobile): resumen compacto para chequear la rutina de un
+    // vistazo en el gimnasio, reutilizando el mismo generador que usa el
+    // historial (fondo oscuro, pills, sin el detalle "estilo PDF"). ──
+    let _pfVistaModalCompacta = false;
+
+    function _pfRenderVistaRapidaModal(codigo, r) {
+        const dias = _pfParsearDiasHistorial(r);
+        const titulo = (r.alumno || '') + (r.tipo === 'MULTIDIA' ? ' · Multi-día' : '');
+        return '<div style="background:#17171C;border-radius:16px;padding:16px;margin:-8px -8px 0;">' +
+            (titulo ? '<h3 style="font-family:Helvetica,Arial,sans-serif;font-weight:700;font-size:0.8rem;color:#FFD54F;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 14px;">' + titulo + '</h3>' : '') +
+            _pfGenerarHTMLCompacto(dias, false) +
+            '</div>';
+    }
+
+    function _pfToggleVistaModal() {
+        if (!rutinaModalActual || !rutinaModalActual.codigo) return;
+        _pfVistaModalCompacta = !_pfVistaModalCompacta;
+        const btn = document.getElementById('btn-toggle-vista-modal');
+        if (btn) btn.textContent = _pfVistaModalCompacta ? '📄 Vista completa' : '📱 Vista rápida';
+        const content = document.getElementById('modal-rutina-content');
+        const r = rutinaModalActual;
+        content.innerHTML = _pfVistaModalCompacta ? _pfRenderVistaRapidaModal(r.codigo, r) : generarHTMLRutina(r.codigo, r);
     }
 
     // ====================================================================
@@ -6251,8 +6305,8 @@
             return ff + 'background:' + bg + ';color:' + color + ';font-weight:700;font-size:13px;padding:7px 14px;border-radius:5px;margin:14px 0 6px;';
         }
         const sEjBox      = 'background:#F0F0F0;border-radius:6px;padding:10px 14px;margin-bottom:8px;';
-        const sEjTop      = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;';
-        const sEjNombre   = ff + 'font-weight:700;font-size:13px;color:#111;';
+        const sEjTop      = 'display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px;margin-bottom:4px;';
+        const sEjNombre   = ff + 'font-weight:700;font-size:13px;color:#111;overflow-wrap:break-word;min-width:0;';
         const sEjLink     = ff + 'color:#1565C0;font-size:12px;text-decoration:underline;white-space:nowrap;margin-left:10px;';
         const sEjMeta     = ff + 'font-size:11px;color:#555;margin:0;';
 
@@ -8625,11 +8679,13 @@
 
         const { codigo, obj } = convertirRepoARutinaFormat(r);
         const content = document.getElementById('modal-rutina-content');
-        content.innerHTML = generarHTMLRutina(codigo, obj);
+        content.innerHTML = _pfVistaModalCompacta ? _pfRenderVistaRapidaModal(codigo, obj) : generarHTMLRutina(codigo, obj);
 
         // Guardar para poder descargar el PDF
         currentData = obj;
         rutinaModalActual = { codigo, ...obj };
+        const btnToggle = document.getElementById('btn-toggle-vista-modal');
+        if (btnToggle) btnToggle.textContent = _pfVistaModalCompacta ? '📄 Vista completa' : '📱 Vista rápida';
 
         document.getElementById('modal-ver-rutina').classList.remove('hidden');
     }
