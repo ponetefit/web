@@ -8973,7 +8973,7 @@
         }
         if (q) {
             repo = repo.filter(({r}) => {
-                const usosNombres = Array.isArray(r.usos) ? r.usos.map(u=>u.alumno).join(' ').toLowerCase() : '';
+                const usosNombres = Array.isArray(r.usos) ? r.usos.map(u=>u.alumno + ' ' + (u.codigo||'')).join(' ').toLowerCase() : '';
                 return (r.nombre||'').toLowerCase().includes(q) ||
                        (r.alumnoNombre||'').toLowerCase().includes(q) ||
                        (r.rutinaDesc||'').toLowerCase().includes(q) ||
@@ -9000,17 +9000,19 @@
                   }).join('')
                 : '';
 
-            // Alumnos con los que se usó esta plantilla (guardado en r.usos al usar "Copiar a Alumno")
+            // Alumnos con los que se usó esta plantilla (guardado en r.usos al usar "Copiar a Alumno"),
+            // con el código de rutina que generó cada uso (ej: RAFA → RAFA-0003)
             const usos = Array.isArray(r.usos) ? r.usos : [];
             let usoInfo = '';
             if (usos.length) {
-                const nombresUnicos = [...new Set(usos.map(u => u.alumno))];
                 const ultimo = usos[usos.length - 1];
                 const fechaUltimo = ultimo && ultimo.fecha ? new Date(ultimo.fecha).toLocaleDateString('es-AR') : '';
-                const listaNombres = nombresUnicos.length > 3
-                    ? nombresUnicos.slice(0, 3).join(', ') + ' +' + (nombresUnicos.length - 3) + ' más'
-                    : nombresUnicos.join(', ');
-                usoInfo = `<p class="text-xs mt-1" style="color:#69F0AE">👥 Usado con: ${escapeHtml(listaNombres)}` +
+                const detalles = usos.map(u => u.codigo ? `${u.alumno} (${u.codigo})` : u.alumno);
+                const detallesUnicos = [...new Set(detalles)];
+                const listaDetalle = detallesUnicos.length > 3
+                    ? detallesUnicos.slice(0, 3).join(', ') + ' +' + (detallesUnicos.length - 3) + ' más'
+                    : detallesUnicos.join(', ');
+                usoInfo = `<p class="text-xs mt-1" style="color:#69F0AE">👥 Usado con: ${escapeHtml(listaDetalle)}` +
                     ` <span class="text-textoSuave">· ${usos.length} vez${usos.length !== 1 ? 'es' : ''}${fechaUltimo ? ' · último: ' + fechaUltimo : ''}</span></p>`;
             }
 
@@ -9265,10 +9267,12 @@
             // Luego compartir
             await compartirRutina();
 
-            // Registrar el uso: queda guardado CON QUÉ ALUMNO se usó esta plantilla y cuándo,
-            // para poder verlo después en la lista del repositorio.
+            // Registrar el uso: queda guardado CON QUÉ ALUMNO, CUÁNDO y con qué CÓDIGO
+            // de rutina se generó (ej: RAFA-0003), para saber exactamente en qué rutina
+            // terminó usada esta plantilla del repositorio.
+            const codigoGenerado = (document.getElementById('modal-codigo-text')?.innerText || '').trim();
             if (!Array.isArray(r.usos)) r.usos = [];
-            r.usos.push({ alumno, fecha: Date.now() });
+            r.usos.push({ alumno, fecha: Date.now(), codigo: codigoGenerado || null });
             repo[repoCopiarIdx] = r;
             setRepositorio(repo);
             renderizarRepositorio();
@@ -9393,9 +9397,9 @@
                 return `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="color:${color};background:${bg}">${pfNombreSistema(t)}</span>`;
             }).join('');
             const usos = Array.isArray(r.usos) ? r.usos : [];
-            const nombresUsados = [...new Set(usos.map(u=>u.alumno))];
-            const usoTxt = nombresUsados.length
-                ? `<span class="text-[10px] text-verde">👥 ${escapeHtml(nombresUsados.slice(0,2).join(', '))}${nombresUsados.length>2?' +'+(nombresUsados.length-2):''}</span>`
+            const detallesUsos = [...new Set(usos.map(u => u.codigo ? `${u.alumno} (${u.codigo})` : u.alumno))];
+            const usoTxt = detallesUsos.length
+                ? `<span class="text-[10px] text-verde">👥 ${escapeHtml(detallesUsos.slice(0,2).join(', '))}${detallesUsos.length>2?' +'+(detallesUsos.length-2):''}</span>`
                 : '';
             return `
             <div class="bg-fondoAlt rounded-lg border border-borde px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
