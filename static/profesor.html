@@ -9720,12 +9720,24 @@
 
     let pizEjs     = [];
     let pizBloques  = [];
+    let pizBloqueSistemas = {}; // { 'Bloque 1': { sistema:'Tabata', parametros:{trabajo:20,pausa:10} } }
     let pizGuardIdx = null;
     let pizLastB64  = null;
     let pizLastMime = null;
     let pizOriginalFile = null;
     let pizRotacion  = 0;      // 0, 90, 180, 270
     let pizContraste = false;
+
+    function pizNormalizarSistema(s) {
+        const NORM = {
+            'tabata':'Tabata','emom':'EMOM',
+            'circuito por tiempo':'Circuito por Tiempo','circuito tiempo':'Circuito por Tiempo',
+            'circuito por vuelta':'Circuito','circuito vueltas':'Circuito','circuito':'Circuito',
+            'por tiempo':'Por Tiempo',
+            'series':'Series','series y repeticiones':'Series','series/reps':'Series'
+        };
+        return NORM[(s||'').toLowerCase().trim()] || s;
+    }
 
     function pizTogglePanel() {
         const panel = document.getElementById('piz-panel');
@@ -9892,7 +9904,9 @@
 
 PASO 1 — Transcribí mentalmente cada línea de texto que sea un ejercicio (con sus reps/tiempo si tiene). Ignorá lo que NO es un ejercicio: título de la clase, fecha, nombre del alumno/profe, aclaraciones sueltas, dibujos.
 
-PASO 2 — Agrupá esos ejercicios en bloques usando ESTAS señales, en este orden de prioridad:
+PASO 1.5 — CALENTAMIENTO: si ves las siglas "EC" (o "E.C.", "Ent. Cardio", "Calentamiento", "Entrada en calor") marcando una línea o un grupo de ejercicios, esos ejercicios van SEPARADOS del resto, en el campo "calentamiento" del JSON (NO los pongas en "bloques"). El resto de los ejercicios (la parte principal) va en "bloques" como siempre.
+
+PASO 2 — Agrupá los ejercicios de la parte principal (no el calentamiento) en bloques usando ESTAS señales, en este orden de prioridad:
 
 1. CORCHETES / LLAVES (escritura a mano):
    - Un corchete puede estar a la DERECHA del grupo:  ejercicio1 / ejercicio2 ]
@@ -9900,6 +9914,7 @@ PASO 2 — Agrupá esos ejercicios en bloques usando ESTAS señales, en este ord
    - O abrazando el grupo de los dos lados:  [ ejercicio1 / ejercicio2 ]
    - Una línea vertical o llave { } que cumpla la misma función cuenta igual.
    - Cada grupo unido por un mismo corchete/llave/línea es UN bloque. NUNCA mezcles ejercicios de distintos corchetes en el mismo bloque, y NUNCA dejes un ejercicio marcado por un corchete fuera de su bloque.
+   - Si un grupo de ejercicios está marcado con corchete, el sistema de ESE bloque es "Circuito" salvo que la notación de "x" (ver PASO 2.1) diga otra cosa.
 
 2. NUMERACIÓN O LETRAS que agrupan (ej: "1)", "A.", "Circuito 1", "Ronda 2"):
    - Cada número/letra de grupo distinto es un bloque separado, aunque no haya corchetes.
@@ -9910,6 +9925,13 @@ PASO 2 — Agrupá esos ejercicios en bloques usando ESTAS señales, en este ord
 4. SIN NINGÚN INDICADOR:
    - Si de verdad no hay corchetes, numeración de grupo ni colores, poné todos los ejercicios en un único bloque "Bloque 1". No inventes divisiones que no están marcadas en la imagen.
 
+PASO 2.1 — NOTACIÓN "x" (multiplicador) al lado de un corchete o bloque — es MUY importante distinguir estos tres casos:
+   a) "x" + número SOLO (ej: "x3", "X 4", "x3v", "x 5 vueltas"), SIN comilla simple ni doble: significa CANTIDAD DE VUELTAS/RONDAS del circuito. Sistema = "Circuito". Guardá ese número en "parametros.vueltas".
+   b) "x" + número + comilla simple ' (ej: "x5'", "X 8'", "x 10'"): la comilla simple ' significa MINUTOS. Sistema = "Circuito por Tiempo". Guardá ese número en "parametros.duracion_min".
+   c) Notación tipo número + comilla doble " + "x" + número + comilla doble " (ej: 20" x 10", 30"x15", 40" X 20"): la comilla doble " significa SEGUNDOS y esto es un TABATA. El primer número es el tiempo de TRABAJO y el segundo es el tiempo de PAUSA/descanso. Sistema = "Tabata". Guardá "parametros.trabajo" (primer número, segundos) y "parametros.pausa" (segundo número, segundos). Si además se indica una cantidad de rondas/vueltas para el tabata, guardala en "parametros.rondas" (si no se indica, no la incluyas).
+   - Esta notación de "x" aplica a nivel de bloque/circuito completo, no a cada ejercicio individual.
+   - Si hay varios bloques con distinta notación "x", cada uno puede tener su propio "sistema" y "parametros" dentro del objeto del bloque (ver formato de respuesta).
+
 PASO 3 — Antes de responder, revisá cada ejercicio uno por uno y confirmá a qué bloque pertenece según la señal visual real (no supongas). Un ejercicio nunca puede quedar en dos bloques ni faltar.
 
 REGLAS ADICIONALES:
@@ -9919,10 +9941,10 @@ REGLAS ADICIONALES:
 - Mantené el orden en que aparecen en la imagen (de arriba hacia abajo, izquierda a derecha).
 - Para cada ejercicio agregá "confianza": "alta" si el texto y su bloque se leen con claridad, "media" si dudaste un poco, "baja" si es letra difícil de leer, está tapado/borroso, o no estás seguro de a qué bloque pertenece.
 
-FORMATO DE RESPUESTA — respondé SOLO con JSON válido, sin texto ni backticks ni explicación:
-{"sistema":"Circuito","bloques":[{"nombre":"Bloque 1","ejercicios":[{"nombre":"Burpees","reps":"10","confianza":"alta"}]},{"nombre":"Bloque 2","ejercicios":[{"nombre":"Plancha","reps":"30s","confianza":"media"}]}]}
+FORMATO DE RESPUESTA — respondé SOLO con JSON válido, sin texto ni backticks ni explicación. "calentamiento" es opcional (solo si hay "EC"); "sistema" y "parametros" van DENTRO de cada bloque cuando la notación "x" te da esa info para ESE bloque en particular:
+{"calentamiento":[{"nombre":"Jumping Jacks","reps":"30s","confianza":"alta"}],"bloques":[{"nombre":"Bloque 1","sistema":"Circuito","parametros":{"vueltas":3},"ejercicios":[{"nombre":"Burpees","reps":"10","confianza":"alta"}]},{"nombre":"Bloque 2","sistema":"Tabata","parametros":{"trabajo":20,"pausa":10},"ejercicios":[{"nombre":"Plancha","reps":"","confianza":"media"}]}]}
 
-Sistemas posibles: Tabata, EMOM, Circuito por Tiempo, Circuito, Por Tiempo, Series. Si no podés determinarlo usá Circuito.
+Sistemas posibles: Tabata, EMOM, Circuito por Tiempo, Circuito, Por Tiempo, Series. Si no podés determinar el sistema de un bloque por la notación "x", usá Circuito por defecto.
 Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece con reps o tiempo, incluilos en "reps".`;
 
         try {
@@ -9987,18 +10009,24 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             }
 
             if (parsed.sistema) {
-                const NORM = {
-                    'tabata':'Tabata','emom':'EMOM',
-                    'circuito por tiempo':'Circuito por Tiempo','circuito tiempo':'Circuito por Tiempo',
-                    'circuito por vuelta':'Circuito','circuito vueltas':'Circuito','circuito':'Circuito',
-                    'por tiempo':'Por Tiempo',
-                    'series':'Series','series y repeticiones':'Series','series/reps':'Series'
-                };
-                const norm = NORM[(parsed.sistema||'').toLowerCase().trim()] || parsed.sistema;
+                const norm = pizNormalizarSistema(parsed.sistema);
                 const sel = document.getElementById('piz-sistema');
                 for (let j=0;j<sel.options.length;j++) if(sel.options[j].value===norm){sel.selectedIndex=j;break;}
                 pizCambiarSistema();
             }
+
+            // Guardar sistema + parámetros detectados POR BLOQUE (notación "x" del PASO 2.1
+            // del prompt). Si un bloque no trae esta info, en pizArmarRutina se usa el
+            // selector global de sistema como antes.
+            pizBloqueSistemas = {};
+            bloques.forEach(b => {
+                if (b.sistema) {
+                    pizBloqueSistemas[b.nombre || 'Bloque 1'] = {
+                        sistema: pizNormalizarSistema(b.sistema),
+                        parametros: b.parametros || {}
+                    };
+                }
+            });
 
             // Guardar bloques y aplanar ejercicios para la vista
             pizBloques = bloques;
@@ -10010,8 +10038,25 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
                 confianza: ['alta','media','baja'].includes(ej.confianza) ? ej.confianza : 'alta'
             })));
 
+            // Calentamiento (EC): se guarda aparte, con un bloque especial reservado
+            // "🔥 Calentamiento" para que se vea agrupado en la lista, pero pizArmarRutina
+            // lo manda al calentamiento del día en vez de armarlo como un bloque más.
+            const calent = Array.isArray(parsed.calentamiento) ? parsed.calentamiento : [];
+            if (calent.length) {
+                pizEjs = calent.map(ej => ({
+                    nombre: (ej.nombre||'').trim(),
+                    reps:   ej.reps||'',
+                    enVT:   pizCheckVT(ej.nombre),
+                    bloque: '🔥 Calentamiento',
+                    confianza: ['alta','media','baja'].includes(ej.confianza) ? ej.confianza : 'alta'
+                })).concat(pizEjs);
+            }
+
             st.classList.add('hidden');
-            pizLog('\u2713 '+pizEjs.length+' ejercicios en '+bloques.length+' bloque(s) \u00b7 Sistema: '+(parsed.sistema||'\u2014'), '#69F0AE');
+            const resumenSistemas = Object.keys(pizBloqueSistemas).length
+                ? Object.entries(pizBloqueSistemas).map(([b,i])=>b+': '+i.sistema).join(' · ')
+                : (parsed.sistema||'—');
+            pizLog('\u2713 '+pizEjs.length+' ejercicios en '+bloques.length+' bloque(s)'+(calent.length?' + '+calent.length+' de calentamiento':'')+' \u00b7 '+resumenSistemas, '#69F0AE');
             const bajaConf = pizEjs.filter(e => e.confianza === 'baja').length;
             if (bajaConf > 0) pizLog('⚠️ ' + bajaConf + ' ejercicio(s) marcado(s) para revisar (letra poco clara)', '#FF6B35');
             pizRender();
@@ -10138,7 +10183,21 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             // Selector de bloque
             const bloqueOpts = bloquesUnicos.map(b=>`<option value="${escapeHtml(b)}" ${(ej.bloque||'Bloque 1')===b?'selected':''}>${escapeHtml(b)}</option>`).join('');
 
-            const borderConfianza = ej.confianza === 'baja' ? 'border-left:3px solid #FF6B35;' : '';
+            const esCalent = ej.bloque === '🔥 Calentamiento';
+            const infoSist = pizBloqueSistemas[ej.bloque];
+            let badgeSistema = '';
+            if (esCalent) {
+                badgeSistema = '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(255,138,101,.15);color:#FF8A65">🔥 Calentamiento (EC)</span>';
+            } else if (infoSist) {
+                const p = infoSist.parametros || {};
+                let detalle = '';
+                if (infoSist.sistema === 'Tabata') detalle = p.trabajo && p.pausa ? `${p.trabajo}"/${p.pausa}"` + (p.rondas?` x${p.rondas}`:'') : '';
+                else if (infoSist.sistema === 'Circuito') detalle = p.vueltas ? `x${p.vueltas} vueltas` : '';
+                else if (infoSist.sistema === 'Circuito por Tiempo') detalle = p.duracion_min ? `${p.duracion_min}'` : '';
+                badgeSistema = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(79,195,247,.15);color:#4FC3F7" title="Detectado por notación en la imagen">${infoSist.sistema}${detalle ? ' · '+detalle : ''}</span>`;
+            }
+
+            const borderConfianza = ej.confianza === 'baja' ? 'border-left:3px solid #FF6B35;' : (esCalent ? 'border-left:3px solid #FF8A65;' : '');
             html += `<div class="rounded-xl p-3 ${enVT?'piz-ej-vt':'piz-ej-no'}" style="${borderConfianza}"
                 draggable="true"
                 data-piz-idx="${i}"
@@ -10151,6 +10210,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
                     <!-- Drag handle -->
                     <span class="drag-handle select-none text-textoSuave" title="Arrastrar para reordenar" style="cursor:grab;font-size:16px;line-height:1;padding:0 2px">⠿</span>
                     ${badgeConfianza}
+                    ${badgeSistema}
                     ${badge}
                     <span class="flex-1"></span>
                     <!-- Flechas reorden -->
@@ -10233,6 +10293,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
     function pizResetear() {
         pizEjs=[];
         pizBloques=[];
+        pizBloqueSistemas={};
         pizLastB64=null;
         pizLastMime=null;
         pizOriginalFile=null;
@@ -10280,45 +10341,57 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         }
         const params = pizGetParams();
 
+        // Separar el calentamiento (bloque especial "🔥 Calentamiento") del resto —
+        // ese grupo no se arma como un bloque más, va al calentamiento del día.
+        const calentEjs = ejsV.filter(e => e.bloque === '🔥 Calentamiento');
+        const principales = ejsV.filter(e => e.bloque !== '🔥 Calentamiento');
+
+        const warmupFinal = calentEjs.map(ej => {
+            const vtD = buscarEjEnVideoteca(ej.nombre.trim().toUpperCase());
+            return { nombre:ej.nombre.trim(), link:vtD?(vtD.link||vtD.video||''):'', reps:ej.reps||'', unit:'Reps', descanso:'', elemento:vtD&&vtD.elemento||'', con_carga:vtD&&vtD.con_carga||false };
+        });
+
+        // Arma un bloque aplicando el sistema+parámetros DETECTADO para ese bloque
+        // (notación "x" en la imagen) si existe; si no, usa el selector global.
+        function armarBloque(bNombre, ejsBloqueRaw) {
+            const ejsBloque = ejsBloqueRaw.map(ej => {
+                const vtD = buscarEjEnVideoteca(ej.nombre.trim().toUpperCase());
+                return { nombre:ej.nombre.trim(), link:vtD?(vtD.link||vtD.video||''):'', reps:ej.reps||'10', unit:'Reps', elemento:vtD&&vtD.elemento||'', con_carga:vtD&&vtD.con_carga||false };
+            });
+            const detectado = pizBloqueSistemas[bNombre];
+            const tipo = detectado ? detectado.sistema : params.tipo;
+            const p    = detectado ? detectado.parametros : {};
+            const bloque = { tipo, ejercicios:ejsBloque };
+            if (tipo==='Tabata') {
+                bloque.trabajo = p.trabajo ?? params.trabajo;
+                bloque.pausa   = p.pausa   ?? params.pausa;
+                bloque.rondas  = p.rondas  ?? params.rondas;
+            } else if (tipo==='EMOM') {
+                bloque.minutos_totales = p.minutos_totales ?? params.minutos_totales;
+                bloque.emom_config_por_minuto = ejsBloque.map(ej=>({ejercicios:[ej]}));
+            } else if (tipo==='Circuito por Tiempo') {
+                bloque.duracion_min = p.duracion_min ?? params.duracion_min;
+            } else if (tipo==='Circuito') {
+                bloque.vueltas = p.vueltas ?? params.vueltas;
+                bloque.pausa_vuelta = p.pausa_vuelta ?? params.pausa_vuelta;
+            } else if (tipo==='Por Tiempo') {
+                bloque.vueltas = p.vueltas ?? params.vueltas;
+            } else if (tipo==='Series') {
+                bloque.series = p.series ?? params.series;
+                bloque.pausa  = p.pausa  ?? params.pausa;
+            }
+            return bloque;
+        }
+
         // Reconstruir bloques desde pizEjs (respeta el bloque asignado a cada ejercicio)
         const bloquePorNombre = {};
-        ejsV.forEach(ej => {
+        principales.forEach(ej => {
             const bNombre = ej.bloque || 'Bloque 1';
             if (!bloquePorNombre[bNombre]) bloquePorNombre[bNombre] = [];
             bloquePorNombre[bNombre].push(ej);
         });
-        const bloquesOrdenados = [...new Set(ejsV.map(e=>e.bloque||'Bloque 1'))];
-
-        let bloquesFinales = [];
-        if (bloquesOrdenados.length > 1) {
-            bloquesFinales = bloquesOrdenados.map(bNombre => {
-                const ejsBloque = (bloquePorNombre[bNombre]||[]).map(ej => {
-                    const vtD = buscarEjEnVideoteca(ej.nombre.trim().toUpperCase());
-                    return { nombre:ej.nombre.trim(), link:vtD?(vtD.link||vtD.video||''):'', reps:ej.reps||'10', unit:'Reps', elemento:vtD&&vtD.elemento||'', con_carga:vtD&&vtD.con_carga||false };
-                });
-                const bloque = { tipo:params.tipo, ejercicios:ejsBloque };
-                if (params.tipo==='Tabata') { bloque.trabajo=params.trabajo; bloque.pausa=params.pausa; bloque.rondas=params.rondas; }
-                else if (params.tipo==='EMOM') { bloque.minutos_totales=params.minutos_totales; bloque.emom_config_por_minuto=ejsBloque.map(ej=>({ejercicios:[ej]})); }
-                else if (params.tipo==='Circuito por Tiempo') { bloque.duracion_min=params.duracion_min; }
-                else if (params.tipo==='Circuito') { bloque.vueltas=params.vueltas; bloque.pausa_vuelta=params.pausa_vuelta; }
-                else if (params.tipo==='Por Tiempo') { bloque.vueltas=params.vueltas; }
-                else if (params.tipo==='Series') { bloque.series=params.series; bloque.pausa=params.pausa; }
-                return bloque;
-            });
-        } else {
-            const ejsCons = ejsV.map(ej => {
-                const vtD = buscarEjEnVideoteca(ej.nombre.trim().toUpperCase());
-                return { nombre:ej.nombre.trim(), link:vtD?(vtD.link||vtD.video||''):'', reps:ej.reps||'10', unit:'Reps', elemento:vtD&&vtD.elemento||'', con_carga:vtD&&vtD.con_carga||false };
-            });
-            const bloque = { tipo:params.tipo, ejercicios:ejsCons };
-            if (params.tipo==='Tabata') { bloque.trabajo=params.trabajo; bloque.pausa=params.pausa; bloque.rondas=params.rondas; }
-            else if (params.tipo==='EMOM') { bloque.minutos_totales=params.minutos_totales; bloque.emom_config_por_minuto=ejsCons.map(ej=>({ejercicios:[ej]})); }
-            else if (params.tipo==='Circuito por Tiempo') { bloque.duracion_min=params.duracion_min; }
-            else if (params.tipo==='Circuito') { bloque.vueltas=params.vueltas; bloque.pausa_vuelta=params.pausa_vuelta; }
-            else if (params.tipo==='Por Tiempo') { bloque.vueltas=params.vueltas; }
-            else if (params.tipo==='Series') { bloque.series=params.series; bloque.pausa=params.pausa; }
-            bloquesFinales = [bloque];
-        }
+        const bloquesOrdenados = [...new Set(principales.map(e=>e.bloque||'Bloque 1'))];
+        const bloquesFinales = bloquesOrdenados.map(bNombre => armarBloque(bNombre, bloquePorNombre[bNombre]||[]));
 
         showTab('rutina'); inicializarRutina();
         setTimeout(()=>{
@@ -10327,9 +10400,11 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             const descEl=document.getElementById('rutina-desc'); if(descEl&&sesN) descEl.value=sesN;
             diaActivoIdx=0; bloquesRutina=diasData[0].bloquesRutina; editandoBloqueIdx=null;
             bloquesFinales.forEach(b => diasData[0].bloquesRutina.push(b));
+            if (warmupFinal.length) diasData[0].warmupEjercicios = (diasData[0].warmupEjercicios||[]).concat(warmupFinal);
             renderDias(); diasData.forEach((_,idx)=>toggleDia(idx,true));
-            toast('✅ '+ejsV.length+' ejercicios en '+bloquesFinales.length+' bloque(s) → Crear Rutina');
-            pizLog('✅ Rutina armada ('+bloquesFinales.length+' bloque(s), '+params.tipo+') → revisá "Crear Rutina"', '#69F0AE');
+            const sistemasUsados = [...new Set(bloquesFinales.map(b=>b.tipo))].join(', ');
+            toast('✅ '+ejsV.length+' ejercicios'+(warmupFinal.length?' ('+warmupFinal.length+' de calentamiento)':'')+' → Crear Rutina');
+            pizLog('✅ Rutina armada ('+bloquesFinales.length+' bloque(s): '+sistemasUsados+(warmupFinal.length?' + calentamiento':'')+') → revisá "Crear Rutina"', '#69F0AE');
         }, 350);
     }
 
