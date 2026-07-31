@@ -742,7 +742,10 @@
                 <div class="p-6">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-bold text-naranja">Detalle de Rutina</h3>
-                        <button onclick="document.getElementById('modal-dash-rutina').classList.add('hidden')" class="text-textoSuave hover:text-texto text-2xl leading-none">&times;</button>
+                        <div class="flex items-center gap-2">
+                            <button onclick="_pfToggleVistaDash()" id="btn-toggle-vista-dash" class="text-xs font-bold px-4 py-1.5 rounded-full transition" style="background:rgba(255,213,79,.15);color:#FFD54F">📄 Vista completa</button>
+                            <button onclick="document.getElementById('modal-dash-rutina').classList.add('hidden')" class="text-textoSuave hover:text-texto text-2xl leading-none">&times;</button>
+                        </div>
                     </div>
                     <div id="modal-dash-rutina-content">
                     </div>
@@ -1326,8 +1329,8 @@
         <!-- Modal Ver Rutina -->
         <div id="modal-ver-rutina" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
             <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <div class="sm:hidden sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-2 flex justify-center">
-                    <button onclick="_pfToggleVistaModal()" id="btn-toggle-vista-modal" class="text-xs font-bold px-4 py-1.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition">📱 Vista rápida</button>
+                <div class="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-2 flex justify-center">
+                    <button onclick="_pfToggleVistaModal()" id="btn-toggle-vista-modal" class="text-xs font-bold px-4 py-1.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition">📄 Vista completa</button>
                 </div>
                 <div id="modal-rutina-content" class="p-8">
                 </div>
@@ -6269,7 +6272,7 @@
     // ── Vista rápida (mobile): resumen compacto para chequear la rutina de un
     // vistazo en el gimnasio, reutilizando el mismo generador que usa el
     // historial (fondo oscuro, pills, sin el detalle "estilo PDF"). ──
-    let _pfVistaModalCompacta = false;
+    let _pfVistaModalCompacta = true;
 
     function _pfRenderVistaRapidaModal(codigo, r) {
         const dias = _pfParsearDiasHistorial(r);
@@ -8409,12 +8412,17 @@
         }).join('');
     }
 
+    let _pfDashVistaCompacta = true;
+    let _pfDashRutinaActual  = null; // { codigo, r } — para poder togglear sin re-fetchear
+
     async function verRutinaDash(codigo) {
         const content = document.getElementById('modal-dash-rutina-content');
         const modalDash = document.getElementById('modal-dash-rutina');
         if (!content || !modalDash) return;
         content.innerHTML = '<p class="text-textoSuave text-center py-8">Cargando...</p>';
         modalDash.classList.remove('hidden');
+        const btnToggle = document.getElementById('btn-toggle-vista-dash');
+        if (btnToggle) btnToggle.textContent = _pfDashVistaCompacta ? '📄 Vista completa' : '📱 Vista rápida';
 
         try {
             let r = dashRutinasData[codigo];
@@ -8429,11 +8437,24 @@
                 dashRutinasData[codigo] = r;
             }
 
-            // Reusar la funcion generarHTMLRutina del historial que maneja TODOS los formatos
-            content.innerHTML = generarHTMLRutina(codigo, r);
+            _pfDashRutinaActual = { codigo, r };
+            // Vista compacta por defecto (mismo estilo oscuro tipo pills que usa
+            // Crear Rutina/Historial) — combina mucho mejor con este modal oscuro
+            // que la vista "estilo PDF" en blanco que tenía antes.
+            content.innerHTML = _pfDashVistaCompacta ? _pfRenderVistaRapidaModal(codigo, r) : generarHTMLRutina(codigo, r);
         } catch (e) {
             content.innerHTML = '<p class="text-rojo text-center py-8">Error de conexion</p>';
         }
+    }
+
+    function _pfToggleVistaDash() {
+        if (!_pfDashRutinaActual) return;
+        _pfDashVistaCompacta = !_pfDashVistaCompacta;
+        const btn = document.getElementById('btn-toggle-vista-dash');
+        if (btn) btn.textContent = _pfDashVistaCompacta ? '📄 Vista completa' : '📱 Vista rápida';
+        const content = document.getElementById('modal-dash-rutina-content');
+        const { codigo, r } = _pfDashRutinaActual;
+        content.innerHTML = _pfDashVistaCompacta ? _pfRenderVistaRapidaModal(codigo, r) : generarHTMLRutina(codigo, r);
     }
 
     // ====================================================================
