@@ -913,6 +913,30 @@
                 </div>
             </div>
 
+            <!-- Rutinas guardadas en el Repositorio: buscar, filtrar y usar una acá mismo -->
+            <div class="bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
+                <button type="button" onclick="_pfTogglePanelRepoCrear()" class="w-full flex items-center justify-between gap-2">
+                    <span class="text-sm font-bold text-purpura uppercase tracking-wider flex items-center gap-2">
+                        📁 Rutinas del Repositorio
+                    </span>
+                    <svg id="rc-chevron" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-textoSuave transition-transform duration-200 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div id="rc-content" class="hidden mt-4">
+                    <div class="flex flex-col sm:flex-row gap-2 mb-3">
+                        <input id="rc-buscador" type="text" placeholder="🔍 Buscar por nombre..." class="rounded-lg px-3 py-2 text-sm flex-1" oninput="_pfRenderRepoEnCrear()">
+                        <select id="rc-filtro-sistema" class="rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto" onchange="_pfRenderRepoEnCrear()">
+                            <option value="TODOS">Todos los bloques</option>
+                        </select>
+                        <select id="rc-filtro-alumno" class="rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto" onchange="_pfRenderRepoEnCrear()">
+                            <option value="TODOS">Todos los alumnos</option>
+                        </select>
+                    </div>
+                    <div id="rc-lista" class="space-y-2 max-h-96 overflow-y-auto">
+                        <p class="text-textoSuave text-xs text-center py-6">Cargando repositorio...</p>
+                    </div>
+                </div>
+            </div>
+
             <!-- Mapa de calor muscular en vivo -->
             <div class="bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
                 <button type="button" onclick="toggleMapaCalorVivo()" class="w-full flex items-center justify-between gap-2">
@@ -8949,9 +8973,11 @@
         }
         if (q) {
             repo = repo.filter(({r}) => {
+                const usosNombres = Array.isArray(r.usos) ? r.usos.map(u=>u.alumno).join(' ').toLowerCase() : '';
                 return (r.nombre||'').toLowerCase().includes(q) ||
                        (r.alumnoNombre||'').toLowerCase().includes(q) ||
-                       (r.rutinaDesc||'').toLowerCase().includes(q);
+                       (r.rutinaDesc||'').toLowerCase().includes(q) ||
+                       usosNombres.includes(q);
             });
         }
 
@@ -8974,6 +9000,20 @@
                   }).join('')
                 : '';
 
+            // Alumnos con los que se usó esta plantilla (guardado en r.usos al usar "Copiar a Alumno")
+            const usos = Array.isArray(r.usos) ? r.usos : [];
+            let usoInfo = '';
+            if (usos.length) {
+                const nombresUnicos = [...new Set(usos.map(u => u.alumno))];
+                const ultimo = usos[usos.length - 1];
+                const fechaUltimo = ultimo && ultimo.fecha ? new Date(ultimo.fecha).toLocaleDateString('es-AR') : '';
+                const listaNombres = nombresUnicos.length > 3
+                    ? nombresUnicos.slice(0, 3).join(', ') + ' +' + (nombresUnicos.length - 3) + ' más'
+                    : nombresUnicos.join(', ');
+                usoInfo = `<p class="text-xs mt-1" style="color:#69F0AE">👥 Usado con: ${escapeHtml(listaNombres)}` +
+                    ` <span class="text-textoSuave">· ${usos.length} vez${usos.length !== 1 ? 'es' : ''}${fechaUltimo ? ' · último: ' + fechaUltimo : ''}</span></p>`;
+            }
+
             return `
             <div class="bg-fondoAlt rounded-xl border border-borde p-4 flex flex-col sm:flex-row sm:items-center gap-3">
                 <div class="flex-1 min-w-0">
@@ -8988,6 +9028,7 @@
                         ${r.alumnoNombre ? `<span class="text-xs text-textoSuave">· ${escapeHtml(r.alumnoNombre)}</span>` : ''}
                     </div>
                     ${r.rutinaDesc ? `<p class="text-xs text-textoSuave mt-1 truncate">${escapeHtml(r.rutinaDesc)}</p>` : ''}
+                    ${usoInfo}
                 </div>
                 <div class="flex gap-2 flex-shrink-0 flex-wrap">
                     <button onclick="verEntrenamientoRepo(${idx})" class="bg-purpura/20 text-purpura px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition whitespace-nowrap">Ver Entrenamiento</button>
@@ -9223,6 +9264,15 @@
             await cargarPlantillaEnEstado(r, alumno);
             // Luego compartir
             await compartirRutina();
+
+            // Registrar el uso: queda guardado CON QUÉ ALUMNO se usó esta plantilla y cuándo,
+            // para poder verlo después en la lista del repositorio.
+            if (!Array.isArray(r.usos)) r.usos = [];
+            r.usos.push({ alumno, fecha: Date.now() });
+            repo[repoCopiarIdx] = r;
+            setRepositorio(repo);
+            renderizarRepositorio();
+
             document.getElementById('modal-repo-copiar').classList.add('hidden');
             toast('Rutina copiada y compartida con ' + alumno);
         } catch(e) {
@@ -9272,6 +9322,99 @@
                 }
             });
         }
+    }
+
+    // ── Panel "Rutinas del Repositorio" dentro de Crear Rutina: buscar, filtrar
+    // por bloque/sistema y por alumno con el que se usó, y traer una plantilla
+    // acá mismo sin tener que ir a la pestaña Repositorio. ──
+    let _rcPanelAbierto = false;
+
+    async function _pfTogglePanelRepoCrear() {
+        const content = document.getElementById('rc-content');
+        const chevron = document.getElementById('rc-chevron');
+        _rcPanelAbierto = content.classList.toggle('hidden') === false;
+        chevron.style.transform = _rcPanelAbierto ? 'rotate(180deg)' : '';
+        if (!_rcPanelAbierto) return;
+        // Cargar el repositorio si todavía no se cargó desde la nube en esta sesión
+        if (_repositorioCache === null) await cargarRepositorioDesdeNube();
+        _pfRenderRepoEnCrear();
+    }
+
+    function _pfRenderRepoEnCrear() {
+        const repo = getRepositorio();
+        const lista = document.getElementById('rc-lista');
+        if (!repo.length) {
+            lista.innerHTML = '<p class="text-textoSuave text-xs text-center py-6">No hay rutinas guardadas en el repositorio todavía.</p>';
+            return;
+        }
+
+        // Poblar los selects de filtro (una sola vez por cambio de tamaño de repo, es barato igual)
+        const selSistema = document.getElementById('rc-filtro-sistema');
+        const selAlumno  = document.getElementById('rc-filtro-alumno');
+        const sistemasSet = new Set();
+        const alumnosSet  = new Set();
+        repo.forEach(r => {
+            pfSistemasDeRutinaRepo(r).forEach(t => sistemasSet.add(t));
+            if (r.alumnoNombre) alumnosSet.add(r.alumnoNombre);
+            (r.usos || []).forEach(u => { if (u.alumno) alumnosSet.add(u.alumno); });
+        });
+        const valSistemaActual = selSistema.value || 'TODOS';
+        const valAlumnoActual  = selAlumno.value || 'TODOS';
+        selSistema.innerHTML = '<option value="TODOS">Todos los bloques</option>' +
+            Array.from(sistemasSet).sort().map(t => `<option value="${escapeHtml(t)}">${escapeHtml(pfNombreSistema(t))}</option>`).join('');
+        selAlumno.innerHTML = '<option value="TODOS">Todos los alumnos</option>' +
+            Array.from(alumnosSet).sort().map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+        selSistema.value = [...sistemasSet].includes(valSistemaActual) ? valSistemaActual : 'TODOS';
+        selAlumno.value  = [...alumnosSet].includes(valAlumnoActual) ? valAlumnoActual : 'TODOS';
+
+        const q = (document.getElementById('rc-buscador').value || '').trim().toLowerCase();
+        const filtroSistema = selSistema.value;
+        const filtroAlumno  = selAlumno.value;
+
+        let items = repo.map((r, idxOriginal) => ({ r, idxOriginal }));
+        if (filtroSistema !== 'TODOS') items = items.filter(({r}) => pfSistemasDeRutinaRepo(r).includes(filtroSistema));
+        if (filtroAlumno !== 'TODOS') {
+            items = items.filter(({r}) => {
+                const usosNombres = (r.usos || []).map(u => u.alumno);
+                return r.alumnoNombre === filtroAlumno || usosNombres.includes(filtroAlumno);
+            });
+        }
+        if (q) items = items.filter(({r}) => (r.nombre||'').toLowerCase().includes(q));
+
+        if (!items.length) {
+            lista.innerHTML = '<p class="text-textoSuave text-xs text-center py-6">Ninguna rutina coincide con el filtro/búsqueda.</p>';
+            return;
+        }
+
+        lista.innerHTML = items.map(({r, idxOriginal}) => {
+            const sistemas = pfSistemasDeRutinaRepo(r);
+            const badges = sistemas.map(t => {
+                const [color, bg] = pfColorSistema(t);
+                return `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="color:${color};background:${bg}">${pfNombreSistema(t)}</span>`;
+            }).join('');
+            const usos = Array.isArray(r.usos) ? r.usos : [];
+            const nombresUsados = [...new Set(usos.map(u=>u.alumno))];
+            const usoTxt = nombresUsados.length
+                ? `<span class="text-[10px] text-verde">👥 ${escapeHtml(nombresUsados.slice(0,2).join(', '))}${nombresUsados.length>2?' +'+(nombresUsados.length-2):''}</span>`
+                : '';
+            return `
+            <div class="bg-fondoAlt rounded-lg border border-borde px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="text-xs font-bold text-texto truncate">${escapeHtml(r.nombre)}</span>
+                        ${badges}
+                    </div>
+                    <div class="flex items-center gap-2 mt-0.5">
+                        <span class="text-[10px] text-textoSuave">${r.fecha || ''}</span>
+                        ${usoTxt}
+                    </div>
+                </div>
+                <div class="flex gap-1.5 flex-shrink-0">
+                    <button onclick="verEntrenamientoRepo(${idxOriginal})" class="bg-purpura/20 text-purpura px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-purpura/30 transition whitespace-nowrap">Ver</button>
+                    <button onclick="cargarPlantillaEnCrear(${idxOriginal})" class="bg-naranja/20 text-naranja px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-naranja/30 transition whitespace-nowrap">Usar acá</button>
+                </div>
+            </div>`;
+        }).join('');
     }
 
     async function cargarPlantillaEnCrear(idx) {
