@@ -7537,7 +7537,7 @@
             const lines = doc.splitTextToSize(text, cW);
             lines.forEach(l => { chk(5.5); doc.text(l, mL, y); y += 5.2; });
         }
-        function barraItem(nombre, valor, maxValor, colorHex) {
+        function barraItem(nombre, valor, maxValor, colorHex, pct) {
             chk(7);
             const barMaxW = cW - 55;
             const w = Math.max(2, (valor / (maxValor || 1)) * barMaxW);
@@ -7547,7 +7547,8 @@
             const nombreCorto = nombre.length > 32 ? nombre.slice(0,30)+'…' : nombre;
             doc.text(nombreCorto, mL + barMaxW + 3, y + 3.6);
             doc.setFont('helvetica','bold');
-            doc.text(String(valor), mL + w + (w<8?2:-6), y + 3.2, {align: w<8?'left':'right'});
+            const etiqueta = String(valor) + (pct !== undefined ? ' (' + pct + '%)' : '');
+            doc.text(etiqueta, mL + w + (w<8?2:-6), y + 3.2, {align: w<8?'left':'right'});
             y += 6.5;
         }
 
@@ -7601,6 +7602,70 @@
             colorBar('▽ Top 10 ejercicios menos utilizados', 211, 47, 47, 8);
             const maxMenos = Math.max(...ejsMenos.map(e=>e[1]));
             ejsMenos.forEach(([n,c]) => barraItem(n, c, maxMenos, [239,83,80]));
+            y += 3;
+        }
+
+        // Distribución de métodos (sistemas de entrenamiento usados)
+        const metodoEntries = Object.entries(metodoCount).sort((a,b)=>b[1]-a[1]);
+        if (metodoEntries.length) {
+            colorBar('📊 Distribución de Métodos', 79, 195, 247, 8);
+            const totalMetodos = metodoEntries.reduce((a,[,c])=>a+c, 0);
+            const maxMetodo = metodoEntries[0][1];
+            metodoEntries.forEach(([m, c]) => {
+                const pct = totalMetodos ? Math.round((c/totalMetodos)*100) : 0;
+                barraItem(pfNombreSistema ? pfNombreSistema(m) : m, c, maxMetodo, [79,195,247], pct);
+            });
+            y += 3;
+        }
+
+        // Mapa de calor muscular (agregado de todas las rutinas del alumno)
+        try {
+            const muscleCountDash = {};
+            keys.forEach(cod => {
+                const mc = calcularMusculosDeRutina(rutinas[cod]);
+                Object.entries(mc).forEach(([m, c]) => { muscleCountDash[m] = (muscleCountDash[m] || 0) + c; });
+            });
+            const mcValues = Object.values(muscleCountDash);
+            if (mcValues.length > 0 && Math.max(...mcValues) > 0) {
+                const maxValDash = Math.max(...mcValues);
+                const svgFront = generarBodyMapSVG(muscleCountDash, 'dash-f', 'frontal');
+                const svgBack  = generarBodyMapSVG(muscleCountDash, 'dash-b', 'posterior');
+                const imgW = 140, imgH = 290;
+                const [dataFront, dataBack] = await Promise.all([
+                    _pfSvgToDataURL(_pfWrapSVG(svgFront), imgW, imgH),
+                    _pfSvgToDataURL(_pfWrapSVG(svgBack), imgW, imgH)
+                ]);
+
+                const hmSectionH = 8 + 6 + 66 + 20;
+                chk(hmSectionH);
+                colorBar('🔥 Mapa de Calor Muscular', 255, 107, 53, 8);
+
+                doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(130,130,130);
+                const imgPdfW = 32, imgPdfH = 66;
+                const gapBetween = 10;
+                const totalW = imgPdfW * 2 + gapBetween;
+                const startX = mL + (cW - totalW) / 2;
+                doc.text('FRONTAL', startX + imgPdfW/2, y, { align: 'center' });
+                doc.text('POSTERIOR', startX + imgPdfW + gapBetween + imgPdfW/2, y, { align: 'center' });
+                y += 3;
+                doc.addImage(dataFront, 'PNG', startX, y, imgPdfW, imgPdfH);
+                doc.addImage(dataBack, 'PNG', startX + imgPdfW + gapBetween, y, imgPdfW, imgPdfH);
+                y += imgPdfH + 4;
+
+                // Detalle por músculo: nombre, cantidad y nivel de uso
+                const sortedMuscles = Object.entries(muscleCountDash).sort((a,b)=>b[1]-a[1]);
+                doc.setFont('helvetica','normal'); doc.setFontSize(8);
+                const detailParts = sortedMuscles.map(([m,c]) => m + ': ' + Math.round(c) + ' (' + getHeatLabel(c/maxValDash) + ')');
+                const perLine = 3;
+                for (let i = 0; i < detailParts.length; i += perLine) {
+                    chk(5);
+                    doc.setTextColor(100,100,100);
+                    doc.text(detailParts.slice(i, i+perLine).join('   |   '), pw/2, y, { align: 'center' });
+                    y += 4.5;
+                }
+            }
+        } catch (hmErr) {
+            console.warn('No se pudo agregar mapa muscular al PDF del dashboard:', hmErr);
         }
 
         // Footer con numero de pagina
@@ -7962,6 +8027,29 @@
     }
 
     // Calcula muscleCount para una rutina individual
+    // ── Helpers SVG → PNG reutilizables (versión global de los que usa
+    // descargarPDF para una rutina individual, acá hacen falta para el mapa de
+    // calor agregado del dashboard) ──
+    function _pfWrapSVG(svgStr) { return svgStr.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" '); }
+    function _pfSvgToDataURL(svgMarkup, width, height) {
+        return new Promise((resolve, reject) => {
+            const svgBlob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(svgBlob);
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                canvas.width = width * 2; canvas.height = height * 2;
+                const ctx2 = canvas.getContext('2d');
+                ctx2.scale(2, 2);
+                ctx2.drawImage(img, 0, 0, width, height);
+                URL.revokeObjectURL(url);
+                resolve(canvas.toDataURL('image/png'));
+            };
+            img.onerror = function() { URL.revokeObjectURL(url); reject(new Error('SVG render failed')); };
+            img.src = url;
+        });
+    }
+
     function calcularMusculosDeRutina(r) {
         const datos = resolverDatos(r);
         const ejercicios = extraerEjerciciosDeRutina(r, datos);
