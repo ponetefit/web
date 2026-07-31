@@ -499,6 +499,7 @@
                             </div>
                         </div>
                         <button onclick="dashCrearRutinaParaAlumno()" class="btn-primary px-4 py-2.5 rounded-xl text-white font-bold text-xs uppercase tracking-wider whitespace-nowrap">+ Crear rutina para este alumno</button>
+                        <button onclick="exportarDashboardPDF()" class="px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider whitespace-nowrap" style="background:rgba(255,213,79,.15);color:#FFD54F;border:1px solid rgba(255,213,79,.3)" onmouseover="this.style.background='rgba(255,213,79,.25)'" onmouseout="this.style.background='rgba(255,213,79,.15)'">📄 Exportar PDF</button>
                     </div>
                     <!-- Ficha del alumno (lesiones / ejercicios prohibidos), cargada desde "Crear Alumno" -->
                     <div id="dash-ficha-alumno" class="hidden mt-4 bg-fondoAlt rounded-xl border border-rojo/30 p-3">
@@ -1180,6 +1181,10 @@
                     </div>
                 </div>
                 <!-- ── FIN PANEL PIZARRA ── -->
+                <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+                    <input id="repo-buscador" type="text" placeholder="🔍 Buscar por nombre, alumno o descripción..." class="rounded-lg px-3 py-2 text-sm flex-1" oninput="renderizarRepositorio()">
+                </div>
+                <div id="repo-filtro-tipos" class="flex flex-wrap gap-2 mb-4 hidden"></div>
                 <div id="repo-lista" class="space-y-3">
                     <p class="text-textoSuave text-sm text-center py-12">No hay rutinas guardadas en el repositorio aún.<br><span class="text-xs">Andá a "Crear Rutina", armá tu rutina y guardala aquí.</span></p>
                 </div>
@@ -7441,6 +7446,173 @@
         }, 50);
     }
 
+    // ── Exportar el dashboard del alumno a PDF: KPIs, ficha médica y top
+    // ejercicios más/menos usados, para mandarle un resumen rápido. ──
+    async function exportarDashboardPDF() {
+        if (!dashAlumnoActual) { toast('⚠️ Elegí un alumno primero'); return; }
+        const jsPDFLib = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+        if (!jsPDFLib) { toast('Libreria PDF no disponible, recarga la pagina'); return; }
+
+        const rutinas = dashRutinasData || {};
+        const keys = Object.keys(rutinas);
+        if (!keys.length) { toast('⚠️ Este alumno todavía no tiene rutinas para resumir'); return; }
+
+        // Recalcular los mismos agregados que usa el dashboard en pantalla
+        // (mismo criterio que procesarDashboard, pero self-contained para el PDF)
+        const metodoCount = {};
+        const ejercicioCount = {};
+        const timestamps = [];
+        keys.forEach(cod => {
+            const r = rutinas[cod];
+            if (r.timestamp) timestamps.push(r.timestamp);
+            const datos = resolverDatos(r);
+            extraerEjerciciosDeRutina(r, datos).forEach(n => { ejercicioCount[n] = (ejercicioCount[n] || 0) + 1; });
+            const _tipoR = r.tipo || 'ENTRENAMIENTO';
+            if (_tipoR === 'MULTIDIA') {
+                const totalDM = r.total_dias || 0;
+                for (let di2 = 1; di2 <= totalDM; di2++) {
+                    const dd2 = r['dia_' + di2];
+                    if (!dd2 || !dd2.datos) continue;
+                    let contado2 = false;
+                    toArray(dd2.datos.bloques).forEach(b => {
+                        if (b.tipo && b.tipo !== 'ENTRENAMIENTO') { metodoCount[b.tipo] = (metodoCount[b.tipo] || 0) + 1; contado2 = true; }
+                    });
+                    if (!contado2 && dd2.tipo && dd2.tipo !== 'ENTRENAMIENTO') metodoCount[dd2.tipo] = (metodoCount[dd2.tipo] || 0) + 1;
+                }
+            } else {
+                const bloques = toArray(datos.bloques);
+                let contados = false;
+                bloques.forEach(b => { if (b.tipo && b.tipo !== 'ENTRENAMIENTO') { metodoCount[b.tipo] = (metodoCount[b.tipo] || 0) + 1; contados = true; } });
+                if (!contados && _tipoR !== 'ENTRENAMIENTO') metodoCount[_tipoR] = (metodoCount[_tipoR] || 0) + 1;
+            }
+        });
+
+        const totalRutinas = keys.length;
+        let metDominante = '—', metMax = 0;
+        for (const [m, c] of Object.entries(metodoCount)) if (c > metMax) { metMax = c; metDominante = m; }
+        const ejsUnicos = Object.keys(ejercicioCount).length;
+        let freqTxt = totalRutinas + '/sem';
+        if (timestamps.length >= 2) {
+            timestamps.sort((a,b) => a-b);
+            const semanas = Math.max((timestamps[timestamps.length-1] - timestamps[0]) / 604800, 1);
+            freqTxt = (totalRutinas / semanas).toFixed(1) + '/sem';
+        }
+        let nivel = 'Principiante';
+        if (totalRutinas > 30) nivel = 'Avanzado'; else if (totalRutinas > 10) nivel = 'Intermedio';
+
+        const ejsMas   = Object.entries(ejercicioCount).sort((a,b)=>b[1]-a[1]).slice(0,10);
+        const ejsMenos = Object.entries(ejercicioCount).sort((a,b)=>a[1]-b[1]).slice(0,10);
+        const perfil = _perfilAlumnosCache[_claveAlumno(dashAlumnoActual)] || null;
+
+        // ── Construcción del PDF ──
+        const doc = new jsPDFLib({ unit: 'mm', format: 'a4' });
+        const pw = doc.internal.pageSize.getWidth();
+        const ph = doc.internal.pageSize.getHeight();
+        const mL = 15, mR = 15, mBot = 18;
+        const cW = pw - mL - mR;
+        let y = 20;
+
+        function newPage() { doc.addPage(); y = 18; }
+        function chk(h) { if (y + h > ph - mBot) newPage(); }
+        function colorBar(text, r255, g255, b255, h = 9) {
+            chk(h + 4);
+            doc.setFillColor(r255, g255, b255);
+            doc.roundedRect(mL, y, cW, h, 2, 2, 'F');
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(255,255,255);
+            doc.text(text, mL + 4, y + h * 0.65);
+            y += h + 5;
+        }
+        function subtitulo(text) {
+            chk(8);
+            doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(40,40,45);
+            doc.text(text, mL, y);
+            y += 6;
+        }
+        function textoNormal(text, size=9.5, color=[70,70,75]) {
+            chk(6);
+            doc.setFont('helvetica','normal'); doc.setFontSize(size); doc.setTextColor(...color);
+            const lines = doc.splitTextToSize(text, cW);
+            lines.forEach(l => { chk(5.5); doc.text(l, mL, y); y += 5.2; });
+        }
+        function barraItem(nombre, valor, maxValor, colorHex) {
+            chk(7);
+            const barMaxW = cW - 55;
+            const w = Math.max(2, (valor / (maxValor || 1)) * barMaxW);
+            doc.setFillColor(colorHex[0], colorHex[1], colorHex[2]);
+            doc.roundedRect(mL, y, w, 4.2, 1, 1, 'F');
+            doc.setFont('helvetica','normal'); doc.setFontSize(8.3); doc.setTextColor(60,60,65);
+            const nombreCorto = nombre.length > 32 ? nombre.slice(0,30)+'…' : nombre;
+            doc.text(nombreCorto, mL + barMaxW + 3, y + 3.6);
+            doc.setFont('helvetica','bold');
+            doc.text(String(valor), mL + w + (w<8?2:-6), y + 3.2, {align: w<8?'left':'right'});
+            y += 6.5;
+        }
+
+        // Header
+        colorBar('RESUMEN DE ENTRENAMIENTO — ' + (dashAlumnoActual||'').toUpperCase(), 255, 107, 53, 10);
+        textoNormal('Generado el ' + new Date().toLocaleDateString('es-AR') + ' · Nivel: ' + nivel, 9, [120,120,125]);
+        y += 2;
+
+        // KPIs en 2x2
+        subtitulo('Resumen general');
+        const kpis = [
+            ['Total de rutinas', String(totalRutinas)],
+            ['Método dominante', metDominante],
+            ['Ejercicios únicos', String(ejsUnicos)],
+            ['Frecuencia semanal', freqTxt]
+        ];
+        const kpiColW = cW / 2;
+        kpis.forEach((k, idx) => {
+            const col = idx % 2, row = Math.floor(idx/2);
+            const kx = mL + col * kpiColW;
+            const ky = y + row * 16;
+            doc.setDrawColor(230,230,235); doc.setFillColor(248,248,250);
+            doc.roundedRect(kx, ky, kpiColW - 4, 13, 2, 2, 'FD');
+            doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(255,107,53);
+            doc.text(k[1], kx + 4, ky + 6.5);
+            doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(120,120,125);
+            doc.text(k[0].toUpperCase(), kx + 4, ky + 10.7);
+        });
+        y += 16*2 + 6;
+
+        // Ficha médica
+        if (perfil && (perfil.lesiones || (perfil.ejerciciosProhibidos||[]).length || (perfil.elementos||[]).length)) {
+            colorBar('🩺 Ficha del alumno', 25, 84, 163, 8);
+            if (perfil.edad) textoNormal('Edad: ' + perfil.edad + ' años');
+            if ((perfil.elementos||[]).length) textoNormal('Elementos disponibles: ' + perfil.elementos.join(', '));
+            if (perfil.lesiones) textoNormal('Lesiones / limitaciones: ' + perfil.lesiones, 9.5, [180,120,20]);
+            if ((perfil.ejerciciosProhibidos||[]).length) textoNormal('No puede hacer: ' + perfil.ejerciciosProhibidos.join(', '), 9.5, [180,60,40]);
+            y += 3;
+        }
+
+        // Top 10 más usados
+        if (ejsMas.length) {
+            colorBar('✓ Top 10 ejercicios más utilizados', 56, 161, 80, 8);
+            const maxMas = ejsMas[0][1];
+            ejsMas.forEach(([n,c]) => barraItem(n, c, maxMas, [105,240,174]));
+            y += 3;
+        }
+
+        // Top 10 menos usados
+        if (ejsMenos.length) {
+            colorBar('▽ Top 10 ejercicios menos utilizados', 211, 47, 47, 8);
+            const maxMenos = Math.max(...ejsMenos.map(e=>e[1]));
+            ejsMenos.forEach(([n,c]) => barraItem(n, c, maxMenos, [239,83,80]));
+        }
+
+        // Footer con numero de pagina
+        const totalPaginas = doc.internal.getNumberOfPages();
+        for (let p = 1; p <= totalPaginas; p++) {
+            doc.setPage(p);
+            doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(150,150,155);
+            doc.text('Página ' + p + ' / ' + totalPaginas, pw - mR, ph - 8, { align: 'right' });
+        }
+
+        const nombreArchivo = 'Resumen_' + (dashAlumnoActual||'alumno').replace(/[^a-zA-Z0-9]/g,'_') + '.pdf';
+        doc.save(nombreArchivo);
+        toast('✅ PDF exportado');
+    }
+
 
     function procesarDashboard(nombre) {
         // Helper para evitar crashes si algún elemento no existe
@@ -8525,20 +8697,114 @@
         toast('Rutina guardada en el repositorio');
     }
 
+    // Nombre legible + color por sistema de entrenamiento (mismos tipos que usa
+    // toda la app: Tabata, EMOM, Circuito, Circuito por Tiempo, Por Tiempo, Series)
+    function pfNombreSistema(tipo) {
+        const t = (tipo || '').trim();
+        const MAPA = {
+            'Circuito': 'Circuito por Vuelta',
+            'Circuito por Tiempo': 'Circuito por Tiempo',
+            'Tabata': 'Tabata',
+            'EMOM': 'EMOM',
+            'Por Tiempo': 'Por Tiempo',
+            'Series': 'Series y Repeticiones',
+            'Series/Reps': 'Series y Repeticiones'
+        };
+        return MAPA[t] || (t || 'Circuito por Vuelta');
+    }
+    function pfColorSistema(tipo) {
+        const t = (tipo || '').trim();
+        const COLORES = {
+            'Circuito': ['#FF6B35','rgba(255,107,53,.15)'],
+            'Circuito por Tiempo': ['#4FC3F7','rgba(79,195,247,.15)'],
+            'Tabata': ['#EF5350','rgba(239,83,80,.15)'],
+            'EMOM': ['#FFD54F','rgba(255,213,79,.15)'],
+            'Por Tiempo': ['#CE93D8','rgba(206,147,216,.15)'],
+            'Series': ['#69F0AE','rgba(105,240,174,.15)'],
+            'Series/Reps': ['#69F0AE','rgba(105,240,174,.15)']
+        };
+        return COLORES[t] || COLORES['Circuito'];
+    }
+    // Devuelve el listado de sistemas (tipos de bloque) únicos usados en una rutina del repo
+    function pfSistemasDeRutinaRepo(r) {
+        const set = new Set();
+        (r.diasData || []).forEach(d => {
+            (d.bloquesRutina || []).forEach(b => set.add(b.tipo || 'Circuito'));
+        });
+        return Array.from(set);
+    }
+
+    let repoFiltroTipoActivo = 'TODOS';
+
+    function _repoFiltrarPorTipo(tipo) {
+        repoFiltroTipoActivo = tipo;
+        renderizarRepositorio();
+    }
+
+    function renderizarFiltroTiposRepositorio(repo) {
+        const cont = document.getElementById('repo-filtro-tipos');
+        if (!cont) return;
+        if (!repo.length) { cont.classList.add('hidden'); cont.innerHTML = ''; return; }
+        const tiposSet = new Set();
+        repo.forEach(r => pfSistemasDeRutinaRepo(r).forEach(t => tiposSet.add(t)));
+        const tipos = Array.from(tiposSet).sort();
+        if (tipos.length <= 1) { cont.classList.add('hidden'); cont.innerHTML = ''; return; }
+        const chip = (valor, label, colores) => {
+            const activo = repoFiltroTipoActivo === valor;
+            const style = activo && colores ? `background:${colores[0]};color:#fff;` : '';
+            return `<button onclick="_repoFiltrarPorTipo('${valor}')" class="px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition ${activo ? '' : 'bg-fondoAlt text-textoSuave border border-borde hover:text-texto'}" style="${style}">${label}</button>`;
+        };
+        cont.innerHTML = chip('TODOS', 'Todos', ['#7C3AED']) + tipos.map(t => chip(t, pfNombreSistema(t), pfColorSistema(t))).join('');
+        cont.classList.remove('hidden');
+    }
+
     function renderizarRepositorio() {
-        const repo = getRepositorio();
+        const repoCompleto = getRepositorio();
         const lista = document.getElementById('repo-lista');
-        if (!repo.length) {
+        renderizarFiltroTiposRepositorio(repoCompleto);
+
+        if (!repoCompleto.length) {
             lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-12">No hay rutinas guardadas en el repositorio aún.<br><span class="text-xs">Andá a "Crear Rutina", armá tu rutina y guardala desde el repositorio.</span></p>';
             return;
         }
 
-        lista.innerHTML = repo.map((r, idx) => {
+        // Filtro por texto (nombre / alumno / descripción)
+        const q = (document.getElementById('repo-buscador')?.value || '').trim().toLowerCase();
+        let repo = repoCompleto;
+        // Guardar el índice original de cada item ANTES de filtrar, para que los
+        // botones (Ver/Editar/Eliminar, que usan el índice) sigan apuntando a la
+        // rutina correcta aunque la lista visible esté filtrada.
+        repo = repo.map((r, idxOriginal) => ({ r, idxOriginal }));
+
+        if (repoFiltroTipoActivo !== 'TODOS') {
+            repo = repo.filter(({r}) => pfSistemasDeRutinaRepo(r).includes(repoFiltroTipoActivo));
+        }
+        if (q) {
+            repo = repo.filter(({r}) => {
+                return (r.nombre||'').toLowerCase().includes(q) ||
+                       (r.alumnoNombre||'').toLowerCase().includes(q) ||
+                       (r.rutinaDesc||'').toLowerCase().includes(q);
+            });
+        }
+
+        if (!repo.length) {
+            lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-12">Ninguna rutina coincide con el filtro/búsqueda.</p>';
+            return;
+        }
+
+        lista.innerHTML = repo.map(({r, idxOriginal}) => {
+            const idx = idxOriginal;
             const totalDias = (r.diasData || []).length;
-            const totalBloques = (r.diasData || []).reduce((acc, d) => acc + (d.bloquesRutina||[]).length, 0);
             const totalEjs = (r.diasData || []).reduce((acc, d) => {
                 return acc + (d.warmupEjercicios||[]).length + (d.bloquesRutina||[]).reduce((a2, b) => a2 + (b.ejercicios||[]).length, 0);
             }, 0);
+            const sistemas = pfSistemasDeRutinaRepo(r);
+            const sistemasBadges = sistemas.length
+                ? sistemas.map(t => {
+                    const [color, bg] = pfColorSistema(t);
+                    return `<span class="text-xs font-bold px-2 py-0.5 rounded-full" style="color:${color};background:${bg}">${pfNombreSistema(t)}</span>`;
+                  }).join('')
+                : '';
 
             return `
             <div class="bg-fondoAlt rounded-xl border border-borde p-4 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -8547,9 +8813,9 @@
                         <span class="font-bold text-texto text-sm truncate">${escapeHtml(r.nombre)}</span>
                         <span class="text-xs text-textoSuave">${r.fecha || ''}</span>
                     </div>
-                    <div class="flex gap-3 flex-wrap">
+                    <div class="flex gap-2 flex-wrap items-center">
                         ${totalDias > 0 ? `<span class="text-xs text-azul">${totalDias} día${totalDias !== 1 ? 's' : ''}</span>` : ''}
-                        ${totalBloques > 0 ? `<span class="text-xs text-purpura">${totalBloques} bloque${totalBloques !== 1 ? 's' : ''}</span>` : ''}
+                        ${sistemasBadges}
                         ${totalEjs > 0 ? `<span class="text-xs text-verde">${totalEjs} ejercicio${totalEjs !== 1 ? 's' : ''}</span>` : ''}
                         ${r.alumnoNombre ? `<span class="text-xs text-textoSuave">· ${escapeHtml(r.alumnoNombre)}</span>` : ''}
                     </div>
