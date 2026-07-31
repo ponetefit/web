@@ -3303,6 +3303,12 @@
             actualizarWarmupUIDia(idx);
             renderWarmupEjsDia(idx);
             renderBloquesDia(idx);
+            // Recalcular la duración estimada (badge "⏱ ~X min") de cada día. Las
+            // acciones puntuales (agregar/quitar ejercicio, reordenar) ya la
+            // actualizan por su cuenta, pero al cargar una rutina completa de una
+            // sola vez (copiar desde Historial o Repositorio) nada la disparaba,
+            // así que quedaba pegada en "~0 min".
+            actualizarBadgeDia(idx);
         });
         if (_diaActivoMobile >= diasData.length) _diaActivoMobile = Math.max(0, diasData.length - 1);
         _pfRenderDiaPagerMobile();
@@ -4022,12 +4028,16 @@
         lista.innerHTML = bloques.map((b, i) => {
             const color = colores[b.tipo] || 'purpura';
             const ejs = b.ejercicios || [];
-            // Preview pills de ejercicios
+            // Preview pills de ejercicios, con reps/seg al lado de cada nombre
             const ejPills = ejs.slice(0, 6).map(e => {
                 const n = typeof e === 'object' ? (e.nombre || '') : (Array.isArray(e) ? e[0] : '');
-                return n ? '<span style="display:inline-block;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;font-size:0.65rem;color:#8a8a9a;white-space:nowrap;">' + n + '</span>' : '';
+                if (!n) return '';
+                const reps = typeof e === 'object' ? _pfRepsEjercicio(e) : '';
+                return '<span style="display:inline-block;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;font-size:0.65rem;color:#8a8a9a;white-space:nowrap;">' + n + (reps ? ' <b style="color:#e8e8ec">· ' + reps + '</b>' : '') + '</span>';
             }).filter(Boolean).join('');
             const masEjs = ejs.length > 6 ? '<span style="font-size:0.65rem;color:#8a8a9a;padding:2px 4px;">+' + (ejs.length - 6) + '</span>' : '';
+            // Detalle auto-generado del bloque (vueltas/pausa, trabajo/pausa de tabata, etc.)
+            const detalleBloque = _pfDetalleBloque(b);
             return '<div class="exercise-chip bg-fondoAlt rounded-2xl border border-' + color + '/30 p-3"' +
                 ' draggable="true" data-idx="' + i + '" data-list="bloques-dia-' + idx + '"' +
                 ' ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)">' +
@@ -4036,10 +4046,11 @@
                 '<span class="drag-handle mt-1 text-textoSuave flex-shrink-0">' + svgHandle + '</span>' +
                 _flechasHtml('bloques-dia-' + idx, i, bloques.length) +
                 '<div class="flex-1 min-w-0">' +
-                '<div class="flex items-center gap-2 mb-1.5">' +
+                '<div class="flex items-center gap-2 mb-1 flex-wrap">' +
                 '<span class="px-2 py-0.5 rounded text-xs font-bold bg-' + color + '/20 text-' + color + ' uppercase tracking-wider">' + b.tipo + '</span>' +
-                (b.descripcion ? '<span class="text-xs text-textoSuave truncate">' + b.descripcion + '</span>' : '') +
+                (detalleBloque ? '<span class="text-[11px] text-textoSuave">' + detalleBloque + '</span>' : '') +
                 '</div>' +
+                (b.descripcion ? '<p class="text-xs text-textoSuave/80 italic mb-1.5 truncate">' + b.descripcion + '</p>' : '') +
                 (ejPills || masEjs ? '<div class="bloque-card-pills" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">' + ejPills + masEjs + '</div>' : '<p class="text-xs text-textoSuave bloque-card-pills">' + ejs.length + ' ejercicio(s)</p>') +
                 '</div>' +
                 '</div>' +
@@ -11815,12 +11826,17 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             const tipoSel = document.getElementById('warmup-tipo-' + idx);
             const tipo = tipoSel ? tipoSel.value : '';
             const tipoEl = document.getElementById('warmup-resumen-tipo-' + idx);
-            if (tipoEl) tipoEl.textContent = tipo;
+            if (tipoEl) {
+                const detalleCal = _pfDetalleCalentamiento({ ...dia, _warmupCfg: { tipo, ...(dia._warmupCfg||{}) } });
+                tipoEl.textContent = tipo + (detalleCal ? ' · ' + detalleCal : '');
+            }
             const pillsEl = document.getElementById('warmup-resumen-pills-' + idx);
             if (pillsEl) {
                 const ejPills = ejs.slice(0, 6).map(e => {
                     const n = typeof e === 'object' ? (e.nombre || '') : (Array.isArray(e) ? e[0] : '');
-                    return n ? '<span style="display:inline-block;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;font-size:0.65rem;color:#8a8a9a;white-space:nowrap;">' + n + '</span>' : '';
+                    if (!n) return '';
+                    const reps = typeof e === 'object' ? _pfRepsEjercicio(e) : '';
+                    return '<span style="display:inline-block;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;font-size:0.65rem;color:#8a8a9a;white-space:nowrap;">' + n + (reps ? ' <b style="color:#e8e8ec">· ' + reps + '</b>' : '') + '</span>';
                 }).filter(Boolean).join('');
                 const masEjs = ejs.length > 6 ? '<span style="font-size:0.65rem;color:#8a8a9a;padding:2px 4px;">+' + (ejs.length - 6) + '</span>' : '';
                 pillsEl.innerHTML = ejPills + masEjs;
