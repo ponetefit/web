@@ -5650,6 +5650,28 @@
             if (data.ok) {
                 document.getElementById('modal-codigo-text').innerText = (data.codigo || '').toUpperCase();
                 document.getElementById('modal-info').innerText = 'Rutina asignada a ' + (data.alumno || alumno);
+
+                // Si esta rutina se armó a partir de una plantilla del Repositorio
+                // (cargada con "Usar acá" o desde "Copiar a Alumno"), registrar acá
+                // el uso: alumno + código real que se generó. Se centraliza en este
+                // único punto para que funcione sin importar por dónde se comparta.
+                if (_pfRepoOrigenIdx !== null) {
+                    try {
+                        const repoU = getRepositorio();
+                        const rU = repoU[_pfRepoOrigenIdx];
+                        if (rU) {
+                            if (!Array.isArray(rU.usos)) rU.usos = [];
+                            rU.usos.push({ alumno: (data.alumno || alumno), fecha: Date.now(), codigo: (data.codigo || '').toUpperCase() || null });
+                            setRepositorio(repoU);
+                            const repoListaEl = document.getElementById('repo-lista');
+                            if (repoListaEl) renderizarRepositorio();
+                            const rcContentEl = document.getElementById('rc-content');
+                            if (rcContentEl && !rcContentEl.classList.contains('hidden')) _pfRenderRepoEnCrear();
+                        }
+                    } catch(eUso) { console.warn('No se pudo registrar el uso en el repositorio:', eUso); }
+                    _pfRepoOrigenIdx = null;
+                }
+
                 const diasInfo = data.es_multidia
                     ? 'Incluye ' + data.total_dias + ' dias de entrenamiento'
                     : 'Incluye Calentamiento + Bloque Principal';
@@ -5956,6 +5978,29 @@
     // ELIMINAR RUTINA DESDE HISTORIAL (con renumeracion)
     // ====================================================================
 
+    // Cuando se borra una rutina (o un alumno entero) desde Historial, limpiar las
+    // referencias correspondientes en r.usos del Repositorio, para que no quede
+    // figurando un alumno/código que ya no existe.
+    function _pfLimpiarUsoEnRepositorio({ codigo, alumno }) {
+        const repo = getRepositorio();
+        let cambiado = false;
+        repo.forEach(r => {
+            if (!Array.isArray(r.usos) || !r.usos.length) return;
+            const antes = r.usos.length;
+            r.usos = r.usos.filter(u => {
+                if (codigo && u.codigo && u.codigo.toUpperCase() === codigo.toUpperCase()) return false;
+                if (!codigo && alumno && (u.alumno||'').toUpperCase() === alumno.toUpperCase()) return false;
+                return true;
+            });
+            if (r.usos.length !== antes) cambiado = true;
+        });
+        if (!cambiado) return;
+        setRepositorio(repo);
+        if (document.getElementById('repo-lista')) renderizarRepositorio();
+        const rcContentEl = document.getElementById('rc-content');
+        if (rcContentEl && !rcContentEl.classList.contains('hidden')) _pfRenderRepoEnCrear();
+    }
+
     async function eliminarRutinaHistorial(codigo) {
         if (!confirm('¿Estas seguro de eliminar la rutina ' + codigo.toUpperCase() + '? Esta accion no se puede deshacer.')) return;
 
@@ -5970,6 +6015,10 @@
                 toast('Rutina eliminada. Renumerando...');
                 // Eliminar del cache local
                 delete historialRutinasCache[codigo];
+
+                // Si esta rutina había sido generada a partir de una plantilla del
+                // Repositorio, sacar esa referencia (alumno/código) de r.usos.
+                _pfLimpiarUsoEnRepositorio({ codigo });
 
                 // Renumerar: obtener el alumno y su prefijo
                 const alumno = document.getElementById('select-alumno').value;
@@ -6006,6 +6055,8 @@
                 document.getElementById('historial-lista').innerHTML = '<p class="text-textoSuave text-sm text-center py-8">Selecciona un alumno del desplegable</p>';
                 document.getElementById('btn-eliminar-alumno').classList.add('hidden');
                 historialRutinasCache = {};
+                // Sacar del repositorio todas las referencias de uso a este alumno
+                _pfLimpiarUsoEnRepositorio({ alumno: nombre });
                 // Recargar lista de alumnos
                 await cargarListaAlumnos();
             } else {
@@ -6027,11 +6078,42 @@
                 console.warn('Renumeracion automatica no disponible, intentando manual...');
                 // Fallback: renumerar manualmente en el cliente
                 await renumerarRutinasManual(alumno);
+            } else if (Array.isArray(data.mapeo) && data.mapeo.length) {
+                // El backend ahora informa qué código viejo pasó a ser cuál código
+                // nuevo (ej: RAFA-0004 → RAFA-0003). Usamos eso para que las
+                // referencias guardadas en el repositorio ("usado con") no queden
+                // apuntando a un código que ya no existe.
+                _pfActualizarCodigosEnRepositorio(data.mapeo);
             }
         } catch (e) {
             console.warn('Endpoint de renumeracion no disponible, intentando manual...');
             await renumerarRutinasManual(alumno);
         }
+    }
+
+    // Aplica un mapeo [{viejo, nuevo}] a todas las referencias guardadas en
+    // r.usos del repositorio, para mantenerlas sincronizadas después de que el
+    // backend renumera las rutinas de un alumno.
+    function _pfActualizarCodigosEnRepositorio(mapeo) {
+        if (!Array.isArray(mapeo) || !mapeo.length) return;
+        const dict = {};
+        mapeo.forEach(m => { if (m.viejo && m.nuevo) dict[m.viejo.toUpperCase()] = m.nuevo.toUpperCase(); });
+        const repo = getRepositorio();
+        let cambiado = false;
+        repo.forEach(r => {
+            if (!Array.isArray(r.usos)) return;
+            r.usos.forEach(u => {
+                if (u.codigo && dict[u.codigo.toUpperCase()]) {
+                    u.codigo = dict[u.codigo.toUpperCase()];
+                    cambiado = true;
+                }
+            });
+        });
+        if (!cambiado) return;
+        setRepositorio(repo);
+        if (document.getElementById('repo-lista')) renderizarRepositorio();
+        const rcContentEl = document.getElementById('rc-content');
+        if (rcContentEl && !rcContentEl.classList.contains('hidden')) _pfRenderRepoEnCrear();
     }
 
     async function renumerarRutinasManual(alumno) {
@@ -6065,6 +6147,7 @@
             if (!necesitaRenumerar) return;
 
             // Renumerar: para cada codigo que no coincide, llamar al endpoint de renombrar
+            const mapeoManual = [];
             for (let i = 0; i < codigos.length; i++) {
                 const numNuevo = String(i + 1).padStart(4, '0');
                 const codigoNuevo = prefijo + numNuevo;
@@ -6075,11 +6158,13 @@
                             headers: {'Content-Type': 'application/json'},
                             body: JSON.stringify({ codigo_viejo: codigos[i], codigo_nuevo: codigoNuevo })
                         });
+                        mapeoManual.push({ viejo: codigos[i], nuevo: codigoNuevo });
                     } catch (err) {
                         console.warn('No se pudo renombrar ' + codigos[i] + ' a ' + codigoNuevo);
                     }
                 }
             }
+            if (mapeoManual.length) _pfActualizarCodigosEnRepositorio(mapeoManual);
         } catch (e) {
             console.error('Error en renumeracion manual:', e);
         }
@@ -8766,6 +8851,10 @@
     const REPO_FIREBASE_PATH = '/repositorio_rutinas.json';
     let repoEditandoIdx = null;
     let repoCopiarIdx = null;
+    // Índice del repositorio actualmente cargado en Crear Rutina (vía "Usar acá"
+    // o "Copiar a Alumno"), para poder registrar el uso al compartir. Se limpia
+    // solo después de compartir con éxito.
+    let _pfRepoOrigenIdx = null;
     let _repositorioCache = null;          // null = todavía no se cargó desde la nube
     let _repositorioSincronizando = false;
 
@@ -9284,18 +9373,11 @@
         try {
             // Primero cargar la plantilla en el estado global
             await cargarPlantillaEnEstado(r, alumno);
+            // Marcar de qué plantilla del repositorio viene, para que compartirRutina()
+            // registre el uso (alumno + código generado) en un único lugar.
+            _pfRepoOrigenIdx = repoCopiarIdx;
             // Luego compartir
             await compartirRutina();
-
-            // Registrar el uso: queda guardado CON QUÉ ALUMNO, CUÁNDO y con qué CÓDIGO
-            // de rutina se generó (ej: RAFA-0003), para saber exactamente en qué rutina
-            // terminó usada esta plantilla del repositorio.
-            const codigoGenerado = (document.getElementById('modal-codigo-text')?.innerText || '').trim();
-            if (!Array.isArray(r.usos)) r.usos = [];
-            r.usos.push({ alumno, fecha: Date.now(), codigo: codigoGenerado || null });
-            repo[repoCopiarIdx] = r;
-            setRepositorio(repo);
-            renderizarRepositorio();
 
             document.getElementById('modal-repo-copiar').classList.add('hidden');
             toast('Rutina copiada y compartida con ' + alumno);
@@ -9447,6 +9529,7 @@
         if (!r) return;
         if (!confirm('¿Cargar esta plantilla en "Crear Rutina"? Se reemplazará lo que tengas actualmente.')) return;
         await cargarPlantillaEnEstado(r, null);
+        _pfRepoOrigenIdx = idx;
         toast('Plantilla cargada en Crear Rutina');
     }
 
