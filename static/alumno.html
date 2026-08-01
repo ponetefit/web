@@ -3450,7 +3450,7 @@
                     if (wrap) wrap.style.display = 'none';
                     return;
                 }
-                var link = _fsLinkCache[nombre.trim()];
+                var link = _fsLinkCache[nombre.trim()] || _obtenerLinkVideo(nombre);
                 var thumb = extraerYoutubeThumbnail(link || '');
                 if (thumb) {
                     img.src = thumb;
@@ -5035,12 +5035,23 @@
                                     con_carga: ej.con_carga === true || ej.con_carga === 'true',
                                     musculo1: ej.musculo1 || '',
                                     musculo2: ej.musculo2 || '',
-                                    sinergista: ej.sinergista || ''
+                                    sinergista: ej.sinergista || '',
+                                    link: ej.link || ''
                                 };
                             }
                         });
                     });
                 } catch (e) { /* sin conexión, no pasa nada */ }
+            }
+
+            // Link "en vivo" del video de un ejercicio, buscado por nombre en la Videoteca
+            // actual. Así, si el video se carga DESPUÉS de haber creado la rutina, igual
+            // aparece acá — no se queda pegado al link (o falta de link) del momento en
+            // que se guardó la rutina.
+            function _obtenerLinkVideo(nombreEj) {
+                var key = (nombreEj || '').toUpperCase();
+                var data = _videotecaTips[key];
+                return data ? (data.link || '') : '';
             }
 
             // Devuelve el elemento de un ejercicio desde la videoteca cache
@@ -5140,7 +5151,7 @@
                 if (!esD && ejs.length > 0) {
                     ejs.forEach(function(ej) {
                         var n = ej.nombre || '';
-                        var l = ej.link || '';
+                        var l = ej.link || _obtenerLinkVideo(n) || '';
                         var r = ej.reps || '';
                         var u = (ej.unit || 'Reps').toUpperCase();
                         var meta = r ? r + ' ' + u : 'EMOM';
@@ -5148,7 +5159,7 @@
                         var thumbUrl = extraerYoutubeThumbnail(l);
                         var thumbHtml = thumbUrl ? '<div class="card-thumb" onclick="abrirVideo(\'' + l.replace(/'/g, "\'") + '\',\'' + n.replace(/'/g, "\'") + '\')">' +
                             '<img src="' + thumbUrl + '" alt="' + n.replace(/"/g, '&quot;') + '" loading="lazy">' +
-                            '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div></div>' : '';
+                            '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div></div>' : '<span style="font-size:0.68rem;color:#888;font-style:italic;white-space:nowrap;">Sin video</span>';
                         html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--fondo-alt);border-top:1px solid rgba(255,255,255,0.05);">' +
                             thumbHtml +
                             '<span style="flex:1;font-size:0.9rem;font-weight:700;color:var(--texto);">' + n + '</span>' +
@@ -5209,12 +5220,13 @@
                     var pid = 'peso-card-' + (_cardCargaIdx++);
                     pesoHtml = crearPesoRow(nombre, pid);
                 }
-                var thumbUrl = extraerYoutubeThumbnail(link);
-                var thumbHtml = thumbUrl ? '<div class="card-thumb" onclick="abrirVideo(\'' + link.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')">' +
+                var linkActual = link || _obtenerLinkVideo(nombre);
+                var thumbUrl = extraerYoutubeThumbnail(linkActual);
+                var thumbHtml = thumbUrl ? '<div class="card-thumb" onclick="abrirVideo(\'' + linkActual.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')">' +
                     '<img src="' + thumbUrl + '" alt="' + (nombre || '').replace(/"/g, '&quot;') + '" loading="lazy">' +
                     '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div>' +
-                    '</div>' : '';
-                _registrarLink(nombre, link);
+                    '</div>' : '<span style="font-size:0.68rem;color:#888;font-style:italic;white-space:nowrap;margin-left:6px;">Sin video</span>';
+                _registrarLink(nombre, linkActual);
                 return '<div class="card-ejercicio"><div class="card-ej-top"><span class="card-ejercicio-nombre">' + nombre + '</span>' + metaHtml + thumbHtml + '</div>' + elemHtml + (extraHtml || '') + pesoHtml + '</div>';
             }
 
@@ -5226,12 +5238,13 @@
                     var pid = 'peso-card-' + (_cardCargaIdx++);
                     pesoHtml = crearPesoRow(nombre, pid);
                 }
-                var thumbUrl = extraerYoutubeThumbnail(link);
-                var thumbHtml = thumbUrl ? '<div class="card-thumb" onclick="abrirVideo(\'' + link.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')">' +
+                var linkActual = link || _obtenerLinkVideo(nombre);
+                var thumbUrl = extraerYoutubeThumbnail(linkActual);
+                var thumbHtml = thumbUrl ? '<div class="card-thumb" onclick="abrirVideo(\'' + linkActual.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')">' +
                     '<img src="' + thumbUrl + '" alt="' + (nombre || '').replace(/"/g, '&quot;') + '" loading="lazy">' +
                     '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div>' +
-                    '</div>' : '';
-                _registrarLink(nombre, link);
+                    '</div>' : '<span style="font-size:0.68rem;color:#888;font-style:italic;white-space:nowrap;margin-left:6px;">Sin video</span>';
+                _registrarLink(nombre, linkActual);
                 return '<div class="card-numero">' +
                     '<div class="card-numero-header"><span class="card-numero-idx">EJ ' + idx + ' / ' + total + '</span></div>' +
                     '<div class="card-numero-body"><span class="card-numero-nombre">' + nombre + '</span>' + thumbHtml + '</div>' +
