@@ -6619,6 +6619,9 @@
             } else if (modoBloque === 'Por Tiempo') {
                 // Por tiempo: solo cantidad de reps, sin pausa
                 if (e.reps) metaParts.push(e.reps + (e.unit ? ' ' + e.unit : ''));
+            } else if (modoBloque === 'Sumando Ejercicio') {
+                // Sumando Ejercicio: reps fijas por ejercicio, sin pausa
+                if (e.reps) metaParts.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps') + ' fijas por ronda');
             } else {
                 // Fallback genérico
                 if (e.reps_por_vuelta && e.reps_por_vuelta.length > 0) {
@@ -6740,6 +6743,8 @@
                             html += `<div style="${subHeaderStyle('Por Tiempo')}">Por tiempo: ${diaDatos.vueltas||1} vuelta(s) — al terminar cada vuelta marcá el tiempo</div>`;
                         } else if (diaTipo === 'Series') {
                             html += `<div style="${subHeaderStyle('Series')}">Series: ${ejsFlat.length} ejercicio(s)</div>`;
+                        } else if (diaTipo === 'Sumando Ejercicio') {
+                            html += `<div style="${subHeaderStyle('Sumando Ejercicio')}">Sumando Ejercicio: ${ejsFlat.length} ronda(s) acumulada(s)${diaDatos.pausa_ronda ? ' | Pausa: ' + diaDatos.pausa_ronda + 's' : ''}</div>`;
                         }
                         // Grupos anidados
                         if (ejsFlat[0] && ejsFlat[0].ejercicios !== undefined) {
@@ -6936,6 +6941,15 @@
             html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — SERIES</div>`;
             html += `<div style="${subHeaderStyle('Series')}">Series: ${ejsSeries.length} ejercicio(s)</div>`;
             ejsSeries.forEach(ej => { html += ejBox(ej, 'Series'); });
+        } else if (tipo === 'Sumando Ejercicio') {
+            const ejsSumando = toArray(datos.datos || datos.rutina || []);
+            html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — SUMANDO EJERCICIO</div>`;
+            html += `<div style="${subHeaderStyle('Sumando Ejercicio')}">Sumando Ejercicio: ${ejsSumando.length} ronda(s) acumulada(s)${datos.pausa_ronda ? ' | Pausa: ' + datos.pausa_ronda + 's' : ''}</div>`;
+            if (ejsSumando.length === 0) {
+                html += `<p style="${ff}color:#aaa;font-size:12px;font-style:italic;padding:6px 2px;">Sin ejercicios registrados</p>`;
+            } else {
+                ejsSumando.forEach(ej => { html += ejBox(ej, 'Sumando Ejercicio'); });
+            }
         }
 
         // --- Mapa de Calor Muscular de esta rutina ---
@@ -11888,12 +11902,13 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
                 else if (b.tipo === 'Circuito por Tiempo') { bl.duracion_min = b.duracion_min || b.tiempo_min || 5; }
                 else if (b.tipo === 'Tabata')          { bl.trabajo = b.trabajo || 20; bl.pausa = b.pausa || 10; bl.rondas = b.rondas || 1; bl.pausa_entre_rondas = b.pausa_entre_rondas || 0; bl.cantidad = b.cantidad || bl.ejercicios.length || 8; }
                 else if (b.tipo === 'EMOM')             { bl.minutos_totales = b.minutos_totales || 10; bl.ejercicios_por_minuto = b.ejercicios_por_minuto || 1; if (b.emom_config_por_minuto) bl.emom_config_por_minuto = b.emom_config_por_minuto; }
+                else if (b.tipo === 'Sumando Ejercicio') { bl.pausa_ronda = b.pausa_ronda || 0; }
                 return bl;
             });
         }
         function bloquesDesdePlano(tipoR, datosR) {
             let ejsFlat = [];
-            if (tipoR === 'Tabata' || tipoR === 'EMOM' || tipoR === 'Series') {
+            if (tipoR === 'Tabata' || tipoR === 'EMOM' || tipoR === 'Series' || tipoR === 'Sumando Ejercicio') {
                 ejsFlat = toArray(datosR.rutina || datosR.datos || []);
             } else if (tipoR === 'Circuito' || tipoR === 'Circuito por Tiempo') {
                 const gruposC = toArray(datosR.datos || datosR.rutina || []);
@@ -11908,6 +11923,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             else if (bl.tipo === 'Circuito por Tiempo') { bl.duracion_min = datosR.duracion_min || 5; }
             else if (bl.tipo === 'Tabata')          { bl.trabajo = datosR.trabajo || 20; bl.pausa = datosR.pausa || 10; bl.rondas = datosR.rondas || 1; bl.pausa_entre_rondas = datosR.pausa_entre_rondas || 0; bl.cantidad = datosR.cantidad || bl.ejercicios.length || 8; }
             else if (bl.tipo === 'EMOM')             { bl.minutos_totales = datosR.minutos_totales || 10; bl.ejercicios_por_minuto = datosR.ejercicios_por_minuto || 1; if (datosR.minutos_ciclo) bl.emom_config_por_minuto = toArray(datosR.minutos_ciclo).map((mc, mi) => ({ minuto: mi + 1, ejercicios: mc.ejercicios || [], ejercicios_cantidad: (mc.ejercicios || []).length, ejercicios_nombres: (mc.ejercicios || []).map(e => e.nombre) })); }
+            else if (bl.tipo === 'Sumando Ejercicio') { bl.pausa_ronda = datosR.pausa_ronda || 0; }
             return [bl];
         }
         function normWarmupEjs(src) {
