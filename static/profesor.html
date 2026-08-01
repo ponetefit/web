@@ -825,7 +825,7 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Link de YouTube</label>
+                                <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Link de YouTube <span class="text-textoSuave/60">(opcional · si no tiene, va a figurar "Sin video")</span></label>
                                 <input id="ej-link" type="url" placeholder="https://www.youtube.com/watch?v=..." class="w-full rounded-lg px-3 py-2.5 text-sm">
                             </div>
                             <div>
@@ -3019,7 +3019,7 @@
         const con_carga = document.getElementById('ej-con-carga')?.checked || false;
         const tip1 = (document.getElementById('ej-tip1')?.value || '').trim();
         const tip2 = (document.getElementById('ej-tip2')?.value || '').trim();
-        if (!nombre || !link) { toast('Completa nombre y link'); return; }
+        if (!nombre) { toast('Completa el nombre del ejercicio'); return; }
 
         try {
             let ok = false;
@@ -6524,7 +6524,13 @@
             return `<div style="${sEjBox}">
                 <div style="${sEjTop}">
                     <span style="${sEjNombre}">${e.nombre}</span>
-                    ${e.link ? `<a href="${e.link}" target="_blank" style="${sEjLink}">Ver video</a>` : ''}
+                    ${(() => {
+                        const vtLive = buscarEjEnVideoteca((e.nombre || '').toUpperCase());
+                        const linkActual = e.link || (vtLive && (vtLive.link || vtLive[1])) || '';
+                        return linkActual
+                            ? `<a href="${linkActual}" target="_blank" style="${sEjLink}">Ver video</a>`
+                            : `<span style="${ff}color:#999;font-size:12px;font-style:italic;white-space:nowrap;margin-left:10px;">Sin video</span>`;
+                    })()}
                 </div>
                 ${metaStr ? `<p style="${sEjMeta}">${metaStr}</p>` : ''}
             </div>`;
@@ -6991,14 +6997,26 @@
                 doc.setTextColor(17, 17, 17);
                 doc.text(e.nombre, mL + 4, y + 7);
 
-                // Ver video (azul, derecha)
-                if (e.link) {
+                // Ver video (azul, derecha) — o "Sin video" en gris si no tiene.
+                // Buscamos "en vivo" en la Videoteca actual por nombre: si el video se
+                // cargó DESPUÉS de haber creado esta rutina, igual aparece acá (no se
+                // queda pegado al link que había en el momento de guardar la rutina).
+                const vtLive = buscarEjEnVideoteca((e.nombre || '').toUpperCase());
+                const linkActual = e.link || (vtLive && (vtLive.link || vtLive[1])) || '';
+                if (linkActual) {
                     const linkTxt = 'Ver video';
                     const linkW   = doc.getTextWidth(linkTxt);
                     doc.setFont('helvetica', 'normal');
                     doc.setFontSize(9);
                     doc.setTextColor(21, 101, 192);
-                    doc.textWithLink(linkTxt, pw - mR - linkW, y + 7, { url: e.link });
+                    doc.textWithLink(linkTxt, pw - mR - linkW, y + 7, { url: linkActual });
+                } else {
+                    const linkTxt = 'Sin video';
+                    const linkW   = doc.getTextWidth(linkTxt);
+                    doc.setFont('helvetica', 'italic');
+                    doc.setFontSize(9);
+                    doc.setTextColor(150, 150, 150);
+                    doc.text(linkTxt, pw - mR - linkW, y + 7);
                 }
 
                 // Líneas de detalle (series/vueltas/pausa/carga/elemento)
