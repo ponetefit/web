@@ -10752,6 +10752,8 @@
 PASO 1 — Transcribí mentalmente cada línea de texto que sea un ejercicio (con sus reps/tiempo si tiene). Ignorá lo que NO es un ejercicio: título de la clase, fecha, nombre del alumno/profe, aclaraciones sueltas, dibujos.
 
 PASO 1.5 — CALENTAMIENTO: si ves las siglas "EC" (o "E.C.", "Ent. Cardio", "Calentamiento", "Entrada en calor") marcando una línea o un grupo de ejercicios, esos ejercicios van SEPARADOS del resto, en el campo "calentamiento" del JSON (NO los pongas en "bloques"). El resto de los ejercicios (la parte principal) va en "bloques" como siempre.
+   - Si NO ves ninguna de esas marcas ("EC", "Calentamiento", "Entrada en calor", etc.) en la imagen, NO agregues el campo "calentamiento" ni inventes que ejercicios son de entrada en calor: todos los ejercicios van directo a "bloques".
+   - Si hay calentamiento pero NO tiene corchetes/llaves que lo subdividan en grupos, es un único grupo de calentamiento (se arma como circuito por vuelta).
 
 PASO 2 — Agrupá los ejercicios de la parte principal (no el calentamiento) en bloques usando ESTAS señales, en este orden de prioridad:
 
@@ -10774,22 +10776,32 @@ PASO 2 — Agrupá los ejercicios de la parte principal (no el calentamiento) en
 
 PASO 2.1 — NOTACIÓN "x" (multiplicador) al lado de un corchete o bloque — es MUY importante distinguir estos tres casos:
    a) "x" + número SOLO (ej: "x3", "X 4", "x3v", "x 5 vueltas"), SIN comilla simple ni doble: significa CANTIDAD DE VUELTAS/RONDAS del circuito. Sistema = "Circuito". Guardá ese número en "parametros.vueltas".
-   b) "x" + número + comilla simple ' (ej: "x5'", "X 8'", "x 10'"): la comilla simple ' significa MINUTOS. Sistema = "Circuito por Tiempo". Guardá ese número en "parametros.duracion_min".
-   c) Notación tipo número + comilla doble " + "x" + número + comilla doble " (ej: 20" x 10", 30"x15", 40" X 20"): la comilla doble " significa SEGUNDOS y esto es un TABATA. El primer número es el tiempo de TRABAJO y el segundo es el tiempo de PAUSA/descanso. Sistema = "Tabata". Guardá "parametros.trabajo" (primer número, segundos) y "parametros.pausa" (segundo número, segundos). Si además se indica una cantidad de rondas/vueltas para el tabata, guardala en "parametros.rondas" (si no se indica, no la incluyas).
+   b) "x" + número + comilla simple ' (ej: "x5'", "X 8'", "x 10'"): UNA sola comilla simple ' significa MINUTOS. Sistema = "Circuito por Tiempo". Guardá ese número en "parametros.duracion_min".
+   c) Notación tipo número + comillas + "x" + número + comillas (ej: 20" x 10", 30"x15", 40" X 20"): el símbolo de SEGUNDOS puede aparecer como comilla doble " o como DOS comillas simples seguidas '' (son lo mismo, equivalen al símbolo de segundos ″). Esto es un TABATA. El primer número es el tiempo de TRABAJO y el segundo es el tiempo de PAUSA/descanso. Sistema = "Tabata". Guardá "parametros.trabajo" (primer número, segundos) y "parametros.pausa" (segundo número, segundos). Si además se indica una cantidad de rondas/vueltas para el tabata, guardala en "parametros.rondas" (si no se indica, no la incluyas).
+   - Resumen de símbolos sueltos (fuera de la notación "x" de arriba) también aplica igual: una comilla simple ' junto a un número = minutos; comilla doble " o dos comillas simples '' junto a un número = segundos.
    - Esta notación de "x" aplica a nivel de bloque/circuito completo, no a cada ejercicio individual.
    - Si hay varios bloques con distinta notación "x", cada uno puede tener su propio "sistema" y "parametros" dentro del objeto del bloque (ver formato de respuesta).
+
+PASO 2.2 — NOTACIÓN DE REPS CON GUIONES (ej: "10-12-15", "8-10-12-15"): cuando el número de reps de un ejercicio está escrito como varios números separados por guion, significa que ese ejercicio tiene reps DISTINTAS en cada vuelta del circuito (progresión por vuelta): la primera vuelta con el primer número, la segunda vuelta con el segundo número, y así sucesivamente. Transcribí el campo "reps" de ese ejercicio EXACTAMENTE como está escrito, con los guiones (ej: "reps":"10-12-15"), sin separarlo ni convertirlo. El bloque que contenga esta notación es un "Circuito" (por vuelta).
+
+PASO 2.3 — NUMERACIÓN CORRELATIVA DE EJERCICIOS (ej: "1 Sentadilla", "2 Abs Plancha", "3 Peso Muerto" — o arrancando en otro número, ej: "5 Sentadilla", "6 Abs Plancha", "7 Peso Muerto"): cuando CADA ejercicio de un mismo grupo está precedido por un número que sube de a 1 línea a línea (un correlativo: 1,2,3,... o 5,6,7,...; NO es una cantidad de reps grande ni una notación de "x"), esto es un CIRCUITO POR VUELTA con esta lógica especial:
+   - La CANTIDAD DE VUELTAS del circuito es igual a la CANTIDAD de ejercicios de ese grupo (no el valor del último número). Ejemplo: 3 ejercicios numerados = 3 vueltas, sea cual sea el número por el que arrancó la numeración.
+   - El número que precede a cada ejercicio ES su cantidad de repeticiones (misma reps en todas las vueltas para ese ejercicio). Ejemplo: "1 Sentadilla" → Sentadilla con reps "1"; "5 Sentadilla" → Sentadilla con reps "5".
+   - Sistema = "Circuito". Guardá "parametros.vueltas" = cantidad de ejercicios del grupo.
+   - EXCEPCIÓN — si ese mismo grupo tiene ADEMÁS un corchete/llave y notación de minutos con comilla simple (ej: "5'", "x5'"), NO apliques esta regla: ahí el sistema es "Circuito por Tiempo" con la duración indicada (PASO 2.1.b), y los números que preceden a cada ejercicio son simplemente sus reps normales (no determinan la cantidad de vueltas, esa la da la comilla simple).
 
 PASO 3 — Antes de responder, revisá cada ejercicio uno por uno y confirmá a qué bloque pertenece según la señal visual real (no supongas). Un ejercicio nunca puede quedar en dos bloques ni faltar.
 
 REGLAS ADICIONALES:
 - No inventes ejercicios que no estén escritos en la imagen.
 - No repitas un mismo ejercicio en más de un bloque salvo que esté escrito dos veces en la imagen.
-- Si el nombre del ejercicio está abreviado o es ambiguo, transcribilo tal cual está escrito, sin "corregirlo" a otro ejercicio distinto.
+- Si el nombre del ejercicio está abreviado o es ambiguo, transcribilo tal cual está escrito, sin "corregirlo" a otro ejercicio distinto (ej: "Sentadilla Iso" se transcribe así, sin expandir "Iso").
+- Si un ejercicio no tiene reps escritas en la imagen, dejá "reps" vacío (""); no inventes un número, el sistema completa 10 reps por defecto automáticamente.
 - Mantené el orden en que aparecen en la imagen (de arriba hacia abajo, izquierda a derecha).
 - Para cada ejercicio agregá "confianza": "alta" si el texto y su bloque se leen con claridad, "media" si dudaste un poco, "baja" si es letra difícil de leer, está tapado/borroso, o no estás seguro de a qué bloque pertenece.
 
 FORMATO DE RESPUESTA — respondé SOLO con JSON válido, sin texto ni backticks ni explicación. "calentamiento" es opcional (solo si hay "EC"); "sistema" y "parametros" van DENTRO de cada bloque cuando la notación "x" te da esa info para ESE bloque en particular:
-{"calentamiento":[{"nombre":"Jumping Jacks","reps":"30s","confianza":"alta"}],"bloques":[{"nombre":"Bloque 1","sistema":"Circuito","parametros":{"vueltas":3},"ejercicios":[{"nombre":"Burpees","reps":"10","confianza":"alta"}]},{"nombre":"Bloque 2","sistema":"Tabata","parametros":{"trabajo":20,"pausa":10},"ejercicios":[{"nombre":"Plancha","reps":"","confianza":"media"}]}]}
+{"calentamiento":[{"nombre":"Jumping Jacks","reps":"30s","confianza":"alta"}],"bloques":[{"nombre":"Bloque 1","sistema":"Circuito","parametros":{"vueltas":3},"ejercicios":[{"nombre":"Burpees","reps":"10-12-15","confianza":"alta"}]},{"nombre":"Bloque 2","sistema":"Tabata","parametros":{"trabajo":20,"pausa":10},"ejercicios":[{"nombre":"Plancha","reps":"","confianza":"media"}]}]}
 
 Sistemas posibles: Tabata, EMOM, Circuito por Tiempo, Circuito, Por Tiempo, Series. Si no podés determinar el sistema de un bloque por la notación "x", usá Circuito por defecto.
 Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece con reps o tiempo, incluilos en "reps".`;
@@ -10946,7 +10958,8 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         'TREN': 'TREN', 'CUADRI': 'CUADRICEPS',
         'LUMB': 'LUMBARES', 'LUMBAR': 'LUMBARES',
         'OBL': 'OBLICUOS', 'OBLIC': 'OBLICUOS',
-        'ANTEBR': 'ANTEBRAZO', 'TRAP': 'TRAPECIO'
+        'ANTEBR': 'ANTEBRAZO', 'TRAP': 'TRAPECIO',
+        'ISO': 'ISOMETRICA', 'ISOM': 'ISOMETRICA'
     };
 
     // Quita tildes/acentos para comparar de forma mas tolerante
@@ -11238,21 +11251,60 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         const calentEjs = ejsV.filter(e => e.bloque === '🔥 Calentamiento');
         const principales = ejsV.filter(e => e.bloque !== '🔥 Calentamiento');
 
+        // Detecta notación "10-12-15" (reps distintas por vuelta, separadas por guion).
+        // Devuelve el array de valores ["10","12","15"] o null si no matchea.
+        const PIZ_DASH_REPS = /^\s*\d+(\s*-\s*\d+){1,}\s*$/;
+        function pizParseRepsPorVuelta(reps) {
+            if (!reps || !PIZ_DASH_REPS.test(reps)) return null;
+            return reps.split('-').map(v => v.trim());
+        }
+
+        // Si algun ejercicio de la lista usa notación "10-12-15", fuerza que el
+        // grupo se arme como Circuito por Vuelta con esas reps progresivas
+        // (1ra vuelta 10 reps, 2da 12, 3ra 15, etc.) y completa el resto de
+        // ejercicios del mismo grupo repitiendo su reps fija en cada vuelta.
+        function pizAplicarRepsPorVuelta(ejsBloque, vueltasBase) {
+            const listas = ejsBloque.map(ej => pizParseRepsPorVuelta(ej.reps));
+            const tieneDash = listas.some(l => l);
+            if (!tieneDash) return { aplico:false, vueltas: vueltasBase };
+            const maxVueltas = Math.max(vueltasBase || 0, ...listas.filter(l=>l).map(l=>l.length));
+            ejsBloque.forEach((ej, i) => {
+                const lista = listas[i];
+                ej.reps_por_vuelta = lista
+                    ? ensureArrayLen(lista, maxVueltas, lista[lista.length-1])
+                    : ensureArrayLen([], maxVueltas, ej.reps || '10');
+            });
+            return { aplico:true, vueltas: maxVueltas };
+        }
+
         const warmupFinal = calentEjs.map(ej => {
             const vtD = buscarEjEnVideoteca(ej.nombre.trim().toUpperCase());
-            return { nombre:ej.nombre.trim(), link:vtD?(vtD.link||vtD.video||''):'', reps:ej.reps||'', unit:'Reps', descanso:'', elemento:vtD&&vtD.elemento||'', con_carga:vtD&&vtD.con_carga||false };
+            // Sin reps escritas -> 10 reps por defecto (entrada en calor = circuito por vuelta)
+            return { nombre:ej.nombre.trim(), link:vtD?(vtD.link||vtD.video||''):'', reps:ej.reps||'10', unit:'Reps', descanso:'', elemento:vtD&&vtD.elemento||'', con_carga:vtD&&vtD.con_carga||false };
         });
+        // Si el calentamiento usa notación "10-12-15" en algún ejercicio, se arma
+        // como circuito por vuelta con esas reps progresivas (vueltas=2 y pausa=30s por defecto).
+        pizAplicarRepsPorVuelta(warmupFinal, 2);
 
         // Arma un bloque aplicando el sistema+parámetros DETECTADO para ese bloque
         // (notación "x" en la imagen) si existe; si no, usa el selector global.
         function armarBloque(bNombre, ejsBloqueRaw) {
             const ejsBloque = ejsBloqueRaw.map(ej => {
                 const vtD = buscarEjEnVideoteca(ej.nombre.trim().toUpperCase());
+                // Sin reps escritas en el bloque -> 10 reps por defecto
                 return { nombre:ej.nombre.trim(), link:vtD?(vtD.link||vtD.video||''):'', reps:ej.reps||'10', unit:'Reps', elemento:vtD&&vtD.elemento||'', con_carga:vtD&&vtD.con_carga||false };
             });
             const detectado = pizBloqueSistemas[bNombre];
-            const tipo = detectado ? detectado.sistema : params.tipo;
-            const p    = detectado ? detectado.parametros : {};
+            let tipo = detectado ? detectado.sistema : params.tipo;
+            let p    = detectado ? detectado.parametros : {};
+
+            // Notación "10-12-15": fuerza Circuito por Vuelta con reps progresivas
+            const resDash = pizAplicarRepsPorVuelta(ejsBloque, p.vueltas ?? params.vueltas);
+            if (resDash.aplico) {
+                tipo = 'Circuito';
+                p = Object.assign({}, p, { vueltas: resDash.vueltas });
+            }
+
             const bloque = { tipo, ejercicios:ejsBloque };
             if (tipo==='Tabata') {
                 bloque.trabajo = p.trabajo ?? params.trabajo;
