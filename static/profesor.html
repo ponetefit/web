@@ -1422,6 +1422,22 @@
         </div>
     </div>
 
+    <!-- Modal: Advertencia ejercicios sin video antes de compartir rutina -->
+    <div id="modal-sin-video" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-tarjeta rounded-3xl border border-borde p-6 max-w-md w-full">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-bold text-naranja uppercase tracking-wider">⚠️ Ejercicios sin video</h3>
+                <button onclick="_svResolver(false)" class="text-textoSuave hover:text-texto text-2xl leading-none">&times;</button>
+            </div>
+            <p class="text-xs text-textoSuave mb-3">Esta rutina tiene ejercicios que no tienen video asociado en tu Videoteca. El alumno los va a ver sin video de referencia.</p>
+            <div id="sv-lista" class="space-y-1.5 max-h-52 overflow-y-auto mb-4 rounded-xl p-3" style="background:#141418;border:1px solid #2a2a35"></div>
+            <div class="flex gap-3">
+                <button onclick="_svResolver(false)" class="flex-1 py-2.5 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
+                <button onclick="_svResolver(true)" class="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold text-sm">Compartir igual</button>
+            </div>
+        </div>
+    </div>
+
     <style>
     @keyframes pizBounce { from { transform:translateY(0); } to { transform:translateY(-5px); } }
     .piz-ej-vt    { border:1px solid rgba(105,240,174,.25); background:rgba(105,240,174,.04); }
@@ -5456,6 +5472,50 @@
         actualizarBadgeDia(idx);
     }
 
+    // Recorre diasData y devuelve los nombres (sin duplicar) de los ejercicios
+    // que no tienen link de video cargado (entrada en calentamiento, bloques y EMOM).
+    function recopilarEjerciciosSinVideo() {
+        const vistos = new Set();
+        const faltantes = [];
+        function chequear(nombre, link) {
+            const n = (nombre || '').trim();
+            if (!n) return;
+            if (link && link.trim()) return;
+            const key = n.toUpperCase();
+            if (vistos.has(key)) return;
+            vistos.add(key);
+            faltantes.push(n);
+        }
+        (diasData || []).forEach(d => {
+            (d.warmupEjercicios || []).forEach(e => chequear(e.nombre, e.link));
+            (d.warmupEmomConfig || []).forEach(m => {
+                (m.ejercicios || []).forEach(e => chequear(e.nombre, e.link));
+            });
+            (d.bloquesRutina || []).forEach(b => {
+                (b.ejercicios || []).forEach(e => chequear(e.nombre, e.link));
+            });
+        });
+        return faltantes;
+    }
+
+    // Muestra el modal de advertencia y devuelve una Promise<boolean>
+    // true = el profesor eligio compartir igual, false = cancelo
+    let _svResolver = () => {};
+    function mostrarAdvertenciaSinVideo(nombres) {
+        return new Promise(resolve => {
+            _svResolver = (ok) => {
+                document.getElementById('modal-sin-video').classList.add('hidden');
+                resolve(ok);
+            };
+            const lista = document.getElementById('sv-lista');
+            lista.innerHTML = nombres.map(n =>
+                '<div class="flex items-center gap-2 text-xs text-texto"><span class="text-naranja">●</span>' +
+                n.replace(/</g, '&lt;') + '</div>'
+            ).join('');
+            document.getElementById('modal-sin-video').classList.remove('hidden');
+        });
+    }
+
     // --- Compartir ---
     async function compartirRutina() {
         const alumno = (document.getElementById('alumno-nombre')?.value || '').trim() || 'ALUMNO';
@@ -5470,6 +5530,13 @@
         if (!hayContenido) {
             toast('Agrega ejercicios a al menos un dia');
             return;
+        }
+
+        // Avisar si hay ejercicios sin video antes de compartir con el alumno
+        const sinVideo = recopilarEjerciciosSinVideo();
+        if (sinVideo.length > 0) {
+            const continuar = await mostrarAdvertenciaSinVideo(sinVideo);
+            if (!continuar) return;
         }
 
         const btn = document.getElementById('btn-compartir-rutina');
@@ -10854,6 +10921,49 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         }
     }
 
+    // Diccionario de abreviaturas/jerga comunes de gimnasio -> palabra completa,
+    // para que la pizarra digital reconozca ejercicios aunque el profesor
+    // los abrevie (ej: "ABS INF" debe asociarse a "ABDOMINALES INFERIORES").
+    // Las claves son palabras SUELTAS (se comparan token por token, no substring),
+    // ya normalizadas sin tildes.
+    const PIZ_ABREVIATURAS = {
+        'ABS': 'ABDOMINALES', 'ABD': 'ABDOMINALES', 'ABDOM': 'ABDOMINALES',
+        'ESP': 'ESPALDA', 'DORS': 'DORSALES',
+        'CUAD': 'CUADRICEPS', 'CUADS': 'CUADRICEPS',
+        'ISQ': 'ISQUIOTIBIALES', 'ISQUIOS': 'ISQUIOTIBIALES',
+        'GLUT': 'GLUTEOS', 'GLU': 'GLUTEOS', 'GLUTEO': 'GLUTEOS',
+        'PECT': 'PECHO', 'PEC': 'PECHO', 'PECHO': 'PECHO',
+        'BIC': 'BICEPS', 'TRIC': 'TRICEPS',
+        'HOMB': 'HOMBROS', 'HOMBRO': 'HOMBROS', 'DELT': 'HOMBROS', 'DELTOIDES': 'HOMBROS',
+        'CUAD.': 'CUADRICEPS',
+        'GEMEL': 'GEMELOS', 'GEM': 'GEMELOS', 'PANT': 'GEMELOS',
+        'ANT': 'ANTERIOR', 'POST': 'POSTERIOR',
+        'INF': 'INFERIORES', 'INFER': 'INFERIORES',
+        'SUP': 'SUPERIORES', 'SUPER': 'SUPERIORES',
+        'CARD': 'CARDIO', 'FUNC': 'FUNCIONAL',
+        'ADD': 'ADUCTORES', 'ADUCT': 'ADUCTORES',
+        'ABD.': 'ABDUCTORES', 'ABDUCT': 'ABDUCTORES',
+        'TREN': 'TREN', 'CUADRI': 'CUADRICEPS',
+        'LUMB': 'LUMBARES', 'LUMBAR': 'LUMBARES',
+        'OBL': 'OBLICUOS', 'OBLIC': 'OBLICUOS',
+        'ANTEBR': 'ANTEBRAZO', 'TRAP': 'TRAPECIO'
+    };
+
+    // Quita tildes/acentos para comparar de forma mas tolerante
+    function pizSinAcentos(s) {
+        return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    // Normaliza un nombre de ejercicio: mayusculas, sin acentos, y expande
+    // abreviaturas conocidas token por token (ABS -> ABDOMINALES, etc.)
+    function pizNormalizarNombreEj(nombre) {
+        const base = pizSinAcentos((nombre || '').trim().toUpperCase());
+        return base.split(/\s+/).map(tok => {
+            const limpio = tok.replace(/[.,]/g, '');
+            return PIZ_ABREVIATURAS[tok] || PIZ_ABREVIATURAS[limpio] || tok;
+        }).join(' ');
+    }
+
     // Similitud de cadenas: porcentaje de caracteres coincidentes (Dice bigrams)
     function pizSimilitud(a, b) {
         if (!a || !b) return 0;
@@ -10866,14 +10976,16 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
     }
 
     // Devuelve el ejercicio de la videoteca que mejor coincide (exacto o fuzzy ≥50%)
+    // Expande abreviaturas comunes (ABS, ESP, CUAD, etc.) antes de comparar,
+    // asi la pizarra digital detecta ejercicios aunque esten abreviados.
     function pizFindBestVT(nombre) {
         if (!nombre) return null;
-        const up = nombre.trim().toUpperCase();
+        const up = pizNormalizarNombreEj(nombre);
         let best = null, bestScore = 0;
         for (const lista of Object.values(videotecaCache || {})) {
             if (!Array.isArray(lista)) continue;
             for (const e of lista) {
-                const n = (e.nombre||e[0]||'').toUpperCase();
+                const n = pizNormalizarNombreEj(e.nombre || e[0] || '');
                 if (n === up) return { ej: e, score: 1 };
                 const s = pizSimilitud(up, n);
                 if (s > bestScore) { bestScore = s; best = e; }
