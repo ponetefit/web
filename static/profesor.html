@@ -524,6 +524,18 @@
             <!-- Contenido del Dashboard (se muestra al seleccionar alumno) -->
             <div id="dash-contenido" class="hidden dash-fade-in">
 
+                <!-- Filtro por rango de rutinas: afecta TODO el dashboard (KPIs, ejercicios,
+                     mapa de calor, distribución de métodos) y lo que se exporta a PDF -->
+                <div class="bg-tarjeta rounded-2xl border border-borde p-3 mb-6 flex flex-wrap items-center gap-2">
+                    <span class="text-xs font-bold text-textoSuave uppercase tracking-wider">Rango de rutinas:</span>
+                    <select id="dash-rango-desde" class="rounded-lg px-2 py-1.5 text-xs bg-fondoAlt border border-borde text-texto"></select>
+                    <span class="text-xs text-textoSuave">a</span>
+                    <select id="dash-rango-hasta" class="rounded-lg px-2 py-1.5 text-xs bg-fondoAlt border border-borde text-texto"></select>
+                    <button onclick="_pfAplicarRangoDash()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-azul/20 text-azul hover:bg-azul/30 transition">Aplicar</button>
+                    <button onclick="_pfLimpiarRangoDash()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-textoSuave hover:text-texto transition">Ver todo</button>
+                    <span id="dash-rango-activo" class="text-xs text-verde font-bold ml-auto"></span>
+                </div>
+
                 <!-- KPIs -->
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                     <div class="kpi-card rounded-2xl p-5 text-center">
@@ -7505,6 +7517,13 @@
                 });
                 await Promise.all(fetches);
 
+                // Nuevo alumno cargado: resetear el rango activo y repoblar los selects
+                dashRangoDesde = null;
+                dashRangoHasta = null;
+                const rangoLabel = document.getElementById('dash-rango-activo');
+                if (rangoLabel) rangoLabel.textContent = '';
+                _pfPoblarSelectsRangoDash();
+
                 procesarDashboard(nombre);
                 // Re-trigger animation
                 contenido.classList.remove('dash-fade-in');
@@ -7586,8 +7605,9 @@
         if (!jsPDFLib) { toast('Libreria PDF no disponible, recarga la pagina'); return; }
 
         const rutinas = dashRutinasData || {};
-        const keys = Object.keys(rutinas);
-        if (!keys.length) { toast('⚠️ Este alumno todavía no tiene rutinas para resumir'); return; }
+        const keys = _pfKeysDashFiltradas();
+        if (!keys.length) { toast('⚠️ No hay rutinas en el rango seleccionado'); return; }
+        const rangoActivo = (dashRangoDesde && dashRangoHasta) ? (dashRangoDesde.toUpperCase() + ' → ' + dashRangoHasta.toUpperCase()) : null;
 
         // Recalcular los mismos agregados que usa el dashboard en pantalla
         // (mismo criterio que procesarDashboard, pero self-contained para el PDF)
@@ -7683,7 +7703,7 @@
 
         // Header
         colorBar('RESUMEN DE ENTRENAMIENTO — ' + (dashAlumnoActual||'').toUpperCase(), 255, 107, 53, 10);
-        textoNormal('Generado el ' + new Date().toLocaleDateString('es-AR') + ' · Nivel: ' + nivel, 9, [120,120,125]);
+        textoNormal('Generado el ' + new Date().toLocaleDateString('es-AR') + ' · Nivel: ' + nivel + (rangoActivo ? ' · Rango: ' + rangoActivo : ' · Todas las rutinas'), 9, [120,120,125]);
         y += 2;
 
         // KPIs en 2x2
@@ -7864,11 +7884,69 @@
             doc.text('Página ' + p + ' / ' + totalPaginas, pw - mR, ph - 8, { align: 'right' });
         }
 
-        const nombreArchivo = 'Resumen_' + (dashAlumnoActual||'alumno').replace(/[^a-zA-Z0-9]/g,'_') + '.pdf';
+        const sufijoRango = rangoActivo ? '_' + dashRangoDesde.toUpperCase() + '-' + dashRangoHasta.toUpperCase() : '';
+        const nombreArchivo = 'Resumen_' + (dashAlumnoActual||'alumno').replace(/[^a-zA-Z0-9]/g,'_') + sufijoRango + '.pdf';
         doc.save(nombreArchivo);
         toast('✅ PDF exportado');
     }
 
+
+    let dashRangoDesde = null;
+    let dashRangoHasta = null;
+
+    // Puebla los selects "Desde"/"Hasta" con los códigos de rutina del alumno actual, ordenados
+    function _pfPoblarSelectsRangoDash() {
+        const selD = document.getElementById('dash-rango-desde');
+        const selH = document.getElementById('dash-rango-hasta');
+        if (!selD || !selH) return;
+        const codigos = Object.keys(dashRutinasData).sort();
+        const opts = codigos.map(c => `<option value="${c}">${c.toUpperCase()}</option>`).join('');
+        selD.innerHTML = opts;
+        selH.innerHTML = opts;
+        if (codigos.length) {
+            selD.value = codigos[0];
+            selH.value = codigos[codigos.length - 1];
+        }
+    }
+
+    // Extrae el número final de un código de rutina (ej: "rafa0004" -> 4), para poder comparar rangos
+    function _pfNumeroDeCodigo(cod) {
+        const m = (cod || '').match(/(\d+)$/);
+        return m ? parseInt(m[1], 10) : null;
+    }
+
+    // Devuelve las keys de dashRutinasData filtradas por el rango activo (o todas si no hay rango)
+    function _pfKeysDashFiltradas() {
+        const todas = Object.keys(dashRutinasData);
+        if (!dashRangoDesde && !dashRangoHasta) return todas;
+        const numDesde = _pfNumeroDeCodigo(dashRangoDesde);
+        const numHasta = _pfNumeroDeCodigo(dashRangoHasta);
+        if (numDesde === null || numHasta === null) return todas;
+        const lo = Math.min(numDesde, numHasta), hi = Math.max(numDesde, numHasta);
+        return todas.filter(c => {
+            const n = _pfNumeroDeCodigo(c);
+            return n !== null && n >= lo && n <= hi;
+        });
+    }
+
+    function _pfAplicarRangoDash() {
+        const selD = document.getElementById('dash-rango-desde');
+        const selH = document.getElementById('dash-rango-hasta');
+        if (!selD || !selH || !selD.value || !selH.value) return;
+        dashRangoDesde = selD.value;
+        dashRangoHasta = selH.value;
+        const label = document.getElementById('dash-rango-activo');
+        if (label) label.textContent = '📌 ' + dashRangoDesde.toUpperCase() + ' → ' + dashRangoHasta.toUpperCase();
+        procesarDashboard(dashAlumnoActual);
+    }
+
+    function _pfLimpiarRangoDash() {
+        dashRangoDesde = null;
+        dashRangoHasta = null;
+        const label = document.getElementById('dash-rango-activo');
+        if (label) label.textContent = '';
+        procesarDashboard(dashAlumnoActual);
+    }
 
     function procesarDashboard(nombre) {
         // Helper para evitar crashes si algún elemento no existe
@@ -7876,7 +7954,7 @@
         function setHTML(id, val) { const el = document.getElementById(id); if (el) el.innerHTML = val; }
 
         const rutinas = dashRutinasData;
-        const keys = Object.keys(rutinas);
+        const keys = _pfKeysDashFiltradas();
         const totalRutinas = keys.length;
 
         // -- KPI: Total Rutinas --
