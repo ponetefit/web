@@ -1831,6 +1831,7 @@
                             <option value="Tabata">Tabata</option>
                             <option value="EMOM">EMOM</option>
                             <option value="Series">Series / Repeticiones</option>
+                            <option value="Sumando Ejercicio">Sumando Ejercicio</option>
                         </select>
                     </div>
                     <div id="bloque-params-container" class="space-y-3 mt-3">
@@ -4055,7 +4056,7 @@
             return;
         }
         if (sinBloques) sinBloques.style.display = 'none';
-        const colores = { 'Circuito': 'naranja', 'Circuito por Tiempo': 'azul', 'Por Tiempo': 'purpura', 'Tabata': 'rojo', 'EMOM': 'amarillo', 'Series': 'verde' };
+        const colores = { 'Circuito': 'naranja', 'Circuito por Tiempo': 'azul', 'Por Tiempo': 'purpura', 'Tabata': 'rojo', 'EMOM': 'amarillo', 'Series': 'verde', 'Sumando Ejercicio': 'purpura' };
         const svgHandle = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><circle cx="9" cy="5" r="1.8"/><circle cx="15" cy="5" r="1.8"/><circle cx="9" cy="12" r="1.8"/><circle cx="15" cy="12" r="1.8"/><circle cx="9" cy="19" r="1.8"/><circle cx="15" cy="19" r="1.8"/></svg>';
         lista.innerHTML = bloques.map((b, i) => {
             const color = colores[b.tipo] || 'purpura';
@@ -4105,7 +4106,7 @@
         const el = document.getElementById('dia-timeline-' + idx);
         if (!el || !diasData[idx]) return;
         const dia = diasData[idx];
-        const colores = { 'Circuito': 'naranja', 'Circuito por Tiempo': 'azul', 'Por Tiempo': 'purpura', 'Tabata': 'rojo', 'EMOM': 'amarillo', 'Series': 'verde' };
+        const colores = { 'Circuito': 'naranja', 'Circuito por Tiempo': 'azul', 'Por Tiempo': 'purpura', 'Tabata': 'rojo', 'EMOM': 'amarillo', 'Series': 'verde', 'Sumando Ejercicio': 'purpura' };
         const tieneWarmup = (dia.warmupEjercicios || []).length > 0;
         const pills = [];
         pills.push(
@@ -4405,8 +4406,14 @@
             <p class="text-xs text-textoSuave mt-2">El alumno tiene un cronómetro que cuenta hacia arriba y marca cada vuelta manualmente. Se registran y muestran los tiempos de cada vuelta.</p>`;
         } else if (tipo === 'Series') {
             html = `<p class="text-xs text-textoSuave">Define series, repeticiones y pausa por ejercicio abajo</p>`;
+        } else if (tipo === 'Sumando Ejercicio') {
+            html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre rondas (seg, opcional)</label>
+                <input id="bp-se-pausa" type="number" value="0" min="0" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+            <p class="text-xs text-textoSuave mt-2">Cargá los ejercicios en orden abajo con sus reps fijas. El sistema arma las rondas solo: ronda 1 = ejercicio 1, ronda 2 = ejercicio 1 + 2, ronda 3 = ejercicio 1 + 2 + 3, y así con todos los ejercicios que cargues. No se repite ninguna ronda.</p>
+            <div id="se-vista-previa" class="mt-3 space-y-1"></div>`;
         }
         container.innerHTML = html;
+        if (tipo === 'Sumando Ejercicio') setTimeout(() => _pfRenderVistaPreviaSumando(), 0);
         // Ocultar el panel generico de ejercicios cuando el tipo es EMOM
         // (el EMOM tiene su propia UI de ejercicios por minuto dentro de bloque-params-container)
         if (ejPanel) ejPanel.style.display = (tipo === 'EMOM') ? 'none' : '';
@@ -4841,6 +4848,11 @@
             mins = val('bp-minutos', 10);
         } else if (tipo === 'Por Tiempo') {
             mins = val('bp-portiempo-vueltas', 3);
+        } else if (tipo === 'Sumando Ejercicio') {
+            const n = bloqueEjsTemp.length;
+            const pausaRonda = val('bp-se-pausa', 0);
+            const totalEjecuciones = n * (n + 1) / 2; // ronda 1 = 1 ej, ronda 2 = 2 ej, ... ronda n = n ejs
+            mins = (totalEjecuciones * 0.5) + (n * pausaRonda / 60);
         }
         return Math.max(0, Math.ceil(mins));
     }
@@ -4880,6 +4892,7 @@
         const esSeries = (tipo === 'Series');
         const esTabata = (tipo === 'Tabata');
         const esEMOM = (tipo === 'EMOM');
+        const esSumando = (tipo === 'Sumando Ejercicio');
 
         // Cantidad de vueltas para Circuito por vuelta
         let numVueltas = 1;
@@ -4994,6 +5007,17 @@
                     '<input type="text" value="' + (ej.nota_tecnica||'') + '" onchange="bloqueEjsTemp[' + i + '].nota_tecnica=this.value" class="rounded-lg px-2 py-1 text-xs flex-1" placeholder="Nota del profe...">' +
                     '</div>';
 
+            } else if (esSumando) {
+                // Sumando Ejercicio: reps fijas por ejercicio, sin pausa ni vueltas (el orden = la cadena de rondas)
+                controlsHtml = '<div class="flex gap-2 items-center flex-wrap">' +
+                    '<span class="text-xs text-textoSuave font-bold">Reps fijas:</span>' +
+                    '<input type="text" value="' + (ej.reps||'10') + '" onchange="bloqueEjsTemp[' + i + '].reps=this.value;_pfRenderVistaPreviaSumando()" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Reps">' +
+                    '<select onchange="bloqueEjsTemp[' + i + '].unit=this.value;_pfRenderVistaPreviaSumando()" class="rounded-lg px-2 py-1 text-xs"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' +
+                    '</div>' +
+                    '<div class="flex gap-2 items-center flex-wrap mt-1">' +
+                    '<input type="text" value="' + (ej.nota_tecnica||'') + '" onchange="bloqueEjsTemp[' + i + '].nota_tecnica=this.value" class="rounded-lg px-2 py-1 text-xs flex-1" placeholder="Nota del profe...">' +
+                    '</div>';
+
             } else {
                 // Fallback genérico
                 controlsHtml = '<div class="flex gap-2 items-center flex-wrap">' +
@@ -5020,6 +5044,25 @@
         initTouchDragForList(lista, 'bloque');
         _pfActualizarDuracionViva();
         _pfAgregarSteppersMobileEnContenedor('bloque-ejercicios-lista');
+        if (esSumando) _pfRenderVistaPreviaSumando();
+    }
+
+    // Vista previa de las rondas acumuladas del bloque Sumando Ejercicio que se está armando.
+    // Ronda 1 = ej1 | Ronda 2 = ej1+ej2 | Ronda 3 = ej1+ej2+ej3 ... (orden = el de la lista de arriba)
+    function _pfRenderVistaPreviaSumando() {
+        const cont = document.getElementById('se-vista-previa');
+        if (!cont) return;
+        if (bloqueEjsTemp.length === 0) {
+            cont.innerHTML = '';
+            return;
+        }
+        let html = '<p class="text-[10px] text-textoSuave uppercase tracking-wider mb-1">Vista previa de rondas</p>';
+        bloqueEjsTemp.forEach((_, r) => {
+            const sub = bloqueEjsTemp.slice(0, r + 1);
+            const txt = sub.map(e => (e.reps || '?') + ' ' + (e.nombre || '')).join(' + ');
+            html += '<div class="text-xs text-texto bg-fondo rounded-lg px-2 py-1"><span class="text-purpura font-bold">R' + (r + 1) + ':</span> ' + txt + '</div>';
+        });
+        cont.innerHTML = html;
     }
 
     function confirmarBloque() {
@@ -5086,6 +5129,8 @@
             bloque.cantidad = parseInt(document.getElementById('bp-cantidad')?.value || bloqueEjsTemp.length || 8);
             bloque.rondas = parseInt(document.getElementById('bp-rondas')?.value || 1);
             bloque.pausa_entre_rondas = parseInt(document.getElementById('bp-pausa-rondas')?.value || 0);
+        } else if (tipo === 'Sumando Ejercicio') {
+            bloque.pausa_ronda = parseInt(document.getElementById('bp-se-pausa')?.value || 0);
         } else if (tipo === 'EMOM') {
             bloque.minutos_totales = parseInt(document.getElementById('bp-minutos')?.value || 10);
             // Leer configuración por minuto desde la nueva UI con buscador
@@ -5170,6 +5215,8 @@
             const c = document.getElementById('bp-cantidad'); if(c) c.value = b.cantidad || (b.ejercicios ? b.ejercicios.length : '') || '';
             const r = document.getElementById('bp-rondas'); if(r) r.value = b.rondas || 1;
             const pr = document.getElementById('bp-pausa-rondas'); if(pr) pr.value = b.pausa_entre_rondas || 0;
+        } else if (b.tipo === 'Sumando Ejercicio') {
+            const psr = document.getElementById('bp-se-pausa'); if(psr) psr.value = b.pausa_ronda || 0;
         } else if (b.tipo === 'EMOM') {
             const _mEl = document.getElementById('bp-minutos');
             if (_mEl) {
@@ -9172,7 +9219,8 @@
             'EMOM': 'EMOM',
             'Por Tiempo': 'Por Tiempo',
             'Series': 'Series y Repeticiones',
-            'Series/Reps': 'Series y Repeticiones'
+            'Series/Reps': 'Series y Repeticiones',
+            'Sumando Ejercicio': 'Sumando Ejercicio'
         };
         return MAPA[t] || (t || 'Circuito por Vuelta');
     }
@@ -9185,7 +9233,8 @@
             'EMOM': ['#FFD54F','rgba(255,213,79,.15)'],
             'Por Tiempo': ['#CE93D8','rgba(206,147,216,.15)'],
             'Series': ['#69F0AE','rgba(105,240,174,.15)'],
-            'Series/Reps': ['#69F0AE','rgba(105,240,174,.15)']
+            'Series/Reps': ['#69F0AE','rgba(105,240,174,.15)'],
+            'Sumando Ejercicio': ['#CE93D8','rgba(206,147,216,.15)']
         };
         return COLORES[t] || COLORES['Circuito'];
     }
@@ -11701,6 +11750,9 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             const avgSeries = seriesVals.length ? Math.round(seriesVals.reduce((a, c) => a + c, 0) / seriesVals.length) : 4;
             return '~' + avgSeries + ' series por ejercicio';
         }
+        if (b.tipo === 'Sumando Ejercicio') {
+            return cantEj + ' ronda(s) acumulada(s)' + (b.pausa_ronda ? ' · ' + b.pausa_ronda + 's pausa entre rondas' : '');
+        }
         return '';
     }
 
@@ -11736,7 +11788,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
     }
 
     function _pfGenerarHTMLCompacto(dias, conCopiar) {
-        const colores = { 'Circuito': 'naranja', 'Circuito por Tiempo': 'azul', 'Por Tiempo': 'purpura', 'Tabata': 'rojo', 'EMOM': 'amarillo', 'Series': 'verde' };
+        const colores = { 'Circuito': 'naranja', 'Circuito por Tiempo': 'azul', 'Por Tiempo': 'purpura', 'Tabata': 'rojo', 'EMOM': 'amarillo', 'Series': 'verde', 'Sumando Ejercicio': 'purpura' };
         if (!dias || dias.length === 0) return '<p class="text-textoSuave text-sm text-center py-6">Sin días para mostrar</p>';
         return dias.map((d, di) => {
             const calEjs = d.warmupEjercicios || [];
