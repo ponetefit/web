@@ -4568,17 +4568,29 @@
                 function _contarLista(list) {
                     (list || []).forEach(_contarEj);
                 }
+                // Ejercicios de un bloque, incluyendo el caso EMOM (que guarda sus
+                // ejercicios anidados por minuto en emom_config_por_minuto, no en
+                // b.ejercicios directamente — si no se revisa ahí, esos ejercicios
+                // quedaban afuera del conteo y el mapa de calor salía incompleto).
+                function _contarBloque(b) {
+                    _contarLista(b.rutina);
+                    _contarLista(b.ejercicios);
+                    _contarLista(b.datos);
+                    (b.rutina || []).forEach(function(sub) {
+                        _contarLista(sub.ejercicios);
+                    });
+                    (b.emom_config_por_minuto || []).forEach(function(minCfg) {
+                        _contarLista(minCfg.ejercicios);
+                    });
+                    (b.minutos_ciclo || []).forEach(function(m) {
+                        _contarLista(m.ejercicios);
+                    });
+                }
                 _contarLista(data.rutina);
                 _contarLista(data.datos);
                 _contarLista(data.ejercicios);
                 _contarLista(data.warmup_ejercicios);
-                (data.bloques || []).forEach(function(b) {
-                    _contarLista(b.rutina);
-                    _contarLista(b.ejercicios);
-                    (b.rutina || []).forEach(function(sub) {
-                        _contarLista(sub.ejercicios);
-                    });
-                });
+                (data.bloques || []).forEach(_contarBloque);
                 (data.minutos_ciclo || []).forEach(function(m) {
                     _contarLista(m.ejercicios);
                 });
@@ -4586,58 +4598,86 @@
                     _contarLista(dia.rutina);
                     _contarLista(dia.datos);
                     _contarLista(dia.ejercicios);
-                    (dia.bloques || []).forEach(function(b) {
-                        _contarLista(b.rutina);
-                        _contarLista(b.ejercicios);
-                    });
+                    _contarLista(dia.warmup_ejercicios);
+                    (dia.bloques || []).forEach(_contarBloque);
                 });
                 return muscleCount;
             }
 
+            // Estima la duración del calentamiento de un día, igual que lo calcula
+            // profesor.html al armar la rutina (mismos campos: warmup_tipo,
+            // warmup_config_detalle con vueltas/pausa_vuelta/trabajo/pausa/etc.)
+            function _bvEstimarCalentamiento(d) {
+                var ejsW = d.warmup_ejercicios || [];
+                if (!ejsW.length) return 0;
+                var tipo = d.warmup_tipo || "Circuito (Vueltas)";
+                var det = d.warmup_config_detalle || {};
+                var cantEj = ejsW.length;
+                var mins = 0;
+                if (tipo === 'Series/Reps') {
+                    mins = cantEj * (det.series || 3) * 0.5;
+                } else if (tipo === 'Circuito (Vueltas)') {
+                    var vueltas = d.warmup_vueltas || det.vueltas || 2;
+                    var pausaVuelta = det.pausa_vuelta || 30;
+                    mins = (vueltas * cantEj * 0.5) + (vueltas * pausaVuelta / 60);
+                } else if (tipo === 'Circuito por Tiempo') {
+                    mins = det.duracion_bloque || 3;
+                } else if (tipo === 'Tabata') {
+                    var trabajo = det.trabajo || 20;
+                    var pausa = det.pausa || 10;
+                    var cantidad = det.cantidad || cantEj || 8;
+                    mins = (cantidad * (trabajo + pausa)) / 60;
+                } else if (tipo === 'EMOM') {
+                    mins = det.minutos || 5;
+                } else if (tipo === 'Por Tiempo') {
+                    mins = det.vueltas || 3;
+                }
+                return Math.max(0, mins);
+            }
+
             function _bvCalcDuracion(data) {
-                // Estima duración total en minutos
+                // Estima duración total en minutos — mismas fórmulas y mismos nombres
+                // de campo que usa profesor.html al guardar la rutina, para que la
+                // duración estimada coincida entre las dos apps.
                 var mins = 0;
 
                 function _estimarBloque(b) {
                     var tipo = (b.tipo || '').toLowerCase();
+                    var ejs = b.ejercicios || b.rutina || b.datos || [];
                     if (tipo === 'series') {
-                        var ejs = b.rutina || b.ejercicios || b.datos || [];
                         var totalSeries = 0;
                         ejs.forEach(function(e) {
-                            totalSeries += parseInt(e.series || 3);
+                            totalSeries += parseInt(e.series) || 3;
                         });
-                        mins += Math.ceil(totalSeries * 1.5); // ~1.5 min por serie
+                        mins += totalSeries * 1.5; // ~1.5 min por serie
                     } else if (tipo === 'circuito') {
-                        var vueltas = b.vueltas_bloque || b.vueltas || 3;
-                        var ejsC = b.rutina || b.ejercicios || [];
-                        mins += Math.ceil(vueltas * ejsC.length * 0.5);
+                        var vueltas = b.vueltas || b.vueltas_bloque || 3;
+                        var pausaVuelta = b.pausa_vuelta || 60;
+                        mins += (vueltas * ejs.length * 0.5) + (vueltas * pausaVuelta / 60);
                     } else if (tipo === 'tabata') {
-                        var cfg = b.config || {};
-                        var rondas = cfg.rondas || b.rondas || 1;
-                        var cantidad = cfg.cantidad || b.cantidad || 8;
-                        var trabajo = cfg.trabajo || b.trabajo || 20;
-                        var descanso = cfg.descanso || b.descanso || 10;
-                        mins += Math.ceil((rondas * cantidad * (trabajo + descanso)) / 60);
+                        var rondas = b.rondas || 1;
+                        var cantidad = b.cantidad || 8;
+                        var trabajo = b.trabajo || 20;
+                        var pausa = b.pausa || 10;
+                        var pausaRondas = b.pausa_entre_rondas || 0;
+                        mins += (rondas * cantidad * (trabajo + pausa) + rondas * pausaRondas) / 60;
                     } else if (tipo === 'emom') {
                         mins += b.minutos_totales || 10;
                     } else if (tipo === 'por tiempo') {
                         mins += b.vueltas || 3;
                     } else if (tipo === 'circuito por tiempo') {
-                        var ejsCT = b.rutina || b.datos || [];
-                        ejsCT.forEach(function(e) {
-                            mins += e.tiempo_min || 5;
-                        });
+                        mins += b.duracion_min || 5;
                     }
                 }
-                if (data.warmup_ejercicios && data.warmup_ejercicios.length) mins += 5;
+                mins += _bvEstimarCalentamiento(data);
                 (data.bloques || []).forEach(_estimarBloque);
                 if (!data.bloques || !data.bloques.length) _estimarBloque(data);
                 _bvObtenerDiasNormalizados(data).forEach(function(dia) {
-                    if (dia.warmup_ejercicios && dia.warmup_ejercicios.length) mins += 5;
+                    mins += _bvEstimarCalentamiento(dia);
                     (dia.bloques || []).forEach(_estimarBloque);
                     if (!dia.bloques || !dia.bloques.length) _estimarBloque(dia);
                 });
-                return mins || 30;
+                return Math.ceil(mins) || 30;
             }
 
             function _bvContarEjercicios(data) {
