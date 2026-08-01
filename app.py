@@ -437,6 +437,8 @@ def renumerar_rutinas(nombre):
 
         prefijo = match.group(1)
         cambios = 0
+        mapeo = []  # [{"viejo": "RAFA0004", "nuevo": "RAFA0003"}, ...] para que el
+                    # frontend pueda actualizar referencias guardadas (ej: repositorio)
 
         for i, codigo_viejo in enumerate(codigos_ordenados):
             num_nuevo = i + 1
@@ -449,6 +451,7 @@ def renumerar_rutinas(nombre):
                 ref_nuevo.set(data_rutina)
                 ref_viejo.delete()
                 cambios += 1
+                mapeo.append({"viejo": codigo_viejo.upper(), "nuevo": codigo_nuevo.upper()})
 
         total = len(codigos_ordenados)
         contador_ref = get_db_ref(f"/alumnos/{nombre_lower}/contador")
@@ -458,7 +461,8 @@ def renumerar_rutinas(nombre):
             "ok": True,
             "mensaje": f"Renumeracion completada: {cambios} rutina(s) renumerada(s)",
             "cambios": cambios,
-            "total": total
+            "total": total,
+            "mapeo": mapeo
         })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
