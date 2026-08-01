@@ -1726,6 +1726,113 @@
             line-height: 1.5;
         }
         
+        /* ─── SUMANDO EJERCICIO (rondas acumuladas) ─── */
+        
+        .se-ronda {
+            background: var(--fondo-alt);
+            border: 1px solid var(--borde-sutil);
+            border-radius: 12px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            transition: opacity 0.2s, border-color 0.2s;
+        }
+        
+        .se-ronda.completada {
+            opacity: 0.5;
+            border-color: var(--verde);
+        }
+        
+        .se-ronda-top {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .se-ronda-num {
+            width: 28px;
+            height: 28px;
+            min-width: 28px;
+            border-radius: 50%;
+            background: var(--tarjeta-alt);
+            color: var(--texto);
+            font-size: 0.7rem;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .se-ronda-ejs {
+            flex: 1;
+            font-size: 0.82rem;
+            line-height: 1.5;
+        }
+        
+        .se-ej-link {
+            text-decoration: underline dotted var(--texto-suave);
+            text-underline-offset: 2px;
+            cursor: pointer;
+        }
+        
+        .se-ronda-plus {
+            color: var(--texto-suave);
+            margin: 0 2px;
+        }
+        
+        .btn-ronda {
+            background: var(--purpura);
+            color: #2c1633;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 10px;
+            font-weight: 900;
+            font-size: 0.68rem;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            white-space: nowrap;
+            min-height: 36px;
+        }
+        
+        .btn-ronda:active {
+            transform: scale(0.96);
+        }
+        
+        .btn-ronda:disabled {
+            background: var(--verde);
+            color: #0a2e1c;
+            cursor: not-allowed;
+        }
+        
+        .se-totales {
+            background: var(--fondo-alt);
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin: 14px 0;
+            border: 1px solid var(--borde-sutil);
+        }
+        
+        .se-totales-titulo {
+            font-size: 0.7rem;
+            letter-spacing: 2px;
+            font-weight: 900;
+            text-transform: uppercase;
+            color: var(--purpura);
+            margin-bottom: 8px;
+        }
+        
+        .se-totales-fila {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            padding: 3px 0;
+        }
+        
+        .se-totales-fila span:last-child {
+            color: var(--amarillo);
+            font-weight: 900;
+        }
+        
         .nota-tecnica {
             font-size: 0.78rem;
             color: var(--texto-suave);
@@ -3767,6 +3874,7 @@
                 }
                 if (tipo === 'Circuito') return bloque.vueltas_bloque || bloque.vueltas || 3;
                 if (tipo === 'Por Tiempo') return bloque.vueltas || bloque.vueltas_bloque || 3;
+                if (tipo === 'Sumando Ejercicio') return (bloque.rutina || bloque.ejercicios || bloque.datos || []).length || 1;
                 if (tipo === 'Tabata') {
                     var cfg = bloque.config || {};
                     return (cfg.cantidad || bloque.cantidad || 8) * (cfg.rondas || bloque.rondas || 1);
@@ -3795,6 +3903,7 @@
                 }
                 if (tipo === 'Circuito') return bloque.vueltas_bloque || bloque.vueltas || 3;
                 if (tipo === 'Por Tiempo') return bloque.vueltas || bloque.vueltas_bloque || 3;
+                if (tipo === 'Sumando Ejercicio') return (bloque.rutina || bloque.ejercicios || bloque.datos || []).length || 1;
                 if (tipo === 'Tabata') {
                     var cfgT = bloque.config || {};
                     return (cfgT.cantidad || bloque.cantidad || 8) * (cfgT.rondas || bloque.rondas || 1);
@@ -4177,6 +4286,7 @@
                 else if (tipo === 'Tabata') met = 8;
                 else if (tipo === 'EMOM') met = 7;
                 else if (tipo === 'Circuito por Tiempo') met = 6;
+                else if (tipo === 'Sumando Ejercicio') met = 6;
                 else if (tipo === 'ENTRENAMIENTO') met = 6.5;
                 var pesoKg = 70; // peso promedio por defecto
                 return Math.round(met * pesoKg * horas);
@@ -6640,6 +6750,7 @@
                 else if (data.tipo === "Circuito por Tiempo") renderCircuitoTiempo(data, pTitulo, pLista, ejerciciosPrincipales);
                 else if (data.tipo === "EMOM") renderEmom(data, pTitulo, pLista);
                 else if (data.tipo === "Por Tiempo") renderPorTiempoStandalone(data, pTitulo, pLista);
+                else if (data.tipo === "Sumando Ejercicio") renderSumandoEjercicio(data, pTitulo, pLista, ejerciciosPrincipales);
                 else if (data.tipo === "ENTRENAMIENTO") renderMix(data, pTitulo, pLista);
                 else {
                     pTitulo.innerText = "ENTRENAMIENTO";
@@ -6754,6 +6865,15 @@
                     return;
                 }
                 if (pausaVuelta > 0) iniciarDescansoCircuito(pausaVuelta);
+            }
+
+            // ─── MODO SUMANDO EJERCICIO ───
+            // Ronda 1 = ej1 | Ronda 2 = ej1+ej2 | Ronda 3 = ej1+ej2+ej3 ... (una sola vuelta acumulativa, no se repite)
+            function renderSumandoEjercicio(data, pTitulo, pLista, ejercicios) {
+                pTitulo.innerText = "SUMANDO EJERCICIO";
+                _tipoEntrenamientoGlobal = 'Sumando Ejercicio';
+                const bloque = { descripcion: data.descripcion, ejercicios: ejercicios };
+                pLista.innerHTML += renderSumandoEjercicioHtml(bloque, 'se-standalone', 'var(--purpura)', 1);
             }
 
             // ─── MODO CIRCUITO POR TIEMPO ───
@@ -7089,7 +7209,8 @@
                     "Por Tiempo": "var(--purpura)",
                     "Tabata": "var(--naranja)",
                     "EMOM": "var(--amarillo)",
-                    "Series": "var(--verde)"
+                    "Series": "var(--verde)",
+                    "Sumando Ejercicio": "var(--purpura)"
                 };
                 const color = colorMap[tipo] || "var(--purpura)";
                 const uid = "blq-" + idx;
@@ -7328,7 +7449,63 @@
                 } else if (tipo === "Series") {
                     const serialOffset = idx * 100;
                     renderSeriesMixInline(pLista, bloque.rutina || bloque.ejercicios || [], serialOffset, bloque.descripcion || "");
+
+                } else if (tipo === "Sumando Ejercicio") {
+                    pLista.innerHTML += renderSumandoEjercicioHtml(bloque, uid, color, idx);
                 }
+            }
+
+            // ─── SUMANDO EJERCICIO: arma el HTML de rondas acumuladas ───
+            // Ronda 1 = ej1 | Ronda 2 = ej1+ej2 | Ronda 3 = ej1+ej2+ej3 ...
+            // (compartido por renderBloqueMix y por el modo standalone)
+            function renderSumandoEjercicioHtml(bloque, uid, color, idx) {
+                const seEjs = toArray(bloque.ejercicios || bloque.rutina || []);
+                const totalRondas = seEjs.length;
+                let html = '<div class="bloque-mix" style="border-color:' + color + ';">' +
+                    '<div class="bloque-mix-titulo" style="color:' + color + ';">BLOQUE ' + idx + ' — SUMANDO EJERCICIO</div>';
+                if (bloque.descripcion) {
+                    html += '<div class="bloque-descripcion">' + bloque.descripcion + '</div>';
+                }
+                for (let r = 0; r < totalRondas; r++) {
+                    const rondaId = uid + '-se-r' + r;
+                    const btnId = uid + '-se-btn-r' + r;
+                    let ejsHtml = '';
+                    for (let e = 0; e <= r; e++) {
+                        const ej = seEjs[e];
+                        const ejNombre = ej.nombre || '';
+                        const ejReps = ej.reps || '';
+                        const ejUnit = (ej.unit || 'Reps').toUpperCase();
+                        const ejLink = (ej.link || _obtenerLinkVideo(ejNombre) || '').replace(/'/g, "\\'");
+                        if (e > 0) ejsHtml += '<span class="se-ronda-plus">+</span> ';
+                        ejsHtml += '<b>' + ejReps + '</b> ' + ejUnit.toLowerCase() + ' <span class="se-ej-link" onclick="abrirVideo(\'' + ejLink + '\',\'' + ejNombre.replace(/'/g, "\\'") + '\')">' + ejNombre.toLowerCase() + '</span> ';
+                    }
+                    html += '<div id="' + rondaId + '" class="se-ronda">' +
+                        '<div class="se-ronda-top">' +
+                        '<span class="se-ronda-num">R' + (r + 1) + '</span>' +
+                        '<span class="se-ronda-ejs">' + ejsHtml + '</span>' +
+                        '<button id="' + btnId + '" class="btn-ronda" onclick="marcarRondaSumando(\'' + rondaId + '\',\'' + btnId + '\')">Marcar ronda</button>' +
+                        '</div></div>';
+                }
+                html += '<div class="se-totales"><div class="se-totales-titulo">Total por ejercicio</div>';
+                seEjs.forEach(function(ej, i) {
+                    const vecesQueAparece = totalRondas - i;
+                    const totalReps = (parseInt(ej.reps) || 0) * vecesQueAparece;
+                    html += '<div class="se-totales-fila"><span>' + ej.nombre + '</span><span>' + totalReps + ' ' + (ej.unit || 'reps').toLowerCase() + '</span></div>';
+                });
+                html += '</div></div>';
+                return html;
+            }
+
+            // Marca una ronda del bloque Sumando Ejercicio como completada
+            function marcarRondaSumando(rondaId, btnId) {
+                const row = document.getElementById(rondaId);
+                const btn = document.getElementById(btnId);
+                if (row) row.classList.add('completada');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerText = 'Completada';
+                }
+                incrementarProgreso(1);
             }
 
             const mixBloqueVueltas = {};
