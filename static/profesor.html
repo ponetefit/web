@@ -5719,6 +5719,8 @@
                         datos = { rutina: rutinaObjs, minutos_totales: b.minutos_totales, ejercicios_por_minuto: b.ejercicios_por_minuto || 1, reps_por_ejercicio: repsDict, units_por_ejercicio: unitsDict, carga_por_ejercicio: cargaDict, minutos_ciclo: ciclo, descripcion: b.descripcion || descGlobal };
                     } else if (tipo === 'Series') {
                         datos = { datos: b.ejercicios, descripcion: b.descripcion || descGlobal };
+                    } else if (tipo === 'Sumando Ejercicio') {
+                        datos = { datos: b.ejercicios, pausa_ronda: b.pausa_ronda || 0, descripcion: b.descripcion || descGlobal };
                     }
                 } else {
                     tipo = 'ENTRENAMIENTO';
@@ -7019,6 +7021,7 @@
                 else if (t === 'emom')                  { r=255; g=213; b=79;  txtR=30; txtG=30; txtB=30; } // amarillo, texto negro
                 else if (t === 'series' || t === 'series/reps') { r=56; g=161; b=80; } // verde
                 else if (t === 'por tiempo')            { r=123; g=31;  b=162; } // morado oscuro
+                else if (t === 'sumando ejercicio')     { r=155; g=39;  b=176; } // purpura
                 doc.setFillColor(r, g, b);
                 doc.roundedRect(mL, y, cW, 7, 2, 2, 'F');
                 doc.setFont('helvetica', 'bold');
@@ -7062,6 +7065,9 @@
                 } else if (modoBloque === 'Por Tiempo') {
                     // Solo reps, sin pausa
                     if (e.reps) detLines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps'));
+                } else if (modoBloque === 'Sumando Ejercicio') {
+                    // Reps fijas, sin pausa (la cadena de rondas se arma con el orden de los ejercicios)
+                    if (e.reps) detLines.push(e.reps + (e.unit ? ' ' + e.unit : ' Reps') + ' fijas por ronda');
                 } else if (modoBloque === 'Series' || modoBloque === 'Series/Reps') {
                     // Series: Serie 1  X Reps  |  Pausa: Xs
                     if (e.reps_por_serie && e.reps_por_serie.length > 0) {
@@ -7390,6 +7396,7 @@
                     else if (bloqTipo === 'Por Tiempo')          meta = (b.vueltas||1) + ' vueltas | Cronómetro';
                     else if (bloqTipo === 'EMOM')                meta = (b.minutos_totales||10) + ' min';
                     else if (bloqTipo === 'Series')              meta = ejsB.length + ' ejercicio(s)';
+                    else if (bloqTipo === 'Sumando Ejercicio')   meta = ejsB.length + ' ronda(s) acumulada(s)' + (b.pausa_ronda ? ' | Pausa: ' + b.pausa_ronda + 's' : '');
                     subBarTipo('Bloque ' + (i+1) + ': ' + bloqTipo + (meta ? '  —  ' + meta : ''), bloqTipo);
                     if (bloqTipo === 'EMOM' && b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
                         b.emom_config_por_minuto.forEach((minCfg, mi) => {
@@ -7446,7 +7453,7 @@
                     subBarTipo('Tabata' + metaInfo, 'Tabata');
                     toArray(datos.rutina || datos.datos || []).forEach(ej => ejGris(ej, tipo));
                 }
-            } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo' || tipo === 'Por Tiempo' || tipo === 'Series') {
+            } else if (tipo === 'Circuito' || tipo === 'Circuito por Tiempo' || tipo === 'Por Tiempo' || tipo === 'Series' || tipo === 'Sumando Ejercicio') {
                 colorBar('2. BLOQUE PRINCIPAL  —  ' + tipo, 206, 147, 216);
                 // "Por Tiempo" guarda ejercicios en datos.ejercicios (no en datos.datos ni datos.rutina)
                 const flatList = toArray(datos.datos || datos.rutina || datos.ejercicios || []);
@@ -9435,6 +9442,8 @@
                     datos = { rutina: rutinaObjs, minutos_totales: b.minutos_totales, ejercicios_por_minuto: b.ejercicios_por_minuto || 1, reps_por_ejercicio: repsDict, units_por_ejercicio: unitsDict, carga_por_ejercicio: cargaDict, minutos_ciclo: ciclo, descripcion: b.descripcion || descGlobal };
                 } else if (tipo === 'Series') {
                     datos = { datos: b.ejercicios, descripcion: b.descripcion || descGlobal };
+                } else if (tipo === 'Sumando Ejercicio') {
+                    datos = { datos: b.ejercicios, pausa_ronda: b.pausa_ronda || 0, descripcion: b.descripcion || descGlobal };
                 }
             } else if (bloques.length > 1) {
                 tipo = 'ENTRENAMIENTO';
