@@ -1127,6 +1127,7 @@
                                             <option value="Circuito">CIRCUITO POR VUELTA</option>
                                             <option value="Por Tiempo">POR TIEMPO</option>
                                             <option value="Series">SERIES Y REPETICIONES</option>
+                                            <option value="Sumando Ejercicio">SUMANDO EJERCICIO</option>
                                         </select>
                                     </div>
 
@@ -1174,6 +1175,12 @@
                                             <div><label class="text-[10px] text-textoSuave block mb-1">Series</label><input id="piz-ser-series" type="number" value="3" min="1" max="10" class="w-full rounded-lg px-2 py-1.5 text-sm" style="background:#0f0f13;border:1px solid #2a2a35;color:#f0f0f5"></div>
                                             <div><label class="text-[10px] text-textoSuave block mb-1">Pausa entre series (seg)</label><input id="piz-ser-pausa" type="number" value="60" min="0" max="300" class="w-full rounded-lg px-2 py-1.5 text-sm" style="background:#0f0f13;border:1px solid #2a2a35;color:#f0f0f5"></div>
                                         </div>
+                                    </div>
+
+                                    <!-- Config Sumando Ejercicio -->
+                                    <div id="piz-cfg-Sumando Ejercicio" class="piz-cfg hidden rounded-xl p-3 space-y-2" style="background:rgba(155,39,176,.08);border:1px solid rgba(206,147,216,.3)">
+                                        <p class="text-xs font-bold uppercase tracking-wider" style="color:#CE93D8">➕ Configuración Sumando Ejercicio</p>
+                                        <div><label class="text-[10px] text-textoSuave block mb-1">Pausa entre rondas (seg, opcional)</label><input id="piz-se-pausa" type="number" value="0" min="0" max="300" class="w-full rounded-lg px-2 py-1.5 text-sm" style="background:#0f0f13;border:1px solid #2a2a35;color:#f0f0f5"></div>
                                     </div>
                                 </div>
 
@@ -10653,7 +10660,8 @@
             'circuito por tiempo':'Circuito por Tiempo','circuito tiempo':'Circuito por Tiempo',
             'circuito por vuelta':'Circuito','circuito vueltas':'Circuito','circuito':'Circuito',
             'por tiempo':'Por Tiempo',
-            'series':'Series','series y repeticiones':'Series','series/reps':'Series'
+            'series':'Series','series y repeticiones':'Series','series/reps':'Series',
+            'sumando ejercicio':'Sumando Ejercicio','sumando':'Sumando Ejercicio'
         };
         return NORM[(s||'').toLowerCase().trim()] || s;
     }
@@ -10856,11 +10864,13 @@ PASO 2.1 — NOTACIÓN "x" (multiplicador) al lado de un corchete o bloque — e
 
 PASO 2.2 — NOTACIÓN DE REPS CON GUIONES (ej: "10-12-15", "8-10-12-15"): cuando el número de reps de un ejercicio está escrito como varios números separados por guion, significa que ese ejercicio tiene reps DISTINTAS en cada vuelta del circuito (progresión por vuelta): la primera vuelta con el primer número, la segunda vuelta con el segundo número, y así sucesivamente. Transcribí el campo "reps" de ese ejercicio EXACTAMENTE como está escrito, con los guiones (ej: "reps":"10-12-15"), sin separarlo ni convertirlo. El bloque que contenga esta notación es un "Circuito" (por vuelta).
 
-PASO 2.3 — NUMERACIÓN CORRELATIVA DE EJERCICIOS (ej: "1 Sentadilla", "2 Abs Plancha", "3 Peso Muerto" — o arrancando en otro número, ej: "5 Sentadilla", "6 Abs Plancha", "7 Peso Muerto"): cuando CADA ejercicio de un mismo grupo está precedido por un número que sube de a 1 línea a línea (un correlativo: 1,2,3,... o 5,6,7,...; NO es una cantidad de reps grande ni una notación de "x"), esto es un CIRCUITO POR VUELTA con esta lógica especial:
-   - La CANTIDAD DE VUELTAS del circuito es igual a la CANTIDAD de ejercicios de ese grupo (no el valor del último número). Ejemplo: 3 ejercicios numerados = 3 vueltas, sea cual sea el número por el que arrancó la numeración.
-   - El número que precede a cada ejercicio ES su cantidad de repeticiones (misma reps en todas las vueltas para ese ejercicio). Ejemplo: "1 Sentadilla" → Sentadilla con reps "1"; "5 Sentadilla" → Sentadilla con reps "5".
-   - Sistema = "Circuito". Guardá "parametros.vueltas" = cantidad de ejercicios del grupo.
-   - EXCEPCIÓN — si ese mismo grupo tiene ADEMÁS un corchete/llave y notación de minutos con comilla simple (ej: "5'", "x5'"), NO apliques esta regla: ahí el sistema es "Circuito por Tiempo" con la duración indicada (PASO 2.1.b), y los números que preceden a cada ejercicio son simplemente sus reps normales (no determinan la cantidad de vueltas, esa la da la comilla simple).
+PASO 2.3 — NUMERACIÓN CORRELATIVA DE EJERCICIOS (ej: "1 Sentadilla", "2 Abs Plancha", "3 Peso Muerto" — o arrancando en otro número, ej: "5 Sentadilla", "6 Abs Plancha", "7 Peso Muerto"): cuando CADA ejercicio de un mismo grupo está precedido por un número que sube de a 1 línea a línea (un correlativo: 1,2,3,... o 5,6,7,...; NO es una cantidad de reps grande ni una notación de "x"):
+   a) SIN corchete/llave que abrace al grupo: es un bloque "SUMANDO EJERCICIO". El sistema arma las rondas solo (ronda 1 = ejercicio 1, ronda 2 = ejercicio 1+2, ronda 3 = ejercicio 1+2+3, y así con todos los ejercicios), así que NO hace falta calcular vueltas.
+      - El número que precede a cada ejercicio ES su cantidad de repeticiones fija para ese ejercicio en cada ronda en la que aparece. Ejemplo: "1 Sentadilla" → Sentadilla con reps "1"; "5 Sentadilla" → Sentadilla con reps "5".
+      - Sistema = "Sumando Ejercicio". No hace falta "parametros.vueltas" ni "parametros.pausa_ronda" salvo que se indique una pausa entre rondas explícita en la imagen (en ese caso guardala en "parametros.pausa_ronda", en segundos).
+      - Ejemplo completo: "1 Sentadilla / 2 Peso Muerto / 3 Abs Rectos" (sin corchete) → bloque "Sumando Ejercicio" con Sentadilla reps "1", Peso Muerto reps "2", Abs Rectos reps "3".
+   b) CON corchete/llave que abrace al grupo Y notación de minutos con comilla simple (ej: "5'", "x5'"): esto NO es "Sumando Ejercicio", es un "Circuito por Tiempo" con la duración indicada (PASO 2.1.b) — hay que repetir todos los ejercicios del grupo en orden durante esos minutos, sin parar. Los números que preceden a cada ejercicio son simplemente sus reps normales (no determinan vueltas ni rondas acumuladas). Ejemplo: "[ 1 Sentadilla / 2 Peso Muerto / 3 Abs Rectos ] 5'" → bloque "Circuito por Tiempo" de 5 minutos, con Sentadilla reps "1", Peso Muerto reps "2", Abs Rectos reps "3".
+   c) CON corchete/llave pero SIN notación de minutos: aplicá la regla normal de corchetes del PASO 2 (punto 1): es un "Circuito" por vueltas.
 
 PASO 3 — Antes de responder, revisá cada ejercicio uno por uno y confirmá a qué bloque pertenece según la señal visual real (no supongas). Un ejercicio nunca puede quedar en dos bloques ni faltar.
 
@@ -10873,9 +10883,9 @@ REGLAS ADICIONALES:
 - Para cada ejercicio agregá "confianza": "alta" si el texto y su bloque se leen con claridad, "media" si dudaste un poco, "baja" si es letra difícil de leer, está tapado/borroso, o no estás seguro de a qué bloque pertenece.
 
 FORMATO DE RESPUESTA — respondé SOLO con JSON válido, sin texto ni backticks ni explicación. "calentamiento" es opcional (solo si hay "EC"); "sistema" y "parametros" van DENTRO de cada bloque cuando la notación "x" te da esa info para ESE bloque en particular:
-{"calentamiento":[{"nombre":"Jumping Jacks","reps":"30s","confianza":"alta"}],"bloques":[{"nombre":"Bloque 1","sistema":"Circuito","parametros":{"vueltas":3},"ejercicios":[{"nombre":"Burpees","reps":"10-12-15","confianza":"alta"}]},{"nombre":"Bloque 2","sistema":"Tabata","parametros":{"trabajo":20,"pausa":10},"ejercicios":[{"nombre":"Plancha","reps":"","confianza":"media"}]}]}
+{"calentamiento":[{"nombre":"Jumping Jacks","reps":"30s","confianza":"alta"}],"bloques":[{"nombre":"Bloque 1","sistema":"Circuito","parametros":{"vueltas":3},"ejercicios":[{"nombre":"Burpees","reps":"10-12-15","confianza":"alta"}]},{"nombre":"Bloque 2","sistema":"Tabata","parametros":{"trabajo":20,"pausa":10},"ejercicios":[{"nombre":"Plancha","reps":"","confianza":"media"}]},{"nombre":"Bloque 3","sistema":"Sumando Ejercicio","parametros":{},"ejercicios":[{"nombre":"Sentadilla","reps":"1","confianza":"alta"},{"nombre":"Peso Muerto","reps":"2","confianza":"alta"},{"nombre":"Abs Rectos","reps":"3","confianza":"alta"}]}]}
 
-Sistemas posibles: Tabata, EMOM, Circuito por Tiempo, Circuito, Por Tiempo, Series. Si no podés determinar el sistema de un bloque por la notación "x", usá Circuito por defecto.
+Sistemas posibles: Tabata, EMOM, Circuito por Tiempo, Circuito, Por Tiempo, Series, Sumando Ejercicio. Si no podés determinar el sistema de un bloque por la notación "x", usá Circuito por defecto.
 Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece con reps o tiempo, incluilos en "reps".`;
 
         try {
@@ -11293,6 +11303,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         if (s==='Circuito') return { tipo:'Circuito', vueltas:parseInt(document.getElementById('piz-circ-vueltas').value)||3, pausa_vuelta:parseInt(document.getElementById('piz-circ-pausa').value)||60 };
         if (s==='Por Tiempo') return { tipo:'Por Tiempo', vueltas:parseInt(document.getElementById('piz-pt-vueltas').value)||3 };
         if (s==='Series') return { tipo:'Series', series:parseInt(document.getElementById('piz-ser-series').value)||3, pausa:parseInt(document.getElementById('piz-ser-pausa').value)||60 };
+        if (s==='Sumando Ejercicio') return { tipo:'Sumando Ejercicio', pausa_ronda:parseInt(document.getElementById('piz-se-pausa').value)||0 };
         return { tipo:'Circuito', vueltas:3, pausa_vuelta:60 };
     }
 
@@ -11395,6 +11406,8 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             } else if (tipo==='Series') {
                 bloque.series = p.series ?? params.series;
                 bloque.pausa  = p.pausa  ?? params.pausa;
+            } else if (tipo==='Sumando Ejercicio') {
+                bloque.pausa_ronda = p.pausa_ronda ?? params.pausa_ronda ?? 0;
             }
             return bloque;
         }
