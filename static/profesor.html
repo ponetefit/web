@@ -1611,6 +1611,7 @@
                             <label class="ia-check-pill"><input type="checkbox" value="EMOM"> EMOM</label>
                             <label class="ia-check-pill"><input type="checkbox" value="Series"> Series</label>
                             <label class="ia-check-pill"><input type="checkbox" value="Por Tiempo"> Por Tiempo</label>
+                            <label class="ia-check-pill"><input type="checkbox" value="Sumando Ejercicio"> Sumando Ejercicio</label>
                         </div>
                     </div>
 
@@ -3436,6 +3437,7 @@
                                             <option>Tabata</option>
                                             <option>EMOM</option>
                                             <option>Series/Reps</option>
+                                            <option>Sumando Ejercicio</option>
                                         </select>
                                     </div>
                                     <div id="warmup-params-container-${idx}" class="md:col-span-2"></div>
@@ -3734,6 +3736,8 @@
             html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Series</label><input id="warmup-series-' + idx + '" type="number" value="' + (_cfg.series||3) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ');renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones (default)</label><input id="warmup-reps-val-' + idx + '" type="number" value="' + (_cfg.reps||10) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
         } else if (tipo === 'Por Tiempo') {
             html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de Vueltas</label><input id="warmup-portiempo-vueltas-' + idx + '" type="number" value="' + (_cfg.vueltas||3) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><p class="text-xs text-textoSuave mt-2">Cronómetro cuenta hacia arriba. El alumno marca cada vuelta manualmente.</p>';
+        } else if (tipo === 'Sumando Ejercicio') {
+            html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre rondas (seg, opcional)</label><input id="warmup-se-pausa-' + idx + '" type="number" value="' + (_cfg.pausa_ronda||0) + '" min="0" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><p class="text-xs text-textoSuave mt-2">Cargá los ejercicios en orden abajo. El sistema arma las rondas solo: ronda 1 = ejercicio 1, ronda 2 = ejercicio 1 + 2, y así con todos.</p>';
         }
         container.innerHTML = html;
         // Mostrar/ocultar el panel de búsqueda general según el tipo
@@ -3767,6 +3771,8 @@
             cfg.reps   = parseInt(document.getElementById('warmup-reps-val-' + idx)?.value) || 10;
         } else if (tipo === 'Por Tiempo') {
             cfg.vueltas = parseInt(document.getElementById('warmup-portiempo-vueltas-' + idx)?.value) || 3;
+        } else if (tipo === 'Sumando Ejercicio') {
+            cfg.pausa_ronda = parseInt(document.getElementById('warmup-se-pausa-' + idx)?.value) || 0;
         }
         diasData[idx]._warmupCfg = cfg;
     }
@@ -4241,6 +4247,9 @@
                     <input id="warmup-series" type="number" value="3" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                     <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones</label>
                     <input id="warmup-reps-val" type="number" value="10" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>`;
+        } else if (tipo === 'Sumando Ejercicio') {
+            html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre rondas (seg, opcional)</label>
+                    <input id="warmup-se-pausa" type="number" value="0" min="0" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>`;
         }
         container.innerHTML = '<div class="grid grid-cols-2 gap-3">' + html + '</div>';
     }
@@ -5644,6 +5653,8 @@
                     warmupDetalle.reps   = parseInt(document.getElementById('warmup-reps-val-' + diaIdx)?.value)  || _saved.reps   || 10;
                 } else if (warmupTipo === 'Por Tiempo') {
                     warmupDetalle.vueltas = parseInt(document.getElementById('warmup-portiempo-vueltas-' + diaIdx)?.value) || _saved.vueltas || 3;
+                } else if (warmupTipo === 'Sumando Ejercicio') {
+                    warmupDetalle.pausa_ronda = parseInt(document.getElementById('warmup-se-pausa-' + diaIdx)?.value) || _saved.pausa_ronda || 0;
                 }
                 const warmupEjsExport = dia.warmupEjercicios.map(e => {
                     const exp = {
@@ -6353,6 +6364,7 @@
                     else if (b.tipo === 'Tabata')          { bl.trabajo = b.trabajo || 20; bl.pausa = b.pausa || 10; bl.rondas = b.rondas || 1; bl.pausa_entre_rondas = b.pausa_entre_rondas || 0; bl.cantidad = b.cantidad || bl.ejercicios.length || 8; }
                     else if (b.tipo === 'EMOM')             { bl.minutos_totales = b.minutos_totales || 10; bl.ejercicios_por_minuto = b.ejercicios_por_minuto || 1; if (b.emom_config_por_minuto) bl.emom_config_por_minuto = b.emom_config_por_minuto; }
                     else if (b.tipo === 'Series')           { /* series por ejercicio */ }
+                    else if (b.tipo === 'Sumando Ejercicio') { bl.pausa_ronda = b.pausa_ronda || 0; }
                     return bl;
                 });
             }
@@ -6384,6 +6396,7 @@
                 else if (bl.tipo === 'Circuito por Tiempo') { bl.duracion_min = datosR.duracion_min || 5; }
                 else if (bl.tipo === 'Tabata')          { bl.trabajo = datosR.trabajo || 20; bl.pausa = datosR.pausa || 10; bl.rondas = datosR.rondas || 1; bl.pausa_entre_rondas = datosR.pausa_entre_rondas || 0; bl.cantidad = datosR.cantidad || bl.ejercicios.length || 8; }
                 else if (bl.tipo === 'EMOM')             { bl.minutos_totales = datosR.minutos_totales || 10; bl.ejercicios_por_minuto = datosR.ejercicios_por_minuto || 1; if (datosR.minutos_ciclo) bl.emom_config_por_minuto = toArray(datosR.minutos_ciclo).map((mc, mi) => ({ minuto: mi+1, ejercicios: mc.ejercicios || [], ejercicios_cantidad: (mc.ejercicios||[]).length, ejercicios_nombres: (mc.ejercicios||[]).map(e=>e.nombre) })); }
+                else if (bl.tipo === 'Sumando Ejercicio') { bl.pausa_ronda = datosR.pausa_ronda || 0; }
                 return [bl];
             }
 
@@ -10149,6 +10162,11 @@
         if (tipo === 'Por Tiempo') {
             return Math.round((vueltas * (cantEjs * segsEj + pausaVuelta)) / 60);
         }
+        if (tipo === 'Sumando Ejercicio') {
+            // rondas acumuladas: 1+2+...+cantEjs ejecuciones en total
+            const totalEjecuciones = cantEjs * (cantEjs + 1) / 2;
+            return Math.max(1, Math.round((totalEjecuciones * 30) / 60));
+        }
         return Math.round((vueltas * (cantEjs * segsEj + pausaVuelta)) / 60);
     }
 
@@ -10189,6 +10207,15 @@
             const dur = Math.max(1, Math.min(30, targetMins));
             bloque.params = { ...bloque.params, duracion: String(dur) };
             bloque.duracion_min = dur;
+        } else if (tipo === 'Sumando Ejercicio') {
+            // Ajustar la pausa entre rondas para acercarse al tiempo objetivo
+            const totalEjecuciones = cantEjs * (cantEjs + 1) / 2;
+            const segsTarget = targetMins * 60;
+            const segsBase = totalEjecuciones * 30; // ~30s por ejecución
+            let pausaRonda = Math.round(Math.max(0, (segsTarget - segsBase)) / cantEjs);
+            pausaRonda = Math.max(0, Math.min(60, pausaRonda));
+            bloque.params = { ...bloque.params, pausa_ronda: String(pausaRonda) };
+            bloque.pausa_ronda = pausaRonda;
         }
         return bloque;
     }
@@ -10287,7 +10314,7 @@
         } else if (cfgTiposModo === 'manual' && cfgTiposSel.length > 0) {
             tiposPool = cfgTiposSel;
         } else {
-            tiposPool = ['Circuito', 'Circuito por Tiempo', 'Tabata', 'EMOM', 'Series', 'Por Tiempo'];
+            tiposPool = ['Circuito', 'Circuito por Tiempo', 'Tabata', 'EMOM', 'Series', 'Por Tiempo', 'Sumando Ejercicio'];
         }
         function elegirTipo() {
             return tiposPool[Math.floor(Math.random() * tiposPool.length)];
@@ -10306,6 +10333,7 @@
             if (tipo === 'EMOM')                return { minutos: String(cantEjs) };
             if (tipo === 'Series')              return { series: sv, pausa: pv };
             if (tipo === 'Por Tiempo')          return { vueltas: vv, pausa_vuelta: pv };
+            if (tipo === 'Sumando Ejercicio')   return { pausa_ronda: 0 };
             return { vueltas: vv, pausa_vuelta: pv };
         }
         function buildEj(e, tipo) {
@@ -10447,6 +10475,24 @@
             const params = buildParams(tipo, ejsElegidos.length);
             const ejsBuilt = ejsElegidos.map(e => buildEj(e, tipo));
             const bloque = { tipo, params, ejercicios: ejsBuilt, desc: labelZona[cfgZonas] || 'Full Body' };
+            // "Aplanar" los params al bloque con el nombre de campo que espera el resto de la
+            // app (edición, cálculo de duración, render): sin esto, el bloque generado por IA
+            // siempre caía en los valores por defecto (3 vueltas, 60s pausa, etc.) sin importar
+            // lo que buildParams() haya calculado.
+            if (tipo === 'Circuito' || tipo === 'Por Tiempo') {
+                bloque.vueltas = parseInt(params.vueltas) || 3;
+                bloque.pausa_vuelta = parseInt(params.pausa_vuelta) || 60;
+            } else if (tipo === 'Circuito por Tiempo') {
+                bloque.duracion_min = parseInt(params.duracion) || 3;
+            } else if (tipo === 'Tabata') {
+                bloque.trabajo = parseInt(params.trabajo) || 20;
+                bloque.pausa = parseInt(params.pausa) || 10;
+                bloque.cantidad = parseInt(params.cantidad) || ejsBuilt.length || 8;
+                bloque.rondas = 1;
+                bloque.pausa_entre_rondas = 0;
+            } else if (tipo === 'Sumando Ejercicio') {
+                bloque.pausa_ronda = parseInt(params.pausa_ronda) || 0;
+            }
             // Para EMOM: añadir minutos_totales y emom_config_por_minuto para que sea editable
             if (tipo === 'EMOM') {
                 bloque.minutos_totales = ejsBuilt.length || parseInt(params.minutos) || 5;
@@ -11804,6 +11850,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         if (tipo === 'EMOM') return (cfg.minutos || 5) + ' min';
         if (tipo === 'Por Tiempo') return (cfg.vueltas || 3) + ' vueltas';
         if (tipo === 'Series/Reps') return (cfg.series || 3) + ' series · ' + (cfg.reps || 10) + ' reps';
+        if (tipo === 'Sumando Ejercicio') return (d.warmupEjercicios || []).length + ' ronda(s) acumulada(s)' + (cfg.pausa_ronda ? ' · ' + cfg.pausa_ronda + 's pausa entre rondas' : '');
         return '';
     }
 
@@ -12075,6 +12122,13 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             mins = b.minutos_totales || 10;
         } else if (b.tipo === 'Por Tiempo') {
             mins = b.vueltas || 3;
+        } else if (b.tipo === 'Sumando Ejercicio') {
+            // Rondas acumuladas: ronda 1 = ej1, ronda 2 = ej1+ej2, ... ronda N = todos.
+            // Cantidad total de "ejecuciones de ejercicio" = 1+2+...+N = N*(N+1)/2
+            const n = ejs.length;
+            const totalEjecuciones = n * (n + 1) / 2;
+            const pausaRonda = b.pausa_ronda || 0;
+            mins = (totalEjecuciones * 0.5) + (n * pausaRonda / 60);
         }
         return Math.max(0, mins);
     }
@@ -12104,6 +12158,10 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             mins = cfg.minutos || 5;
         } else if (tipo === 'Por Tiempo') {
             mins = cfg.vueltas || 3;
+        } else if (tipo === 'Sumando Ejercicio') {
+            const totalEjecuciones = cantEj * (cantEj + 1) / 2;
+            const pausaRonda = cfg.pausa_ronda || 0;
+            mins = (totalEjecuciones * 0.5) + (cantEj * pausaRonda / 60);
         }
         return Math.max(0, mins);
     }
