@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -1180,7 +1180,7 @@
                                     <!-- Config Sumando Ejercicio -->
                                     <div id="piz-cfg-Sumando Ejercicio" class="piz-cfg hidden rounded-xl p-3 space-y-2" style="background:rgba(155,39,176,.08);border:1px solid rgba(206,147,216,.3)">
                                         <p class="text-xs font-bold uppercase tracking-wider" style="color:#CE93D8">➕ Configuración Sumando Ejercicio</p>
-                                        <div><label class="text-[10px] text-textoSuave block mb-1">Pausa entre rondas (seg, opcional)</label><input id="piz-se-pausa" type="number" value="0" min="0" max="300" class="w-full rounded-lg px-2 py-1.5 text-sm" style="background:#0f0f13;border:1px solid #2a2a35;color:#f0f0f5"></div>
+                                        <div><label class="text-[10px] text-textoSuave block mb-1">Pausa entre vueltas (seg, opcional)</label><input id="piz-se-pausa" type="number" value="0" min="0" max="300" class="w-full rounded-lg px-2 py-1.5 text-sm" style="background:#0f0f13;border:1px solid #2a2a35;color:#f0f0f5"></div>
                                     </div>
                                 </div>
 
@@ -3737,7 +3737,7 @@
         } else if (tipo === 'Por Tiempo') {
             html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de Vueltas</label><input id="warmup-portiempo-vueltas-' + idx + '" type="number" value="' + (_cfg.vueltas||3) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><p class="text-xs text-textoSuave mt-2">Cronómetro cuenta hacia arriba. El alumno marca cada vuelta manualmente.</p>';
         } else if (tipo === 'Sumando Ejercicio') {
-            html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre rondas (seg, opcional)</label><input id="warmup-se-pausa-' + idx + '" type="number" value="' + (_cfg.pausa_ronda||0) + '" min="0" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><p class="text-xs text-textoSuave mt-2">Cargá los ejercicios en orden abajo. El sistema arma las rondas solo: ronda 1 = ejercicio 1, ronda 2 = ejercicio 1 + 2, y así con todos.</p>';
+            html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre vueltas (seg, opcional)</label><input id="warmup-se-pausa-' + idx + '" type="number" value="' + (_cfg.pausa_ronda||0) + '" min="0" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><p class="text-xs text-textoSuave mt-2">Cargá los ejercicios en orden abajo. El sistema arma las vueltas solo: vuelta 1 = ejercicio 1, vuelta 2 = ejercicio 1 + 2, y así con todos.</p>';
         }
         container.innerHTML = html;
         // Mostrar/ocultar el panel de búsqueda general según el tipo
@@ -4248,7 +4248,7 @@
                     <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones</label>
                     <input id="warmup-reps-val" type="number" value="10" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>`;
         } else if (tipo === 'Sumando Ejercicio') {
-            html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre rondas (seg, opcional)</label>
+            html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre vueltas (seg, opcional)</label>
                     <input id="warmup-se-pausa" type="number" value="0" min="0" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>`;
         }
         container.innerHTML = '<div class="grid grid-cols-2 gap-3">' + html + '</div>';
@@ -4423,9 +4423,9 @@
         } else if (tipo === 'Series') {
             html = `<p class="text-xs text-textoSuave">Define series, repeticiones y pausa por ejercicio abajo</p>`;
         } else if (tipo === 'Sumando Ejercicio') {
-            html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre rondas (seg, opcional)</label>
+            html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre vueltas (seg, opcional)</label>
                 <input id="bp-se-pausa" type="number" value="0" min="0" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
-            <p class="text-xs text-textoSuave mt-2">Cargá los ejercicios en orden abajo con sus reps fijas. El sistema arma las rondas solo: ronda 1 = ejercicio 1, ronda 2 = ejercicio 1 + 2, ronda 3 = ejercicio 1 + 2 + 3, y así con todos los ejercicios que cargues. No se repite ninguna ronda.</p>
+            <p class="text-xs text-textoSuave mt-2">Cargá los ejercicios en orden abajo con sus reps fijas. El sistema arma las vueltas solo: vuelta 1 = ejercicio 1, vuelta 2 = ejercicio 1 + 2, vuelta 3 = ejercicio 1 + 2 + 3, y así con todos los ejercicios que cargues. No se repite ninguna vuelta.</p>
             <div id="se-vista-previa" class="mt-3 space-y-1"></div>`;
         }
         container.innerHTML = html;
@@ -5024,11 +5024,18 @@
                     '</div>';
 
             } else if (esSumando) {
-                // Sumando Ejercicio: reps fijas por ejercicio, sin pausa ni vueltas (el orden = la cadena de rondas)
+                // Sumando Ejercicio: reps fijas por ejercicio, sin pausa ni vueltas (el orden = la cadena de vueltas)
+                // El ejercicio i participa desde la vuelta i hasta la última vuelta -> total = reps * (N - i)
+                const _sumTotalVueltas = bloqueEjsTemp.length - i;
+                const _sumRepsNum = parseFloat(ej.reps);
+                const _sumTotalTxt = (!isNaN(_sumRepsNum) && _sumRepsNum > 0)
+                    ? ('Total: ' + Math.round(_sumRepsNum * _sumTotalVueltas) + ' ' + (ej.unit === 'Segs' ? 'seg' : 'reps'))
+                    : 'Total: —';
                 controlsHtml = '<div class="flex gap-2 items-center flex-wrap">' +
                     '<span class="text-xs text-textoSuave font-bold">Reps fijas:</span>' +
-                    '<input type="text" value="' + (ej.reps||'10') + '" onchange="bloqueEjsTemp[' + i + '].reps=this.value;_pfRenderVistaPreviaSumando()" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Reps">' +
-                    '<select onchange="bloqueEjsTemp[' + i + '].unit=this.value;_pfRenderVistaPreviaSumando()" class="rounded-lg px-2 py-1 text-xs"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' +
+                    '<input type="text" value="' + (ej.reps||'10') + '" onchange="bloqueEjsTemp[' + i + '].reps=this.value;renderBloqueEjsTemp();_pfRenderVistaPreviaSumando()" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Reps">' +
+                    '<select onchange="bloqueEjsTemp[' + i + '].unit=this.value;renderBloqueEjsTemp();_pfRenderVistaPreviaSumando()" class="rounded-lg px-2 py-1 text-xs"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' +
+                    '<span class="text-[11px] font-bold ml-auto" style="background:rgba(206,147,216,.15);color:#CE93D8;padding:3px 10px;border-radius:999px;">' + _sumTotalTxt + '</span>' +
                     '</div>' +
                     '<div class="flex gap-2 items-center flex-wrap mt-1">' +
                     '<input type="text" value="' + (ej.nota_tecnica||'') + '" onchange="bloqueEjsTemp[' + i + '].nota_tecnica=this.value" class="rounded-lg px-2 py-1 text-xs flex-1" placeholder="Nota del profe...">' +
@@ -5063,8 +5070,8 @@
         if (esSumando) _pfRenderVistaPreviaSumando();
     }
 
-    // Vista previa de las rondas acumuladas del bloque Sumando Ejercicio que se está armando.
-    // Ronda 1 = ej1 | Ronda 2 = ej1+ej2 | Ronda 3 = ej1+ej2+ej3 ... (orden = el de la lista de arriba)
+    // Vista previa de las vueltas acumuladas del bloque Sumando Ejercicio que se está armando.
+    // Vuelta 1 = ej1 | Vuelta 2 = ej1+ej2 | Vuelta 3 = ej1+ej2+ej3 ... (orden = el de la lista de arriba)
     function _pfRenderVistaPreviaSumando() {
         const cont = document.getElementById('se-vista-previa');
         if (!cont) return;
@@ -5072,11 +5079,11 @@
             cont.innerHTML = '';
             return;
         }
-        let html = '<p class="text-[10px] text-textoSuave uppercase tracking-wider mb-1">Vista previa de rondas</p>';
+        let html = '<p class="text-[10px] text-textoSuave uppercase tracking-wider mb-1">Vista previa de vueltas</p>';
         bloqueEjsTemp.forEach((_, r) => {
             const sub = bloqueEjsTemp.slice(0, r + 1);
             const txt = sub.map(e => (e.reps || '?') + ' ' + (e.nombre || '')).join(' + ');
-            html += '<div class="text-xs text-texto bg-fondo rounded-lg px-2 py-1"><span class="text-purpura font-bold">R' + (r + 1) + ':</span> ' + txt + '</div>';
+            html += '<div class="text-xs text-texto bg-fondo rounded-lg px-2 py-1"><span class="text-purpura font-bold">V' + (r + 1) + ':</span> ' + txt + '</div>';
         });
         cont.innerHTML = html;
     }
@@ -6764,7 +6771,7 @@
                         } else if (diaTipo === 'Series') {
                             html += `<div style="${subHeaderStyle('Series')}">Series: ${ejsFlat.length} ejercicio(s)</div>`;
                         } else if (diaTipo === 'Sumando Ejercicio') {
-                            html += `<div style="${subHeaderStyle('Sumando Ejercicio')}">Sumando Ejercicio: ${ejsFlat.length} ronda(s) acumulada(s)${diaDatos.pausa_ronda ? ' | Pausa: ' + diaDatos.pausa_ronda + 's' : ''}</div>`;
+                            html += `<div style="${subHeaderStyle('Sumando Ejercicio')}">Sumando Ejercicio: ${ejsFlat.length} vuelta(s) acumulada(s)${diaDatos.pausa_ronda ? ' | Pausa: ' + diaDatos.pausa_ronda + 's' : ''}</div>`;
                         }
                         // Grupos anidados
                         if (ejsFlat[0] && ejsFlat[0].ejercicios !== undefined) {
@@ -6964,7 +6971,7 @@
         } else if (tipo === 'Sumando Ejercicio') {
             const ejsSumando = toArray(datos.datos || datos.rutina || []);
             html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — SUMANDO EJERCICIO</div>`;
-            html += `<div style="${subHeaderStyle('Sumando Ejercicio')}">Sumando Ejercicio: ${ejsSumando.length} ronda(s) acumulada(s)${datos.pausa_ronda ? ' | Pausa: ' + datos.pausa_ronda + 's' : ''}</div>`;
+            html += `<div style="${subHeaderStyle('Sumando Ejercicio')}">Sumando Ejercicio: ${ejsSumando.length} vuelta(s) acumulada(s)${datos.pausa_ronda ? ' | Pausa: ' + datos.pausa_ronda + 's' : ''}</div>`;
             if (ejsSumando.length === 0) {
                 html += `<p style="${ff}color:#aaa;font-size:12px;font-style:italic;padding:6px 2px;">Sin ejercicios registrados</p>`;
             } else {
@@ -7430,7 +7437,7 @@
                     else if (bloqTipo === 'Por Tiempo')          meta = (b.vueltas||1) + ' vueltas | Cronómetro';
                     else if (bloqTipo === 'EMOM')                meta = (b.minutos_totales||10) + ' min';
                     else if (bloqTipo === 'Series')              meta = ejsB.length + ' ejercicio(s)';
-                    else if (bloqTipo === 'Sumando Ejercicio')   meta = ejsB.length + ' ronda(s) acumulada(s)' + (b.pausa_ronda ? ' | Pausa: ' + b.pausa_ronda + 's' : '');
+                    else if (bloqTipo === 'Sumando Ejercicio')   meta = ejsB.length + ' vuelta(s) acumulada(s)' + (b.pausa_ronda ? ' | Pausa: ' + b.pausa_ronda + 's' : '');
                     subBarTipo('Bloque ' + (i+1) + ': ' + bloqTipo + (meta ? '  —  ' + meta : ''), bloqTipo);
                     if (bloqTipo === 'EMOM' && b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
                         b.emom_config_por_minuto.forEach((minCfg, mi) => {
@@ -11833,7 +11840,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             return '~' + avgSeries + ' series por ejercicio';
         }
         if (b.tipo === 'Sumando Ejercicio') {
-            return cantEj + ' ronda(s) acumulada(s)' + (b.pausa_ronda ? ' · ' + b.pausa_ronda + 's pausa entre rondas' : '');
+            return cantEj + ' vuelta(s) acumulada(s)' + (b.pausa_ronda ? ' · ' + b.pausa_ronda + 's pausa entre vueltas' : '');
         }
         return '';
     }
@@ -11850,7 +11857,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         if (tipo === 'EMOM') return (cfg.minutos || 5) + ' min';
         if (tipo === 'Por Tiempo') return (cfg.vueltas || 3) + ' vueltas';
         if (tipo === 'Series/Reps') return (cfg.series || 3) + ' series · ' + (cfg.reps || 10) + ' reps';
-        if (tipo === 'Sumando Ejercicio') return (d.warmupEjercicios || []).length + ' ronda(s) acumulada(s)' + (cfg.pausa_ronda ? ' · ' + cfg.pausa_ronda + 's pausa entre rondas' : '');
+        if (tipo === 'Sumando Ejercicio') return (d.warmupEjercicios || []).length + ' vuelta(s) acumulada(s)' + (cfg.pausa_ronda ? ' · ' + cfg.pausa_ronda + 's pausa entre vueltas' : '');
         return '';
     }
 
