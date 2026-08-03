@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -5746,6 +5746,9 @@
                         datos = { datos: b.ejercicios, descripcion: b.descripcion || descGlobal };
                     } else if (tipo === 'Sumando Ejercicio') {
                         datos = { datos: b.ejercicios, pausa_ronda: b.pausa_ronda || 0, descripcion: b.descripcion || descGlobal };
+                    } else {
+                        // Fallback: tipo de bloque no reconocido -> no perder los ejercicios
+                        datos = { datos: b.ejercicios, descripcion: b.descripcion || descGlobal };
                     }
                 } else {
                     tipo = 'ENTRENAMIENTO';
@@ -6976,6 +6979,15 @@
                 html += `<p style="${ff}color:#aaa;font-size:12px;font-style:italic;padding:6px 2px;">Sin ejercicios registrados</p>`;
             } else {
                 ejsSumando.forEach(ej => { html += ejBox(ej, 'Sumando Ejercicio'); });
+            }
+        } else {
+            // Fallback: tipo de bloque no reconocido -> mostrar los ejercicios igual
+            // en vez de dejar la sección vacía en silencio.
+            const ejsOtros = toArray(datos.datos || datos.rutina || datos.ejercicios || []);
+            if (ejsOtros.length > 0) {
+                html += `<div style="${sSecHeader}background:#CE93D8;">2. BLOQUE PRINCIPAL — ${(tipo||'').toUpperCase()}</div>`;
+                html += `<div style="${subHeaderStyle(tipo)}">${tipo || 'Bloque'}: ${ejsOtros.length} ejercicio(s)</div>`;
+                ejsOtros.forEach(ej => { html += ejBox(ej, tipo); });
             }
         }
 
@@ -9424,6 +9436,9 @@
         const warmupConfigs = r.warmupConfigs || [];
 
         function buildDatosDiaRepo(dia, diaIdx) {
+            // Autocorregir tipos de bloque con variantes de texto (p.ej. "Sumando
+            // Ejercicios" en plural) que hayan quedado guardados de una version anterior.
+            (dia.bloquesRutina || []).forEach(b => { if (b.tipo) b.tipo = pizNormalizarSistema(b.tipo); });
             const cfg = warmupConfigs[diaIdx] || {};
             const warmupTipo = cfg.tipo || 'Circuito (Vueltas)';
             const warmupDetalle = { tipo: warmupTipo };
@@ -9485,6 +9500,10 @@
                     datos = { datos: b.ejercicios, descripcion: b.descripcion || descGlobal };
                 } else if (tipo === 'Sumando Ejercicio') {
                     datos = { datos: b.ejercicios, pausa_ronda: b.pausa_ronda || 0, descripcion: b.descripcion || descGlobal };
+                } else {
+                    // Fallback: tipo de bloque no reconocido (p.ej. una variante de texto
+                    // inesperada) -> no perder los ejercicios, mostrarlos igual.
+                    datos = { datos: b.ejercicios, descripcion: b.descripcion || descGlobal };
                 }
             } else if (bloques.length > 1) {
                 tipo = 'ENTRENAMIENTO';
@@ -9656,6 +9675,11 @@
         if (diasData.length === 0) {
             diasData = [{ titulo: 'Día 1', warmupEjercicios: [], bloquesRutina: [] }];
         }
+        // Autocorregir tipos de bloque guardados con variantes de texto (p.ej. "Sumando
+        // Ejercicios" en plural) que hayan quedado de una version anterior con el bug.
+        diasData.forEach(d => {
+            (d.bloquesRutina || []).forEach(b => { if (b.tipo) b.tipo = pizNormalizarSistema(b.tipo); });
+        });
         // Asegurarse que cada dia tenga warmupEmomConfig
         diasData.forEach(d => { if (!d.warmupEmomConfig) d.warmupEmomConfig = []; });
         // Setear alumno
@@ -10714,9 +10738,13 @@
             'circuito por vuelta':'Circuito','circuito vueltas':'Circuito','circuito':'Circuito',
             'por tiempo':'Por Tiempo',
             'series':'Series','series y repeticiones':'Series','series/reps':'Series',
-            'sumando ejercicio':'Sumando Ejercicio','sumando':'Sumando Ejercicio'
+            'sumando ejercicio':'Sumando Ejercicio','sumando ejercicios':'Sumando Ejercicio','sumando':'Sumando Ejercicio'
         };
-        return NORM[(s||'').toLowerCase().trim()] || s;
+        const key = (s||'').toLowerCase().trim();
+        if (NORM[key]) return NORM[key];
+        // Fallback laxo: cualquier variante que contenga "sumando" (plural, tildes, etc.)
+        if (key.indexOf('sumando') !== -1) return 'Sumando Ejercicio';
+        return s;
     }
 
     function pizTogglePanel() {
