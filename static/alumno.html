@@ -5006,6 +5006,9 @@
                     }
                     dataGlobal = data;
                     currentCode = cod;
+                    // Traer del servidor las cargas que el alumno haya guardado desde
+                    // otros dispositivos, para que aparezcan también en este.
+                    await sincronizarCargasDesdeNube(cod);
                     // Pre-registrar todos los links en cache para thumbnails
                     (function _preRegistrarLinks(d) {
                         if (!d) return;
@@ -5119,9 +5122,19 @@
             // Almacen global de nombres de ejercicios para coach de voz en Series
             var ejercicioNombres = {};
 
-            // ─── REGISTRO DE PESO / CARGA (localStorage) ───
+            // ─── REGISTRO DE PESO / CARGA (localStorage + sincronización en la nube) ───
+            // Las cargas se guardan en localStorage (rápido, funciona offline) y además
+            // se suben a Firebase bajo el código del alumno, de modo que si el mismo
+            // alumno abre la app en otro dispositivo (casa, gimnasio, celular, etc.)
+            // pueda ver y seguir usando los últimos pesos que cargó.
+            var FIREBASE_CARGAS_URL = "https://ponetefit-app-default-rtdb.firebaseio.com/cargas/";
+
+            function _cargaNombreNorm(nombreEj) {
+                return (nombreEj || '').toUpperCase().trim().replace(/[.#$\[\]\/]/g, '_');
+            }
+
             function _pesoKey(nombreEj) {
-                return 'pf-peso-' + (nombreEj || '').toUpperCase().trim();
+                return 'pf-peso-' + currentCode + '-' + _cargaNombreNorm(nombreEj);
             }
 
             function obtenerUltimoPeso(nombreEj) {
@@ -5133,12 +5146,60 @@
                 }
             }
 
+            // Sube una carga a la nube en segundo plano, sin bloquear ni romper la UI
+            // si no hay conexión (falla en silencio y queda igual guardado localmente).
+            function _subirCargaNube(path, peso) {
+                if (!currentCode) return;
+                try {
+                    fetch(FIREBASE_CARGAS_URL + currentCode + "/" + path + ".json", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ v: peso, t: Date.now() })
+                    }).catch(function(e) {});
+                } catch (e) {}
+            }
+
             function guardarPeso(nombreEj, peso) {
                 try {
                     if (peso && !isNaN(peso) && peso > 0) {
                         localStorage.setItem(_pesoKey(nombreEj), peso);
+                        _subirCargaNube('simple/' + _cargaNombreNorm(nombreEj), peso);
                     }
                 } catch (e) {}
+            }
+
+            // Descarga del servidor todas las cargas que el alumno guardó desde
+            // cualquier dispositivo y las vuelca en localStorage de este dispositivo,
+            // para que al entrenar en un lugar distinto aparezcan los últimos pesos.
+            async function sincronizarCargasDesdeNube(cod) {
+                if (!cod) return;
+                try {
+                    var res = await fetch(FIREBASE_CARGAS_URL + cod + ".json");
+                    var remoto = await res.json();
+                    if (!remoto) return;
+                    if (remoto.simple) {
+                        Object.keys(remoto.simple).forEach(function(norm) {
+                            var entry = remoto.simple[norm];
+                            if (entry && entry.v !== undefined && entry.v !== null) {
+                                try { localStorage.setItem(_pesoKey(norm), entry.v); } catch (e) {}
+                            }
+                        });
+                    }
+                    if (remoto.serie) {
+                        Object.keys(remoto.serie).forEach(function(norm) {
+                            var porIdx = remoto.serie[norm];
+                            if (!porIdx) return;
+                            Object.keys(porIdx).forEach(function(idx) {
+                                var entry = porIdx[idx];
+                                if (entry && entry.v !== undefined && entry.v !== null) {
+                                    try { localStorage.setItem(_pesoSerieKey(norm, idx), entry.v); } catch (e) {}
+                                }
+                            });
+                        });
+                    }
+                } catch (e) {
+                    // Sin conexión: seguimos usando lo que ya haya en este dispositivo
+                }
             }
 
             function crearPesoRow(nombreEj, inputId) {
@@ -5155,13 +5216,14 @@
 
             // ─── PESO POR SERIE ───
             function _pesoSerieKey(nombreEj, serieIdx) {
-                return 'peso_serie__' + (nombreEj || '').toUpperCase().trim() + '__' + serieIdx;
+                return 'peso_serie__' + currentCode + '__' + _cargaNombreNorm(nombreEj) + '__' + serieIdx;
             }
 
             function guardarPesoSerie(nombreEj, serieIdx, peso) {
                 try {
                     if (peso && !isNaN(peso) && peso > 0) {
                         localStorage.setItem(_pesoSerieKey(nombreEj, serieIdx), peso);
+                        _subirCargaNube('serie/' + _cargaNombreNorm(nombreEj) + '/' + serieIdx, peso);
                     }
                 } catch (e) {}
             }
