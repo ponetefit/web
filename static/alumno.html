@@ -5097,7 +5097,7 @@
                 var ultimaHtml = ultimo ? '<span class="peso-ultima">\u00DAltima vez: ' + ultimo + 'kg</span>' : '';
                 return '<div class="peso-row">' +
                     '<span class="peso-label">\u{1F3CB}\uFE0F Peso</span>' +
-                    '<input type="number" class="peso-input" id="' + inputId + '" placeholder="0" min="0" step="0.5"' +
+                    '<input type="number" class="peso-input" id="' + inputId + '" data-peso-nombre="' + (nombreEj || '').replace(/"/g, '&quot;') + '" placeholder="0" min="0" step="0.5"' +
                     (ultimo ? ' value="' + ultimo + '"' : '') + '>' +
                     '<span class="peso-suffix">kg</span>' +
                     ultimaHtml +
@@ -5133,7 +5133,7 @@
                     var ultimo = obtenerUltimoPesoSerie(nombreEj, s);
                     html += '<div style="display:flex;align-items:center;gap:3px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:5px 8px;">' +
                         '<span style="color:var(--verde);font-weight:900;font-size:0.65rem;min-width:18px;">S' + (s + 1) + '</span>' +
-                        '<input type="number" class="peso-input" id="' + baseId + '-s' + s + '" placeholder="0" min="0" step="0.5" style="width:52px;"' +
+                        '<input type="number" class="peso-input" id="' + baseId + '-s' + s + '" data-peso-nombre="' + (nombreEj || '').replace(/"/g, '&quot;') + '" data-peso-idx="' + s + '" placeholder="0" min="0" step="0.5" style="width:52px;"' +
                         (ultimo ? ' value="' + ultimo + '"' : '') + '>' +
                         '<span style="font-size:0.65rem;color:var(--texto-suave);">kg</span>' +
                         '</div>';
@@ -5151,7 +5151,7 @@
                     var ultimo = obtenerUltimoPesoSerie(nombreEj, v);
                     html += '<div style="display:flex;align-items:center;gap:3px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:5px 8px;">' +
                         '<span style="color:var(--naranja);font-weight:900;font-size:0.65rem;min-width:18px;">V' + (v + 1) + '</span>' +
-                        '<input type="number" class="peso-input" id="' + baseId + '-v' + v + '" placeholder="0" min="0" step="0.5" style="width:52px;"' +
+                        '<input type="number" class="peso-input" id="' + baseId + '-v' + v + '" data-peso-nombre="' + (nombreEj || '').replace(/"/g, '&quot;') + '" data-peso-idx="' + v + '" placeholder="0" min="0" step="0.5" style="width:52px;"' +
                         (ultimo ? ' value="' + ultimo + '"' : '') + '>' +
                         '<span style="font-size:0.65rem;color:var(--texto-suave);">kg</span>' +
                         '</div>';
@@ -5159,6 +5159,44 @@
                 html += '</div></div>';
                 return html;
             }
+
+            // ─── AUTO-GUARDADO DE CARGA: funciona en TODOS los bloques ───
+            // Se dispara solo con que el alumno complete/abandone el campo de peso
+            // (evento "change"), sin depender de que exista un botón "Marcar" que
+            // llame a guardarPeso/guardarPesoSerie. Como crearPesoRow,
+            // crearPesoRowsPorSerie y crearPesoRowsPorVuelta son las ÚNICAS
+            // funciones que generan inputs .peso-input en toda la app (Series,
+            // Circuito, Circuito por Tiempo, Tabata, EMOM, Por Tiempo, Sumando
+            // Ejercicio, y todos los bloques dentro de un día Mix/ENTRENAMIENTO),
+            // este único listener delegado cubre absolutamente todos los casos,
+            // presentes y futuros.
+            document.addEventListener('change', function(e) {
+                var t = e.target;
+                if (!t || !t.classList || !t.classList.contains('peso-input')) return;
+                var nombre = t.getAttribute('data-peso-nombre');
+                if (!nombre) return;
+                var val = parseFloat(t.value);
+                if (!val || isNaN(val) || val <= 0) return;
+
+                var idxAttr = t.getAttribute('data-peso-idx');
+                if (idxAttr !== null && idxAttr !== '') {
+                    // Peso por serie o por vuelta
+                    guardarPesoSerie(nombre, parseInt(idxAttr), val);
+                } else {
+                    // Peso simple/genérico del ejercicio
+                    guardarPeso(nombre, val);
+                    var pesoRow = t.closest ? t.closest('.peso-row') : null;
+                    if (pesoRow) {
+                        var ultimaSpan = pesoRow.querySelector('.peso-ultima');
+                        if (!ultimaSpan) {
+                            ultimaSpan = document.createElement('span');
+                            ultimaSpan.className = 'peso-ultima';
+                            pesoRow.appendChild(ultimaSpan);
+                        }
+                        ultimaSpan.textContent = 'Última vez: ' + val + 'kg';
+                    }
+                }
+            }, true);
 
             // ─── TIPO DE ENTRENAMIENTO GLOBAL (para calorias) ───
             var _tipoEntrenamientoGlobal = '';
