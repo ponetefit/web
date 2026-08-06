@@ -679,10 +679,64 @@
             text-align: center;
             padding: 40px 28px;
             overflow: hidden;
+            opacity: 0;
+            transform: scale(1.04);
+            transition: opacity 0.4s ease, transform 0.4s ease;
         }
         
         #pantalla-fin.visible {
             display: flex;
+        }
+
+        #pantalla-fin.show {
+            opacity: 1;
+            transform: scale(1);
+            animation: finBgShift 6s ease-in-out infinite;
+        }
+
+        /* Ondas de choque radiales al completar */
+        #pantalla-fin::before,
+        #pantalla-fin::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid var(--verde);
+            transform: translate(-50%, -50%) scale(0);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #pantalla-fin.show::before {
+            animation: finShockwave 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
+        }
+
+        #pantalla-fin.show::after {
+            border-color: var(--amarillo);
+            animation: finShockwave 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.22s both;
+        }
+
+        @keyframes finShockwave {
+            from {
+                transform: translate(-50%, -50%) scale(0);
+                opacity: 0.9;
+            }
+            to {
+                transform: translate(-50%, -50%) scale(22);
+                opacity: 0;
+            }
+        }
+
+        @keyframes finBgShift {
+            0%, 100% {
+                background: radial-gradient(ellipse at 50% 40%, #1a2a1a 0%, #0a0a0c 70%);
+            }
+            50% {
+                background: radial-gradient(ellipse at 50% 40%, #2a2410 0%, #0a0a0c 70%);
+            }
         }
         
         .fin-emoji {
@@ -695,6 +749,9 @@
             from {
                 transform: scale(0);
                 opacity: 0;
+            }
+            60% {
+                transform: scale(1.15);
             }
             to {
                 transform: scale(1);
@@ -4678,10 +4735,30 @@
                 // Record personal
                 _procesarRecordAlFinalizar();
 
-                document.getElementById('pantalla-fin').classList.add('visible');
+                var _pf = document.getElementById('pantalla-fin');
+                _pf.classList.remove('show');
+                _pf.classList.add('visible');
+                // Forzar reflow y recién ahí activar la transición de entrada
+                // (para que el fade/scale del contenedor y el bounce del emoji
+                // se disparen juntos en vez de quedar "pegados")
+                void _pf.offsetWidth;
+                requestAnimationFrame(function() {
+                    requestAnimationFrame(function() {
+                        _pf.classList.add('show');
+                    });
+                });
 
-                // Confetti grande al finalizar
-                lanzarConfetti(200);
+                // Vibración corta de celebración (si el dispositivo lo soporta)
+                try {
+                    if (navigator.vibrate) navigator.vibrate([30, 60, 30, 60, 80]);
+                } catch (e) {}
+
+                // Confetti en oleadas: una explosión inicial grande + refuerzos
+                // para que la celebración dure unos segundos en vez de un solo golpe
+                lanzarConfetti(180);
+                setTimeout(function() { lanzarConfetti(70); }, 500);
+                setTimeout(function() { lanzarConfetti(70); }, 1100);
+                setTimeout(function() { lanzarConfetti(50); }, 1900);
 
                 // Voz de fin
                 try {
@@ -4696,14 +4773,18 @@
             }
 
             function cerrarPantallaFin() {
-                document.getElementById('pantalla-fin').classList.remove('visible');
+                var _pf = document.getElementById('pantalla-fin');
+                _pf.classList.remove('show');
                 _pantallaFinMostrada = false;
-                if (esMultidia) {
-                    // Volver al acordeon de dias en lugar de cerrar la app
-                    volverADias();
-                } else {
-                    cerrar();
-                }
+                setTimeout(function() {
+                    _pf.classList.remove('visible');
+                    if (esMultidia) {
+                        // Volver al acordeon de dias en lugar de cerrar la app
+                        volverADias();
+                    } else {
+                        cerrar();
+                    }
+                }, 400);
             }
 
             // ─── CONFETTI (Canvas puro, sin librerías) ───
