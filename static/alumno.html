@@ -665,6 +665,77 @@
             cursor: not-allowed;
             transform: none;
         }
+        /* ─── MICRO-ANIMACIÓN AL MARCAR SERIE/VUELTA/RONDA ─── */
+        .btn-marcar-pop {
+            animation: btnMarcarPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes btnMarcarPop {
+            0% {
+                transform: scale(1);
+            }
+            35% {
+                transform: scale(0.90);
+            }
+            65% {
+                transform: scale(1.06);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+        .btn-marcar-check {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            background: rgba(10, 20, 14, 0.94);
+            color: var(--verde);
+            font-size: 1.4rem;
+            font-weight: 900;
+            border-radius: inherit;
+            opacity: 0;
+            pointer-events: none;
+            animation: btnCheckFlash 0.6s ease forwards;
+        }
+        .btn-marcar-check svg {
+            width: 22px;
+            height: 22px;
+            stroke: var(--verde);
+            stroke-width: 3;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .btn-marcar-check svg path {
+            stroke-dasharray: 24;
+            stroke-dashoffset: 24;
+            animation: btnCheckDraw 0.35s 0.05s ease forwards;
+        }
+        @keyframes btnCheckFlash {
+            0% {
+                opacity: 0;
+                transform: scale(0.6);
+            }
+            22% {
+                opacity: 1;
+                transform: scale(1.1);
+            }
+            55% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: scale(1);
+            }
+        }
+        @keyframes btnCheckDraw {
+            to {
+                stroke-dashoffset: 0;
+            }
+        }
         /* ─── PANTALLA DE FINALIZACIÓN ─── */
         
         #pantalla-fin {
@@ -5692,6 +5763,44 @@
                 return '<div class="vueltas-grid">' + cols + '</div>';
             }
 
+            // ─── MICRO-ANIMACIÓN AL TOCAR "MARCAR SERIE/VUELTA/RONDA" ───
+            // Delegado global: cualquier botón cuyo onclick invoque una función
+            // "marcar..." (marcarSerie, marcarSerieConPausa, marcarSerieWarmup,
+            // marcarVueltaCircuito, marcarVueltaMixOld, marcarVueltaMixBloque,
+            // marcarVueltaPorTiempo, marcarRondaSumando, _ptFsMarcar), o tenga
+            // la clase .btn-ronda, recibe un scale-pop + un check verde que
+            // se dibuja encima por un instante, en vez de solo cambiar el texto.
+            // Cubre automáticamente todos los bloques presentes y futuros sin
+            // tener que tocar cada botón uno por uno.
+            var _CHECK_SVG = '<svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 7"/></svg>';
+            document.addEventListener('click', function(e) {
+                var btn = e.target.closest ? e.target.closest('button') : null;
+                if (!btn || btn.disabled) return;
+                var oc = btn.getAttribute('onclick') || '';
+                var esMarcar = /marcar/i.test(oc) || btn.classList.contains('btn-ronda') || btn.id === 'pt-fs-btn-marcar';
+                if (!esMarcar) return;
+
+                // Pop de escala (reinicia la animación si se togueó rápido)
+                btn.classList.remove('btn-marcar-pop');
+                void btn.offsetWidth;
+                btn.classList.add('btn-marcar-pop');
+
+                // Check verde superpuesto
+                if (getComputedStyle(btn).position === 'static') {
+                    btn.style.position = 'relative';
+                }
+                var vieja = btn.querySelector('.btn-marcar-check');
+                if (vieja) vieja.remove();
+                var overlay = document.createElement('span');
+                overlay.className = 'btn-marcar-check';
+                overlay.setAttribute('aria-hidden', 'true');
+                overlay.innerHTML = _CHECK_SVG;
+                btn.appendChild(overlay);
+                setTimeout(function() {
+                    if (overlay.parentNode) overlay.remove();
+                }, 650);
+            }, true);
+
             // ─── AUTO-GUARDADO DE CARGA: funciona en TODOS los bloques ───
             // Se dispara solo con que el alumno complete/abandone el campo de peso
             // (evento "change"), sin depender de que exista un botón "Marcar" que
@@ -7373,14 +7482,75 @@
                     pLista.innerHTML += '<div class="bloque-descripcion">' + data.descripcion + '</div>';
                 }
                 ejercicios.forEach(function(ej, i) {
+                    const seriesN = ej.series || 3;
+                    const repsN = ej.reps || 10;
                     // Usar descanso personalizado del profesor si existe, sino calcular
-                    const pausa = (ej.descanso && parseInt(ej.descanso) > 0) ? parseInt(ej.descanso) : calcularPausa(ej.reps);
-                    seriesRestantes[i] = parseInt(ej.series);
+                    const pausaN = (ej.descanso && parseInt(ej.descanso) > 0) ? parseInt(ej.descanso) : calcularPausa(repsN);
+                    seriesRestantes[i] = parseInt(seriesN);
                     ejercicioNombres[i] = ej.nombre || '';
                     const notaHtml = ej.nota_tecnica ? '<div class="nota-tecnica">📝 ' + ej.nota_tecnica + '</div>' : '';
                     const pesoInputId = 'peso-' + i;
                     var elem = _obtenerElemento(ej.nombre);
                     var elemHtml = elem ? '<div style="margin-bottom:6px;"><span class="card-elemento-badge">' + elem + '</span></div>' : '';
+
+                    // Verificar si tiene reps/pausa por serie configurados por el profesor
+                    // (misma lógica que el bloque Series dentro de un día mixto, para que
+                    // ambos se vean y funcionen exactamente igual)
+                    var haPerSerie = ej.reps_por_serie && ej.reps_por_serie.length > 0;
+                    var serieDetalle = '';
+                    var pausaPrimeraSerie = pausaN;
+                    _seriesNData[i] = parseInt(seriesN);
+                    _nombreEjData[i] = ej.nombre || '';
+                    if (haPerSerie && ej.pausa_por_serie && ej.pausa_por_serie.length > 0) {
+                        _pausasPorSerieData[i] = ej.pausa_por_serie.map(function(p) {
+                            return parseInt(p) || 0;
+                        });
+                    } else {
+                        _pausasPorSerieData[i] = [];
+                    }
+                    if (haPerSerie) {
+                        _repsPorSerieData[i] = ej.reps_por_serie.slice();
+                    } else {
+                        _repsPorSerieData[i] = [];
+                    }
+
+                    if (haPerSerie) {
+                        serieDetalle = '<div style="margin:8px 0 4px; font-size:0.7rem; font-weight:700; color:var(--texto-suave); text-transform:uppercase; letter-spacing:1px;">Detalle por serie:</div>' +
+                            '<div id="det-' + i + '" style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">';
+                        ej.reps_por_serie.forEach(function(rs, si) {
+                            var pSerie = (ej.pausa_por_serie && ej.pausa_por_serie[si] !== undefined && ej.pausa_por_serie[si] !== '') ? parseInt(ej.pausa_por_serie[si]) : pausaN;
+                            if (si === 0) pausaPrimeraSerie = (pSerie > 0 ? pSerie : pausaN);
+                            var bgActivo = si === 0 ? 'rgba(105,240,174,0.25)' : 'rgba(105,240,174,0.06)';
+                            var borderActivo = si === 0 ? '1px solid rgba(105,240,174,0.6)' : '1px solid rgba(105,240,174,0.15)';
+                            var ultimoPeso = obtenerUltimoPesoSerie(ej.nombre, si);
+                            serieDetalle += '<span data-si="' + si + '" style="background:' + bgActivo + ';border:' + borderActivo + ';border-radius:8px;padding:4px 8px;white-space:nowrap;transition:background 0.3s,border 0.3s;">' +
+                                '<span style="color:var(--verde);font-weight:900;font-size:0.65rem;">S' + (si + 1) + '</span> ' +
+                                '<span style="font-weight:700;">' + rs + ' ' + (ej.unit || 'Reps') + '</span>' +
+                                (ultimoPeso ? ' <span style="background:rgba(255,255,255,0.08);border-radius:4px;padding:1px 5px;font-size:0.6rem;color:#ccc;font-weight:700;">' + ultimoPeso + 'kg</span>' : '') +
+                                (pSerie > 0 ? ' <span style="color:var(--verde);font-size:0.65rem;">· ' + formatearTiempo(pSerie) + '</span>' : '') +
+                                '</span>';
+                        });
+                        serieDetalle += '</div>';
+                    } else {
+                        var seriesNI = parseInt(seriesN);
+                        serieDetalle = '<div style="margin:8px 0 4px; font-size:0.7rem; font-weight:700; color:var(--texto-suave); text-transform:uppercase; letter-spacing:1px;">Series:</div>' +
+                            '<div id="det-' + i + '" style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">';
+                        for (var ssi = 0; ssi < seriesNI; ssi++) {
+                            var bgSi = ssi === 0 ? 'rgba(105,240,174,0.25)' : 'rgba(105,240,174,0.06)';
+                            var borderSi = ssi === 0 ? '1px solid rgba(105,240,174,0.6)' : '1px solid rgba(105,240,174,0.15)';
+                            var upSi = obtenerUltimoPesoSerie(ej.nombre, ssi);
+                            serieDetalle += '<span data-si="' + ssi + '" style="background:' + bgSi + ';border:' + borderSi + ';border-radius:8px;padding:4px 8px;white-space:nowrap;transition:background 0.3s,border 0.3s;">' +
+                                '<span style="color:var(--verde);font-weight:900;font-size:0.65rem;">S' + (ssi + 1) + '</span> ' +
+                                '<span style="font-weight:700;">' + repsN + ' ' + (ej.unit || 'Reps') + '</span>' +
+                                (upSi ? ' <span style="background:rgba(255,255,255,0.08);border-radius:4px;padding:1px 5px;font-size:0.6rem;color:#ccc;font-weight:700;">' + upSi + 'kg</span>' : '') +
+                                (pausaN > 0 ? ' <span style="color:var(--verde);font-size:0.65rem;">· ' + formatearTiempo(pausaN) + '</span>' : '') +
+                                '</span>';
+                        }
+                        serieDetalle += '</div>';
+                    }
+
+                    var pausaBoton = haPerSerie ? pausaPrimeraSerie : pausaN;
+
                     var _s1ThumbUrl = extraerYoutubeThumbnail(ej.link || '');
                     _registrarLink(ej.nombre, ej.link || '');
                     var _s1ThumbHtml = _s1ThumbUrl ? '<div class="card-thumb" onclick="abrirVideo(\'' + (ej.link || '').replace(/'/g, "\\'") + '\', \'' + (ej.nombre || '').replace(/'/g, "\\'") + '\')">' +
@@ -7391,15 +7561,16 @@
                         _s1ThumbHtml + '</div>' +
                         elemHtml +
                         '<div class="serie-meta">' +
-                        '<div class="serie-meta-item"><span class="serie-meta-label">Series</span><span class="serie-meta-value" id="s-val-' + i + '">' + ej.series + '</span></div>' +
-                        '<div class="serie-meta-item"><span class="serie-meta-label">' + (ej.unit || 'Reps') + '</span><span class="serie-meta-value">' + ej.reps + '</span></div>' +
-                        '<div class="serie-meta-item"><span class="serie-meta-label">Descanso</span><span class="serie-meta-value" style="color:var(--verde)">' + formatearTiempo(pausa) + '</span></div>' +
+                        '<div class="serie-meta-item"><span class="serie-meta-label">Series</span><span class="serie-meta-value" id="s-val-' + i + '">' + seriesN + '</span></div>' +
+                        '<div class="serie-meta-item"><span class="serie-meta-label">' + (ej.unit || 'Reps') + '</span><span class="serie-meta-value" id="r-val-' + i + '">' + (haPerSerie ? ej.reps_por_serie[0] : repsN) + '</span></div>' +
+                        '<div class="serie-meta-item"><span class="serie-meta-label">Descanso</span><span class="serie-meta-value" style="color:var(--verde)" id="d-val-' + i + '">' + formatearTiempo(pausaBoton) + '</span></div>' +
                         '</div>' +
-                        crearPesoRow(ej.nombre, pesoInputId) +
+                        serieDetalle +
+                        crearPesoRowsPorSerie(ej.nombre, parseInt(seriesN), pesoInputId) +
                         notaHtml +
                         '<div style="text-align:center;">' +
-                        '<div class="timer-display" id="timer-' + i + '">' + formatearTiempo(pausa) + '</div>' +
-                        '<button class="btn-rest" id="btn-' + i + '" style="background:linear-gradient(135deg,var(--verde),#1a7a4a);color:#000;" onclick="marcarSerie(' + i + ',' + pausa + ')">Marcar Serie</button>' +
+                        '<div class="timer-display" id="timer-' + i + '">' + formatearTiempo(pausaBoton) + '</div>' +
+                        '<button class="btn-rest" id="btn-' + i + '" style="background:linear-gradient(135deg,var(--verde),#1a7a4a);color:#000;" onclick="marcarSerieConPausa(' + i + ',' + pausaBoton + ')">Marcar Serie (' + seriesN + ' rest.)</button>' +
                         '</div></div>';
                 });
             }
