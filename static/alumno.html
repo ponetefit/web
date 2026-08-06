@@ -5404,7 +5404,7 @@
                 var elem = elemento || _obtenerElemento(nombre);
                 var elemHtml = elem ? '<span class="card-elemento-badge">' + elem + '</span>' : '';
                 var pesoHtml = '';
-                if (con_carga) {
+                if (con_carga || _obtenerConCarga(nombre)) {
                     var pid = 'peso-card-' + (_cardCargaIdx++);
                     pesoHtml = crearPesoRow(nombre, pid);
                 }
@@ -5422,7 +5422,7 @@
                 var elem = elemento || _obtenerElemento(nombre);
                 var elemHtml = elem ? '<span class="card-elemento-badge">' + elem + '</span>' : '';
                 var pesoHtml = '';
-                if (con_carga) {
+                if (con_carga || _obtenerConCarga(nombre)) {
                     var pid = 'peso-card-' + (_cardCargaIdx++);
                     pesoHtml = crearPesoRow(nombre, pid);
                 }
@@ -5579,7 +5579,7 @@
                         const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
                         const r = Array.isArray(ej) ? ej[2] : (ej.reps || "");
                         const u = Array.isArray(ej) ? (ej[3] || "Reps") : (ej.unit || "Reps");
-                        const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
+                        const cc = (Array.isArray(ej) ? false : (ej.con_carga || false)) || _obtenerConCarga(n);
                         const desc = Array.isArray(ej) ? '' : (ej.descanso || '');
                         var wupBaseId = 'wup-peso-' + ejIdx;
 
@@ -6865,9 +6865,9 @@
                             var vLabels = ej.reps_por_vuelta.map(function(rv, vi) {
                                 return '<span style="color:var(--naranja);font-weight:700;font-size:0.7rem;">V' + (vi + 1) + ':</span> <span style="font-weight:700;">' + rv + ' ' + ejU + '</span>';
                             }).join(' &nbsp; ');
-                            var vCargaHtml = ej.con_carga ? crearPesoRowsPorVuelta(ej.nombre, ej.reps_por_vuelta.length, uid) : '';
+                            var vCargaHtml = (ej.con_carga || _obtenerConCarga(ej.nombre)) ? crearPesoRowsPorVuelta(ej.nombre, ej.reps_por_vuelta.length, uid) : '';
                             pLista.innerHTML += crearCard(ej.nombre, ej.link, '', false, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:6px; align-items:center;">' + vLabels + '</div>' + vCargaHtml);
-                        } else if (ej.con_carga) {
+                        } else if (ej.con_carga || _obtenerConCarga(ej.nombre)) {
                             var metaStr = ej.reps ? ej.reps + ' ' + ejU : '';
                             var vPesoHtml = crearPesoRowsPorVuelta(ej.nombre, vBloque, uid);
                             pLista.innerHTML += crearCard(ej.nombre, ej.link, metaStr, false, '', vPesoHtml);
@@ -7069,7 +7069,7 @@
                 _cicloEnriq.forEach(function(minData) {
                     if (!minData.es_descanso) {
                         (minData.ejercicios || []).forEach(function(ej) {
-                            if (!_yaConCarga.has(ej.nombre) && ej.con_carga) {
+                            if (!_yaConCarga.has(ej.nombre) && (ej.con_carga || _obtenerConCarga(ej.nombre))) {
                                 _yaConCarga.add(ej.nombre);
                                 pLista.innerHTML += crearCard(ej.nombre, ej.link || '', ej.reps ? ej.reps + ' ' + (ej.unit || 'Reps').toUpperCase() : 'EMOM', true);
                             }
@@ -7282,7 +7282,7 @@
                                     return '<span style="color:var(--naranja);font-weight:700;font-size:0.7rem;">V' + (vi + 1) + ':</span> <span style="font-weight:700;">' + rv + ' ' + ejU + '</span>';
                                 }).join(' &nbsp; ');
                                 var descExtra = ej.descanso && parseInt(ej.descanso) > 0 ? ' <span style="color:var(--texto-suave);font-size:0.7rem;">| Pausa: ' + ej.descanso + 's</span>' : '';
-                                var vCargaHtml = ej.con_carga ? crearPesoRowsPorVuelta(ej.nombre, ej.reps_por_vuelta.length, uid + '-circ-v-' + (b.id || 1) + '-' + (ej.nombre || '').replace(/\s/g, '')) : '';
+                                var vCargaHtml = (ej.con_carga || _obtenerConCarga(ej.nombre)) ? crearPesoRowsPorVuelta(ej.nombre, ej.reps_por_vuelta.length, uid + '-circ-v-' + (b.id || 1) + '-' + (ej.nombre || '').replace(/\s/g, '')) : '';
                                 // con_carga=false para evitar peso genérico duplicado (la carga por vuelta ya está arriba)
                                 html += crearCard(ej.nombre, ej.link, '', false, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:6px; align-items:center;">' + vLabels + descExtra + '</div>' + vCargaHtml);
                             } else {
