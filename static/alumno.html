@@ -287,6 +287,7 @@
             padding: 20px;
             margin-bottom: 20px;
             border: 1px solid var(--borde);
+            transition: border-color 0.25s ease;
         }
         
         .seccion-titulo {
@@ -391,6 +392,45 @@
         
         .card-thumb:active .card-thumb-overlay {
             background: rgba(255, 107, 53, 0.35);
+        }
+        /* ─── PLACEHOLDER "SIN VIDEO" (mismo tamaño que el thumbnail) ─── */
+        
+        .card-thumb.sin-video,
+        .thumb-sinvideo-full,
+        .thumb-sinvideo-square {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--tarjeta-alt);
+            border: 1px dashed var(--borde);
+            cursor: default;
+            text-align: center;
+            padding: 6px;
+        }
+        
+        .card-thumb.sin-video span,
+        .thumb-sinvideo-full span,
+        .thumb-sinvideo-square span {
+            font-size: 0.68rem;
+            color: var(--texto-suave);
+            font-style: italic;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        
+        .thumb-sinvideo-full {
+            width: 100%;
+            height: clamp(150px, 42vw, 260px);
+            border-radius: 14px;
+            align-self: center;
+            flex-shrink: 0;
+        }
+        
+        .thumb-sinvideo-square {
+            width: 100px;
+            height: 100px;
+            border-radius: 12px;
+            flex-shrink: 0;
         }
         /* Play button for video */
         
@@ -2404,6 +2444,10 @@
                 height: auto;
                 aspect-ratio: 16 / 9;
             }
+            .thumb-sinvideo-full {
+                max-width: 280px;
+                margin: 0 auto;
+            }
             .card-elemento-badge {
                 align-self: center;
             }
@@ -2777,7 +2821,7 @@
 
             <div class="container-scroll" id="modal-scroll">
                 <div id="sec-warmup" class="seccion-card">
-                    <div class="seccion-titulo" style="color:var(--azul);">Calentamiento</div>
+                    <div id="warmup-titulo" class="seccion-titulo" style="color:var(--azul);">Calentamiento</div>
                     <div id="warmup-meta" style="color:var(--amarillo); font-weight:700; margin-bottom:14px; font-size:0.85rem; text-align:center;"></div>
                     <div id="warmup-lista"></div>
                     <div id="warmup-timer-box" style="display:none;">
@@ -2790,7 +2834,7 @@
                 </div>
 
                 <div id="sec-rutina-lista">
-                    <div id="sec-principal">
+                    <div id="sec-principal" class="seccion-card">
                         <div id="principal-titulo" class="seccion-titulo" style="color:var(--verde);">Entrenamiento</div>
                         <div id="principal-lista"></div>
                     </div>
@@ -3945,7 +3989,7 @@
                             var link = ej.link || ej[1] || '';
                             _registrarLink(nombre, link);
                             var thumbUrl = extraerYoutubeThumbnail(link);
-                            var thumbHtmlInline = thumbUrl ? '<img src="' + thumbUrl + '" alt="' + nombre.replace(/"/g, '&quot;') + '" loading="lazy" style="width:100%;height:clamp(150px,42vw,260px);object-fit:cover;border-radius:14px;align-self:center;cursor:pointer;border:2px solid rgba(255,255,255,0.1);" onclick="abrirVideo(\'' + link.replace(/'/g, "\'") + '\',\'' + nombre.replace(/'/g, "\'") + '\')" />' : '';
+                            var thumbHtmlInline = thumbUrl ? '<img src="' + thumbUrl + '" alt="' + nombre.replace(/"/g, '&quot;') + '" loading="lazy" style="width:100%;height:clamp(150px,42vw,260px);object-fit:cover;border-radius:14px;align-self:center;cursor:pointer;border:2px solid rgba(255,255,255,0.1);" onclick="abrirVideo(\'' + link.replace(/'/g, "\'") + '\',\'' + nombre.replace(/'/g, "\'") + '\')" />' : '<div class="thumb-sinvideo-full"><span>Sin video</span></div>';
                             var conCargaEjCt = !!(ej.con_carga || _obtenerConCarga(nombre));
                             var pesoHtmlCt = conCargaEjCt ? crearPesoRow(nombre, 'fs-ct-peso-' + idx) : '';
                             ejsHtml += '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:12px 14px;background:rgba(255,255,255,0.05);border-radius:14px;margin-bottom:8px;">' +
@@ -5669,7 +5713,7 @@
                         var thumbUrl = extraerYoutubeThumbnail(l);
                         var thumbHtml = thumbUrl ? '<div class="card-thumb" onclick="abrirVideo(\'' + l.replace(/'/g, "\'") + '\',\'' + n.replace(/'/g, "\'") + '\')">' +
                             '<img src="' + thumbUrl + '" alt="' + n.replace(/"/g, '&quot;') + '" loading="lazy">' +
-                            '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div></div>' : '<span style="font-size:0.68rem;color:#888;font-style:italic;white-space:nowrap;">Sin video</span>';
+                            '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div></div>' : '<div class="card-thumb sin-video"><span>Sin video</span></div>';
                         var pesoHtml = '';
                         if (ej.con_carga || _obtenerConCarga(n)) {
                             var pid = 'peso-emom-' + mi + '-' + ejIdx;
@@ -5743,7 +5787,7 @@
                 var thumbHtml = thumbUrl ? '<div class="card-thumb" onclick="abrirVideo(\'' + linkActual.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')">' +
                     '<img src="' + thumbUrl + '" alt="' + (nombre || '').replace(/"/g, '&quot;') + '" loading="lazy">' +
                     '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div>' +
-                    '</div>' : '<span style="font-size:0.68rem;color:#888;font-style:italic;white-space:nowrap;margin-left:6px;">Sin video</span>';
+                    '</div>' : '<div class="card-thumb sin-video"><span>Sin video</span></div>';
                 _registrarLink(nombre, linkActual);
                 return '<div class="card-ejercicio"><div class="card-ej-top"><span class="card-ejercicio-nombre">' + nombre + '</span>' + metaHtml + thumbHtml + '</div>' + elemHtml + (extraHtml || '') + pesoHtml + '</div>';
             }
@@ -5761,7 +5805,7 @@
                 var thumbHtml = thumbUrl ? '<div class="card-thumb" onclick="abrirVideo(\'' + linkActual.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')">' +
                     '<img src="' + thumbUrl + '" alt="' + (nombre || '').replace(/"/g, '&quot;') + '" loading="lazy">' +
                     '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div>' +
-                    '</div>' : '<span style="font-size:0.68rem;color:#888;font-style:italic;white-space:nowrap;margin-left:6px;">Sin video</span>';
+                    '</div>' : '<div class="card-thumb sin-video"><span>Sin video</span></div>';
                 _registrarLink(nombre, linkActual);
                 return '<div class="card-numero">' +
                     '<div class="card-numero-header"><span class="card-numero-idx">EJ ' + idx + ' / ' + total + '</span></div>' +
@@ -5787,6 +5831,11 @@
                 };
                 const color = colorMap[tipo] || "var(--azul)";
 
+                const secWarmupBox = document.getElementById('sec-warmup');
+                secWarmupBox.style.borderColor = color;
+                const warmupTituloEl = document.getElementById('warmup-titulo');
+                if (warmupTituloEl) warmupTituloEl.style.color = color;
+
                 document.getElementById('warmup-meta').innerHTML =
                     '<span style="color:' + color + '; font-weight:900; letter-spacing:2px; font-size:0.85rem;">' + tipo.toUpperCase() + '</span>';
 
@@ -5794,10 +5843,10 @@
                 wLista.innerHTML = '';
 
                 if (ejsW.length === 0) {
-                    document.getElementById('sec-warmup').style.display = "none";
+                    secWarmupBox.style.display = "none";
                     return;
                 }
-                document.getElementById('sec-warmup').style.display = "block";
+                secWarmupBox.style.display = "block";
 
                 let metaText = "";
                 if (tipo === "Circuito (Vueltas)") {
@@ -7105,7 +7154,24 @@
                 document.getElementById('sec-timer-ui').style.display = "none";
                 const pLista = document.getElementById('principal-lista');
                 const pTitulo = document.getElementById('principal-titulo');
+                const pSeccion = document.getElementById('sec-principal');
                 pLista.innerHTML = '';
+
+                // Recuadro de color según el tipo de bloque principal (mismo criterio que los bloques mix)
+                const colorMapPrincipal = {
+                    "Series": "var(--verde)",
+                    "Circuito": "var(--azul)",
+                    "Tabata": "var(--naranja)",
+                    "Circuito por Tiempo": "#4fc3f7",
+                    "EMOM": "var(--amarillo)",
+                    "Por Tiempo": "var(--purpura)",
+                    "Sumando Ejercicio": "var(--purpura)"
+                };
+                const colorPrincipal = colorMapPrincipal[data.tipo] || "var(--borde)";
+                const tituloColorPrincipal = colorMapPrincipal[data.tipo] || "var(--texto)";
+                if (pSeccion) pSeccion.style.borderColor = colorPrincipal;
+                if (pTitulo) pTitulo.style.color = tituloColorPrincipal;
+
                 const ejerciciosPrincipales = toArray(data.rutina || data.datos || []);
                 if (data.tipo === "Series") renderSeries(data, pTitulo, pLista, ejerciciosPrincipales);
                 else if (data.tipo === "Circuito") renderCircuito(data, pTitulo, pLista, ejerciciosPrincipales);
@@ -7146,7 +7212,7 @@
                     _registrarLink(ej.nombre, ej.link || '');
                     var _s1ThumbHtml = _s1ThumbUrl ? '<div class="card-thumb" onclick="abrirVideo(\'' + (ej.link || '').replace(/'/g, "\\'") + '\', \'' + (ej.nombre || '').replace(/'/g, "\\'") + '\')">' +
                         '<img src="' + _s1ThumbUrl + '" alt="" loading="lazy">' +
-                        '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div></div>' : '';
+                        '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div></div>' : '<div class="card-thumb sin-video"><span>Sin video</span></div>';
                     pLista.innerHTML += '<div class="serie-card">' +
                         '<div class="serie-header"><span class="serie-nombre">' + ej.nombre + '</span>' +
                         _s1ThumbHtml + '</div>' +
@@ -7915,7 +7981,7 @@
                         var link = ej.link || ej[1] || '';
                         _registrarLink(nombre, link);
                         var thumbUrl = extraerYoutubeThumbnail(link);
-                        var thumbHtmlPt = thumbUrl ? '<img src="' + thumbUrl + '" alt="' + nombre.replace(/"/g, '&quot;') + '" loading="lazy" style="width:100px;height:100px;object-fit:cover;border-radius:12px;flex-shrink:0;cursor:pointer;border:2px solid rgba(255,255,255,0.1);" onclick="abrirVideo(\'' + link.replace(/'/g, "\'") + '\',\'' + nombre.replace(/'/g, "\'") + '\')" />' : '';
+                        var thumbHtmlPt = thumbUrl ? '<img src="' + thumbUrl + '" alt="' + nombre.replace(/"/g, '&quot;') + '" loading="lazy" style="width:100px;height:100px;object-fit:cover;border-radius:12px;flex-shrink:0;cursor:pointer;border:2px solid rgba(255,255,255,0.1);" onclick="abrirVideo(\'' + link.replace(/'/g, "\'") + '\',\'' + nombre.replace(/'/g, "\'") + '\')" />' : '<div class="thumb-sinvideo-square"><span>Sin video</span></div>';
                         var row = document.createElement('div');
                         row.className = 'pt-fs-ej-row';
                         row.innerHTML = thumbHtmlPt + '<span class="pt-fs-ej-nombre">' + nombre + '</span>' +
@@ -8413,7 +8479,7 @@
                     _registrarLink(nombre, link);
                     var _s2ThumbHtml = _s2ThumbUrl ? '<div class="card-thumb" onclick="abrirVideo(\'' + link.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')">' +
                         '<img src="' + _s2ThumbUrl + '" alt="" loading="lazy">' +
-                        '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div></div>' : '';
+                        '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div></div>' : '<div class="card-thumb sin-video"><span>Sin video</span></div>';
                     html += '<div class="serie-card">' +
                         '<div class="serie-header"><span class="serie-nombre">' + nombre + '</span>' +
                         _s2ThumbHtml + '</div>' +
@@ -9082,7 +9148,7 @@
                                 var link = ej.link || ej[1] || '';
                                 _registrarLink(nombre, link);
                                 var thumbUrl = extraerYoutubeThumbnail(link);
-                                var thumbHtmlCt = thumbUrl ? '<img src="' + thumbUrl + '" alt="' + nombre.replace(/"/g, '&quot;') + '" loading="lazy" style="width:100%;height:clamp(150px,42vw,260px);object-fit:cover;border-radius:14px;align-self:center;cursor:pointer;border:2px solid rgba(255,255,255,0.1);" onclick="abrirVideo(\'' + link.replace(/'/g, "\'") + '\',\'' + nombre.replace(/'/g, "\'") + '\')" />' : '';
+                                var thumbHtmlCt = thumbUrl ? '<img src="' + thumbUrl + '" alt="' + nombre.replace(/"/g, '&quot;') + '" loading="lazy" style="width:100%;height:clamp(150px,42vw,260px);object-fit:cover;border-radius:14px;align-self:center;cursor:pointer;border:2px solid rgba(255,255,255,0.1);" onclick="abrirVideo(\'' + link.replace(/'/g, "\'") + '\',\'' + nombre.replace(/'/g, "\'") + '\')" />' : '<div class="thumb-sinvideo-full"><span>Sin video</span></div>';
                                 var conCargaCt = !!((ej.con_carga === true) || _obtenerConCarga(nombre));
                                 var pesoHtmlBloqueCt = conCargaCt ? crearPesoRow(nombre, 'ctfs-peso-' + idxCt) : '';
                                 ejsHtml += '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:12px 14px;background:rgba(255,255,255,0.06);border-radius:14px;margin-bottom:8px;">' +
@@ -9501,7 +9567,7 @@
                                 var tUrl = extraerYoutubeThumbnail(l);
                                 var safeL = l.replace(/'/g, "\\'");
                                 var safeN = n.replace(/'/g, "\\'");
-                                var tHtml = tUrl ? '<img src="' + tUrl + '" alt="" style="width:100%;height:clamp(150px,42vw,260px);object-fit:cover;border-radius:14px;align-self:center;cursor:pointer;border:2px solid rgba(255,255,255,0.15);" onclick="abrirVideo(\'' + safeL + '\',\'' + safeN + '\')">' : '';
+                                var tHtml = tUrl ? '<img src="' + tUrl + '" alt="" style="width:100%;height:clamp(150px,42vw,260px);object-fit:cover;border-radius:14px;align-self:center;cursor:pointer;border:2px solid rgba(255,255,255,0.15);" onclick="abrirVideo(\'' + safeL + '\',\'' + safeN + '\')">' : '<div class="thumb-sinvideo-full"><span>Sin video</span></div>';
                                 var conCargaEm = !!(ej.con_carga || _obtenerConCarga(n));
                                 var pesoHtmlEm = conCargaEm ? crearPesoRow(n, 'emomfs-peso-' + idxEm) : '';
                                 return '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;margin-bottom:10px;background:rgba(255,255,255,0.05);border-radius:14px;padding:10px 12px;">' +
@@ -10095,7 +10161,7 @@
                                 var tUrl = extraerYoutubeThumbnail(l);
                                 var safeL = l.replace(/'/g, "\\'");
                                 var safeN = n.replace(/'/g, "\\'");
-                                var tHtml = tUrl ? '<img src="' + tUrl + '" alt="" style="width:100px;height:100px;object-fit:cover;border-radius:12px;flex-shrink:0;cursor:pointer;border:2px solid rgba(255,255,255,0.15);" onclick="abrirVideo(\'' + safeL + '\',\'' + safeN + '\')">' : '';
+                                var tHtml = tUrl ? '<img src="' + tUrl + '" alt="" style="width:100px;height:100px;object-fit:cover;border-radius:12px;flex-shrink:0;cursor:pointer;border:2px solid rgba(255,255,255,0.15);" onclick="abrirVideo(\'' + safeL + '\',\'' + safeN + '\')">' : '<div class="thumb-sinvideo-square"><span>Sin video</span></div>';
                                 return '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;background:rgba(255,255,255,0.05);border-radius:12px;padding:8px 10px;">' + tHtml +
                                     '<div style="display:flex;flex-direction:column;gap:3px;">' +
                                     '<span style="color:var(--amarillo);font-weight:900;font-size:clamp(0.95rem,3vw,1.15rem);">' + n + '</span>' +
