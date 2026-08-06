@@ -1725,7 +1725,6 @@
             font-style: italic;
             line-height: 1.5;
         }
-        
         /* ─── SUMANDO EJERCICIO (rondas acumuladas) ─── */
         
         .se-ronda {
@@ -2328,6 +2327,83 @@
         
         .btn-retomar-no:active {
             background: var(--borde);
+        }
+        /* ══════════════════════════════════════════════════════════════
+           RESPONSIVE MOBILE — Tarjetas de ejercicio
+           Nombre arriba (más grande) → Video/thumb debajo → Series/Vueltas
+           (con rep y carga si corresponde) debajo → todo centrado
+           ══════════════════════════════════════════════════════════════ */
+        @media (max-width: 767px) {
+            /* ─ Tarjeta genérica de ejercicio (Circuito, Tabata, EMOM, etc.) ─ */
+            .card-ejercicio {
+                align-items: center;
+                text-align: center;
+            }
+            .card-ej-top {
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+            }
+            .card-ejercicio-nombre {
+                font-size: 1.15rem;
+                text-align: center;
+                width: 100%;
+            }
+            .card-ejercicio-meta {
+                white-space: normal;
+            }
+            .card-thumb {
+                width: 100%;
+                max-width: 280px;
+                height: auto;
+                aspect-ratio: 16 / 9;
+            }
+            .card-elemento-badge {
+                align-self: center;
+            }
+            .vueltas-grid {
+                justify-content: center;
+            }
+            .peso-row {
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+
+            /* ─ Tarjeta numerada (Tabata) ─ */
+            .card-numero-header {
+                flex-direction: column;
+                gap: 4px;
+                text-align: center;
+            }
+            .card-numero-body {
+                flex-direction: column;
+                text-align: center;
+            }
+            .card-numero-nombre {
+                font-size: 1.1rem;
+                text-align: center;
+            }
+
+            /* ─ Tarjeta de Series y Repeticiones ─ */
+            .serie-header {
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+                text-align: center;
+            }
+            .serie-nombre {
+                font-size: 1.15rem;
+                text-align: center;
+            }
+            .serie-meta {
+                justify-content: center;
+            }
+
+            /* ─ Nombre de ejercicio en el timer / cronómetro ─ */
+            #t-ejercicio-nombre {
+                font-size: 1.35rem;
+                text-align: center;
+            }
         }
     </style>
 </head>
@@ -5153,8 +5229,13 @@
                 try {
                     fetch(FIREBASE_CARGAS_URL + currentCode + "/" + path + ".json", {
                         method: "PUT",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ v: peso, t: Date.now() })
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            v: peso,
+                            t: Date.now()
+                        })
                     }).catch(function(e) {});
                 } catch (e) {}
             }
@@ -5181,7 +5262,9 @@
                         Object.keys(remoto.simple).forEach(function(norm) {
                             var entry = remoto.simple[norm];
                             if (entry && entry.v !== undefined && entry.v !== null) {
-                                try { localStorage.setItem(_pesoKey(norm), entry.v); } catch (e) {}
+                                try {
+                                    localStorage.setItem(_pesoKey(norm), entry.v);
+                                } catch (e) {}
                             }
                         });
                     }
@@ -5192,7 +5275,9 @@
                             Object.keys(porIdx).forEach(function(idx) {
                                 var entry = porIdx[idx];
                                 if (entry && entry.v !== undefined && entry.v !== null) {
-                                    try { localStorage.setItem(_pesoSerieKey(norm, idx), entry.v); } catch (e) {}
+                                    try {
+                                        localStorage.setItem(_pesoSerieKey(norm, idx), entry.v);
+                                    } catch (e) {}
                                 }
                             });
                         });
@@ -7037,7 +7122,10 @@
             function renderSumandoEjercicio(data, pTitulo, pLista, ejercicios) {
                 pTitulo.innerText = "SUMANDO EJERCICIO";
                 _tipoEntrenamientoGlobal = 'Sumando Ejercicio';
-                const bloque = { descripcion: data.descripcion, ejercicios: ejercicios };
+                const bloque = {
+                    descripcion: data.descripcion,
+                    ejercicios: ejercicios
+                };
                 pLista.innerHTML += renderSumandoEjercicioHtml(bloque, 'se-standalone', 'var(--purpura)', 1);
             }
 
