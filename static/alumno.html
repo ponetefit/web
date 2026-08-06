@@ -2169,6 +2169,16 @@
             background: var(--fondo);
             border-radius: 4px;
             overflow: hidden;
+            position: relative;
+        }
+        /* Hitos cada 25% (marcas sutiles sobre la barra) */
+        
+        .rutina-progress-track::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: linear-gradient(to right, transparent calc(25% - 1px), rgba(0, 0, 0, 0.45) calc(25% - 1px), rgba(0, 0, 0, 0.45) 25%, transparent 25%), linear-gradient(to right, transparent calc(50% - 1px), rgba(0, 0, 0, 0.45) calc(50% - 1px), rgba(0, 0, 0, 0.45) 50%, transparent 50%), linear-gradient(to right, transparent calc(75% - 1px), rgba(0, 0, 0, 0.45) calc(75% - 1px), rgba(0, 0, 0, 0.45) 75%, transparent 75%);
+            pointer-events: none;
         }
         
         .rutina-progress-fill {
@@ -2177,6 +2187,47 @@
             background: linear-gradient(90deg, var(--verde), #00e676);
             border-radius: 4px;
             transition: width 0.5s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        /* Brillo que recorre la barra cada vez que avanza */
+        
+        .rutina-progress-fill::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            width: 40%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+            transform: translateX(-150%);
+        }
+        
+        .rutina-progress-fill.avanzando {
+            animation: rutinaPulseGlow 0.75s ease-out;
+        }
+        
+        .rutina-progress-fill.avanzando::after {
+            animation: rutinaShimmer 0.75s ease-out;
+        }
+        
+        @keyframes rutinaShimmer {
+            0% {
+                transform: translateX(-150%);
+            }
+            100% {
+                transform: translateX(350%);
+            }
+        }
+        
+        @keyframes rutinaPulseGlow {
+            0% {
+                box-shadow: 0 0 0 rgba(105, 240, 174, 0);
+            }
+            40% {
+                box-shadow: 0 0 10px 2px var(--verde-glow);
+            }
+            100% {
+                box-shadow: 0 0 0 rgba(105, 240, 174, 0);
+            }
         }
         /* ─── TIMER BLOQUEADO (opacidad reducida) ─── */
         
@@ -4155,6 +4206,7 @@
             // - El peso se calcula según series/vueltas/minutos/etc. de cada bloque
             var _progresoSegmentos = [];
             var _progresoSegActual = 0;
+            var _rutinaPulseTimeout = null;
 
             // Calcula el "peso" de un bloque según su tipo y cantidad de trabajo
             function _pesoBloqueProgreso(bloque) {
@@ -4408,7 +4460,20 @@
                 pct = Math.min(100, Math.max(0, pct));
                 var fillEl = document.getElementById('rutina-progress-fill');
                 var pctEl = document.getElementById('rutina-progress-pct');
-                if (fillEl) fillEl.style.width = pct.toFixed(1) + '%';
+                if (fillEl) {
+                    var pctAnterior = parseFloat(fillEl.style.width) || 0;
+                    fillEl.style.width = pct.toFixed(1) + '%';
+                    // Pequeño brillo/pulso al avanzar (no en carga inicial sin cambio real)
+                    if (pct > pctAnterior) {
+                        fillEl.classList.remove('avanzando');
+                        void fillEl.offsetWidth; // fuerza reflow para reiniciar la animación
+                        fillEl.classList.add('avanzando');
+                        clearTimeout(_rutinaPulseTimeout);
+                        _rutinaPulseTimeout = setTimeout(function() {
+                            fillEl.classList.remove('avanzando');
+                        }, 800);
+                    }
+                }
                 if (pctEl) pctEl.innerText = Math.round(pct) + '%';
 
                 // Mostrar pantalla de finalización al llegar al 100%
