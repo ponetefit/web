@@ -2014,13 +2014,16 @@
         }
         /* ─── EMOM: fila de ejercicio dentro de cada minuto ─── */
         
+        .emom-ej-item {
+            padding: 10px 14px;
+            background: var(--fondo-alt);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
         .emom-ej-row {
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 10px 14px;
-            background: var(--fondo-alt);
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
         
         .emom-ej-nombre {
@@ -5603,7 +5606,7 @@
                     (esD ? '<span style="font-size:0.65rem;color:var(--rojo);font-weight:700;">DESCANSO</span>' : '') +
                     '</div>';
                 if (!esD && ejs.length > 0) {
-                    ejs.forEach(function(ej) {
+                    ejs.forEach(function(ej, ejIdx) {
                         var n = ej.nombre || '';
                         var l = ej.link || _obtenerLinkVideo(n) || '';
                         var r = ej.reps || '';
@@ -5614,10 +5617,18 @@
                         var thumbHtml = thumbUrl ? '<div class="card-thumb" onclick="abrirVideo(\'' + l.replace(/'/g, "\'") + '\',\'' + n.replace(/'/g, "\'") + '\')">' +
                             '<img src="' + thumbUrl + '" alt="' + n.replace(/"/g, '&quot;') + '" loading="lazy">' +
                             '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div></div>' : '<span style="font-size:0.68rem;color:#888;font-style:italic;white-space:nowrap;">Sin video</span>';
-                        html += '<div class="emom-ej-row">' +
+                        var pesoHtml = '';
+                        if (ej.con_carga || _obtenerConCarga(n)) {
+                            var pid = 'peso-emom-' + mi + '-' + ejIdx;
+                            pesoHtml = crearPesoRow(n, pid);
+                        }
+                        html += '<div class="emom-ej-item">' +
+                            '<div class="emom-ej-row">' +
                             thumbHtml +
                             '<span class="emom-ej-nombre">' + n + '</span>' +
                             '<span class="emom-ej-meta">' + meta + '</span>' +
+                            '</div>' +
+                            pesoHtml +
                             '</div>';
                     });
                 }
