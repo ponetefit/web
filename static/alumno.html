@@ -2498,12 +2498,13 @@
     <!-- Overlay Pantalla Completa -->
     <div id="overlay-fullscreen">
         <div class="fs-status" id="fs-status"></div>
+        <div class="fs-ejercicio" id="fs-ejercicio"></div>
         <div id="fs-thumbnail-wrap" style="display:none;margin-bottom:10px;">
-            <img id="fs-thumbnail-img" src="" alt="" style="width:100px;height:100px;object-fit:cover;border-radius:12px;border:2px solid rgba(255,255,255,0.12);cursor:pointer;" onclick="(function(){var n=document.getElementById('fs-ejercicio').textContent;var l=_fsLinkCache[n];if(l)abrirVideo(l,n);})()"
+            <img id="fs-thumbnail-img" src="" alt="" style="width:140px;height:140px;object-fit:cover;border-radius:12px;border:2px solid rgba(255,255,255,0.12);cursor:pointer;" onclick="(function(){var n=document.getElementById('fs-ejercicio').textContent;var l=_fsLinkCache[n];if(l)abrirVideo(l,n);})()"
             />
         </div>
-        <div class="fs-ejercicio" id="fs-ejercicio"></div>
         <div class="fs-info" id="fs-info"></div>
+        <div id="fs-peso-wrap" style="display:none;margin-bottom:12px;"></div>
         <div class="fs-clock" id="fs-clock">--</div>
         <div id="fs-ejercicios-lista" style="display:none;width:90vw;max-width:500px;margin:8px auto 16px;text-align:left;"></div>
         <div class="fs-progress-bar">
@@ -3745,6 +3746,30 @@
                 }
             }
 
+            // ─── PESO EDITABLE EN PANTALLA COMPLETA ───
+            // Solo se reconstruye cuando cambia el ejercicio, para no perder
+            // el foco ni el valor que el alumno esté escribiendo.
+            var _fsPesoNombreActual = null;
+
+            function _actualizarFsPeso(nombre) {
+                var wrap = document.getElementById('fs-peso-wrap');
+                if (!wrap) return;
+                var n = (nombre || '').trim();
+                if (!n || !_obtenerConCarga(n)) {
+                    wrap.style.display = 'none';
+                    wrap.innerHTML = '';
+                    _fsPesoNombreActual = null;
+                    return;
+                }
+                if (_fsPesoNombreActual === n) {
+                    wrap.style.display = 'block';
+                    return;
+                }
+                wrap.innerHTML = crearPesoRow(n, 'fs-peso-input');
+                wrap.style.display = 'block';
+                _fsPesoNombreActual = n;
+            }
+
             function _syncFullscreen() {
                 if (!_fsActivo) return;
                 var fsStatus = document.getElementById('fs-status');
@@ -3765,6 +3790,7 @@
                     fsStatus.textContent = status ? status.textContent : '';
                     fsEj.textContent = ejNombre ? ejNombre.textContent : '';
                     _actualizarFsThumbnail(fsEj.textContent);
+                    _actualizarFsPeso(fsEj.textContent);
                     fsInfo.textContent = ejSub ? ejSub.textContent : '';
                     fsClock.textContent = clock ? clock.textContent : '--';
                     if (fill) fsFill.style.width = fill.style.width;
@@ -3796,6 +3822,7 @@
                         fsEj.innerHTML = '';
                     }
                     _actualizarFsThumbnail(''); // thumbnails ya embebidos en innerHTML
+                    _actualizarFsPeso(''); // peso ya embebido en innerHTML por ejercicio
                     fsInfo.textContent = emMin ? emMin.textContent : '';
                     fsClock.textContent = emClock ? emClock.textContent : '--';
                     if (emFill) fsFill.style.width = emFill.style.width;
@@ -3825,6 +3852,7 @@
                         fsEj.innerHTML = '';
                     }
                     _actualizarFsThumbnail(''); // thumbnails ya embebidos en innerHTML
+                    _actualizarFsPeso(''); // peso ya embebido en innerHTML por ejercicio
                     fsInfo.textContent = iInfo ? iInfo.textContent : '';
                     fsClock.textContent = iClock ? iClock.textContent : '--';
                     fsFill.style.width = '0%'; // inline no tienen progress bar
@@ -3847,6 +3875,7 @@
                     fsStatus.textContent = 'CALENTAMIENTO';
                     fsEj.textContent = wEj ? wEj.textContent : '';
                     _actualizarFsThumbnail(fsEj.textContent);
+                    _actualizarFsPeso(fsEj.textContent);
                     fsInfo.textContent = wStatus ? wStatus.textContent : '';
                     fsClock.textContent = wClock ? wClock.textContent : '--';
                     fsFill.style.width = '0%';
@@ -3861,6 +3890,7 @@
                     fsStatus.textContent = 'DESCANSO DE VUELTA';
                     fsEj.textContent = vContEl ? vContEl.textContent : '';
                     _actualizarFsThumbnail('');
+                    _actualizarFsPeso('');
                     fsInfo.textContent = 'Descansá y preparate';
                     fsClock.textContent = dcClock ? dcClock.textContent : '--';
                     fsClock.style.color = 'var(--purpura)';
@@ -3879,6 +3909,7 @@
 
                     fsStatus.textContent = ctIds.titulo || 'CIRCUITO POR TIEMPO';
                     fsEj.textContent = '';
+                    _actualizarFsPeso('');
                     fsInfo.textContent = ctBtnEl && ctBtnEl.disabled ? 'EN CURSO' : 'LISTO';
                     fsClock.textContent = ctClock ? ctClock.textContent : '--';
                     fsClock.style.color = 'var(--amarillo)';
@@ -3896,11 +3927,14 @@
                             var link = ej.link || ej[1] || '';
                             _registrarLink(nombre, link);
                             var thumbUrl = extraerYoutubeThumbnail(link);
-                            var thumbHtmlInline = thumbUrl ? '<img src="' + thumbUrl + '" alt="' + nombre.replace(/"/g, '&quot;') + '" loading="lazy" style="width:100px;height:100px;object-fit:cover;border-radius:12px;flex-shrink:0;cursor:pointer;border:2px solid rgba(255,255,255,0.1);" onclick="abrirVideo(\'' + link.replace(/'/g, "\'") + '\',\'' + nombre.replace(/'/g, "\'") + '\')" />' : '';
-                            ejsHtml += '<div style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:rgba(255,255,255,0.05);border-radius:10px;margin-bottom:6px;">' +
+                            var thumbHtmlInline = thumbUrl ? '<img src="' + thumbUrl + '" alt="' + nombre.replace(/"/g, '&quot;') + '" loading="lazy" style="width:100%;max-width:220px;height:150px;object-fit:cover;border-radius:12px;align-self:center;cursor:pointer;border:2px solid rgba(255,255,255,0.1);" onclick="abrirVideo(\'' + link.replace(/'/g, "\'") + '\',\'' + nombre.replace(/'/g, "\'") + '\')" />' : '';
+                            var conCargaEjCt = !!(ej.con_carga || _obtenerConCarga(nombre));
+                            var pesoHtmlCt = conCargaEjCt ? crearPesoRow(nombre, 'fs-ct-peso-' + idx) : '';
+                            ejsHtml += '<div style="display:flex;flex-direction:column;gap:8px;padding:10px 12px;background:rgba(255,255,255,0.05);border-radius:10px;margin-bottom:6px;">' +
+                                '<span style="color:var(--texto);font-weight:700;font-size:clamp(0.85rem,2.5vw,1.1rem);">' + nombre + '</span>' +
                                 thumbHtmlInline +
-                                '<span style="flex:1;color:var(--texto);font-weight:700;font-size:clamp(0.85rem,2.5vw,1.1rem);">' + nombre + '</span>' +
                                 (reps ? '<span style="color:var(--amarillo);font-weight:900;font-size:clamp(0.85rem,2.5vw,1.1rem);white-space:nowrap;">' + reps + ' ' + unit + '</span>' : '') +
+                                pesoHtmlCt +
                                 '</div>';
                         });
                         fsEjList.innerHTML = ejsHtml;
@@ -9023,18 +9057,21 @@
                         // Renderizar lista de ejercicios
                         if (elLista && ejsBloque.length > 0) {
                             var ejsHtml = '';
-                            ejsBloque.forEach(function(ej) {
+                            ejsBloque.forEach(function(ej, idxCt) {
                                 var nombre = ej.nombre || ej[0] || '';
                                 var reps = ej.reps || ej[2] || '';
                                 var unit = (ej.unit || 'Reps').toUpperCase();
                                 var link = ej.link || ej[1] || '';
                                 _registrarLink(nombre, link);
                                 var thumbUrl = extraerYoutubeThumbnail(link);
-                                var thumbHtmlCt = thumbUrl ? '<img src="' + thumbUrl + '" alt="' + nombre.replace(/"/g, '&quot;') + '" loading="lazy" style="width:100px;height:100px;object-fit:cover;border-radius:12px;flex-shrink:0;cursor:pointer;border:2px solid rgba(255,255,255,0.1);" onclick="abrirVideo(\'' + link.replace(/'/g, "\'") + '\',\'' + nombre.replace(/'/g, "\'") + '\')" />' : '';
-                                ejsHtml += '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(255,255,255,0.06);border-radius:12px;margin-bottom:8px;">' +
+                                var thumbHtmlCt = thumbUrl ? '<img src="' + thumbUrl + '" alt="' + nombre.replace(/"/g, '&quot;') + '" loading="lazy" style="width:100%;max-width:220px;height:150px;object-fit:cover;border-radius:12px;align-self:center;cursor:pointer;border:2px solid rgba(255,255,255,0.1);" onclick="abrirVideo(\'' + link.replace(/'/g, "\'") + '\',\'' + nombre.replace(/'/g, "\'") + '\')" />' : '';
+                                var conCargaCt = !!((ej.con_carga === true) || _obtenerConCarga(nombre));
+                                var pesoHtmlBloqueCt = conCargaCt ? crearPesoRow(nombre, 'ctfs-peso-' + idxCt) : '';
+                                ejsHtml += '<div style="display:flex;flex-direction:column;gap:8px;padding:10px 14px;background:rgba(255,255,255,0.06);border-radius:12px;margin-bottom:8px;">' +
+                                    '<span style="color:#f0f0f5;font-weight:700;font-size:clamp(0.9rem,3vw,1.15rem);">' + nombre + '</span>' +
                                     thumbHtmlCt +
-                                    '<span style="flex:1;color:#f0f0f5;font-weight:700;font-size:clamp(0.9rem,3vw,1.15rem);">' + nombre + '</span>' +
                                     (reps ? '<span style="color:#FFD54F;font-weight:900;font-size:clamp(0.9rem,3vw,1.15rem);white-space:nowrap;">' + reps + ' ' + unit + '</span>' : '') +
+                                    pesoHtmlBloqueCt +
                                     '</div>';
                             });
                             elLista.innerHTML = ejsHtml;
@@ -9438,7 +9475,7 @@
                         var _emMinData = emomMinutosCiclo.length > 0 ? emomMinutosCiclo[emomMinActual % emomMinutosCiclo.length] : null;
                         ejNomEl.style.textAlign = 'left';
                         if (_emMinData && _emMinData.ejercicios && _emMinData.ejercicios.length > 0) {
-                            ejNomEl.innerHTML = _emMinData.ejercicios.map(function(ej) {
+                            ejNomEl.innerHTML = _emMinData.ejercicios.map(function(ej, idxEm) {
                                 var n = ej.nombre || '';
                                 var l = ej.link || '';
                                 var r = ej.reps || '';
@@ -9446,12 +9483,15 @@
                                 var tUrl = extraerYoutubeThumbnail(l);
                                 var safeL = l.replace(/'/g, "\\'");
                                 var safeN = n.replace(/'/g, "\\'");
-                                var tHtml = tUrl ? '<img src="' + tUrl + '" alt="" style="width:100px;height:100px;object-fit:cover;border-radius:12px;flex-shrink:0;cursor:pointer;border:2px solid rgba(255,255,255,0.15);" onclick="abrirVideo(\'' + safeL + '\',\'' + safeN + '\')">' : '';
-                                return '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;background:rgba(255,255,255,0.05);border-radius:12px;padding:8px 10px;">' + tHtml +
-                                    '<div style="display:flex;flex-direction:column;gap:3px;">' +
+                                var tHtml = tUrl ? '<img src="' + tUrl + '" alt="" style="width:100%;max-width:200px;height:130px;object-fit:cover;border-radius:12px;align-self:center;cursor:pointer;border:2px solid rgba(255,255,255,0.15);" onclick="abrirVideo(\'' + safeL + '\',\'' + safeN + '\')">' : '';
+                                var conCargaEm = !!(ej.con_carga || _obtenerConCarga(n));
+                                var pesoHtmlEm = conCargaEm ? crearPesoRow(n, 'emomfs-peso-' + idxEm) : '';
+                                return '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;background:rgba(255,255,255,0.05);border-radius:12px;padding:8px 10px;">' +
                                     '<span style="color:var(--amarillo);font-weight:900;font-size:clamp(0.95rem,3vw,1.15rem);">' + n + '</span>' +
+                                    tHtml +
                                     (r ? '<span style="color:var(--texto-suave);font-size:0.85rem;font-weight:700;">' + r + ' ' + u + '</span>' : '') +
-                                    '</div></div>';
+                                    pesoHtmlEm +
+                                    '</div>';
                             }).join('');
                         } else if (_emNomActual) {
                             ejNomEl.innerHTML = '<span style="color:var(--amarillo);font-weight:900;">' + _emNomActual + '</span>';
