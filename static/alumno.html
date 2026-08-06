@@ -317,12 +317,12 @@
         
         .card-elemento-badge {
             display: inline-block;
-            font-size: 0.65rem;
-            font-weight: 700;
+            font-size: 0.78rem;
+            font-weight: 900;
             color: var(--amarillo);
-            background: rgba(255, 213, 79, 0.12);
-            padding: 2px 8px;
-            border-radius: 6px;
+            background: rgba(255, 213, 79, 0.14);
+            padding: 4px 12px;
+            border-radius: 8px;
             letter-spacing: 0.5px;
             align-self: flex-start;
         }
@@ -354,9 +354,9 @@
         /* ─── THUMBNAIL EJERCICIO ─── */
         
         .card-thumb {
-            width: 60px;
-            height: 60px;
-            border-radius: 10px;
+            width: 92px;
+            height: 92px;
+            border-radius: 12px;
             overflow: hidden;
             flex-shrink: 0;
             background: var(--fondo);
@@ -381,8 +381,8 @@
         }
         
         .card-thumb-overlay svg {
-            width: 18px;
-            height: 18px;
+            width: 28px;
+            height: 28px;
             fill: white;
             opacity: 0.9;
             margin-left: 2px;
@@ -1904,6 +1904,55 @@
             margin-left: auto;
             white-space: nowrap;
             font-weight: 600;
+        }
+        /* ─── VUELTAS: REPS + CARGA ALINEADOS POR COLUMNA ─── */
+        
+        .vueltas-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        
+        .vuelta-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 8px 10px;
+            min-width: 64px;
+        }
+        
+        .vuelta-num {
+            color: var(--naranja);
+            font-weight: 900;
+            font-size: 0.7rem;
+            letter-spacing: 0.5px;
+        }
+        
+        .vuelta-reps {
+            font-weight: 700;
+            font-size: 0.72rem;
+            color: var(--texto);
+            white-space: nowrap;
+        }
+        
+        .vuelta-carga {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+        
+        .vuelta-carga-input {
+            width: 52px;
+        }
+        
+        .vuelta-carga-kg {
+            font-size: 0.65rem;
+            color: var(--texto-suave);
         }
         /* ─── CALORIAS EN PANTALLA FIN ─── */
         
@@ -5160,6 +5209,28 @@
                 return html;
             }
 
+            // ─── FILA DE VUELTAS: reps y carga alineados en la misma columna (V1, V2, V3...) ───
+            function crearFilaVueltas(nombreEj, repsPorVuelta, unit, baseId, conCarga) {
+                var ejU = (unit || 'REPS').toUpperCase();
+                var cols = repsPorVuelta.map(function(rv, vi) {
+                    var inputHtml = '';
+                    if (conCarga) {
+                        var ultimo = obtenerUltimoPesoSerie(nombreEj, vi);
+                        inputHtml = '<div class="vuelta-carga">\u{1F3CB}\uFE0F' +
+                            '<input type="number" class="peso-input vuelta-carga-input" id="' + baseId + '-v' + vi + '" data-peso-nombre="' + (nombreEj || '').replace(/"/g, '&quot;') + '" data-peso-idx="' + vi + '" placeholder="0" min="0" step="0.5"' +
+                            (ultimo ? ' value="' + ultimo + '"' : '') + '>' +
+                            '<span class="vuelta-carga-kg">kg</span>' +
+                            '</div>';
+                    }
+                    return '<div class="vuelta-col">' +
+                        '<span class="vuelta-num">V' + (vi + 1) + '</span>' +
+                        '<span class="vuelta-reps">' + rv + ' ' + ejU + '</span>' +
+                        inputHtml +
+                        '</div>';
+                }).join('');
+                return '<div class="vueltas-grid">' + cols + '</div>';
+            }
+
             // ─── AUTO-GUARDADO DE CARGA: funciona en TODOS los bloques ───
             // Se dispara solo con que el alumno complete/abandone el campo de peso
             // (evento "change"), sin depender de que exista un botón "Marcar" que
@@ -5399,12 +5470,12 @@
 
             var _cardCargaIdx = 0;
 
-            function crearCard(nombre, link, meta, con_carga, elemento, extraHtml) {
+            function crearCard(nombre, link, meta, con_carga, elemento, extraHtml, omitirPesoGenerico) {
                 const metaHtml = meta ? '<span class="card-ejercicio-meta">' + meta + '</span>' : '';
                 var elem = elemento || _obtenerElemento(nombre);
                 var elemHtml = elem ? '<span class="card-elemento-badge">' + elem + '</span>' : '';
                 var pesoHtml = '';
-                if (con_carga || _obtenerConCarga(nombre)) {
+                if (!omitirPesoGenerico && (con_carga || _obtenerConCarga(nombre))) {
                     var pid = 'peso-card-' + (_cardCargaIdx++);
                     pesoHtml = crearPesoRow(nombre, pid);
                 }
@@ -5585,23 +5656,18 @@
 
                         // Mostrar reps por vuelta si existen (Circuito Vueltas con reps distintas por vuelta)
                         if (!Array.isArray(ej) && ej.reps_por_vuelta && ej.reps_por_vuelta.length > 0) {
-                            var vLabels = ej.reps_por_vuelta.map(function(rv, vi) {
-                                var upV = obtenerUltimoPesoSerie(n, vi);
-                                return '<span style="color:var(--naranja);font-weight:700;font-size:0.7rem;">V' + (vi + 1) + ':</span>' +
-                                    ' <span style="font-weight:700;">' + rv + ' ' + u.toUpperCase() + '</span>' +
-                                    (upV ? ' <span style="background:rgba(255,255,255,0.08);border-radius:4px;padding:1px 4px;font-size:0.6rem;color:#ccc;font-weight:700;">' + upV + 'kg</span>' : '');
-                            }).join(' &nbsp; ');
-                            var metaExtra = desc && parseInt(desc) > 0 ? ' <span style="color:var(--texto-suave);font-size:0.7rem;">| Pausa: ' + desc + 's</span>' : '';
-                            var vPesoHtml = cc ? crearPesoRowsPorVuelta(n, ej.reps_por_vuelta.length, wupBaseId) : '';
-                            // con_carga=false para evitar peso genérico duplicado (la carga por vuelta ya está en vPesoHtml)
-                            wLista.innerHTML += crearCard(n, l, '', false, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:6px; align-items:center;">' + vLabels + metaExtra + '</div>' + vPesoHtml);
+                            var metaExtra = desc && parseInt(desc) > 0 ? '<div style="color:var(--texto-suave);font-size:0.7rem;margin-top:4px;">Pausa: ' + desc + 's</div>' : '';
+                            var vFilaHtmlW = crearFilaVueltas(n, ej.reps_por_vuelta, u, wupBaseId, cc);
+                            // omitirPesoGenerico=true para evitar peso duplicado (la carga por vuelta ya está en la grilla)
+                            wLista.innerHTML += crearCard(n, l, '', false, '', vFilaHtmlW + metaExtra, true);
 
                             // Circuito (Vueltas) con carga: mostrar reps única + inputs de carga por vuelta
                         } else if (tipo === "Circuito (Vueltas)" && cc) {
-                            var metaStr = r ? r + " " + u.toUpperCase() : "";
-                            if (desc && parseInt(desc) > 0) metaStr += (metaStr ? ' | ' : '') + 'Pausa: ' + desc + 's';
-                            var vPesoHtmlSimple = crearPesoRowsPorVuelta(n, _wVueltas, wupBaseId);
-                            wLista.innerHTML += crearCard(n, l, metaStr, false, '', vPesoHtmlSimple);
+                            var repsArrW = [];
+                            for (var _wvi = 0; _wvi < _wVueltas; _wvi++) repsArrW.push(r || '');
+                            var vFilaHtmlSimple = crearFilaVueltas(n, repsArrW, u, wupBaseId, true);
+                            var metaExtraW = desc && parseInt(desc) > 0 ? '<div style="color:var(--texto-suave);font-size:0.7rem;margin-top:4px;">Pausa: ' + desc + 's</div>' : '';
+                            wLista.innerHTML += crearCard(n, l, '', false, '', vFilaHtmlSimple + metaExtraW, true);
 
                             // Mostrar reps y pausa por serie si existen (Series/Reps)
                         } else if (!Array.isArray(ej) && ej.reps_por_serie && ej.reps_por_serie.length > 0) {
@@ -5616,7 +5682,7 @@
                                     '</span>';
                             }).join(' ');
                             var sPesoHtml = crearPesoRowsPorSerie(n, ej.reps_por_serie.length, wupBaseId);
-                            wLista.innerHTML += crearCard(n, l, '', cc, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:4px;">' + sRepsLabels + '</div>' + sPesoHtml);
+                            wLista.innerHTML += crearCard(n, l, '', false, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:4px;">' + sRepsLabels + '</div>' + sPesoHtml, true);
                         } else {
                             var metaStr = r ? r + " " + u.toUpperCase() : "";
                             if (desc && parseInt(desc) > 0) metaStr += (metaStr ? ' | ' : '') + 'Pausa: ' + desc + 's';
@@ -6862,15 +6928,14 @@
                         var ejU = (ej.unit || "Reps").toUpperCase();
                         var uid = 'circ-main-b' + bIdx + '-e' + ejIdx;
                         if (ej.reps_por_vuelta && ej.reps_por_vuelta.length > 0) {
-                            var vLabels = ej.reps_por_vuelta.map(function(rv, vi) {
-                                return '<span style="color:var(--naranja);font-weight:700;font-size:0.7rem;">V' + (vi + 1) + ':</span> <span style="font-weight:700;">' + rv + ' ' + ejU + '</span>';
-                            }).join(' &nbsp; ');
-                            var vCargaHtml = (ej.con_carga || _obtenerConCarga(ej.nombre)) ? crearPesoRowsPorVuelta(ej.nombre, ej.reps_por_vuelta.length, uid) : '';
-                            pLista.innerHTML += crearCard(ej.nombre, ej.link, '', false, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:6px; align-items:center;">' + vLabels + '</div>' + vCargaHtml);
+                            var conCargaEj = !!(ej.con_carga || _obtenerConCarga(ej.nombre));
+                            var vFilaHtml = crearFilaVueltas(ej.nombre, ej.reps_por_vuelta, ejU, uid, conCargaEj);
+                            pLista.innerHTML += crearCard(ej.nombre, ej.link, '', false, '', vFilaHtml, true);
                         } else if (ej.con_carga || _obtenerConCarga(ej.nombre)) {
-                            var metaStr = ej.reps ? ej.reps + ' ' + ejU : '';
-                            var vPesoHtml = crearPesoRowsPorVuelta(ej.nombre, vBloque, uid);
-                            pLista.innerHTML += crearCard(ej.nombre, ej.link, metaStr, false, '', vPesoHtml);
+                            var repsArr = [];
+                            for (var _vi = 0; _vi < vBloque; _vi++) repsArr.push(ej.reps || '');
+                            var vFilaHtml2 = crearFilaVueltas(ej.nombre, repsArr, ejU, uid, true);
+                            pLista.innerHTML += crearCard(ej.nombre, ej.link, '', false, '', vFilaHtml2, true);
                         } else {
                             var metaStr = ej.reps ? ej.reps + ' ' + ejU : '';
                             pLista.innerHTML += crearCard(ej.nombre, ej.link, metaStr, false);
@@ -7278,13 +7343,11 @@
                             var ejU = (ej.unit || "Reps").toUpperCase();
                             // Mostrar reps por vuelta si el profesor las configuró
                             if (ej.reps_por_vuelta && ej.reps_por_vuelta.length > 0) {
-                                var vLabels = ej.reps_por_vuelta.map(function(rv, vi) {
-                                    return '<span style="color:var(--naranja);font-weight:700;font-size:0.7rem;">V' + (vi + 1) + ':</span> <span style="font-weight:700;">' + rv + ' ' + ejU + '</span>';
-                                }).join(' &nbsp; ');
-                                var descExtra = ej.descanso && parseInt(ej.descanso) > 0 ? ' <span style="color:var(--texto-suave);font-size:0.7rem;">| Pausa: ' + ej.descanso + 's</span>' : '';
-                                var vCargaHtml = (ej.con_carga || _obtenerConCarga(ej.nombre)) ? crearPesoRowsPorVuelta(ej.nombre, ej.reps_por_vuelta.length, uid + '-circ-v-' + (b.id || 1) + '-' + (ej.nombre || '').replace(/\s/g, '')) : '';
-                                // con_carga=false para evitar peso genérico duplicado (la carga por vuelta ya está arriba)
-                                html += crearCard(ej.nombre, ej.link, '', false, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:6px; align-items:center;">' + vLabels + descExtra + '</div>' + vCargaHtml);
+                                var descExtra = ej.descanso && parseInt(ej.descanso) > 0 ? '<div style="color:var(--texto-suave);font-size:0.7rem;margin-top:4px;">Pausa: ' + ej.descanso + 's</div>' : '';
+                                var conCargaEj = !!(ej.con_carga || _obtenerConCarga(ej.nombre));
+                                var vFilaHtml = crearFilaVueltas(ej.nombre, ej.reps_por_vuelta, ejU, uid + '-circ-v-' + (b.id || 1) + '-' + (ej.nombre || '').replace(/\s/g, ''), conCargaEj);
+                                // omitirPesoGenerico=true para evitar peso duplicado (la carga por vuelta ya está en la grilla)
+                                html += crearCard(ej.nombre, ej.link, '', false, '', vFilaHtml + descExtra, true);
                             } else {
                                 var metaStr = (ej.reps || "") + " " + ejU;
                                 if (ej.descanso && parseInt(ej.descanso) > 0) metaStr += ' | Pausa: ' + ej.descanso + 's';
