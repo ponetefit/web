@@ -6093,32 +6093,17 @@
                     (esD ? '<span style="font-size:0.65rem;color:var(--rojo);font-weight:700;">DESCANSO</span>' : '') +
                     '</div>';
                 if (!esD && ejs.length > 0) {
+                    html += '<div style="padding:6px;">';
                     ejs.forEach(function(ej, ejIdx) {
                         var n = ej.nombre || '';
                         var l = ej.link || _obtenerLinkVideo(n) || '';
                         var r = ej.reps || '';
                         var u = (ej.unit || 'Reps').toUpperCase();
-                        var meta = r ? r + ' ' + u : 'EMOM';
-                        _registrarLink(n, l);
-                        var thumbUrl = extraerYoutubeThumbnail(l);
-                        var thumbHtml = thumbUrl ? '<div class="card-thumb" onclick="abrirVideo(\'' + l.replace(/'/g, "\'") + '\',\'' + n.replace(/'/g, "\'") + '\')">' +
-                            '<img src="' + thumbUrl + '" alt="' + n.replace(/"/g, '&quot;') + '" loading="lazy">' +
-                            '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div></div>' : '<div class="card-thumb sin-video"><svg class="sinvideo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg><span>Sin video</span></div>';
-                        var pesoHtml = '';
-                        if (ej.con_carga || _obtenerConCarga(n)) {
-                            var pid = 'peso-emom-' + mi + '-' + ejIdx;
-                            pesoHtml = crearPesoRow(n, pid);
-                        }
-                        var vt = crearVideoToggle(thumbHtml);
-                        html += '<div class="emom-ej-item">' +
-                            '<div class="emom-ej-row">' +
-                            vt.wrap +
-                            '<span class="emom-ej-nombre">' + n + '</span>' + vt.btn +
-                            '<span class="emom-ej-meta">' + meta + '</span>' +
-                            '</div>' +
-                            pesoHtml +
-                            '</div>';
+                        var meta = r ? r + ' ' + u : '';
+                        var cc = ej.con_carga || _obtenerConCarga(n);
+                        html += crearCard(n, l, meta, cc);
                     });
+                    html += '</div>';
                 }
                 html += '</div>';
                 return html;
