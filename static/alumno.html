@@ -393,6 +393,14 @@
             font-weight: 700;
             white-space: nowrap;
         }
+        /* ─── META (rep/carga) AL LADO DEL NOMBRE, SIEMPRE VISIBLE, MISMO TAMAÑO QUE EL NOMBRE ─── */
+        
+        .card-ejercicio-meta-inline {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--amarillo);
+            white-space: nowrap;
+        }
         /* ─── THUMBNAIL EJERCICIO ─── */
         
         .card-thumb {
@@ -721,8 +729,8 @@
         }
         
         .serie-meta-value {
-            font-size: 1.1rem;
-            font-weight: 900;
+            font-size: 0.85rem;
+            font-weight: 700;
             color: var(--texto);
         }
         
@@ -2353,8 +2361,8 @@
         }
         
         .emom-ej-meta {
-            font-size: 0.75rem;
-            font-weight: 900;
+            font-size: 0.8rem;
+            font-weight: 700;
             color: var(--amarillo);
             white-space: nowrap;
             flex-shrink: 0;
@@ -2738,6 +2746,10 @@
                 font-size: 0.85rem;
             }
             .card-ejercicio-meta {
+                white-space: normal;
+            }
+            .card-ejercicio-meta-inline {
+                font-size: 0.85rem;
                 white-space: normal;
             }
             .card-thumb {
@@ -6126,11 +6138,12 @@
 
             // ─── ACORDEÓN: header coloreado con el nombre del ejercicio ───
             // Al tocar el header se despliega el contenido (series/reps/carga + video)
-            function crearAcordeonEjercicio(nombre, contenidoHtml) {
+            function crearAcordeonEjercicio(nombre, contenidoHtml, metaInline) {
                 var id = 'vidw-' + (_vidToggleIdx++);
+                var metaSpan = metaInline ? ' <span class="card-ejercicio-meta-inline">' + metaInline + '</span>' : '';
                 return '<div class="card-ej-header" onclick="toggleCardVideo(\'' + id + '\', this.querySelector(\'.card-toggle-btn\'))">' +
                     '<span type="button" class="card-toggle-btn" aria-label="Mostrar video">+</span>' +
-                    '<span class="card-ejercicio-nombre">' + nombre + '</span>' +
+                    '<span class="card-ejercicio-nombre">' + nombre + metaSpan + '</span>' +
                     '</div>' +
                     '<div id="' + id + '" class="card-video-wrap">' + contenidoHtml + '</div>';
             }
@@ -6197,7 +6210,6 @@
             var _cardCargaIdx = 0;
 
             function crearCard(nombre, link, meta, con_carga, elemento, extraHtml, omitirPesoGenerico) {
-                const metaHtml = meta ? '<div class="card-ejercicio-metabox"><span class="card-ejercicio-meta">' + meta + '</span></div>' : '';
                 var elem = elemento || _obtenerElemento(nombre);
                 var elemHtml = elem ? '<span class="card-elemento-badge">' + elem + '</span>' : '';
                 var pesoHtml = '';
@@ -6212,11 +6224,11 @@
                     '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div>' +
                     '</div>' : '<div class="card-thumb sin-video"><svg class="sinvideo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg><span>Sin video</span></div>';
                 _registrarLink(nombre, linkActual);
-                var contenido = metaHtml + elemHtml + thumbHtml + (extraHtml || '') + pesoHtml;
-                return '<div class="card-ejercicio">' + crearAcordeonEjercicio(nombre, contenido) + '</div>';
+                var contenido = elemHtml + thumbHtml + (extraHtml || '') + pesoHtml;
+                return '<div class="card-ejercicio">' + crearAcordeonEjercicio(nombre, contenido, meta) + '</div>';
             }
 
-            function crearCardNumero(idx, total, nombre, link, con_carga, elemento) {
+            function crearCardNumero(idx, total, nombre, link, con_carga, elemento, meta) {
                 var elem = elemento || _obtenerElemento(nombre);
                 var elemHtml = elem ? '<span class="card-elemento-badge">' + elem + '</span>' : '';
                 var pesoHtml = '';
@@ -6233,7 +6245,7 @@
                 _registrarLink(nombre, linkActual);
                 var contenido = elemHtml + thumbHtml + pesoHtml;
                 var nombreConIdx = '<span class="card-numero-idx-inline">EJ ' + idx + '/' + total + '</span>' + nombre;
-                return '<div class="card-numero card-ejercicio">' + crearAcordeonEjercicio(nombreConIdx, contenido) + '</div>';
+                return '<div class="card-numero card-ejercicio">' + crearAcordeonEjercicio(nombreConIdx, contenido, meta) + '</div>';
             }
 
             // ─── RENDER CALENTAMIENTO ───
@@ -6305,11 +6317,11 @@
                     wLista.innerHTML += '<div class="info-block" style="border-color:var(--naranja);">' +
                         '<span class="info-block-titulo" style="color:var(--naranja)">' + tabTrabajoW + 's TRABAJO / ' + tabPausaW + 's DESCANSO</span>' +
                         '<span class="info-block-subtitulo">' + tabRondasW + ' RONDA(S) \u00d7 ' + tabCantidadW + ' EJERCICIOS' + (tabPausaRondasW > 0 ? ' | Pausa rondas: ' + tabPausaRondasW + 's' : '') + '</span></div>';
-                    // Cards numeradas como en entrenamiento - Tabata es por tiempo, sin carga individual
+                    // Cards numeradas como en entrenamiento - Tabata es por tiempo, se muestra el tiempo de trabajo al lado del nombre
                     ejsW.forEach(function(ej, i) {
                         const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || "");
                         const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
-                        wLista.innerHTML += crearCardNumero(i + 1, ejsW.length, n, l, false);
+                        wLista.innerHTML += crearCardNumero(i + 1, ejsW.length, n, l, false, '', tabTrabajoW + 'S');
                     });
                 } else if (tipo === "EMOM") {
                     // Info-block EMOM calentamiento
@@ -6387,8 +6399,9 @@
                         if (!Array.isArray(ej) && ej.reps_por_vuelta && ej.reps_por_vuelta.length > 0) {
                             var metaExtra = desc && parseInt(desc) > 0 ? '<div style="color:var(--texto-suave);font-size:0.7rem;margin-top:4px;">Pausa: ' + desc + 's</div>' : '';
                             var vFilaHtmlW = crearFilaVueltas(n, ej.reps_por_vuelta, u, wupBaseId, cc);
+                            var metaVueltaW = ej.reps_por_vuelta.join('-') + ' ' + u.toUpperCase();
                             // omitirPesoGenerico=true para evitar peso duplicado (la carga por vuelta ya está en la grilla)
-                            wLista.innerHTML += crearCard(n, l, '', false, '', vFilaHtmlW + metaExtra, true);
+                            wLista.innerHTML += crearCard(n, l, metaVueltaW, false, '', vFilaHtmlW + metaExtra, true);
 
                             // Circuito (Vueltas) con carga: mostrar reps única + inputs de carga por vuelta
                         } else if (tipo === "Circuito (Vueltas)" && cc) {
@@ -6396,7 +6409,8 @@
                             for (var _wvi = 0; _wvi < _wVueltas; _wvi++) repsArrW.push(r || '');
                             var vFilaHtmlSimple = crearFilaVueltas(n, repsArrW, u, wupBaseId, true);
                             var metaExtraW = desc && parseInt(desc) > 0 ? '<div style="color:var(--texto-suave);font-size:0.7rem;margin-top:4px;">Pausa: ' + desc + 's</div>' : '';
-                            wLista.innerHTML += crearCard(n, l, '', false, '', vFilaHtmlSimple + metaExtraW, true);
+                            var metaVueltaW2 = r ? r + ' ' + u.toUpperCase() + ' c/vuelta' : '';
+                            wLista.innerHTML += crearCard(n, l, metaVueltaW2, false, '', vFilaHtmlSimple + metaExtraW, true);
 
                             // Mostrar reps y pausa por serie si existen (Series/Reps)
                         } else if (!Array.isArray(ej) && ej.reps_por_serie && ej.reps_por_serie.length > 0) {
@@ -6411,7 +6425,8 @@
                                     '</span>';
                             }).join(' ');
                             var sPesoHtml = crearPesoRowsPorSerie(n, ej.reps_por_serie.length, wupBaseId);
-                            wLista.innerHTML += crearCard(n, l, '', false, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:4px;">' + sRepsLabels + '</div>' + sPesoHtml, true);
+                            var metaSerieW = ej.reps_por_serie.length + 'x' + ej.reps_por_serie[0] + ' ' + u.toUpperCase();
+                            wLista.innerHTML += crearCard(n, l, metaSerieW, false, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:4px;">' + sRepsLabels + '</div>' + sPesoHtml, true);
                         } else {
                             var metaStr = r ? r + " " + u.toUpperCase() : "";
                             if (desc && parseInt(desc) > 0) metaStr += (metaStr ? ' | ' : '') + 'Pausa: ' + desc + 's';
@@ -7703,8 +7718,9 @@
                         '<img src="' + _s1ThumbUrl + '" alt="" loading="lazy">' +
                         '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div></div>' : '<div class="card-thumb sin-video"><svg class="sinvideo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg><span>Sin video</span></div>';
                     var _s1Vt = crearVideoToggle(_s1ThumbHtml);
+                    var _s1MetaTxt = seriesN + 'x' + (haPerSerie ? ej.reps_por_serie[0] : repsN) + ' ' + (ej.unit || 'Reps').toUpperCase();
                     pLista.innerHTML += '<div class="serie-card">' +
-                        '<div class="serie-header"><span class="serie-nombre">' + ej.nombre + '</span>' + _s1Vt.btn +
+                        '<div class="serie-header"><span class="serie-nombre">' + ej.nombre + ' <span class="card-ejercicio-meta-inline">' + _s1MetaTxt + '</span></span>' + _s1Vt.btn +
                         _s1Vt.wrap + '</div>' +
                         elemHtml +
                         '<div class="serie-meta">' +
@@ -7746,12 +7762,14 @@
                         if (ej.reps_por_vuelta && ej.reps_por_vuelta.length > 0) {
                             var conCargaEj = !!(ej.con_carga || _obtenerConCarga(ej.nombre));
                             var vFilaHtml = crearFilaVueltas(ej.nombre, ej.reps_por_vuelta, ejU, uid, conCargaEj);
-                            pLista.innerHTML += crearCard(ej.nombre, ej.link, '', false, '', vFilaHtml, true);
+                            var metaVuelta = ej.reps_por_vuelta.join('-') + ' ' + ejU;
+                            pLista.innerHTML += crearCard(ej.nombre, ej.link, metaVuelta, false, '', vFilaHtml, true);
                         } else if (ej.con_carga || _obtenerConCarga(ej.nombre)) {
                             var repsArr = [];
                             for (var _vi = 0; _vi < vBloque; _vi++) repsArr.push(ej.reps || '');
                             var vFilaHtml2 = crearFilaVueltas(ej.nombre, repsArr, ejU, uid, true);
-                            pLista.innerHTML += crearCard(ej.nombre, ej.link, '', false, '', vFilaHtml2, true);
+                            var metaVuelta2 = ej.reps ? ej.reps + ' ' + ejU + ' c/vuelta' : '';
+                            pLista.innerHTML += crearCard(ej.nombre, ej.link, metaVuelta2, false, '', vFilaHtml2, true);
                         } else {
                             var metaStr = ej.reps ? ej.reps + ' ' + ejU : '';
                             pLista.innerHTML += crearCard(ej.nombre, ej.link, metaStr, false);
@@ -7890,11 +7908,11 @@
                     pLista.innerHTML += '<div class="bloque-descripcion">' + data.descripcion + '</div>';
                 }
 
-                // Tabata es por tiempo: no se muestran reps ni carga individual (es por tiempo)
+                // Tabata es por tiempo: se muestra el tiempo de trabajo al lado del nombre (sin reps/carga individual)
                 ejercicios.forEach(function(ej, i) {
                     const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || "");
                     const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
-                    pLista.innerHTML += crearCardNumero(i + 1, ejercicios.length, n, l, false);
+                    pLista.innerHTML += crearCardNumero(i + 1, ejercicios.length, n, l, false, '', config.trabajo + 'S');
                 });
             }
 
@@ -8165,8 +8183,9 @@
                                 var descExtra = ej.descanso && parseInt(ej.descanso) > 0 ? '<div style="color:var(--texto-suave);font-size:0.7rem;margin-top:4px;">Pausa: ' + ej.descanso + 's</div>' : '';
                                 var conCargaEj = !!(ej.con_carga || _obtenerConCarga(ej.nombre));
                                 var vFilaHtml = crearFilaVueltas(ej.nombre, ej.reps_por_vuelta, ejU, uid + '-circ-v-' + (b.id || 1) + '-' + (ej.nombre || '').replace(/\s/g, ''), conCargaEj);
+                                var metaVueltaMix = ej.reps_por_vuelta.join('-') + ' ' + ejU;
                                 // omitirPesoGenerico=true para evitar peso duplicado (la carga por vuelta ya está en la grilla)
-                                html += crearCard(ej.nombre, ej.link, '', false, '', vFilaHtml + descExtra, true);
+                                html += crearCard(ej.nombre, ej.link, metaVueltaMix, false, '', vFilaHtml + descExtra, true);
                             } else {
                                 var metaStr = (ej.reps || "") + " " + ejU;
                                 if (ej.descanso && parseInt(ej.descanso) > 0) metaStr += ' | Pausa: ' + ej.descanso + 's';
@@ -8286,7 +8305,7 @@
                         const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || "");
                         const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
                         const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
-                        htmlTab += crearCardNumero(i + 1, rutinaTab.length, n, l, cc);
+                        htmlTab += crearCardNumero(i + 1, rutinaTab.length, n, l, cc, '', tc.trabajo + 'S');
                     });
                     htmlTab += '<button class="btn-principal" id="' + uid + '-tab-start-btn" style="background:linear-gradient(135deg,var(--naranja),#d35400); margin-top:16px; width:100%;" ' +
                         'onclick="iniciarTabataMixEnUI(' + (idx - 1) + ')">INICIAR TABATA</button></div>';
@@ -8835,11 +8854,11 @@
                     pausaId = uid + "-pausa";
                 let html = '<div class="mix-seccion" style="border-color:var(--naranja);">' +
                     '<div class="mix-seccion-titulo" style="color:var(--naranja);">TABATA — ' + tc.trabajo + 's / ' + tc.pausa + 's | ' + tc.rondas + ' ronda(s) × ' + (tc.cantidad || 8) + ' ejercicios</div>';
-                // Tabata es por tiempo - sin carga individual
+                // Tabata es por tiempo - se muestra el tiempo de trabajo al lado del nombre
                 rutina.forEach(function(ej, i) {
                     const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej);
                     const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
-                    html += crearCardNumero(i + 1, rutina.length, n, l, false);
+                    html += crearCardNumero(i + 1, rutina.length, n, l, false, '', tc.trabajo + 'S');
                 });
                 html += '<div class="emom-inline-box">' +
                     '<div id="' + statusId + '" style="font-size:0.7rem; font-weight:900; letter-spacing:3px; color:var(--naranja);">LISTO PARA TABATA</div>' +
