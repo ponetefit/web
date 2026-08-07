@@ -6318,11 +6318,11 @@
                     wLista.innerHTML += '<div class="info-block" style="border-color:var(--naranja);">' +
                         '<span class="info-block-titulo" style="color:var(--naranja)">' + tabTrabajoW + 's TRABAJO / ' + tabPausaW + 's DESCANSO</span>' +
                         '<span class="info-block-subtitulo">' + tabRondasW + ' RONDA(S) \u00d7 ' + tabCantidadW + ' EJERCICIOS' + (tabPausaRondasW > 0 ? ' | Pausa rondas: ' + tabPausaRondasW + 's' : '') + '</span></div>';
-                    // Cards numeradas como en entrenamiento - Tabata es por tiempo, se muestra el tiempo de trabajo al lado del nombre
+                    // Cards numeradas como en entrenamiento - Tabata es por tiempo, sin carga individual (el tiempo ya se ve arriba)
                     ejsW.forEach(function(ej, i) {
                         const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || "");
                         const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
-                        wLista.innerHTML += crearCardNumero(i + 1, ejsW.length, n, l, false, '', tabTrabajoW + 'S');
+                        wLista.innerHTML += crearCardNumero(i + 1, ejsW.length, n, l, false);
                     });
                 } else if (tipo === "EMOM") {
                     // Info-block EMOM calentamiento
@@ -7910,11 +7910,11 @@
                     pLista.innerHTML += '<div class="bloque-descripcion">' + data.descripcion + '</div>';
                 }
 
-                // Tabata es por tiempo: se muestra el tiempo de trabajo al lado del nombre (sin reps/carga individual)
+                // Tabata es por tiempo: no se muestran reps ni carga individual (el tiempo ya se ve arriba en el bloque)
                 ejercicios.forEach(function(ej, i) {
                     const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || "");
                     const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
-                    pLista.innerHTML += crearCardNumero(i + 1, ejercicios.length, n, l, false, '', config.trabajo + 'S');
+                    pLista.innerHTML += crearCardNumero(i + 1, ejercicios.length, n, l, false);
                 });
             }
 
@@ -8307,7 +8307,7 @@
                         const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || "");
                         const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
                         const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
-                        htmlTab += crearCardNumero(i + 1, rutinaTab.length, n, l, cc, '', tc.trabajo + 'S');
+                        htmlTab += crearCardNumero(i + 1, rutinaTab.length, n, l, cc);
                     });
                     htmlTab += '<button class="btn-principal" id="' + uid + '-tab-start-btn" style="background:linear-gradient(135deg,var(--naranja),#d35400); margin-top:16px; width:100%;" ' +
                         'onclick="iniciarTabataMixEnUI(' + (idx - 1) + ')">INICIAR TABATA</button></div>';
@@ -8856,11 +8856,11 @@
                     pausaId = uid + "-pausa";
                 let html = '<div class="mix-seccion" style="border-color:var(--naranja);--card-color:var(--naranja);">' +
                     '<div class="mix-seccion-titulo" style="color:var(--naranja);">TABATA — ' + tc.trabajo + 's / ' + tc.pausa + 's | ' + tc.rondas + ' ronda(s) × ' + (tc.cantidad || 8) + ' ejercicios</div>';
-                // Tabata es por tiempo - se muestra el tiempo de trabajo al lado del nombre
+                // Tabata es por tiempo - sin carga individual (el tiempo ya se ve arriba)
                 rutina.forEach(function(ej, i) {
                     const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej);
                     const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
-                    html += crearCardNumero(i + 1, rutina.length, n, l, false, '', tc.trabajo + 'S');
+                    html += crearCardNumero(i + 1, rutina.length, n, l, false);
                 });
                 html += '<div class="emom-inline-box">' +
                     '<div id="' + statusId + '" style="font-size:0.7rem; font-weight:900; letter-spacing:3px; color:var(--naranja);">LISTO PARA TABATA</div>' +
