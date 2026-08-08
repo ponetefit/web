@@ -5919,6 +5919,29 @@
                 return '<div class="vueltas-grid">' + cols + '</div>';
             }
 
+            // ─── FILA DE SERIES: mismo formato visual que crearFilaVueltas (S1, S2, S3...) ───
+            // Unifica cómo se ven reps + carga en Series con el resto de los entrenamientos
+            function crearFilaDetalleSeries(nombreEj, repsPorSerie, pausasPorSerie, unit, baseId) {
+                var ejU = (unit || 'REPS').toUpperCase();
+                var cols = repsPorSerie.map(function(rs, si) {
+                    var ultimo = obtenerUltimoPesoSerie(nombreEj, si);
+                    var inputHtml = '<div class="vuelta-carga">\u{1F3CB}\uFE0F' +
+                        '<input type="number" class="peso-input vuelta-carga-input" id="' + baseId + '-s' + si + '" data-peso-nombre="' + (nombreEj || '').replace(/"/g, '&quot;') + '" data-peso-idx="' + si + '" placeholder="0" min="0" step="0.5"' +
+                        (ultimo ? ' value="' + ultimo + '"' : '') + '>' +
+                        '<span class="vuelta-carga-kg">kg</span>' +
+                        '</div>';
+                    var pausaSi = (pausasPorSerie && pausasPorSerie[si]) || 0;
+                    var pausaHtml = pausaSi > 0 ? '<span class="vuelta-carga-kg">\u23f1\ufe0f ' + formatearTiempo(pausaSi) + '</span>' : '';
+                    return '<div class="vuelta-col">' +
+                        '<span class="vuelta-num">S' + (si + 1) + '</span>' +
+                        '<span class="vuelta-reps">' + rs + ' ' + ejU + '</span>' +
+                        inputHtml +
+                        pausaHtml +
+                        '</div>';
+                }).join('');
+                return '<div class="vueltas-grid">' + cols + '</div>';
+            }
+
             // ─── MICRO-ANIMACIÓN AL TOCAR "MARCAR SERIE/VUELTA/RONDA" ───
             // Delegado global: cualquier botón cuyo onclick invoque una función
             // "marcar..." (marcarSerie, marcarSerieConPausa, marcarSerieWarmup,
@@ -6449,19 +6472,12 @@
 
                             // Mostrar reps y pausa por serie si existen (Series/Reps)
                         } else if (!Array.isArray(ej) && ej.reps_por_serie && ej.reps_por_serie.length > 0) {
-                            var sRepsLabels = ej.reps_por_serie.map(function(rs, si) {
-                                var pausaS = (ej.pausa_por_serie && ej.pausa_por_serie[si] !== undefined) ? ej.pausa_por_serie[si] : desc;
-                                var upS = obtenerUltimoPesoSerie(n, si);
-                                return '<span style="background:rgba(105,240,174,0.08);border-radius:6px;padding:2px 6px;">' +
-                                    '<span style="color:var(--verde);font-weight:700;font-size:0.65rem;">S' + (si + 1) + '</span> ' +
-                                    '<span style="font-weight:700;">' + rs + ' ' + u.toUpperCase() + '</span>' +
-                                    (upS ? ' <span style="background:rgba(255,255,255,0.08);border-radius:4px;padding:1px 4px;font-size:0.6rem;color:#ccc;font-weight:700;">' + upS + 'kg</span>' : '') +
-                                    (pausaS && parseInt(pausaS) > 0 ? ' <span style="color:var(--verde);font-size:0.65rem;">| ' + pausaS + 's</span>' : '') +
-                                    '</span>';
-                            }).join(' ');
-                            var sPesoHtml = crearPesoRowsPorSerie(n, ej.reps_por_serie.length, wupBaseId);
+                            var pausasArrW = ej.reps_por_serie.map(function(rs, si) {
+                                return (ej.pausa_por_serie && ej.pausa_por_serie[si] !== undefined && ej.pausa_por_serie[si] !== '') ? parseInt(ej.pausa_por_serie[si]) : parseInt(desc) || 0;
+                            });
+                            var vFilaHtmlSerieW = crearFilaDetalleSeries(n, ej.reps_por_serie, pausasArrW, u, wupBaseId);
                             var metaSerieW = ej.reps_por_serie.length + 'x' + ej.reps_por_serie[0] + ' ' + u.toUpperCase();
-                            wLista.innerHTML += crearCard(n, l, metaSerieW, false, '', '<div style="font-size:0.75rem; margin-top:4px; display:flex; flex-wrap:wrap; gap:4px;">' + sRepsLabels + '</div>' + sPesoHtml, true);
+                            wLista.innerHTML += crearCard(n, l, metaSerieW, false, '', vFilaHtmlSerieW, true);
                         } else {
                             var metaStr = r ? r + " " + u.toUpperCase() : "";
                             if (desc && parseInt(desc) > 0) metaStr += (metaStr ? ' | ' : '') + 'Pausa: ' + desc + 's';
@@ -7719,40 +7735,24 @@
                         _repsPorSerieData[i] = [];
                     }
 
+                    var _repsGridS1, _pausasGridS1;
                     if (haPerSerie) {
-                        serieDetalle = '<div style="margin:8px 0 4px; font-size:0.7rem; font-weight:700; color:var(--texto-suave); text-transform:uppercase; letter-spacing:1px;">Detalle por serie:</div>' +
-                            '<div id="det-' + i + '" style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">';
-                        ej.reps_por_serie.forEach(function(rs, si) {
+                        _repsGridS1 = ej.reps_por_serie;
+                        _pausasGridS1 = ej.reps_por_serie.map(function(rs, si) {
                             var pSerie = (ej.pausa_por_serie && ej.pausa_por_serie[si] !== undefined && ej.pausa_por_serie[si] !== '') ? parseInt(ej.pausa_por_serie[si]) : pausaN;
                             if (si === 0) pausaPrimeraSerie = (pSerie > 0 ? pSerie : pausaN);
-                            var bgActivo = si === 0 ? 'rgba(105,240,174,0.25)' : 'rgba(105,240,174,0.06)';
-                            var borderActivo = si === 0 ? '1px solid rgba(105,240,174,0.6)' : '1px solid rgba(105,240,174,0.15)';
-                            var ultimoPeso = obtenerUltimoPesoSerie(ej.nombre, si);
-                            serieDetalle += '<span data-si="' + si + '" style="background:' + bgActivo + ';border:' + borderActivo + ';border-radius:8px;padding:4px 8px;white-space:nowrap;transition:background 0.3s,border 0.3s;">' +
-                                '<span style="color:var(--verde);font-weight:900;font-size:0.65rem;">S' + (si + 1) + '</span> ' +
-                                '<span style="font-weight:700;">' + rs + ' ' + (ej.unit || 'Reps') + '</span>' +
-                                (ultimoPeso ? ' <span style="background:rgba(255,255,255,0.08);border-radius:4px;padding:1px 5px;font-size:0.6rem;color:#ccc;font-weight:700;">' + ultimoPeso + 'kg</span>' : '') +
-                                (pSerie > 0 ? ' <span style="color:var(--verde);font-size:0.65rem;">· ' + formatearTiempo(pSerie) + '</span>' : '') +
-                                '</span>';
+                            return pSerie;
                         });
-                        serieDetalle += '</div>';
                     } else {
                         var seriesNI = parseInt(seriesN);
-                        serieDetalle = '<div style="margin:8px 0 4px; font-size:0.7rem; font-weight:700; color:var(--texto-suave); text-transform:uppercase; letter-spacing:1px;">Series:</div>' +
-                            '<div id="det-' + i + '" style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">';
+                        _repsGridS1 = [];
+                        _pausasGridS1 = [];
                         for (var ssi = 0; ssi < seriesNI; ssi++) {
-                            var bgSi = ssi === 0 ? 'rgba(105,240,174,0.25)' : 'rgba(105,240,174,0.06)';
-                            var borderSi = ssi === 0 ? '1px solid rgba(105,240,174,0.6)' : '1px solid rgba(105,240,174,0.15)';
-                            var upSi = obtenerUltimoPesoSerie(ej.nombre, ssi);
-                            serieDetalle += '<span data-si="' + ssi + '" style="background:' + bgSi + ';border:' + borderSi + ';border-radius:8px;padding:4px 8px;white-space:nowrap;transition:background 0.3s,border 0.3s;">' +
-                                '<span style="color:var(--verde);font-weight:900;font-size:0.65rem;">S' + (ssi + 1) + '</span> ' +
-                                '<span style="font-weight:700;">' + repsN + ' ' + (ej.unit || 'Reps') + '</span>' +
-                                (upSi ? ' <span style="background:rgba(255,255,255,0.08);border-radius:4px;padding:1px 5px;font-size:0.6rem;color:#ccc;font-weight:700;">' + upSi + 'kg</span>' : '') +
-                                (pausaN > 0 ? ' <span style="color:var(--verde);font-size:0.65rem;">· ' + formatearTiempo(pausaN) + '</span>' : '') +
-                                '</span>';
+                            _repsGridS1.push(repsN);
+                            _pausasGridS1.push(pausaN);
                         }
-                        serieDetalle += '</div>';
                     }
+                    serieDetalle = crearFilaDetalleSeries(ej.nombre, _repsGridS1, _pausasGridS1, ej.unit || 'Reps', pesoInputId);
 
                     var pausaBoton = haPerSerie ? pausaPrimeraSerie : pausaN;
 
@@ -7773,7 +7773,6 @@
                         '<div class="serie-meta-item"><span class="serie-meta-label">Descanso</span><span class="serie-meta-value" style="color:var(--verde)" id="d-val-' + i + '">' + formatearTiempo(pausaBoton) + '</span></div>' +
                         '</div>' +
                         serieDetalle +
-                        crearPesoRowsPorSerie(ej.nombre, parseInt(seriesN), pesoInputId) +
                         notaHtml +
                         '<div style="text-align:center;">' +
                         '<div class="timer-display" id="timer-' + i + '">' + formatearTiempo(pausaBoton) + '</div>' +
@@ -8986,45 +8985,28 @@
                         _repsPorSerieData[idxS] = [];
                     }
 
+                    var _repsGridS2, _pausasGridS2;
                     if (haPerSerie) {
-                        serieDetalle = '<div style="margin:8px 0 4px; font-size:0.7rem; font-weight:700; color:var(--texto-suave); text-transform:uppercase; letter-spacing:1px;">Detalle por serie:</div>' +
-                            '<div id="det-' + idxS + '" style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">';
-                        ej.reps_por_serie.forEach(function(rs, si) {
+                        _repsGridS2 = ej.reps_por_serie;
+                        _pausasGridS2 = ej.reps_por_serie.map(function(rs, si) {
                             var pSerie = (ej.pausa_por_serie && ej.pausa_por_serie[si] !== undefined && ej.pausa_por_serie[si] !== '') ? parseInt(ej.pausa_por_serie[si]) : pausaN;
                             if (si === 0) pausaPrimeraSerie = (pSerie > 0 ? pSerie : pausaN);
-                            var bgActivo = si === 0 ? 'rgba(105,240,174,0.25)' : 'rgba(105,240,174,0.06)';
-                            var borderActivo = si === 0 ? '1px solid rgba(105,240,174,0.6)' : '1px solid rgba(105,240,174,0.15)';
-                            var ultimoPeso = obtenerUltimoPesoSerie(nombre, si);
-                            serieDetalle += '<span data-si="' + si + '" style="background:' + bgActivo + ';border:' + borderActivo + ';border-radius:8px;padding:4px 8px;white-space:nowrap;transition:background 0.3s,border 0.3s;">' +
-                                '<span style="color:var(--verde);font-weight:900;font-size:0.65rem;">S' + (si + 1) + '</span> ' +
-                                '<span style="font-weight:700;">' + rs + ' ' + (ej.unit || 'Reps') + '</span>' +
-                                (ultimoPeso ? ' <span style="background:rgba(255,255,255,0.08);border-radius:4px;padding:1px 5px;font-size:0.6rem;color:#ccc;font-weight:700;">' + ultimoPeso + 'kg</span>' : '') +
-                                (pSerie > 0 ? ' <span style="color:var(--verde);font-size:0.65rem;">· ' + formatearTiempo(pSerie) + '</span>' : '') +
-                                '</span>';
+                            return pSerie;
                         });
-                        serieDetalle += '</div>';
                     } else {
-                        // Para ejercicios estándar (sin detalle por serie): mostrar cada serie con su pausa y carga
                         var seriesNI = parseInt(seriesN);
                         var pausaEjN = (ej.descanso && parseInt(ej.descanso) > 0) ? parseInt(ej.descanso) : pausaN;
-                        serieDetalle = '<div style="margin:8px 0 4px; font-size:0.7rem; font-weight:700; color:var(--texto-suave); text-transform:uppercase; letter-spacing:1px;">Series:</div>' +
-                            '<div id="det-' + idxS + '" style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">';
+                        _repsGridS2 = [];
+                        _pausasGridS2 = [];
                         for (var ssi = 0; ssi < seriesNI; ssi++) {
-                            var bgSi = ssi === 0 ? 'rgba(105,240,174,0.25)' : 'rgba(105,240,174,0.06)';
-                            var borderSi = ssi === 0 ? '1px solid rgba(105,240,174,0.6)' : '1px solid rgba(105,240,174,0.15)';
-                            var upSi = obtenerUltimoPesoSerie(nombre, ssi);
-                            serieDetalle += '<span data-si="' + ssi + '" style="background:' + bgSi + ';border:' + borderSi + ';border-radius:8px;padding:4px 8px;white-space:nowrap;transition:background 0.3s,border 0.3s;">' +
-                                '<span style="color:var(--verde);font-weight:900;font-size:0.65rem;">S' + (ssi + 1) + '</span> ' +
-                                '<span style="font-weight:700;">' + repsN + ' ' + (ej.unit || 'Reps') + '</span>' +
-                                (upSi ? ' <span style="background:rgba(255,255,255,0.08);border-radius:4px;padding:1px 5px;font-size:0.6rem;color:#ccc;font-weight:700;">' + upSi + 'kg</span>' : '') +
-                                (pausaEjN > 0 ? ' <span style="color:var(--verde);font-size:0.65rem;">· ' + formatearTiempo(pausaEjN) + '</span>' : '') +
-                                '</span>';
+                            _repsGridS2.push(repsN);
+                            _pausasGridS2.push(pausaEjN);
                         }
-                        serieDetalle += '</div>';
                         // También guardar los datos en los diccionarios globales para marcarSerieConPausa
                         _pausasPorSerieData[idxS] = [];
                         _repsPorSerieData[idxS] = [];
                     }
+                    serieDetalle = crearFilaDetalleSeries(nombre, _repsGridS2, _pausasGridS2, ej.unit || 'Reps', pesoInputId);
 
                     // Pausa a usar para el timer y el botón
                     var pausaBoton = haPerSerie ? pausaPrimeraSerie : ((ej.descanso && parseInt(ej.descanso) > 0) ? parseInt(ej.descanso) : pausaN);
@@ -9045,7 +9027,6 @@
                         '<div class="serie-meta-item"><span class="serie-meta-label">Descanso</span><span class="serie-meta-value" style="color:var(--verde)" id="d-val-' + idxS + '">' + formatearTiempo(pausaBoton) + '</span></div>' +
                         '</div>' +
                         serieDetalle +
-                        crearPesoRowsPorSerie(nombre, parseInt(seriesN), pesoInputId) +
                         notaHtml +
                         '<div style="text-align:center;"><div class="timer-display" id="timer-' + idxS + '">' + formatearTiempo(pausaBoton) + '</div>' +
                         '<button class="btn-rest" id="btn-' + idxS + '" style="background:linear-gradient(135deg,var(--verde),#1a7a4a);color:#000;" onclick="marcarSerieConPausa(' + idxS + ',' + pausaBoton + ')">Marcar Serie (' + seriesN + ' rest.)</button></div></div>';
