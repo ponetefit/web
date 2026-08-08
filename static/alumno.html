@@ -486,15 +486,26 @@
         }
         
         .card-thumb-overlay svg {
-            width: 28px;
-            height: 28px;
+            width: 22px;
+            height: 22px;
+            box-sizing: content-box;
+            padding: 14px;
             fill: white;
-            opacity: 0.9;
-            margin-left: 2px;
+            opacity: 1;
+            margin-left: 4px;
+            background: rgba(0, 0, 0, 0.55);
+            border-radius: 50%;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(255, 255, 255, 0.25);
+            transition: transform 0.15s, background 0.15s;
         }
         
         .card-thumb:active .card-thumb-overlay {
-            background: rgba(255, 107, 53, 0.35);
+            background: rgba(255, 94, 26, 0.35);
+        }
+        
+        .card-thumb:active .card-thumb-overlay svg {
+            transform: scale(0.92);
+            background: rgba(255, 94, 26, 0.75);
         }
         /* ─── BOTÓN TOGGLE VISTA SIMPLIFICADA (+/-) ─── */
         
@@ -11042,8 +11053,20 @@
             function scrollRutinaArriba() {
                 var scrollEl = document.getElementById('modal-scroll');
                 if (scrollEl) {
+                    // En vez de ir siempre al principio absoluto de la rutina,
+                    // subimos hasta el inicio del bloque/sección actual (el
+                    // bloque dentro del cual está parado el scroll).
+                    var bloques = scrollEl.querySelectorAll('.seccion-card, .bloque-mix, .mix-seccion');
+                    var destino = 0;
+                    var margen = 12; // tolerancia para considerar que ya estamos en el borde del bloque
+                    for (var i = 0; i < bloques.length; i++) {
+                        var topBloque = bloques[i].offsetTop;
+                        if (topBloque < scrollEl.scrollTop - margen) {
+                            destino = topBloque;
+                        }
+                    }
                     scrollEl.scrollTo({
-                        top: 0,
+                        top: destino,
                         behavior: 'smooth'
                     });
                 }
