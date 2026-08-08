@@ -281,6 +281,46 @@
             width: 100%;
             -webkit-overflow-scrolling: touch;
         }
+        /* ─── BOTÓN FLOTANTE "VOLVER ARRIBA" ─── */
+        
+        .btn-scroll-top {
+            position: fixed;
+            right: 18px;
+            bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--tarjeta-alt);
+            border: 1.5px solid var(--naranja);
+            color: var(--naranja);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 150;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(12px) scale(0.9);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        
+        .btn-scroll-top.visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0) scale(1);
+        }
+        
+        .btn-scroll-top:active {
+            transform: scale(0.9);
+            background: var(--naranja);
+            color: #000;
+        }
+        
+        .btn-scroll-top svg {
+            width: 22px;
+            height: 22px;
+        }
         /* ─── CARDS ─── */
         
         .seccion-card {
@@ -3272,6 +3312,11 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Botón flotante: volver arriba del scroll de la rutina -->
+            <button id="btn-scroll-top" class="btn-scroll-top" onclick="scrollRutinaArriba()" aria-label="Volver arriba" title="Volver arriba">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+            </button>
         </div>
 
         <!-- ─── PANTALLA DE FINALIZACIÓN ─── -->
@@ -5572,6 +5617,10 @@
                     render(data);
                 }
                 document.getElementById('rutina-modal').classList.add('visible');
+                var _msTop = document.getElementById('modal-scroll');
+                if (_msTop) _msTop.scrollTop = 0;
+                var _btnTopReset = document.getElementById('btn-scroll-top');
+                if (_btnTopReset) _btnTopReset.classList.remove('visible');
                 mostrarToast('Rutina cargada');
             }
 
@@ -5731,6 +5780,10 @@
                     // Mostrar pantalla de bienvenida antes de arrancar
                     _bvMostrar(data, cod);
                     document.getElementById('rutina-modal').classList.add('visible');
+                var _msTop = document.getElementById('modal-scroll');
+                if (_msTop) _msTop.scrollTop = 0;
+                var _btnTopReset = document.getElementById('btn-scroll-top');
+                if (_btnTopReset) _btnTopReset.classList.remove('visible');
                     mostrarToast('Rutina cargada');
                 } catch (e) {
                     alert("Error al conectar con la base de datos");
@@ -10970,6 +11023,32 @@
                 liberarWakeLock();
             }
 
+            // ─── BOTÓN FLOTANTE "VOLVER ARRIBA" ───
+            (function() {
+                var _scrollEl = document.getElementById('modal-scroll');
+                var _btnTop = document.getElementById('btn-scroll-top');
+                if (!_scrollEl || !_btnTop) return;
+                _scrollEl.addEventListener('scroll', function() {
+                    if (_scrollEl.scrollTop > 500) {
+                        _btnTop.classList.add('visible');
+                    } else {
+                        _btnTop.classList.remove('visible');
+                    }
+                }, {
+                    passive: true
+                });
+            })();
+
+            function scrollRutinaArriba() {
+                var scrollEl = document.getElementById('modal-scroll');
+                if (scrollEl) {
+                    scrollEl.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                    });
+                }
+            }
+
             // ─── CERRAR RUTINA ───
             function cerrar() {
                 // Limpiar sesión guardada al salir voluntariamente
@@ -11305,6 +11384,10 @@
 
                 // Mostrar modal de rutina
                 document.getElementById('rutina-modal').classList.add('visible');
+                var _msTop = document.getElementById('modal-scroll');
+                if (_msTop) _msTop.scrollTop = 0;
+                var _btnTopReset = document.getElementById('btn-scroll-top');
+                if (_btnTopReset) _btnTopReset.classList.remove('visible');
                 mostrarToast('Sesión retomada');
 
                 // Iniciar auto-save
