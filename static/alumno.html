@@ -2839,6 +2839,26 @@
         #modal-retomar.visible {
             display: flex;
         }
+
+        #modal-confirmar-generico {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 10, 12, 0.92);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            z-index: 9000;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 30px 24px;
+            animation: overlayIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        #modal-confirmar-generico.visible {
+            display: flex;
+        }
         
         .retomar-card {
             background: var(--tarjeta);
@@ -3093,6 +3113,19 @@
             <div class="retomar-btns">
                 <button class="btn-retomar-si" onclick="_retomarSesionGuardada()">Retomar Entrenamiento</button>
                 <button class="btn-retomar-no" onclick="_descartarSesionGuardada()">Empezar de Cero</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Confirmación Genérico (reemplaza confirm() nativo del navegador) -->
+    <div id="modal-confirmar-generico">
+        <div class="retomar-card">
+            <div class="retomar-emoji" id="confirmar-generico-emoji">⚠️</div>
+            <div class="retomar-titulo" id="confirmar-generico-titulo">¿Confirmar?</div>
+            <div class="retomar-msg" id="confirmar-generico-msg"></div>
+            <div class="retomar-btns">
+                <button class="btn-retomar-si" id="confirmar-generico-btn-si" style="background:linear-gradient(135deg,var(--rojo),#c0392b);box-shadow:0 8px 24px rgba(255,60,60,0.35);" onclick="_cerrarConfirmGenerico(true)">Sí, salir</button>
+                <button class="btn-retomar-no" id="confirmar-generico-btn-no" onclick="_cerrarConfirmGenerico(false)">Cancelar</button>
             </div>
         </div>
     </div>
@@ -10900,20 +10933,62 @@
                 }
             }
 
+            // ─── MODAL DE CONFIRMACIÓN GENÉRICO (reemplaza confirm() nativo) ───
+            var _confirmGenericoCallback = null;
+
+            function mostrarConfirmModal(titulo, mensaje, onConfirm, opts) {
+                opts = opts || {};
+                var modal = document.getElementById('modal-confirmar-generico');
+                if (!modal) {
+                    if (onConfirm) onConfirm();
+                    return;
+                }
+                var tituloEl = document.getElementById('confirmar-generico-titulo');
+                if (tituloEl) tituloEl.innerText = titulo || '¿Confirmar?';
+                var msgEl = document.getElementById('confirmar-generico-msg');
+                if (msgEl) msgEl.innerHTML = mensaje || '';
+                var emojiEl = document.getElementById('confirmar-generico-emoji');
+                if (emojiEl) emojiEl.innerText = opts.emoji || '⚠️';
+                var btnSi = document.getElementById('confirmar-generico-btn-si');
+                if (btnSi) btnSi.innerText = opts.textoSi || 'Sí, salir';
+                var btnNo = document.getElementById('confirmar-generico-btn-no');
+                if (btnNo) btnNo.innerText = opts.textoNo || 'Cancelar';
+                _confirmGenericoCallback = onConfirm;
+                modal.classList.add('visible');
+            }
+
+            function _cerrarConfirmGenerico(confirmado) {
+                var modal = document.getElementById('modal-confirmar-generico');
+                if (modal) modal.classList.remove('visible');
+                var cb = _confirmGenericoCallback;
+                _confirmGenericoCallback = null;
+                if (confirmado && cb) cb();
+            }
+
             function volverDeTabataMix() {
                 // Detener timer si está corriendo
                 if (timerActivo) {
-                    if (confirm('¿Salir del Tabata? El progreso de este bloque se perderá.')) {
-                        bgClearInterval(tInterval);
-                        bgClearInterval(pausaRondaInterval);
-                        timerActivo = false;
-                        timerPausado = false;
-                        desactivarTimerGlobal();
-                        detenerCoach();
-                        liberarWakeLock();
-                    } else {
-                        return;
-                    }
+                    mostrarConfirmModal(
+                        '¿Salir del Tabata?',
+                        'El progreso de este bloque se perderá.',
+                        function() {
+                            _volverDeTabataMixEjecutar();
+                        }
+                    );
+                    return;
+                }
+                _volverDeTabataMixEjecutar();
+            }
+
+            function _volverDeTabataMixEjecutar() {
+                if (timerActivo) {
+                    bgClearInterval(tInterval);
+                    bgClearInterval(pausaRondaInterval);
+                    timerActivo = false;
+                    timerPausado = false;
+                    desactivarTimerGlobal();
+                    detenerCoach();
+                    liberarWakeLock();
                 }
                 document.getElementById('sec-timer-ui').style.display = "none";
                 document.getElementById('sec-rutina-lista').style.display = "block";
@@ -10970,11 +11045,11 @@
                 function mostrarEjercicios(minIdx) {
                     var ejEl = ejId ? document.getElementById(ejId) : null;
                     if (!ejEl) return;
-                    ejEl.style.textAlign = 'left';
+                    ejEl.style.textAlign = 'center';
                     if (ciclo.length > 0) {
                         var minData = ciclo[minIdx % ciclo.length];
                         if (minData && minData.ejercicios && minData.ejercicios.length > 0) {
-                            ejEl.innerHTML = minData.ejercicios.map(function(ej) {
+                            ejEl.innerHTML = minData.ejercicios.map(function(ej, idxEmc) {
                                 var n = ej.nombre || '';
                                 var l = ej.link || '';
                                 var r = ej.reps || '';
@@ -10982,12 +11057,15 @@
                                 var tUrl = extraerYoutubeThumbnail(l);
                                 var safeL = l.replace(/'/g, "\\'");
                                 var safeN = n.replace(/'/g, "\\'");
-                                var tHtml = tUrl ? '<img src="' + tUrl + '" alt="" style="width:100px;height:100px;object-fit:cover;border-radius:12px;flex-shrink:0;cursor:pointer;border:2px solid rgba(255,255,255,0.15);" onclick="abrirVideo(\'' + safeL + '\',\'' + safeN + '\')">' : '<div class="thumb-sinvideo-square"><svg class="sinvideo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg><span>Sin video</span></div>';
-                                return '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;background:rgba(255,255,255,0.05);border-radius:12px;padding:8px 10px;">' + tHtml +
-                                    '<div style="display:flex;flex-direction:column;gap:3px;">' +
-                                    '<span style="color:var(--amarillo);font-weight:900;font-size:clamp(0.95rem,3vw,1.15rem);">' + n + '</span>' +
-                                    (r ? '<span style="color:var(--texto-suave);font-size:0.85rem;font-weight:700;">' + r + ' ' + u + '</span>' : '') +
-                                    '</div></div>';
+                                var tHtml = tUrl ? '<img src="' + tUrl + '" alt="" style="width:100%;height:clamp(150px,42vw,260px);object-fit:cover;border-radius:14px;align-self:center;cursor:pointer;border:2px solid rgba(255,255,255,0.15);" onclick="abrirVideo(\'' + safeL + '\',\'' + safeN + '\')">' : '<div class="thumb-sinvideo-full"><svg class="sinvideo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg><span>Sin video</span></div>';
+                                var conCargaEmc = !!(ej.con_carga || _obtenerConCarga(n));
+                                var pesoHtmlEmc = conCargaEmc ? crearPesoRow(n, 'emcfs-peso-' + minIdx + '-' + idxEmc) : '';
+                                return '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;margin-bottom:10px;background:rgba(255,255,255,0.05);border-radius:14px;padding:10px 12px;">' +
+                                    '<span style="color:var(--amarillo);font-weight:900;font-size:clamp(1.1rem,4.5vw,1.5rem);line-height:1.2;">' + n + '</span>' +
+                                    tHtml +
+                                    (r ? '<span style="color:var(--texto-suave);font-size:clamp(0.9rem,3vw,1.1rem);font-weight:800;">' + r + ' ' + u + '</span>' : '') +
+                                    pesoHtmlEmc +
+                                    '</div>';
                             }).join('');
                         } else {
                             ejEl.innerHTML = "";
