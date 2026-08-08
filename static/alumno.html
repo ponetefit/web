@@ -695,15 +695,16 @@
             color: var(--amarillo);
             font-weight: 700;
         }
-        /* ─── SERIE CARD ─── */
+        /* ─── SERIE CARD (Series y Repeticiones): header verde, tarjeta blanca,
+               nombre + series/reps siempre visibles, video y cargas detrás del "+" ─── */
         
         .serie-card {
-            background: linear-gradient(160deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) 45%), var(--tarjeta);
+            background: #ffffff;
             border-radius: 18px;
             margin-bottom: 14px;
-            padding: 18px;
-            border: 1px solid var(--borde);
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 -1px 0 rgba(0, 0, 0, 0.3), 0 3px 8px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14);
         }
         
         .serie-header {
@@ -712,34 +713,50 @@
             align-items: center;
             justify-content: center;
             text-align: center;
-            gap: 6px;
-            margin-bottom: 12px;
+            gap: 4px;
+            padding: 16px 44px;
+            background: linear-gradient(135deg, var(--verde), #1a7a4a);
             position: relative;
-            padding-right: 34px;
         }
         
         .serie-header .card-toggle-btn {
             position: absolute;
-            top: 0;
-            right: 0;
+            top: 50%;
+            right: 14px;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.2);
+            border: 1.5px solid #fff;
+            color: #fff;
+        }
+        
+        .serie-header .card-toggle-btn.activo {
+            background: #fff;
+            border-color: #fff;
+            color: #1a7a4a;
         }
         
         .serie-nombre {
-            font-size: 1.15rem;
+            font-size: 1.1rem;
             font-weight: 900;
             flex: 1;
             display: block;
             width: 100%;
             text-align: center;
+            color: #fff;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+        }
+        
+        .serie-body {
+            padding: 14px 16px 16px;
         }
         
         .serie-meta {
             display: flex;
-            gap: 12px;
+            gap: 10px;
             background: var(--fondo-alt);
-            padding: 12px 16px;
+            padding: 12px 14px;
             border-radius: 12px;
-            margin-bottom: 12px;
+            margin-bottom: 4px;
         }
         
         .serie-meta-item {
@@ -761,6 +778,20 @@
             font-size: 1.1rem;
             font-weight: 900;
             color: var(--texto);
+        }
+        /* ─── Panel oscuro que aparece al tocar "+": video + cargas por serie ─── */
+        
+        .serie-card .card-video-wrap.abierto {
+            background: var(--tarjeta-alt);
+            border: 1px solid var(--borde-sutil);
+            border-radius: 12px;
+            margin-top: 10px;
+            padding: 12px;
+        }
+        
+        .serie-card .timer-display {
+            color: #1a7a4a;
+            text-shadow: none;
         }
         
         .timer-display {
@@ -7761,23 +7792,22 @@
                     var _s1ThumbHtml = _s1ThumbUrl ? '<div class="card-thumb" onclick="abrirVideo(\'' + (ej.link || '').replace(/'/g, "\\'") + '\', \'' + (ej.nombre || '').replace(/'/g, "\\'") + '\')">' +
                         '<img src="' + _s1ThumbUrl + '" alt="" loading="lazy">' +
                         '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div></div>' : '<div class="card-thumb sin-video"><svg class="sinvideo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg><span>Sin video</span></div>';
-                    var _s1Vt = crearVideoToggle(_s1ThumbHtml);
-                    var _s1MetaTxt = seriesN + 'x' + (haPerSerie ? ej.reps_por_serie[0] : repsN) + ' ' + (ej.unit || 'Reps').toUpperCase();
+                    var _s1Vt = crearVideoToggle(_s1ThumbHtml + serieDetalle);
                     pLista.innerHTML += '<div class="serie-card">' +
-                        '<div class="serie-header"><span class="serie-nombre">' + ej.nombre + ' <span class="card-ejercicio-meta-inline">' + _s1MetaTxt + '</span></span>' + _s1Vt.btn +
-                        _s1Vt.wrap + '</div>' +
+                        '<div class="serie-header"><span class="serie-nombre">' + ej.nombre + '</span>' + _s1Vt.btn + '</div>' +
+                        '<div class="serie-body">' +
                         elemHtml +
                         '<div class="serie-meta">' +
                         '<div class="serie-meta-item"><span class="serie-meta-label">Series</span><span class="serie-meta-value" id="s-val-' + i + '">' + seriesN + '</span></div>' +
                         '<div class="serie-meta-item"><span class="serie-meta-label">' + (ej.unit || 'Reps') + '</span><span class="serie-meta-value" id="r-val-' + i + '">' + (haPerSerie ? ej.reps_por_serie[0] : repsN) + '</span></div>' +
                         '<div class="serie-meta-item"><span class="serie-meta-label">Descanso</span><span class="serie-meta-value" style="color:var(--verde)" id="d-val-' + i + '">' + formatearTiempo(pausaBoton) + '</span></div>' +
                         '</div>' +
-                        serieDetalle +
+                        _s1Vt.wrap +
                         notaHtml +
                         '<div style="text-align:center;">' +
                         '<div class="timer-display" id="timer-' + i + '">' + formatearTiempo(pausaBoton) + '</div>' +
                         '<button class="btn-rest" id="btn-' + i + '" style="background:linear-gradient(135deg,var(--verde),#1a7a4a);color:#000;" onclick="marcarSerieConPausa(' + i + ',' + pausaBoton + ')">Marcar Serie (' + seriesN + ' rest.)</button>' +
-                        '</div></div>';
+                        '</div></div></div>';
                 });
             }
 
@@ -9016,20 +9046,20 @@
                     var _s2ThumbHtml = _s2ThumbUrl ? '<div class="card-thumb" onclick="abrirVideo(\'' + link.replace(/'/g, "\\'") + '\', \'' + (nombre || '').replace(/'/g, "\\'") + '\')">' +
                         '<img src="' + _s2ThumbUrl + '" alt="" loading="lazy">' +
                         '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div></div>' : '<div class="card-thumb sin-video"><svg class="sinvideo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg><span>Sin video</span></div>';
-                    var _s2Vt = crearVideoToggle(_s2ThumbHtml);
+                    var _s2Vt = crearVideoToggle(_s2ThumbHtml + serieDetalle);
                     html += '<div class="serie-card">' +
-                        '<div class="serie-header"><span class="serie-nombre">' + nombre + '</span>' + _s2Vt.btn +
-                        _s2Vt.wrap + '</div>' +
+                        '<div class="serie-header"><span class="serie-nombre">' + nombre + '</span>' + _s2Vt.btn + '</div>' +
+                        '<div class="serie-body">' +
                         elemHtml +
                         '<div class="serie-meta">' +
                         '<div class="serie-meta-item"><span class="serie-meta-label">Series</span><span class="serie-meta-value" id="s-val-' + idxS + '">' + seriesN + '</span></div>' +
                         '<div class="serie-meta-item"><span class="serie-meta-label">' + (ej.unit || 'Reps') + '</span><span class="serie-meta-value" id="r-val-' + idxS + '">' + (haPerSerie ? ej.reps_por_serie[0] : repsN) + '</span></div>' +
                         '<div class="serie-meta-item"><span class="serie-meta-label">Descanso</span><span class="serie-meta-value" style="color:var(--verde)" id="d-val-' + idxS + '">' + formatearTiempo(pausaBoton) + '</span></div>' +
                         '</div>' +
-                        serieDetalle +
+                        _s2Vt.wrap +
                         notaHtml +
                         '<div style="text-align:center;"><div class="timer-display" id="timer-' + idxS + '">' + formatearTiempo(pausaBoton) + '</div>' +
-                        '<button class="btn-rest" id="btn-' + idxS + '" style="background:linear-gradient(135deg,var(--verde),#1a7a4a);color:#000;" onclick="marcarSerieConPausa(' + idxS + ',' + pausaBoton + ')">Marcar Serie (' + seriesN + ' rest.)</button></div></div>';
+                        '<button class="btn-rest" id="btn-' + idxS + '" style="background:linear-gradient(135deg,var(--verde),#1a7a4a);color:#000;" onclick="marcarSerieConPausa(' + idxS + ',' + pausaBoton + ')">Marcar Serie (' + seriesN + ' rest.)</button></div></div></div>';
                 });
                 html += '</div>';
                 pLista.innerHTML += html;
