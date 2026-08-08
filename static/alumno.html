@@ -8241,8 +8241,11 @@
                     ejercicios.forEach(function(bloque, bIdx) {
                         const tiempoMin = bloque.tiempo_min || 5;
                         const tiempoSeg = tiempoMin * 60;
-                        const timerId = 'ct-timer-' + bIdx;
-                        const btnId = 'ct-btn-' + bIdx;
+                        const timerId = 'blq-ct-' + bIdx;
+                        const btnId = 'blq-ct-btn-' + bIdx;
+                        const pausaId = 'blq-ct-pausa-' + bIdx;
+                        const reiniciarId = 'blq-ct-reiniciar-' + bIdx;
+                        const fsId = 'blq-ct-fs-' + bIdx;
                         const tituloBloque = 'BLOQUE ' + (bloque.id || (bIdx + 1)) + ' — ' + tiempoMin + ' MIN';
                         const ejsBloque = bloque.ejercicios || [];
 
@@ -8258,7 +8261,10 @@
                             html += crearCard(nombre, link, metaStr, cc);
                         });
                         html += '<div id="' + timerId + '" style="font-size:3rem; font-family:Roboto Mono,monospace; font-weight:700; color:#4fc3f7; text-align:center; margin:12px 0; text-shadow:0 0 20px var(--azul-glow);">' + tiempoMin + ':00</div>' +
-                            '<button id="' + btnId + '" class="btn-rest" style="background:linear-gradient(135deg,#4fc3f7,#0288d1);color:#000;" data-titulo="' + encodeURIComponent(tituloBloque) + '" data-ejercicios="' + encodeURIComponent(JSON.stringify(ejsBloque)) + '" onclick="iniciarBloqueTiempoFullscreen(\'' + timerId + '\',\'' + btnId + '\',' + tiempoSeg + ')">Iniciar Bloque</button>' +
+                            '<button id="' + btnId + '" class="btn-rest" style="background:linear-gradient(135deg,#4fc3f7,#0288d1);color:#000;" data-titulo="' + encodeURIComponent(tituloBloque) + '" data-ejercicios="' + encodeURIComponent(JSON.stringify(ejsBloque)) + '" onclick="iniciarBloqueTiempoConDescuento(\'' + timerId + '\',\'' + btnId + '\',' + tiempoSeg + ')">Iniciar Bloque</button>' +
+                            '<button id="' + pausaId + '" class="btn-pausa" style="margin-top:8px; display:none;" onclick="togglePausaBloqueTiempo(\'' + timerId + '\', document.getElementById(\'' + pausaId + '\'))">⏸ PAUSAR</button>' +
+                            '<button id="' + reiniciarId + '" class="btn-pausa" style="margin-top:8px; display:none; background:var(--tarjeta-alt); color:var(--texto-suave); border-color:var(--borde);" onclick="reiniciarBloqueTiempo(\'' + timerId + '\',\'' + btnId + '\',' + tiempoSeg + ')">↺ REINICIAR</button>' +
+                            '<button id="' + fsId + '" class="btn-fullscreen" style="margin-top:8px; display:none;" onclick="_ctAbrirFullscreen(\'' + btnId + '\',\'' + timerId + '\')">⛶ PANTALLA COMPLETA</button>' +
                             '</div>';
                         pLista.innerHTML += html;
                     });
@@ -8498,6 +8504,9 @@
                         const tiempo = b.tiempo_min || 5;
                         const timerIdVal = "mix-ct-" + bIdx;
                         const btnIdVal = "mix-ct-btn-" + bIdx;
+                        const pausaIdVal = "mix-ct-pausa-" + bIdx;
+                        const reiniciarIdVal = "mix-ct-reiniciar-" + bIdx;
+                        const fsIdVal = "mix-ct-fs-" + bIdx;
                         html += '<div style="background:var(--fondo); border-radius:12px; padding:12px; margin-bottom:12px;">' +
                             '<div style="color:var(--azul); font-weight:bold; margin-bottom:8px; font-size:0.8rem; letter-spacing:1px;">BLOQUE #' + b.id + ' — ' + tiempo + ' min</div>';
                         b.ejercicios.forEach(function(ej) {
@@ -8509,7 +8518,11 @@
                         var _mixCtEjs = b.ejercicios || [];
                         var _mixCtTitulo = 'BLOQUE #' + b.id + ' — ' + tiempo + ' min';
                         html += '<div id="' + timerIdVal + '" style="font-size:2.5rem; font-family:Roboto Mono,monospace; font-weight:700; color:var(--amarillo); text-align:center; margin:8px 0;">' + tiempo + ':00</div>' +
-                            '<button id="' + btnIdVal + '" class="btn-rest" data-titulo="' + encodeURIComponent(_mixCtTitulo) + '" data-ejercicios="' + encodeURIComponent(JSON.stringify(_mixCtEjs)) + '" onclick="iniciarBloqueTiempoFullscreen(\'' + timerIdVal + '\',\'' + btnIdVal + '\',' + (tiempo * 60) + ')">Iniciar Bloque</button></div>';
+                            '<button id="' + btnIdVal + '" class="btn-rest" data-titulo="' + encodeURIComponent(_mixCtTitulo) + '" data-ejercicios="' + encodeURIComponent(JSON.stringify(_mixCtEjs)) + '" onclick="iniciarBloqueTiempoConDescuento(\'' + timerIdVal + '\',\'' + btnIdVal + '\',' + (tiempo * 60) + ')">Iniciar Bloque</button>' +
+                            '<button id="' + pausaIdVal + '" class="btn-pausa" style="margin-top:8px; display:none;" onclick="togglePausaBloqueTiempo(\'' + timerIdVal + '\', document.getElementById(\'' + pausaIdVal + '\'))">⏸ PAUSAR</button>' +
+                            '<button id="' + reiniciarIdVal + '" class="btn-pausa" style="margin-top:8px; display:none; background:var(--tarjeta-alt); color:var(--texto-suave); border-color:var(--borde);" onclick="reiniciarBloqueTiempo(\'' + timerIdVal + '\',\'' + btnIdVal + '\',' + (tiempo * 60) + ')">↺ REINICIAR</button>' +
+                            '<button id="' + fsIdVal + '" class="btn-fullscreen" style="margin-top:8px; display:none;" onclick="_ctAbrirFullscreen(\'' + btnIdVal + '\',\'' + timerIdVal + '\')">⛶ PANTALLA COMPLETA</button>' +
+                            '</div>';
                     });
                     html += '</div>';
                     pLista.innerHTML += html;
@@ -8635,11 +8648,15 @@
                             html += crearCard(ej.nombre || ej[0] || "", ej.link || ej[1] || "", metaStr, ej.con_carga);
                         });
                         var pId = uid + "-ct-pausa-" + bIdx;
+                        var reinId = uid + "-ct-reiniciar-" + bIdx;
+                        var fsId = uid + "-ct-fs-" + bIdx;
                         var _ctEjsBloque = b.ejercicios || [];
                         var _ctTituloBloque = 'BLOQUE #' + b.id + ' — ' + tiempo + ' min';
                         html += '<div id="' + tId + '" style="font-size:2.5rem; font-family:Roboto Mono,monospace; font-weight:700; color:' + color + '; text-align:center; margin:10px 0;">' + tiempo + ':00</div>' +
-                            '<button id="' + bId + '" class="btn-rest" style="background:linear-gradient(135deg,' + color + ',#0288d1);color:#000;" data-titulo="' + encodeURIComponent(_ctTituloBloque) + '" data-ejercicios="' + encodeURIComponent(JSON.stringify(_ctEjsBloque)) + '" onclick="iniciarBloqueTiempoFullscreen(\'' + tId + '\',\'' + bId + '\',' + (tiempo * 60) + ')">Iniciar Bloque</button>' +
+                            '<button id="' + bId + '" class="btn-rest" style="background:linear-gradient(135deg,' + color + ',#0288d1);color:#000;" data-titulo="' + encodeURIComponent(_ctTituloBloque) + '" data-ejercicios="' + encodeURIComponent(JSON.stringify(_ctEjsBloque)) + '" onclick="iniciarBloqueTiempoConDescuento(\'' + tId + '\',\'' + bId + '\',' + (tiempo * 60) + ')">Iniciar Bloque</button>' +
                             '<button id="' + pId + '" class="btn-pausa" style="margin-top:8px; display:none;" onclick="togglePausaBloqueTiempo(\'' + tId + '\', document.getElementById(\'' + pId + '\'))">\u23f8 PAUSAR</button>' +
+                            '<button id="' + reinId + '" class="btn-pausa" style="margin-top:8px; display:none; background:var(--tarjeta-alt); color:var(--texto-suave); border-color:var(--borde);" onclick="reiniciarBloqueTiempo(\'' + tId + '\',\'' + bId + '\',' + (tiempo * 60) + ')">\u21ba REINICIAR</button>' +
+                            '<button id="' + fsId + '" class="btn-fullscreen" style="margin-top:8px; display:none;" onclick="_ctAbrirFullscreen(\'' + bId + '\',\'' + tId + '\')">\u26f6 PANTALLA COMPLETA</button>' +
                             '</div>';
                     });
                     if (bloque.descripcion) {
@@ -9776,9 +9793,13 @@
                 // Mostrar boton pausa asociado
                 var pausaBtnAssoc = document.getElementById('warmup-ct-pausa');
                 if (pausaBtnAssoc && timerId === 'warmup-clock') pausaBtnAssoc.style.display = 'block';
-                // Buscar boton pausa de bloque entrenamiento (id: xxx-ct-pausa-N)
+                // Buscar boton pausa / reiniciar / pantalla completa del bloque (id: xxx-ct-pausa-N, xxx-ct-reiniciar-N, xxx-ct-fs-N)
                 var pausaBtnBloque = document.getElementById(timerId.replace('-ct-', '-ct-pausa-'));
                 if (pausaBtnBloque) pausaBtnBloque.style.display = 'block';
+                var reiniciarBtnBloque = document.getElementById(timerId.replace('-ct-', '-ct-reiniciar-'));
+                if (reiniciarBtnBloque) reiniciarBtnBloque.style.display = 'block';
+                var fsBtnBloque = document.getElementById(timerId.replace('-ct-', '-ct-fs-'));
+                if (fsBtnBloque) fsBtnBloque.style.display = 'block';
 
                 // >>> COACH: Arranca el circuito + frase motivacional
                 hablarCoach('Arranca el circuito. ' + _fraseRandom(_frasesMotivacionales));
@@ -9838,6 +9859,8 @@
                         desactivarTimerGlobal();
                         if (pausaBtnAssoc && timerId === 'warmup-clock') pausaBtnAssoc.style.display = 'none';
                         if (pausaBtnBloque) pausaBtnBloque.style.display = 'none';
+                        if (reiniciarBtnBloque) reiniciarBtnBloque.style.display = 'none';
+                        if (fsBtnBloque) fsBtnBloque.style.display = 'none';
                         var _elBtnsRowFin = document.getElementById('ct-fs-btns-row');
                         if (_elBtnsRowFin) _elBtnsRowFin.style.display = 'none';
                         if (timerId === 'warmup-clock') {
@@ -9915,6 +9938,66 @@
                     iniciarBloqueTiempo(timerId, btnId, totalSeg);
                 }, {
                     showArrancamos: false
+                });
+            }
+
+            // ─── REINICIAR un bloque de Circuito por Tiempo (vuelve al tiempo total, listo para arrancar) ───
+            function reiniciarBloqueTiempo(timerId, btnId, totalSeg) {
+                bgClearInterval(bloqueTiempoIntervals[timerId]);
+                bloqueTiempoPausado[timerId] = false;
+                desactivarTimerGlobal();
+                liberarWakeLock();
+
+                var m = Math.floor(totalSeg / 60),
+                    s = totalSeg % 60;
+                var tiempoTxt = m + ':' + (s < 10 ? '0' + s : s);
+
+                var timerEl = document.getElementById(timerId);
+                if (timerEl) timerEl.innerText = tiempoTxt;
+                _marcarRelojPausado(timerId, false);
+
+                var btnEl = document.getElementById(btnId);
+                if (btnEl) {
+                    btnEl.disabled = false;
+                    btnEl.dataset.running = '0';
+                    btnEl.innerText = 'Iniciar Bloque';
+                }
+
+                var pausaBtn = document.getElementById(timerId.replace('-ct-', '-ct-pausa-'));
+                if (pausaBtn) {
+                    pausaBtn.style.display = 'none';
+                    pausaBtn.innerText = '⏸ PAUSAR';
+                }
+                var reiniciarBtn = document.getElementById(timerId.replace('-ct-', '-ct-reiniciar-'));
+                if (reiniciarBtn) reiniciarBtn.style.display = 'none';
+                var fsBtn = document.getElementById(timerId.replace('-ct-', '-ct-fs-'));
+                if (fsBtn) fsBtn.style.display = 'none';
+
+                // Si estaba en pantalla completa mostrando este bloque, cerrarla
+                if (_fsActivo && _fsTipo === 'circuito-tiempo' && _fsInlineIds && _fsInlineIds.clock === timerId) {
+                    salirFullscreen();
+                }
+
+                mostrarToast('Bloque reiniciado');
+            }
+
+            // ─── ABRIR PANTALLA COMPLETA para un bloque de Circuito por Tiempo ───
+            function _ctAbrirFullscreen(btnId, timerId) {
+                var btnEl = document.getElementById(btnId);
+                if (!btnEl) return;
+                var titulo = '';
+                var ejercicios = [];
+                try {
+                    titulo = decodeURIComponent(btnEl.dataset.titulo || '');
+                } catch (e) {}
+                try {
+                    ejercicios = JSON.parse(decodeURIComponent(btnEl.dataset.ejercicios || '[]'));
+                } catch (e) {}
+                entrarFullscreen('circuito-tiempo', {
+                    clock: timerId,
+                    btn: btnId,
+                    titulo: titulo,
+                    ejercicios: ejercicios
                 });
             }
 
