@@ -367,7 +367,8 @@
             position: relative;
         }
         
-        .card-ej-header:has(.card-numero-idx-inline) {
+        .card-ej-header:has(.card-numero-idx-inline),
+        .card-ej-header:has(.card-min-badge) {
             padding-left: 78px;
         }
         
@@ -2165,6 +2166,26 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
             z-index: 2;
         }
+        
+        .card-min-badge {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: inline-block;
+            font-size: 0.95rem;
+            font-weight: 900;
+            letter-spacing: 0.5px;
+            color: #ffffff;
+            background: var(--amarillo);
+            border: 1.5px solid #000;
+            padding: 3px 9px;
+            border-radius: 7px;
+            white-space: nowrap;
+            line-height: 1.2;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+            z-index: 2;
+        }
         /* ─── INFO BLOCKS ─── */
         
         .info-block {
@@ -2908,7 +2929,13 @@
                 left: 8px;
                 padding: 3px 8px;
             }
-            .card-ej-header:has(.card-numero-idx-inline) {
+            .card-min-badge {
+                font-size: 1.15rem;
+                left: 8px;
+                padding: 3px 8px;
+            }
+            .card-ej-header:has(.card-numero-idx-inline),
+            .card-ej-header:has(.card-min-badge) {
                 padding-left: 92px;
             }
             .card-thumb {
@@ -6289,15 +6316,16 @@
             function _emomMinutoHtml(mi, minData) {
                 var esD = minData.es_descanso || false;
                 var ejs = minData.ejercicios || [];
-                var col = esD ? 'var(--rojo)' : 'var(--amarillo)';
-                var html = '<div style="margin-bottom:10px;border-radius:12px;overflow:hidden;border:1px solid rgba(255,213,79,0.2);">';
-                // Cabecera del minuto
-                html += '<div style="background:rgba(255,213,79,0.1);padding:6px 14px;display:flex;align-items:center;gap:8px;">' +
-                    '<span style="font-size:0.65rem;font-weight:900;letter-spacing:2px;color:' + col + ';text-transform:uppercase;">MIN ' + (mi + 1) + '</span>' +
-                    (esD ? '<span style="font-size:0.65rem;color:var(--rojo);font-weight:700;">DESCANSO</span>' : '') +
-                    '</div>';
-                if (!esD && ejs.length > 0) {
-                    html += '<div style="padding:6px;">';
+                var minLabel = 'MIN ' + (mi + 1);
+                var html = '<div style="margin-bottom:10px;">';
+                if (esD) {
+                    html += '<div style="border-radius:12px;overflow:hidden;border:1px solid rgba(255,213,79,0.2);">' +
+                        '<div style="background:rgba(255,23,68,0.1);padding:6px 14px;display:flex;align-items:center;gap:8px;">' +
+                        '<span style="font-size:0.65rem;font-weight:900;letter-spacing:2px;color:var(--rojo);text-transform:uppercase;">' + minLabel + '</span>' +
+                        '<span style="font-size:0.65rem;color:var(--rojo);font-weight:700;">DESCANSO</span>' +
+                        '</div></div>';
+                } else if (ejs.length > 0) {
+                    var badge = '<span class="card-min-badge">' + minLabel + '</span>';
                     ejs.forEach(function(ej, ejIdx) {
                         var n = ej.nombre || '';
                         var l = ej.link || _obtenerLinkVideo(n) || '';
@@ -6305,9 +6333,8 @@
                         var u = (ej.unit || 'Reps').toUpperCase();
                         var meta = r ? r + ' ' + u : '';
                         var cc = ej.con_carga || _obtenerConCarga(n);
-                        html += crearCard(n, l, meta, cc);
+                        html += crearCard(n, l, meta, cc, null, '', false, badge);
                     });
-                    html += '</div>';
                 }
                 html += '</div>';
                 return html;
@@ -6398,7 +6425,7 @@
 
             var _cardCargaIdx = 0;
 
-            function crearCard(nombre, link, meta, con_carga, elemento, extraHtml, omitirPesoGenerico) {
+            function crearCard(nombre, link, meta, con_carga, elemento, extraHtml, omitirPesoGenerico, badgeHtml) {
                 var elem = elemento || _obtenerElemento(nombre);
                 var elemHtml = elem ? '<span class="card-elemento-badge">' + elem + '</span>' : '';
                 var pesoHtml = '';
@@ -6414,7 +6441,8 @@
                     '</div>' : '<div class="card-thumb sin-video"><svg class="sinvideo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg><span>Sin video</span></div>';
                 _registrarLink(nombre, linkActual);
                 var contenido = elemHtml + thumbHtml + (extraHtml || '') + pesoHtml;
-                return '<div class="card-ejercicio">' + crearAcordeonEjercicio(nombre, contenido, meta) + '</div>';
+                var nombreFinal = badgeHtml ? badgeHtml + nombre : nombre;
+                return '<div class="card-ejercicio">' + crearAcordeonEjercicio(nombreFinal, contenido, meta) + '</div>';
             }
 
             function crearCardNumero(idx, total, nombre, link, con_carga, elemento, meta) {
