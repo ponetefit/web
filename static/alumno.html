@@ -4687,6 +4687,10 @@
             // ─── ESTADO GLOBAL ───
             let nombreUsuario = "";
             let dataGlobal = null;
+            // Datos EFECTIVAMENTE renderizados en pantalla (en multi-día, esto es
+            // el día activo normalizado; en single-día, es igual a dataGlobal).
+            // Se usa para poder guardar/restaurar la sesión correctamente.
+            let _dataRenderActual = null;
             // ── MULTI-DIA ────────────────────────────────────────────────────
             let esMultidia = false;
             let diaActivo = 0; // indice del dia actualmente visible (0-based)
@@ -7954,6 +7958,7 @@
 
             // ─── RENDER PRINCIPAL ───
             function render(data) {
+                _dataRenderActual = data; // guardar referencia real para poder retomar sesión correctamente
                 _cardCargaIdx = 0;
                 renderWarmup(data);
                 inicializarProgreso(data);
@@ -11477,6 +11482,11 @@
                         codigo: currentCode,
                         nombreUsuario: nombreUsuario,
                         dataGlobal: dataGlobal,
+                        // Datos realmente renderizados (clave para multi-día: es el día
+                        // activo ya normalizado, no el objeto raíz con dia_1, dia_2...)
+                        dataRenderActual: _dataRenderActual,
+                        esMultidia: esMultidia,
+                        diaActivo: diaActivo,
                         seriesRestantes: seriesRestantes,
                         circVueltasRestantes: circVueltasRestantes,
                         progresoSegmentos: _progresoSegmentos,
@@ -11618,9 +11628,16 @@
                 currentCode = estado.codigo;
                 nombreUsuario = estado.nombreUsuario || '';
                 dataGlobal = estado.dataGlobal;
+                esMultidia = estado.esMultidia || false;
+                diaActivo = estado.diaActivo || 0;
                 _tipoEntrenamientoGlobal = estado.tipoEntrenamientoGlobal || '';
                 _tiempoInicioEntrenamiento = estado.tiempoInicioEntrenamiento || Date.now();
                 bloquesMix = estado.bloquesMixGuardados || [];
+                // IMPORTANTE: usar los datos REALMENTE renderizados (día activo en
+                // multi-día), no el objeto raíz dataGlobal, que en rutinas multi-día
+                // no tiene "tipo"/"rutina" propios y hacía que solo aparecieran
+                // algunos ejercicios sueltos en lugar del entrenamiento completo.
+                var _dataParaRetomar = estado.dataRenderActual || dataGlobal;
 
                 // Configurar header
                 var cod = currentCode;
@@ -11636,7 +11653,25 @@
                 }
 
                 // Configurar tipo tag en header
-                if (dataGlobal.tipo && dataGlobal.tipo.toUpperCase() === 'ENTRENAMIENTO' && dataGlobal.bloques && dataGlobal.bloques.length > 0) {
+                if (esMultidia) {
+                    // En multi-día usamos los datos/título del día activo, igual que iniciarDia()
+                    var _tituloDiaRetomar = _dataParaRetomar.titulo || ('Dia ' + (diaActivo + 1));
+                    document.getElementById('tipo-tag').innerText = _tituloDiaRetomar.toUpperCase();
+                    var _metodosStrRetomar = 'ENTRENAMIENTO';
+                    if (_dataParaRetomar.bloques && _dataParaRetomar.bloques.length > 0) {
+                        var _tiposRetomar = [];
+                        _dataParaRetomar.bloques.forEach(function(b) {
+                            if (b.tipo && _tiposRetomar.indexOf(b.tipo.toUpperCase()) === -1) _tiposRetomar.push(b.tipo.toUpperCase());
+                        });
+                        _metodosStrRetomar = _tiposRetomar.join(' + ');
+                    } else if (_dataParaRetomar.tipo && _dataParaRetomar.tipo !== 'ENTRENAMIENTO') {
+                        _metodosStrRetomar = _dataParaRetomar.tipo.toUpperCase();
+                    }
+                    document.getElementById('id-display').innerText = _metodosStrRetomar;
+                    // Mostrar botón "Días" en el header, como hace iniciarDia()
+                    var _btnVolverHeaderRetomar = document.getElementById('btn-volver-dias-header');
+                    if (_btnVolverHeaderRetomar) _btnVolverHeaderRetomar.style.display = 'block';
+                } else if (dataGlobal.tipo && dataGlobal.tipo.toUpperCase() === 'ENTRENAMIENTO' && dataGlobal.bloques && dataGlobal.bloques.length > 0) {
                     var _modosHeader = [];
                     for (var _mh = 0; _mh < dataGlobal.bloques.length; _mh++) {
                         var _modoH = (dataGlobal.bloques[_mh].tipo || '').toUpperCase();
@@ -11652,9 +11687,21 @@
                     document.getElementById('tipo-tag').innerText = (dataGlobal.tipo || 'ENTRENAMIENTO').toUpperCase();
                 }
 
-                // Renderizar la rutina
+                // Renderizar la rutina (usando los datos del día activo si es multi-día)
                 _pantallaFinMostrada = false;
-                render(dataGlobal);
+                render(_dataParaRetomar);
+
+                // Si es multi-día, restaurar también el callback de "día completado"
+                // (igual que hace iniciarDia()), para que al terminar se marque el día.
+                if (esMultidia) {
+                    (function() {
+                        var _tituloDiaCb = _dataParaRetomar.titulo || ('Dia ' + (diaActivo + 1));
+                        _onEntrenamientoCompletadoMultidia = function() {
+                            marcarDiaCompletado(currentCode, diaActivo);
+                            mostrarToast('!' + _tituloDiaCb + ' completado! Excelente trabajo!');
+                        };
+                    })();
+                }
 
                 // Restaurar seriesRestantes (sobreescribir los valores del render fresco)
                 if (estado.seriesRestantes) {
