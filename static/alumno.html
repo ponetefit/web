@@ -11114,24 +11114,28 @@
 
             function scrollRutinaArriba() {
                 var scrollEl = document.getElementById('modal-scroll');
-                if (scrollEl) {
-                    // En vez de ir siempre al principio absoluto de la rutina,
-                    // subimos hasta el inicio del bloque/sección actual (el
-                    // bloque dentro del cual está parado el scroll).
-                    var bloques = scrollEl.querySelectorAll('.seccion-card, .bloque-mix, .mix-seccion');
-                    var destino = 0;
-                    var margen = 12; // tolerancia para considerar que ya estamos en el borde del bloque
-                    for (var i = 0; i < bloques.length; i++) {
-                        var topBloque = bloques[i].offsetTop;
-                        if (topBloque < scrollEl.scrollTop - margen) {
-                            destino = topBloque;
-                        }
+                if (!scrollEl) return;
+                // Subimos hasta el inicio del bloque actual (donde se ve su
+                // nombre/título), no al principio absoluto de toda la rutina.
+                // Incluye tanto los bloques grandes (calentamiento, entrenamiento,
+                // bloques de un mix) como las sub-secciones con nombre propio
+                // (ej: "Circuito 2 — 3 Vueltas", "Bloque #2") para que siempre
+                // aparezca el título del bloque en el que estás parado.
+                var bloques = scrollEl.querySelectorAll('.seccion-card, .bloque-mix, .mix-seccion, .circ-bloque-header');
+                var scrollRect = scrollEl.getBoundingClientRect();
+                var destino = 0;
+                var margen = 12; // tolerancia para considerar que ya estamos en el borde del bloque
+                for (var i = 0; i < bloques.length; i++) {
+                    var rect = bloques[i].getBoundingClientRect();
+                    var topRelativo = (rect.top - scrollRect.top) + scrollEl.scrollTop;
+                    if (topRelativo < scrollEl.scrollTop - margen) {
+                        destino = topRelativo;
                     }
-                    scrollEl.scrollTo({
-                        top: destino,
-                        behavior: 'smooth'
-                    });
                 }
+                scrollEl.scrollTo({
+                    top: destino,
+                    behavior: 'smooth'
+                });
             }
 
             // ─── CERRAR RUTINA ───
