@@ -1276,6 +1276,54 @@
             text-align: center;
         }
         
+        .ct-fs-btns-row {
+            display: flex;
+            gap: 10px;
+            width: 90vw;
+            max-width: 500px;
+            margin-top: 4px;
+        }
+        
+        #ct-fs-btn-pausa {
+            flex: 1;
+            background: var(--tarjeta-alt);
+            color: #4fc3f7;
+            border: 1.5px solid #4fc3f7;
+            border-radius: 14px;
+            font-weight: 900;
+            font-size: 0.9rem;
+            padding: 14px 10px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            min-height: 52px;
+            transition: background 0.15s;
+        }
+        
+        #ct-fs-btn-pausa:active {
+            background: rgba(79, 195, 247, 0.12);
+        }
+        
+        #ct-fs-btn-reiniciar {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--texto-suave);
+            border: 1px solid var(--borde);
+            border-radius: 14px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            padding: 14px 10px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            min-height: 52px;
+            transition: background 0.15s;
+        }
+        
+        #ct-fs-btn-reiniciar:active {
+            background: rgba(255, 255, 255, 0.12);
+        }
+        
         #ct-fs-btn-salir {
             background: rgba(255, 255, 255, 0.08);
             color: var(--texto-suave);
@@ -3164,6 +3212,10 @@
         <div id="ct-fs-countdown"></div>
         <div id="ct-fs-clock" style="display:none;"></div>
         <div id="ct-fs-lista"></div>
+        <div class="ct-fs-btns-row" id="ct-fs-btns-row" style="display:none;">
+            <button id="ct-fs-btn-pausa" onclick="_ctFsTogglePausa()">⏸ PAUSAR</button>
+            <button id="ct-fs-btn-reiniciar" onclick="_ctFsReiniciar()">↺ REINICIAR</button>
+        </div>
         <button id="ct-fs-btn-salir" onclick="cerrarCtFs()" style="display:none;">✕ SALIR</button>
     </div>
 
@@ -9786,6 +9838,8 @@
                         desactivarTimerGlobal();
                         if (pausaBtnAssoc && timerId === 'warmup-clock') pausaBtnAssoc.style.display = 'none';
                         if (pausaBtnBloque) pausaBtnBloque.style.display = 'none';
+                        var _elBtnsRowFin = document.getElementById('ct-fs-btns-row');
+                        if (_elBtnsRowFin) _elBtnsRowFin.style.display = 'none';
                         if (timerId === 'warmup-clock') {
                             var _ctReinEnd = document.getElementById('warmup-ct-reiniciar');
                             if (_ctReinEnd) _ctReinEnd.style.display = 'none';
@@ -9870,6 +9924,7 @@
 
             var _ctFsActiveBtnId = null;
             var _ctFsActiveTimerId = null;
+            var _ctFsActiveTotalSeg = 0;
 
             function cerrarCtFs() {
                 var ov = document.getElementById('overlay-ct-fs');
@@ -9923,6 +9978,64 @@
                 }
             }
 
+            // ─── PAUSAR / REANUDAR el bloque activo desde la pantalla completa ───
+            function _ctFsTogglePausa() {
+                if (!_ctFsActiveTimerId) return;
+                var fsBtn = document.getElementById('ct-fs-btn-pausa');
+                togglePausaBloqueTiempo(_ctFsActiveTimerId, fsBtn);
+                _marcarRelojPausado('ct-fs-clock', bloqueTiempoPausado[_ctFsActiveTimerId]);
+                // Sincronizar el botón de pausa inline (si existe, ej. en bloques mix)
+                var inlinePausaBtn = document.getElementById(_ctFsActiveTimerId.replace('-ct-', '-ct-pausa-'));
+                if (inlinePausaBtn) {
+                    inlinePausaBtn.innerText = bloqueTiempoPausado[_ctFsActiveTimerId] ? '▶ REANUDAR' : '⏸ PAUSAR';
+                }
+            }
+
+            // ─── REINICIAR el bloque activo desde la pantalla completa ───
+            function _ctFsReiniciar() {
+                if (!_ctFsActiveTimerId || !_ctFsActiveBtnId) return;
+                var timerId = _ctFsActiveTimerId;
+                var btnId = _ctFsActiveBtnId;
+                var totalSeg = _ctFsActiveTotalSeg;
+
+                bgClearInterval(bloqueTiempoIntervals[timerId]);
+                bloqueTiempoPausado[timerId] = false;
+                desactivarTimerGlobal();
+                liberarWakeLock();
+
+                var m = Math.floor(totalSeg / 60),
+                    s = totalSeg % 60;
+                var tiempoTxt = m + ':' + (s < 10 ? '0' + s : s);
+
+                var timerEl = document.getElementById(timerId);
+                if (timerEl) timerEl.innerText = tiempoTxt;
+                _marcarRelojPausado(timerId, false);
+                _marcarRelojPausado('ct-fs-clock', false);
+
+                var btnEl = document.getElementById(btnId);
+                if (btnEl) {
+                    btnEl.disabled = false;
+                    btnEl.dataset.running = '0';
+                    btnEl.innerText = 'Iniciar Bloque';
+                }
+
+                // Ocultar / resetear botón de pausa inline (si existe, ej. bloques mix)
+                var inlinePausaBtn = document.getElementById(timerId.replace('-ct-', '-ct-pausa-'));
+                if (inlinePausaBtn) {
+                    inlinePausaBtn.style.display = 'none';
+                    inlinePausaBtn.innerText = '⏸ PAUSAR';
+                }
+                // Quitar botón "reabrir pantalla completa" si estaba
+                var reopenEl = document.getElementById(btnId + '-reopen');
+                if (reopenEl) reopenEl.remove();
+
+                // Cerrar la pantalla completa y volver a la vista normal, lista para arrancar de nuevo
+                cerrarCtFs();
+                _ctFsActiveBtnId = null;
+                _ctFsActiveTimerId = null;
+                mostrarToast('Bloque reiniciado');
+            }
+
             // ─── INICIAR BLOQUE TIEMPO CON PANTALLA COMPLETA Y CUENTA REGRESIVA ───
             function iniciarBloqueTiempoFullscreen(timerId, btnId, totalSeg) {
                 var btnEl = document.getElementById(btnId);
@@ -9944,6 +10057,7 @@
                 // Guardar referencias para poder reabrir la pantalla completa
                 _ctFsActiveBtnId = btnId;
                 _ctFsActiveTimerId = timerId;
+                _ctFsActiveTotalSeg = totalSeg;
                 // Eliminar botón reabrir anterior si existe
                 var oldReopen = document.getElementById(btnId + '-reopen');
                 if (oldReopen) oldReopen.remove();
@@ -9973,6 +10087,8 @@
                 if (elClock) elClock.style.display = 'none';
                 if (elLista) elLista.innerHTML = '';
                 if (elSalir) elSalir.style.display = 'none';
+                var elBtnsRow = document.getElementById('ct-fs-btns-row');
+                if (elBtnsRow) elBtnsRow.style.display = 'none';
 
                 // Mostrar overlay
                 ov.classList.add('visible');
@@ -10022,8 +10138,12 @@
                             elLista.innerHTML = ejsHtml;
                         }
 
-                        // Mostrar botón salir
+                        // Mostrar botón salir y los de pausa/reiniciar
                         if (elSalir) elSalir.style.display = '';
+                        var elBtnsRowShow = document.getElementById('ct-fs-btns-row');
+                        if (elBtnsRowShow) elBtnsRowShow.style.display = 'flex';
+                        var elBtnPausaShow = document.getElementById('ct-fs-btn-pausa');
+                        if (elBtnPausaShow) elBtnPausaShow.innerText = '⏸ PAUSAR';
 
                         // Iniciar el timer real
                         btnEl.dataset.running = "0";
