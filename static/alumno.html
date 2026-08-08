@@ -3155,7 +3155,6 @@
             <div class="fs-progress-fill" id="fs-progress-fill"></div>
         </div>
         <button class="fs-btn-salir" onclick="salirFullscreen()">✕ SALIR</button>
-        <button id="fs-btn-dias" onclick="salirFullscreenADias()" style="display:none;background:transparent;border:1px solid rgba(255,255,255,0.25);border-radius:10px;padding:8px 14px;color:rgba(255,255,255,0.7);font-size:0.7rem;font-weight:700;cursor:pointer;letter-spacing:1px;margin-top:8px;">&#8592; Días</button>
     </div>
 
     <!-- Overlay dedicado para Circuito por Tiempo fullscreen -->
@@ -3166,7 +3165,6 @@
         <div id="ct-fs-clock" style="display:none;"></div>
         <div id="ct-fs-lista"></div>
         <button id="ct-fs-btn-salir" onclick="cerrarCtFs()" style="display:none;">✕ SALIR</button>
-        <button id="ct-fs-btn-dias" onclick="salirFullscreenADias()" style="display:none;background:transparent;border:1px solid rgba(255,255,255,0.25);border-radius:10px;padding:8px 14px;color:rgba(255,255,255,0.7);font-size:0.7rem;font-weight:700;cursor:pointer;letter-spacing:1px;margin-top:8px;">&#8592; Días</button>
     </div>
 
     <!-- Overlay Por Tiempo fullscreen -->
@@ -3181,7 +3179,6 @@
             <button id="pt-fs-btn-pausa" onclick="_ptFsTogglePausa()">⏸ PAUSA</button>
             <button id="pt-fs-btn-volver" onclick="_ptFsCerrar()">← VOLVER</button>
         </div>
-        <button id="pt-fs-btn-dias" onclick="salirFullscreenADias()" style="display:none;background:transparent;border:1px solid rgba(255,255,255,0.25);border-radius:10px;padding:8px 14px;color:rgba(255,255,255,0.7);font-size:0.7rem;font-weight:700;cursor:pointer;letter-spacing:1px;margin-top:8px;width:100%;">&#8592; Días</button>
     </div>
 
     <!-- Overlay descanso circuito -->
@@ -4322,39 +4319,6 @@
             var _fsSyncInterval = null;
             var _fsInlineIds = null; // para inline timers: {status, ej, info, clock}
 
-            function salirFullscreenADias() {
-                // Salir de cualquier pantalla completa activa antes de volver a la lista de días
-                try {
-                    salirFullscreen();
-                } catch (e) {}
-                try {
-                    cerrarCtFs();
-                } catch (e) {}
-                try {
-                    _ptFsCerrar();
-                } catch (e) {}
-                var ovFs = document.getElementById('overlay-fullscreen');
-                if (ovFs) ovFs.classList.remove('visible');
-                var ovCt = document.getElementById('overlay-ct-fs');
-                if (ovCt) ovCt.classList.remove('visible');
-                var ovPt = document.getElementById('overlay-pt-fs');
-                if (ovPt) ovPt.classList.remove('visible');
-                volverADias();
-            }
-
-            // Sincroniza la visibilidad de los botones "← Días" dentro de las pantallas
-            // completas según si el alumno está actualmente dentro de un día de una
-            // rutina multi-día (lo detectamos por el botón "← Días" del header).
-            function _sincronizarBotonesDiasFs() {
-                var enDia = false;
-                var btnHeader = document.getElementById('btn-volver-dias-header');
-                if (btnHeader) enDia = (btnHeader.style.display === 'block');
-                ['fs-btn-dias', 'ct-fs-btn-dias', 'pt-fs-btn-dias'].forEach(function(id) {
-                    var el = document.getElementById(id);
-                    if (el) el.style.display = enDia ? 'block' : 'none';
-                });
-            }
-
             function entrarFullscreen(tipo, inlineIds) {
                 _fsTipo = tipo;
                 _fsInlineIds = inlineIds || null;
@@ -4372,7 +4336,6 @@
                     fsOverlay.classList.remove('con-ejercicios');
                 }
                 fsOverlay.classList.add('visible');
-                _sincronizarBotonesDiasFs();
 
                 // Intentar Fullscreen API nativa
                 try {
@@ -8908,7 +8871,6 @@
                 }
 
                 document.getElementById('overlay-pt-fs').classList.add('visible');
-                _sincronizarBotonesDiasFs();
 
                 // Sincronizar reloj + vueltas + log desde elementos inline
                 var srcClockId = (mode === 'warmup') ? 'warmup-clock' : (uid + '-clock');
@@ -9934,7 +9896,6 @@
             function reabrirCtFs() {
                 var ov = document.getElementById('overlay-ct-fs');
                 if (ov) ov.classList.add('visible');
-                _sincronizarBotonesDiasFs();
                 // Reactivar sync del reloj
                 if (_ctFsActiveBtnId) {
                     var timerEl = document.getElementById(_ctFsActiveTimerId);
@@ -10010,7 +9971,6 @@
 
                 // Mostrar overlay
                 ov.classList.add('visible');
-                _sincronizarBotonesDiasFs();
 
                 // Cuenta regresiva 5-4-3-2-1
                 var count = 5;
