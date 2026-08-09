@@ -10071,6 +10071,20 @@
 
             // ─── REINICIAR un bloque de Circuito por Tiempo (vuelve al tiempo total, listo para arrancar) ───
             function reiniciarBloqueTiempo(timerId, btnId, totalSeg) {
+                mostrarConfirmModal(
+                    '¿Reiniciar bloque?',
+                    'Se perderá el progreso de este bloque.',
+                    function() {
+                        _reiniciarBloqueTiempoEjecutar(timerId, btnId, totalSeg);
+                    }, {
+                        emoji: '↺',
+                        textoSi: 'Sí, reiniciar',
+                        textoNo: 'Cancelar'
+                    }
+                );
+            }
+
+            function _reiniciarBloqueTiempoEjecutar(timerId, btnId, totalSeg) {
                 bgClearInterval(bloqueTiempoIntervals[timerId]);
                 bloqueTiempoPausado[timerId] = false;
                 desactivarTimerGlobal();
@@ -10204,6 +10218,21 @@
 
             // ─── REINICIAR el bloque activo desde la pantalla completa ───
             function _ctFsReiniciar() {
+                if (!_ctFsActiveTimerId || !_ctFsActiveBtnId) return;
+                mostrarConfirmModal(
+                    '¿Reiniciar bloque?',
+                    'Se perderá el progreso de este bloque.',
+                    function() {
+                        _ctFsReiniciarEjecutar();
+                    }, {
+                        emoji: '↺',
+                        textoSi: 'Sí, reiniciar',
+                        textoNo: 'Cancelar'
+                    }
+                );
+            }
+
+            function _ctFsReiniciarEjecutar() {
                 if (!_ctFsActiveTimerId || !_ctFsActiveBtnId) return;
                 var timerId = _ctFsActiveTimerId;
                 var btnId = _ctFsActiveBtnId;
