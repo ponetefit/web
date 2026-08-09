@@ -7416,6 +7416,7 @@
             // ─── WARMUP POR TIEMPO (cronómetro ascendente con vueltas) ───
             var _wPorTiempoIv = null;
             var _wPorTiempoRunning = false;
+            var _wPorTiempoPreparando = false;
             var _wPorTiempoStart = 0;
             var _wPorTiempoVueltas = 0;
             var _wPorTiempoTotal = 0;
@@ -7423,12 +7424,32 @@
             var _wPorTiempoMotivoIv = null;
 
             function iniciarWarmupPorTiempo(totalVueltas) {
-                if (_wPorTiempoRunning) return;
+                if (_wPorTiempoRunning || _wPorTiempoPreparando) return;
                 if (hayTimerActivo()) return;
+                _wPorTiempoPreparando = true;
+                activarTimerGlobal();
+                solicitarWakeLock();
+
+                var tBtn = document.getElementById('warmup-btn');
+                var tClock = document.getElementById('warmup-clock');
+                var tStatus = document.getElementById('warmup-status');
+
+                if (tBtn) tBtn.style.display = 'none';
+
+                // ─── Cuenta regresiva 5-4-3-2-1 antes de arrancar (igual que EMOM/Tabata) ───
+                prepCountdown(tClock, tStatus, 440, function() {
+                    _wPorTiempoPreparando = false;
+                    _arrancarWarmupPorTiempo(totalVueltas);
+                }, {
+                    showArrancamos: false
+                });
+            }
+
+            function _arrancarWarmupPorTiempo(totalVueltas) {
+                if (_wPorTiempoRunning) return;
                 _wPorTiempoRunning = true;
                 _wPorTiempoTotal = totalVueltas;
                 _wPorTiempoVueltas = 0;
-                activarTimerGlobal();
                 solicitarWakeLock();
 
                 var tBtn = document.getElementById('warmup-btn');
@@ -9299,11 +9320,27 @@
             var _porTiempoState = {}; // { uid: { running, iv, motivoIv, start, lapStart, vueltas, total, lastLap } }
 
             function iniciarBloquesPorTiempo(uid, clockId, btnId, vCountId, logId, marcarId, totalVueltas) {
-                if (_porTiempoState[uid] && _porTiempoState[uid].running) return;
+                if (_porTiempoState[uid] && (_porTiempoState[uid].running || _porTiempoState[uid].preparando)) return;
                 if (hayTimerActivo()) return;
                 activarTimerGlobal();
                 solicitarWakeLock();
 
+                var clockEl = document.getElementById(clockId);
+                var btnEl = document.getElementById(btnId);
+
+                // Marcar como "preparando" para bloquear doble-click mientras corre la cuenta regresiva
+                _porTiempoState[uid] = { preparando: true };
+                if (btnEl) btnEl.style.display = 'none';
+
+                // ─── Cuenta regresiva 5-4-3-2-1 antes de arrancar (igual que EMOM/Tabata) ───
+                prepCountdown(clockEl, null, 440, function() {
+                    _arrancarBloquePorTiempo(uid, clockId, btnId, vCountId, logId, marcarId, totalVueltas);
+                }, {
+                    showArrancamos: false
+                });
+            }
+
+            function _arrancarBloquePorTiempo(uid, clockId, btnId, vCountId, logId, marcarId, totalVueltas) {
                 var clockEl = document.getElementById(clockId);
                 var btnEl = document.getElementById(btnId);
                 var vCountEl = document.getElementById(vCountId);
