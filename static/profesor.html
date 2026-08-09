@@ -3728,8 +3728,12 @@
         } else if (tipo === 'Tabata') {
             html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Trabajo (seg)</label><input id="warmup-trabajo-' + idx + '" type="number" value="' + (_cfg.trabajo||20) + '" min="5" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label><input id="warmup-pausa-' + idx + '" type="number" value="' + (_cfg.pausa||10) + '" min="5" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de ejercicios</label><input id="warmup-cantidad-' + idx + '" type="number" value="' + (diasData[idx] ? diasData[idx].warmupEjercicios.length : 0) + '" min="0" readonly class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondo/50 text-textoSuave cursor-not-allowed"></div></div><p class="text-xs text-textoSuave mt-1">Se actualiza automáticamente según los ejercicios agregados abajo</p>';
         } else if (tipo === 'EMOM') {
-            html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Minutos</label><input id="warmup-minutos-' + idx + '" type="number" value="' + (_cfg.minutos||5) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ');actualizarEMOMWarmupMinutosConfig(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>' +
-                   '<p class="text-xs text-textoSuave mt-2">En cada minuto, buscá y agregá los ejercicios con sus repeticiones</p>' +
+            html = '<div class="grid grid-cols-2 gap-3">' +
+                   '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Minutos totales</label><input id="warmup-minutos-' + idx + '" type="number" value="' + (_cfg.minutos||5) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ');actualizarEMOMWarmupMinutosConfig(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>' +
+                   '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repetir ciclo cada (min)</label><input id="warmup-emom-ciclo-' + idx + '" type="number" value="' + (_cfg.emom_ciclo||_cfg.minutos||5) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ');actualizarEMOMWarmupMinutosConfig(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>' +
+                   '</div>' +
+                   '<p class="text-xs text-textoSuave mt-2">Cargá los ejercicios de UN ciclo (ej: 5 min = 5 ejercicios) y se repite automáticamente hasta completar los minutos totales</p>' +
+                   '<div id="emom-warmup-repeat-note-' + idx + '" class="text-xs font-bold mt-1" style="color:#FFD54F"></div>' +
                    '<div id="emom-warmup-config-' + idx + '" class="mt-3 space-y-2"></div>';
             setTimeout(() => actualizarEMOMWarmupMinutosConfig(idx), 0);
         } else if (tipo === 'Series/Reps') {
@@ -3766,6 +3770,7 @@
             cfg.cantidad = parseInt(document.getElementById('warmup-cantidad-' + idx)?.value) || 0;
         } else if (tipo === 'EMOM') {
             cfg.minutos = parseInt(document.getElementById('warmup-minutos-' + idx)?.value) || 5;
+            cfg.emom_ciclo = parseInt(document.getElementById('warmup-emom-ciclo-' + idx)?.value) || cfg.minutos;
         } else if (tipo === 'Series/Reps') {
             cfg.series = parseInt(document.getElementById('warmup-series-' + idx)?.value) || 3;
             cfg.reps   = parseInt(document.getElementById('warmup-reps-val-' + idx)?.value) || 10;
@@ -4412,8 +4417,11 @@
             html = `<div class="grid grid-cols-2 gap-3">
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Minutos totales</label>
                 <input id="bp-minutos" type="number" value="10" min="1" max="60" oninput="actualizarEMOMMinutosConfig();_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+                <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repetir ciclo cada (min)</label>
+                <input id="bp-emom-ciclo" type="number" value="10" min="1" max="60" oninput="actualizarEMOMMinutosConfig();_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
             </div>
-            <p class="text-xs text-textoSuave mt-2">Configurá cuántos ejercicios hay en cada minuto</p>
+            <p class="text-xs text-textoSuave mt-2">Cargá los ejercicios de UN ciclo (ej: 5 min = 5 ejercicios) y se repite automáticamente hasta completar los minutos totales</p>
+            <div id="emom-repeat-note" class="text-xs font-bold mt-1" style="color:#FFD54F"></div>
             <div id="emom-minutos-config" class="mt-3 space-y-2"></div>`;
             setTimeout(() => actualizarEMOMMinutosConfig(), 0);
         } else if (tipo === 'Por Tiempo') {
@@ -4498,6 +4506,13 @@
         const container = document.getElementById('emom-minutos-config');
         if (!container) return;
 
+        // Ciclo: cuantos minutos hay que configurar manualmente antes de repetir automaticamente
+        const cicloEl = document.getElementById('bp-emom-ciclo');
+        let ciclo = cicloEl ? (parseInt(cicloEl.value) || mins) : mins;
+        if (ciclo < 1) ciclo = 1;
+        if (ciclo > mins) ciclo = mins;
+        if (cicloEl && parseInt(cicloEl.value) !== ciclo) cicloEl.value = ciclo;
+
         // Preservar ejercicios ya cargados en el DOM (data-ejs) o restaurar desde _emomRestoreData
         const prevEjs = {};
 
@@ -4517,8 +4532,19 @@
             window._emomRestoreData = null;
         }
 
+        // Nota de repeticion
+        const noteEl = document.getElementById('emom-repeat-note');
+        if (noteEl) {
+            if (ciclo < mins) {
+                const veces = Math.ceil(mins / ciclo);
+                noteEl.textContent = '🔁 Este ciclo de ' + ciclo + ' min se repetirá ' + veces + ' veces hasta completar los ' + mins + ' minutos totales';
+            } else {
+                noteEl.textContent = '';
+            }
+        }
+
         let html = '';
-        for (let m = 0; m < mins; m++) {
+        for (let m = 0; m < ciclo; m++) {
             const ejsGuardados = prevEjs[m] || [];
             const chipsHtml = ejsGuardados.map((ej, ei) => emomChipHtml(ej, ei, m, 'bloque', null)).join('');
             const cantLabel = ejsGuardados.length + ' ejercicio' + (ejsGuardados.length !== 1 ? 's' : '');
@@ -4546,8 +4572,8 @@
         }
         container.innerHTML = html;
 
-        // Poblar todos los selectores de ejercicio
-        for (let m = 0; m < mins; m++) {
+        // Poblar los selectores de ejercicio (solo los slots del ciclo)
+        for (let m = 0; m < ciclo; m++) {
             emomCargarEjsSelect('emom-ejsel-' + m, 'emom-buscar-' + m);
         }
     }
@@ -4608,10 +4634,10 @@
         const listEl = document.getElementById('emom-min-' + minIdx + '-lista');
         if (!listEl) return;
         try { _emomMinCopiado = { ejs: JSON.parse(listEl.dataset.ejs || '[]'), tipo: 'bloque' }; } catch(e) { return; }
-        const mins = parseInt(document.getElementById('bp-minutos')?.value) || 1;
-        for (let m = 0; m < mins; m++) {
+        for (let m = 0; ; m++) {
             const btn = document.getElementById('emom-pegar-' + m);
-            if (btn) btn.classList.toggle('hidden', m === minIdx);
+            if (!btn) break;
+            btn.classList.toggle('hidden', m === minIdx);
         }
         toast('Minuto ' + (minIdx + 1) + ' copiado');
     }
@@ -4634,14 +4660,24 @@
         if (idxOrKey === 'standalone' || !diasData[idxOrKey]) return;
         const suffix = '-' + idxOrKey;
         const mins = parseInt(document.getElementById('warmup-minutos' + suffix)?.value) || 1;
+        // Leer el patron de UN ciclo desde el DOM (solo existen tantos slots como el ciclo configurado)
+        const cicloPattern = [];
+        for (let m = 0; ; m++) {
+            const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + m + '-lista');
+            if (!listEl) break;
+            let ejs = [];
+            try { ejs = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { ejs = []; }
+            cicloPattern.push(ejs);
+        }
+        const cicloLen = cicloPattern.length || 1;
+        // Replicar el ciclo hasta completar los minutos totales
         const config = [];
         for (let m = 0; m < mins; m++) {
-            const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + m + '-lista');
-            let ejs = [];
-            if (listEl) { try { ejs = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { ejs = []; } }
+            const ejs = JSON.parse(JSON.stringify(cicloPattern[m % cicloLen] || []));
             config.push({ minuto: m + 1, ejercicios: ejs, ejercicios_cantidad: ejs.length, ejercicios_nombres: ejs.map(e => e.nombre) });
         }
         diasData[idxOrKey].warmupEmomConfig = config;
+        diasData[idxOrKey].warmupEmomCiclo = cicloLen;
         // Actualizar badge del dia
         actualizarBadgeDia(idxOrKey);
     }
@@ -4653,6 +4689,13 @@
         const mins = parseInt(minsEl.value) || 1;
         const container = document.getElementById('emom-warmup-config-' + idxOrKey);
         if (!container) return;
+
+        // Ciclo: cuantos minutos hay que configurar manualmente antes de repetir automaticamente
+        const cicloEl = document.getElementById('warmup-emom-ciclo' + suffix);
+        let ciclo = cicloEl ? (parseInt(cicloEl.value) || mins) : mins;
+        if (ciclo < 1) ciclo = 1;
+        if (ciclo > mins) ciclo = mins;
+        if (cicloEl && parseInt(cicloEl.value) !== ciclo) cicloEl.value = ciclo;
 
         // Preservar ejercicios: primero desde DOM, luego desde diasData como fallback
         const prevEjs = {};
@@ -4666,8 +4709,19 @@
             try { prevEjs[m] = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { prevEjs[m] = []; }
         }
 
+        // Nota de repeticion
+        const noteEl = document.getElementById('emom-warmup-repeat-note-' + idxOrKey);
+        if (noteEl) {
+            if (ciclo < mins) {
+                const veces = Math.ceil(mins / ciclo);
+                noteEl.textContent = '🔁 Este ciclo de ' + ciclo + ' min se repetirá ' + veces + ' veces hasta completar los ' + mins + ' minutos totales';
+            } else {
+                noteEl.textContent = '';
+            }
+        }
+
         let html = '';
-        for (let m = 0; m < mins; m++) {
+        for (let m = 0; m < ciclo; m++) {
             const ejsGuardados = prevEjs[m] || [];
             const chipsHtml = ejsGuardados.map((ej, ei) => emomChipHtml(ej, ei, m, 'warmup', idxOrKey)).join('');
             const cantLabel = ejsGuardados.length + ' ejercicio' + (ejsGuardados.length !== 1 ? 's' : '');
@@ -4695,7 +4749,7 @@
         }
         container.innerHTML = html;
 
-        for (let m = 0; m < mins; m++) {
+        for (let m = 0; m < ciclo; m++) {
             emomCargarEjsSelect('emow-ejsel-' + idxOrKey + '-' + m, 'emow-buscar-' + idxOrKey + '-' + m);
         }
         // Actualizar el selector de minutos en la barra de agregar del calentamiento
@@ -4762,11 +4816,10 @@
         const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-lista');
         if (!listEl) return;
         try { _emomMinCopiado = { ejs: JSON.parse(listEl.dataset.ejs || '[]'), tipo: 'warmup', idxOrKey }; } catch(e) { return; }
-        const suffix = idxOrKey === 'standalone' ? '' : ('-' + idxOrKey);
-        const mins = parseInt(document.getElementById('warmup-minutos' + suffix)?.value) || 1;
-        for (let m = 0; m < mins; m++) {
+        for (let m = 0; ; m++) {
             const btn = document.getElementById('emow-pegar-' + idxOrKey + '-' + m);
-            if (btn) btn.classList.toggle('hidden', m === minIdx);
+            if (!btn) break;
+            btn.classList.toggle('hidden', m === minIdx);
         }
         toast('Minuto ' + (minIdx + 1) + ' copiado');
     }
@@ -5101,22 +5154,20 @@
                 return;
             }
         }
-        // Para EMOM, verificar que haya al menos un ejercicio en algun minuto
+        // Para EMOM, verificar que haya al menos un ejercicio en algun minuto del ciclo
         if (tipo === 'EMOM') {
-            const mins = parseInt(document.getElementById('bp-minutos')?.value || 10);
             let totalEjs = 0;
             let faltaRepsEmom = false;
-            for (let _em = 0; _em < mins; _em++) {
+            for (let _em = 0; ; _em++) {
                 const _listEl = document.getElementById('emom-min-' + _em + '-lista');
-                if (_listEl) {
-                    try {
-                        const _ejsMin = JSON.parse(_listEl.dataset.ejs || '[]');
-                        totalEjs += _ejsMin.length;
-                        if (_ejsMin.some(e => !e.reps || String(e.reps).trim() === '')) faltaRepsEmom = true;
-                    } catch(e) {}
-                }
+                if (!_listEl) break;
+                try {
+                    const _ejsMin = JSON.parse(_listEl.dataset.ejs || '[]');
+                    totalEjs += _ejsMin.length;
+                    if (_ejsMin.some(e => !e.reps || String(e.reps).trim() === '')) faltaRepsEmom = true;
+                } catch(e) {}
             }
-            if (totalEjs === 0) { toast('Agrega al menos un ejercicio en algun minuto'); return; }
+            if (totalEjs === 0) { toast('Agrega al menos un ejercicio en algun minuto del ciclo'); return; }
             if (faltaRepsEmom) { toast('⚠ No se cargó la cantidad de repeticiones o segundos de uno o más ejercicios'); return; }
         }
         // Para el resto de los tipos: validar que no falten reps/pausa en ningun ejercicio del bloque
@@ -5156,15 +5207,22 @@
             bloque.pausa_ronda = parseInt(document.getElementById('bp-se-pausa')?.value || 0);
         } else if (tipo === 'EMOM') {
             bloque.minutos_totales = parseInt(document.getElementById('bp-minutos')?.value || 10);
-            // Leer configuración por minuto desde la nueva UI con buscador
+            // Leer el patron de UN ciclo desde el DOM (solo existen tantos slots como el ciclo configurado)
+            const _cicloPattern = [];
+            for (let _em = 0; ; _em++) {
+                const _listEl = document.getElementById('emom-min-' + _em + '-lista');
+                if (!_listEl) break;
+                let _ejsData = [];
+                try { _ejsData = JSON.parse(_listEl.dataset.ejs || '[]'); } catch(e) { _ejsData = []; }
+                _cicloPattern.push(_ejsData);
+            }
+            const _cicloLen = _cicloPattern.length || 1;
+            bloque.emom_ciclo_minutos = _cicloLen;
+            // Replicar el ciclo hasta completar los minutos totales
             bloque.emom_config_por_minuto = [];
             const _todosEjs = [];
             for (let _em = 0; _em < bloque.minutos_totales; _em++) {
-                const _listEl = document.getElementById('emom-min-' + _em + '-lista');
-                let _ejsData = [];
-                if (_listEl) {
-                    try { _ejsData = JSON.parse(_listEl.dataset.ejs || '[]'); } catch(e) { _ejsData = []; }
-                }
+                const _ejsData = JSON.parse(JSON.stringify(_cicloPattern[_em % _cicloLen] || []));
                 bloque.emom_config_por_minuto.push({
                     minuto: _em + 1,
                     ejercicios_cantidad: _ejsData.length,
@@ -5242,8 +5300,11 @@
             const psr = document.getElementById('bp-se-pausa'); if(psr) psr.value = b.pausa_ronda || 0;
         } else if (b.tipo === 'EMOM') {
             const _mEl = document.getElementById('bp-minutos');
+            const _cEl = document.getElementById('bp-emom-ciclo');
             if (_mEl) {
-                _mEl.value = b.minutos_totales || (b.emom_config_por_minuto ? b.emom_config_por_minuto.length : 5);
+                const _minutosReal = b.minutos_totales || (b.emom_config_por_minuto ? b.emom_config_por_minuto.length : 5);
+                _mEl.value = _minutosReal;
+                if (_cEl) _cEl.value = b.emom_ciclo_minutos || _minutosReal;
                 // Re-renderizar config EMOM con valor correcto y datos de restauración ya seteados
                 actualizarEMOMMinutosConfig();
             }
@@ -5930,6 +5991,24 @@
         return [];
     }
 
+    // Detecta el largo del ciclo que se repite dentro de un EMOM configurado por minuto.
+    // Si todo el EMOM es el mismo patron de N minutos repetido, devuelve N (< total).
+    // Si no hay un patron que se repita exactamente, devuelve el largo total (sin compactar).
+    function _pfDetectarCicloEMOM(configArr) {
+        const n = (configArr || []).length;
+        if (n <= 1) return n;
+        const keyOf = (m) => JSON.stringify(((m && m.ejercicios) || []).map(e => [e.nombre, e.reps, e.unit]));
+        const keys = configArr.map(keyOf);
+        for (let p = 1; p < n; p++) {
+            let match = true;
+            for (let i = p; i < n; i++) {
+                if (keys[i] !== keys[i % p]) { match = false; break; }
+            }
+            if (match) return p;
+        }
+        return n;
+    }
+
     // Resuelve los datos de una rutina a un objeto unificado.
     // Maneja tanto formato anidado {datos: {bloques, warmup_ejercicios, ...}}
     // como formato plano del backend {datos: [...], warmup_ejercicios: [...], ...}
@@ -6498,7 +6577,10 @@
                             const p = document.getElementById('warmup-pausa-' + i); if (p) p.value = cfg.pausa || 10;
                             const c = document.getElementById('warmup-cantidad-' + i); if (c) c.value = cfg.cantidad || 8;
                         } else if (dia._wTipo === 'EMOM') {
-                            const m = document.getElementById('warmup-minutos-' + i); if (m) m.value = cfg.minutos || 5;
+                            const minutosReal = cfg.minutos || (dia.warmupEmomConfig ? dia.warmupEmomConfig.length : 5);
+                            const m = document.getElementById('warmup-minutos-' + i); if (m) m.value = minutosReal;
+                            const c = document.getElementById('warmup-emom-ciclo-' + i); if (c) c.value = cfg.emom_ciclo || dia.warmupEmomCiclo || minutosReal;
+                            actualizarEMOMWarmupMinutosConfig(i);
                         } else if (dia._wTipo === 'Series/Reps') {
                             const s = document.getElementById('warmup-series-' + i); if (s) s.value = cfg.series || 3;
                             const rv = document.getElementById('warmup-reps-val-' + i); if (rv) rv.value = cfg.reps || 10;
@@ -6733,7 +6815,10 @@
                     }
                     if (wMetaLineD) html += `<p style="${ff}color:#555;font-style:italic;font-size:12px;margin:0 0 10px 2px;">${wMetaLineD}</p>`;
                     if (dWTipo === 'EMOM' && dWCfg.emom_config_por_minuto && dWCfg.emom_config_por_minuto.length > 0) {
-                        dWCfg.emom_config_por_minuto.forEach((minCfg, mi) => {
+                        const _dwEmomCfg = dWCfg.emom_config_por_minuto;
+                        const _dwCiclo = _pfDetectarCicloEMOM(_dwEmomCfg);
+                        const _dwMostrar = _dwCiclo < _dwEmomCfg.length ? _dwEmomCfg.slice(0, _dwCiclo) : _dwEmomCfg;
+                        _dwMostrar.forEach((minCfg, mi) => {
                             html += `<div style="${ff}background:#FFD54F22;border-left:3px solid #FFD54F;padding:4px 10px;margin:6px 0 2px;border-radius:4px;font-size:11px;font-weight:700;color:#b8860b;">MINUTO ${mi+1}</div>`;
                             const ejsMin = minCfg.ejercicios || [];
                             if (ejsMin.length === 0) {
@@ -6742,6 +6827,10 @@
                                 ejsMin.forEach(ej => { html += ejBox(ej, dWTipo); });
                             }
                         });
+                        if (_dwCiclo < _dwEmomCfg.length) {
+                            const _dwVeces = Math.ceil(_dwEmomCfg.length / _dwCiclo);
+                            html += `<p style="${ff}color:#b8860b;font-size:11px;font-weight:700;margin:2px 0 6px 4px;">↻ Repetir este ciclo ${_dwVeces} veces (${_dwEmomCfg.length} minutos totales)</p>`;
+                        }
                     } else {
                         dWEjs.forEach(ej => { html += ejBox(ej, dWTipo); });
                     }
@@ -6836,7 +6925,10 @@
             }
             if (wMetaLine) html += `<p style="${ff}color:#555;font-style:italic;font-size:12px;margin:0 0 10px 2px;">${wMetaLine}</p>`;
             if (wTipo === 'EMOM' && wConfig.emom_config_por_minuto && wConfig.emom_config_por_minuto.length > 0) {
-                wConfig.emom_config_por_minuto.forEach((minCfg, mi) => {
+                const _wEmomCfg = wConfig.emom_config_por_minuto;
+                const _wCiclo = _pfDetectarCicloEMOM(_wEmomCfg);
+                const _wMostrar = _wCiclo < _wEmomCfg.length ? _wEmomCfg.slice(0, _wCiclo) : _wEmomCfg;
+                _wMostrar.forEach((minCfg, mi) => {
                     html += `<div style="${ff}background:#FFD54F22;border-left:3px solid #FFD54F;padding:4px 10px;margin:6px 0 2px;border-radius:4px;font-size:11px;font-weight:700;color:#b8860b;">MINUTO ${mi+1}</div>`;
                     const ejsMin = minCfg.ejercicios || [];
                     if (ejsMin.length === 0) {
@@ -6845,6 +6937,10 @@
                         ejsMin.forEach(ej => { html += ejBox(ej, wTipo); });
                     }
                 });
+                if (_wCiclo < _wEmomCfg.length) {
+                    const _wVeces = Math.ceil(_wEmomCfg.length / _wCiclo);
+                    html += `<p style="${ff}color:#b8860b;font-size:11px;font-weight:700;margin:2px 0 6px 4px;">↻ Repetir este ciclo ${_wVeces} veces (${_wEmomCfg.length} minutos totales)</p>`;
+                }
             } else {
                 wEjs.forEach(ej => { html += ejBox(ej, wTipo); });
             }
@@ -6873,13 +6969,20 @@
                 html += `<div style="${subHeaderStyle(bloqTipo)}">Bloque ${i+1}: ${meta || bloqTipo}</div>`;
                 if (b.descripcion) html += `<p style="${ff}color:#666;font-size:12px;font-style:italic;margin:0 0 8px 2px;">${b.descripcion}</p>`;
                 if (bloqTipo === 'EMOM' && b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
-                    b.emom_config_por_minuto.forEach((minCfg, mi) => {
+                    const _bEmomCfg = b.emom_config_por_minuto;
+                    const _bCiclo = _pfDetectarCicloEMOM(_bEmomCfg);
+                    const _bMostrar = _bCiclo < _bEmomCfg.length ? _bEmomCfg.slice(0, _bCiclo) : _bEmomCfg;
+                    _bMostrar.forEach((minCfg, mi) => {
                         html += `<div style="${ff}background:#FFD54F22;border-left:3px solid #FFD54F;padding:4px 10px;margin:6px 0 2px;border-radius:4px;font-size:11px;font-weight:700;color:#b8860b;">MINUTO ${mi+1}</div>`;
                         const ejsMin = minCfg.ejercicios || [];
                         if (ejsMin.length === 0) {
                             html += `<p style="${ff}color:#aaa;font-size:11px;font-style:italic;margin:2px 0 6px 10px;">Sin ejercicios</p>`;
                         } else { ejsMin.forEach(ej => { html += ejBox(ej, bloqTipo); }); }
                     });
+                    if (_bCiclo < _bEmomCfg.length) {
+                        const _bVeces = Math.ceil(_bEmomCfg.length / _bCiclo);
+                        html += `<p style="${ff}color:#b8860b;font-size:11px;font-weight:700;margin:2px 0 6px 4px;">↻ Repetir este ciclo ${_bVeces} veces (${_bEmomCfg.length} minutos totales)</p>`;
+                    }
                 } else if (ejsB.length === 0) {
                     html += `<p style="${ff}color:#aaa;font-size:12px;font-style:italic;padding:6px 2px;">Sin ejercicios registrados</p>`;
                 } else {
@@ -7288,7 +7391,10 @@
                         }
                         if (wP2.length) { chk(6); doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(110,110,110); doc.text(wP2.join('   |   '), mL+2, y); y+=6; }
                         if (dWTipo === 'EMOM' && dWCfg.emom_config_por_minuto && dWCfg.emom_config_por_minuto.length > 0) {
-                            dWCfg.emom_config_por_minuto.forEach((minCfg, mi) => {
+                            const _dwEmomCfg = dWCfg.emom_config_por_minuto;
+                            const _dwCiclo = _pfDetectarCicloEMOM(_dwEmomCfg);
+                            const _dwMostrar = _dwCiclo < _dwEmomCfg.length ? _dwEmomCfg.slice(0, _dwCiclo) : _dwEmomCfg;
+                            _dwMostrar.forEach((minCfg, mi) => {
                                 chk(8);
                                 doc.setFillColor(255, 213, 79, 0.15);
                                 doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(180, 130, 0);
@@ -7299,6 +7405,13 @@
                                     doc.text('Sin ejercicios', mL + 4, y); y += 5;
                                 } else { ejsMin.forEach(ej => ejGris(ej, dWTipo)); }
                             });
+                            if (_dwCiclo < _dwEmomCfg.length) {
+                                const _dwVeces = Math.ceil(_dwEmomCfg.length / _dwCiclo);
+                                chk(6);
+                                doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(8.5); doc.setTextColor(180, 130, 0);
+                                doc.text('Repetir este ciclo ' + _dwVeces + ' veces (' + _dwEmomCfg.length + ' min totales)', mL + 2, y);
+                                y += 6;
+                            }
                         } else {
                             dWEjs.forEach(ej => ejGris(ej, dWTipo));
                         }
@@ -7414,7 +7527,10 @@
                 }
 
                 if (wTipo === 'EMOM' && wConfig.emom_config_por_minuto && wConfig.emom_config_por_minuto.length > 0) {
-                    wConfig.emom_config_por_minuto.forEach((minCfg, mi) => {
+                    const _wEmomCfg = wConfig.emom_config_por_minuto;
+                    const _wCiclo = _pfDetectarCicloEMOM(_wEmomCfg);
+                    const _wMostrar = _wCiclo < _wEmomCfg.length ? _wEmomCfg.slice(0, _wCiclo) : _wEmomCfg;
+                    _wMostrar.forEach((minCfg, mi) => {
                         chk(8);
                         doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(180, 130, 0);
                         doc.text('MINUTO ' + (mi + 1), mL + 2, y); y += 5;
@@ -7424,6 +7540,13 @@
                             doc.text('Sin ejercicios', mL + 4, y); y += 5;
                         } else { ejsMin.forEach(ej => ejGris(ej, wTipo)); }
                     });
+                    if (_wCiclo < _wEmomCfg.length) {
+                        const _wVeces = Math.ceil(_wEmomCfg.length / _wCiclo);
+                        chk(6);
+                        doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(8.5); doc.setTextColor(180, 130, 0);
+                        doc.text('Repetir este ciclo ' + _wVeces + ' veces (' + _wEmomCfg.length + ' min totales)', mL + 2, y);
+                        y += 6;
+                    }
                 } else {
                     wEjs.forEach(ej => ejGris(ej, wTipo));
                 }
@@ -7452,7 +7575,10 @@
                     else if (bloqTipo === 'Sumando Ejercicio')   meta = ejsB.length + ' vuelta(s) acumulada(s)' + (b.pausa_ronda ? ' | Pausa: ' + b.pausa_ronda + 's' : '');
                     subBarTipo('Bloque ' + (i+1) + ': ' + bloqTipo + (meta ? '  —  ' + meta : ''), bloqTipo);
                     if (bloqTipo === 'EMOM' && b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
-                        b.emom_config_por_minuto.forEach((minCfg, mi) => {
+                        const _bEmomCfg = b.emom_config_por_minuto;
+                        const _bCiclo = _pfDetectarCicloEMOM(_bEmomCfg);
+                        const _bMostrar = _bCiclo < _bEmomCfg.length ? _bEmomCfg.slice(0, _bCiclo) : _bEmomCfg;
+                        _bMostrar.forEach((minCfg, mi) => {
                             chk(8);
                             doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(180, 130, 0);
                             doc.text('MINUTO ' + (mi + 1), mL + 2, y); y += 5;
@@ -7462,6 +7588,13 @@
                                 doc.text('Sin ejercicios', mL + 4, y); y += 5;
                             } else { ejsMin.forEach(ej => ejGris(ej, bloqTipo)); }
                         });
+                        if (_bCiclo < _bEmomCfg.length) {
+                            const _bVeces = Math.ceil(_bEmomCfg.length / _bCiclo);
+                            chk(6);
+                            doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(8.5); doc.setTextColor(180, 130, 0);
+                            doc.text('Repetir este ciclo ' + _bVeces + ' veces (' + _bEmomCfg.length + ' min totales)', mL + 2, y);
+                            y += 6;
+                        }
                     } else if (ejsB.length === 0) {
                         chk(8);
                         doc.setFont('helvetica', 'italic');
