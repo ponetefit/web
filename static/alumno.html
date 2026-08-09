@@ -2248,6 +2248,28 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
             z-index: 2;
         }
+
+        .card-min-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            justify-content: center;
+            margin-bottom: 2px;
+        }
+
+        .card-min-chip {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 900;
+            letter-spacing: 0.3px;
+            color: #000000;
+            background: var(--amarillo);
+            border: 1.5px solid #000;
+            padding: 2px 8px;
+            border-radius: 6px;
+            white-space: nowrap;
+            line-height: 1.3;
+        }
         /* ─── INFO BLOCKS ─── */
         
         .info-block {
@@ -6490,6 +6512,72 @@
                 return html;
             }
 
+            // ─── EMOM: agrupar ejercicios que se repiten en varios minutos en una sola card ───
+            // (en vez de repetir la card completa por cada minuto, se muestra una vez con
+            // chips "MIN X" indicando en qué minutos toca)
+            function _emomCicloHtmlAgrupado(cicloEnriq) {
+                var html = '';
+                var yaRenderizado = {};
+                cicloEnriq.forEach(function(minData, mi) {
+                    var esD = minData.es_descanso || false;
+                    var minLabel = 'MIN ' + (mi + 1);
+                    if (esD) {
+                        html += '<div style="margin-bottom:10px;">' +
+                            '<div style="border-radius:12px;overflow:hidden;border:1px solid rgba(255,213,79,0.2);">' +
+                            '<div style="background:rgba(255,23,68,0.1);padding:6px 14px;display:flex;align-items:center;gap:8px;">' +
+                            '<span style="font-size:0.65rem;font-weight:900;letter-spacing:2px;color:var(--rojo);text-transform:uppercase;">' + minLabel + '</span>' +
+                            '<span style="font-size:0.65rem;color:var(--rojo);font-weight:700;">DESCANSO</span>' +
+                            '</div></div></div>';
+                        return;
+                    }
+                    (minData.ejercicios || []).forEach(function(ej) {
+                        var n = ej.nombre || '';
+                        if (!n || yaRenderizado[n]) return;
+                        yaRenderizado[n] = true;
+
+                        // Buscar en TODO el ciclo los minutos en los que aparece este mismo ejercicio
+                        var apariciones = [];
+                        cicloEnriq.forEach(function(md2, mi2) {
+                            if (md2.es_descanso) return;
+                            (md2.ejercicios || []).forEach(function(ej2) {
+                                if ((ej2.nombre || '') === n) {
+                                    apariciones.push({
+                                        min: mi2 + 1,
+                                        reps: ej2.reps || '',
+                                        unit: (ej2.unit || 'Reps').toUpperCase()
+                                    });
+                                }
+                            });
+                        });
+
+                        var l = ej.link || _obtenerLinkVideo(n) || '';
+                        var cc = ej.con_carga || _obtenerConCarga(n);
+
+                        if (apariciones.length > 1) {
+                            // Repetido: una sola card con chips de todos los minutos
+                            var chipsHtml = apariciones.map(function(a) {
+                                return '<span class="card-min-chip">MIN ' + a.min + '</span>';
+                            }).join('');
+                            var repsBase = apariciones[0].reps,
+                                unitBase = apariciones[0].unit;
+                            var mismasReps = apariciones.every(function(a) {
+                                return a.reps === repsBase;
+                            });
+                            var metaTexto = mismasReps && repsBase ? (repsBase + ' ' + unitBase + ' c/vez') : '';
+                            var metaHtml = '<div class="card-min-chips">' + chipsHtml + '</div>' +
+                                (metaTexto ? '<div style="margin-top:2px;">' + metaTexto + '</div>' : '');
+                            html += '<div style="margin-bottom:10px;">' + crearCard(n, l, metaHtml, cc) + '</div>';
+                        } else {
+                            // Aparece una sola vez: igual que antes
+                            var badgeUnico = '<span class="card-min-badge">' + minLabel + '</span>';
+                            var metaUnica = ej.reps ? ej.reps + ' ' + (ej.unit || 'Reps').toUpperCase() : '';
+                            html += '<div style="margin-bottom:10px;">' + crearCard(n, l, metaUnica, cc, null, '', false, badgeUnico) + '</div>';
+                        }
+                    });
+                });
+                return html;
+            }
+
             // ─── VISTA SIMPLIFICADA: toggle +/- para mostrar/ocultar video ───
             var _vidToggleIdx = 0;
 
@@ -8374,14 +8462,9 @@
                 // Guardar en global para uso del timer
                 emomMinutosCiclo = _cicloEnriq;
 
-                // Mostrar ejercicios por minuto con thumbnails
+                // Mostrar ejercicios por minuto con thumbnails (agrupando repetidos)
                 if (_cicloEnriq.length > 0) {
-                    var cicloHtml = '<div style="margin-bottom:10px;">';
-                    _cicloEnriq.forEach(function(minData, mi) {
-                        cicloHtml += _emomMinutoHtml(mi, minData);
-                    });
-                    cicloHtml += '</div>';
-                    pLista.innerHTML += cicloHtml;
+                    pLista.innerHTML += '<div style="margin-bottom:10px;">' + _emomCicloHtmlAgrupado(_cicloEnriq) + '</div>';
                 }
 
                 // Mostrar campo de carga para ejercicios que lo tengan
@@ -8784,13 +8867,9 @@
                         }
                     }
                     var _cicloEnriqMix = _emomEnriquecerCiclo(_cicloBaseMix, _fuenteMix);
-                    // Mostrar por minuto con thumbnails
+                    // Mostrar por minuto con thumbnails (agrupando repetidos)
                     if (_cicloEnriqMix.length > 0) {
-                        emomHtml += '<div style="margin-bottom:10px;">';
-                        _cicloEnriqMix.forEach(function(minData, mi) {
-                            emomHtml += _emomMinutoHtml(mi, minData);
-                        });
-                        emomHtml += '</div>';
+                        emomHtml += '<div style="margin-bottom:10px;">' + _emomCicloHtmlAgrupado(_cicloEnriqMix) + '</div>';
                     }
                     // Carga si corresponde
                     var yaMostradosBlq = new Set();
@@ -10674,6 +10753,20 @@
             }
 
             function reiniciarTimer() {
+                mostrarConfirmModal(
+                    '¿Reiniciar bloque?',
+                    'Se perderá el progreso de este bloque.',
+                    function() {
+                        _reiniciarTimerEjecutar();
+                    }, {
+                        emoji: '↺',
+                        textoSi: 'Sí, reiniciar',
+                        textoNo: 'Cancelar'
+                    }
+                );
+            }
+
+            function _reiniciarTimerEjecutar() {
                 bgClearInterval(tInterval);
                 bgClearInterval(pausaRondaInterval);
                 timerActivo = false;
