@@ -2345,32 +2345,42 @@
             margin-top: 2px;
         }
         
-        .se-ronda-ejs {
+        .se-chips {
             flex: 1;
-            font-size: 1.05rem;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .se-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 10px;
+            border-radius: 20px;
+            font-size: 0.82rem;
             font-weight: 700;
-            line-height: 1.5;
+            white-space: nowrap;
         }
         
-        .se-ej-fila {
-            display: block;
-            text-align: left;
-            white-space: normal;
+        .se-chip-previo {
+            border: 1px solid var(--borde);
+            color: var(--texto-suave);
+            background: transparent;
+            font-weight: 600;
         }
         
-        .se-ej-fila:not(:last-child) {
-            margin-bottom: 3px;
+        .se-chip-nuevo {
+            background: var(--card-color);
+            color: #14141a;
+            font-weight: 900;
         }
         
-        .se-ej-link {
-            text-decoration: underline dotted var(--texto-suave);
+        .se-chip-link {
+            text-decoration: underline dotted currentColor;
             text-underline-offset: 2px;
             cursor: pointer;
-        }
-        
-        .se-ronda-plus {
-            color: var(--texto-suave);
-            margin: 0 2px;
         }
         
         .btn-ronda {
@@ -9013,20 +9023,22 @@
                 for (let r = 0; r < totalRondas; r++) {
                     const rondaId = uid + '-se-r' + r;
                     const btnId = uid + '-se-btn-r' + r;
-                    let ejsHtml = '';
+                    let chipsHtml = '';
                     for (let e = 0; e <= r; e++) {
                         const ej = seEjs[e];
                         const ejNombre = ej.nombre || '';
                         const ejReps = ej.reps || '';
                         const ejUnit = (ej.unit || 'Reps').toUpperCase();
                         const ejLink = (ej.link || _obtenerLinkVideo(ejNombre) || '').replace(/'/g, "\\'");
-                        const prefijo = e > 0 ? '<span class="se-ronda-plus">+</span> ' : '';
-                        ejsHtml += '<div class="se-ej-fila">' + prefijo + '<b>' + ejReps + '</b> ' + ejUnit.toLowerCase() + ' <span class="se-ej-link" onclick="abrirVideo(\'' + ejLink + '\',\'' + ejNombre.replace(/'/g, "\\'") + '\')">' + ejNombre.toLowerCase() + '</span></div>';
+                        const esNuevo = (e === r);
+                        const chipClase = esNuevo ? 'se-chip se-chip-nuevo' : 'se-chip se-chip-previo';
+                        const prefijo = (esNuevo && r > 0) ? '+ ' : '';
+                        chipsHtml += '<span class="' + chipClase + '">' + prefijo + '<b>' + ejReps + '</b> ' + ejUnit.toLowerCase() + ' <span class="se-chip-link" onclick="abrirVideo(\'' + ejLink + '\',\'' + ejNombre.replace(/'/g, "\\'") + '\')">' + ejNombre.toLowerCase() + '</span></span>';
                     }
                     html += '<div id="' + rondaId + '" class="se-ronda">' +
                         '<div class="se-ronda-top">' +
                         '<span class="se-ronda-num">R' + (r + 1) + '</span>' +
-                        '<span class="se-ronda-ejs">' + ejsHtml + '</span>' +
+                        '<span class="se-chips">' + chipsHtml + '</span>' +
                         '<button id="' + btnId + '" class="btn-ronda" style="background:' + color + ';" onclick="marcarRondaSumando(\'' + rondaId + '\',\'' + btnId + '\')">Marcar ronda</button>' +
                         '</div></div>';
                 }
