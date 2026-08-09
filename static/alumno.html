@@ -2324,6 +2324,40 @@
             border-color: var(--verde);
         }
         
+        .se-ronda.activa {
+            border-color: var(--card-color);
+            background: var(--tarjeta-alt);
+        }
+        
+        .se-control {
+            text-align: center;
+            margin-top: 18px;
+        }
+        
+        .se-status {
+            font-size: 0.75rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        
+        .se-clock {
+            font-size: clamp(3rem, 16vw, 5.5rem);
+            font-family: 'Roboto Mono', monospace;
+            font-weight: 700;
+            margin: 4px 0;
+            line-height: 1;
+        }
+        
+        .se-info {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--texto);
+            min-height: 1.4em;
+            margin-bottom: 14px;
+        }
+        
         .se-ronda-top {
             display: flex;
             align-items: flex-start;
@@ -9012,9 +9046,12 @@
             // ─── SUMANDO EJERCICIO: arma el HTML de rondas acumuladas ───
             // Ronda 1 = ej1 | Ronda 2 = ej1+ej2 | Ronda 3 = ej1+ej2+ej3 ...
             // (compartido por renderBloqueMix y por el modo standalone)
+            var _seEjsPorUid = {};
+
             function renderSumandoEjercicioHtml(bloque, uid, color, idx) {
                 const seEjs = toArray(bloque.ejercicios || bloque.rutina || []);
                 const totalRondas = seEjs.length;
+                _seEjsPorUid[uid] = seEjs;
                 let html = '<div class="bloque-mix" id="' + uid + '" style="border-color:' + color + ';--card-color:' + color + ';">' +
                     '<div class="bloque-mix-titulo" style="color:' + color + ';">BLOQUE ' + idx + ' — SUMANDO EJERCICIO</div>';
                 if (bloque.descripcion) {
@@ -9022,7 +9059,6 @@
                 }
                 for (let r = 0; r < totalRondas; r++) {
                     const rondaId = uid + '-se-r' + r;
-                    const btnId = uid + '-se-btn-r' + r;
                     let chipsHtml = '';
                     for (let e = 0; e <= r; e++) {
                         const ej = seEjs[e];
@@ -9039,9 +9075,21 @@
                         '<div class="se-ronda-top">' +
                         '<span class="se-ronda-num">R' + (r + 1) + '</span>' +
                         '<span class="se-chips">' + chipsHtml + '</span>' +
-                        '<button id="' + btnId + '" class="btn-ronda" style="background:' + color + ';" onclick="marcarRondaSumando(\'' + rondaId + '\',\'' + btnId + '\')">Marcar ronda</button>' +
                         '</div></div>';
                 }
+                html += '<div class="se-control">' +
+                    '<div id="' + uid + '-se-status" class="se-status" style="color:' + color + ';">LISTO PARA EMPEZAR</div>' +
+                    '<div id="' + uid + '-se-clock" class="se-clock" style="color:' + color + ';">00:00</div>' +
+                    '<div id="' + uid + '-se-info" class="se-info"></div>' +
+                    '<button id="' + uid + '-se-btn" class="btn-rest" style="background:linear-gradient(135deg,' + color + ',#000);" onclick="iniciarSumandoEjercicio(\'' + uid + '\',' + totalRondas + ')">EMPEZAR</button>' +
+                    '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:10px;">' +
+                    '<button id="' + uid + '-se-marcar" class="btn-rest" style="display:none;background:' + color + ';font-size:1.1rem;padding:18px 36px;" onclick="marcarRondaSumandoActiva(\'' + uid + '\')">✓ MARCAR RONDA</button>' +
+                    '</div>' +
+                    '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:10px;">' +
+                    '<button id="' + uid + '-se-pausa" class="btn-pausa" style="display:none;" onclick="togglePausaSumando(\'' + uid + '\')">⏸ PAUSA</button>' +
+                    '<button id="' + uid + '-se-reiniciar" class="btn-pausa" style="display:none;background:var(--tarjeta-alt);color:var(--texto-suave);border-color:var(--borde);" onclick="reiniciarSumandoEjercicio(\'' + uid + '\',' + totalRondas + ')">↺ REINICIAR</button>' +
+                    '</div>' +
+                    '</div>';
                 html += '<div class="se-totales"><div class="se-totales-titulo" style="color:' + color + ';">Total por ejercicio</div>';
                 seEjs.forEach(function(ej, i) {
                     const vecesQueAparece = totalRondas - i;
@@ -9052,19 +9100,239 @@
                 return html;
             }
 
-            // Marca una ronda del bloque Sumando Ejercicio como completada
-            function marcarRondaSumando(rondaId, btnId) {
-                const row = document.getElementById(rondaId);
-                const btn = document.getElementById(btnId);
-                if (row) row.classList.add('completada');
-                if (btn) {
-                    btn.disabled = true;
-                    btn.innerText = 'Completada';
+            // ─── Estado y lógica del cronómetro guiado de Sumando Ejercicio ───
+            var _sumandoState = {}; // { uid: { running, start, iv, cr, total, _pausedAt } }
+
+            function _fmtSumando(ms) {
+                var tot = Math.floor(ms / 1000);
+                var m = Math.floor(tot / 60);
+                var s = tot % 60;
+                return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+            }
+
+            function _nombreEjSumando(uid, i) {
+                var arr = _seEjsPorUid[uid] || [];
+                return arr[i] ? (arr[i].nombre || '').toLowerCase() : '';
+            }
+
+            function _actualizarMensajeSumando(uid) {
+                var st = _sumandoState[uid];
+                if (!st) return;
+                var infoEl = document.getElementById(uid + '-se-info');
+                if (!infoEl) return;
+                var cr = st.cr,
+                    total = st.total;
+                var msg = '';
+                if (cr === 0) {
+                    msg = 'Ronda 1: el ejercicio es ' + _nombreEjSumando(uid, 0);
+                } else if (cr === total - 1) {
+                    msg = 'Última ronda: hay que sumar ' + _nombreEjSumando(uid, cr);
+                } else {
+                    msg = 'Ahora hay que sumar ' + _nombreEjSumando(uid, cr);
                 }
+                infoEl.innerText = msg;
+            }
+
+            function _resaltarRondaActivaSumando(uid) {
+                var st = _sumandoState[uid];
+                if (!st) return;
+                for (var i = 0; i < st.total; i++) {
+                    var el = document.getElementById(uid + '-se-r' + i);
+                    if (!el) continue;
+                    el.classList.remove('activa', 'completada');
+                    if (i < st.cr) el.classList.add('completada');
+                    else if (i === st.cr) el.classList.add('activa');
+                }
+            }
+
+            function iniciarSumandoEjercicio(uid, totalRondas) {
+                if (_sumandoState[uid] && (_sumandoState[uid].running || _sumandoState[uid].preparando)) return;
+                if (hayTimerActivo()) return;
+                activarTimerGlobal();
+                solicitarWakeLock();
+
+                var btnEl = document.getElementById(uid + '-se-btn');
+                var clockEl = document.getElementById(uid + '-se-clock');
+                var statusEl = document.getElementById(uid + '-se-status');
+
+                _sumandoState[uid] = {
+                    preparando: true
+                };
+                if (btnEl) btnEl.style.display = 'none';
+
+                prepCountdown(clockEl, statusEl, 440, function() {
+                    _arrancarSumandoEjercicio(uid, totalRondas);
+                }, {
+                    showArrancamos: false
+                });
+            }
+
+            function _arrancarSumandoEjercicio(uid, totalRondas) {
+                var clockEl = document.getElementById(uid + '-se-clock');
+                var statusEl = document.getElementById(uid + '-se-status');
+                var marcarEl = document.getElementById(uid + '-se-marcar');
+                var pausaEl = document.getElementById(uid + '-se-pausa');
+                var reiniciarEl = document.getElementById(uid + '-se-reiniciar');
+
+                if (statusEl) statusEl.innerText = 'EN CURSO';
+                if (marcarEl) {
+                    marcarEl.style.display = 'inline-block';
+                    marcarEl.disabled = false;
+                    marcarEl.innerText = '✓ MARCAR RONDA';
+                }
+                if (pausaEl) {
+                    pausaEl.style.display = 'inline-block';
+                    pausaEl.innerText = '⏸ PAUSA';
+                }
+                if (reiniciarEl) reiniciarEl.style.display = 'inline-block';
+
+                var now = Date.now();
+                _sumandoState[uid] = {
+                    running: true,
+                    start: now,
+                    cr: 0,
+                    total: totalRondas
+                };
+                var st = _sumandoState[uid];
+
+                st.iv = bgSetInterval(function() {
+                    if (!st.running) return;
+                    if (clockEl) clockEl.innerText = _fmtSumando(Date.now() - st.start);
+                }, 500);
+
+                _actualizarMensajeSumando(uid);
+                _resaltarRondaActivaSumando(uid);
+                hablarCoach('Arrancamos! Ronda 1, el ejercicio es ' + _nombreEjSumando(uid, 0));
+            }
+
+            function marcarRondaSumandoActiva(uid) {
+                var st = _sumandoState[uid];
+                if (!st || !st.running) return;
                 incrementarProgreso(1);
+                beep(800);
+
+                var esUltima = (st.cr === st.total - 1);
+                st.cr++;
+
+                if (esUltima) {
+                    st.running = false;
+                    bgClearInterval(st.iv);
+                    desactivarTimerGlobal();
+                    liberarWakeLock();
+                    _resaltarRondaActivaSumando(uid);
+
+                    var statusEl = document.getElementById(uid + '-se-status');
+                    var infoEl = document.getElementById(uid + '-se-info');
+                    if (statusEl) statusEl.innerText = 'COMPLETO';
+                    if (infoEl) infoEl.innerText = 'Genial, terminaste el bloque';
+
+                    var marcarEl = document.getElementById(uid + '-se-marcar');
+                    if (marcarEl) {
+                        marcarEl.disabled = true;
+                        marcarEl.innerText = '✓ BLOQUE COMPLETO';
+                    }
+                    var pausaEl = document.getElementById(uid + '-se-pausa');
+                    if (pausaEl) pausaEl.style.display = 'none';
+
+                    hablarCoach('Genial! Terminaste el bloque.');
+                    try {
+                        lanzarDestelloBloque();
+                    } catch (e) {}
+                } else {
+                    _resaltarRondaActivaSumando(uid);
+                    _actualizarMensajeSumando(uid);
+                    var prox = _nombreEjSumando(uid, st.cr);
+                    if (prox) hablarCoach('Sumá ' + prox);
+                }
+            }
+
+            function togglePausaSumando(uid) {
+                var st = _sumandoState[uid];
+                if (!st) return;
+                var statusEl = document.getElementById(uid + '-se-status');
+                var pausaEl = document.getElementById(uid + '-se-pausa');
+
+                if (st.running) {
+                    st.running = false;
+                    st._pausedAt = Date.now();
+                    liberarWakeLock();
+                    coachPausa();
+                    if (statusEl) statusEl.innerText = 'PAUSADO';
+                    if (pausaEl) pausaEl.innerText = '▶ REANUDAR';
+                    _marcarRelojPausado(uid + '-se-clock', true);
+                } else {
+                    var pMs = Date.now() - (st._pausedAt || Date.now());
+                    st.start += pMs;
+                    st.running = true;
+                    solicitarWakeLock();
+                    if (statusEl) statusEl.innerText = 'EN CURSO';
+                    if (pausaEl) pausaEl.innerText = '⏸ PAUSA';
+                    _marcarRelojPausado(uid + '-se-clock', false);
+                }
+            }
+
+            function reiniciarSumandoEjercicio(uid, totalRondas) {
+                mostrarConfirmModal(
+                    '¿Reiniciar bloque?',
+                    'Se perderá el progreso de este bloque.',
+                    function() {
+                        _reiniciarSumandoEjercicioEjecutar(uid, totalRondas);
+                    }, {
+                        emoji: '↺',
+                        textoSi: 'Sí, reiniciar',
+                        textoNo: 'Cancelar'
+                    }
+                );
+            }
+
+            function _reiniciarSumandoEjercicioEjecutar(uid, totalRondas) {
+                var st = _sumandoState[uid];
+                if (st && st.iv) bgClearInterval(st.iv);
+                delete _sumandoState[uid];
+                desactivarTimerGlobal();
+                liberarWakeLock();
+
+                var clockEl = document.getElementById(uid + '-se-clock');
+                var statusEl = document.getElementById(uid + '-se-status');
+                var infoEl = document.getElementById(uid + '-se-info');
+                var btnEl = document.getElementById(uid + '-se-btn');
+                var marcarEl = document.getElementById(uid + '-se-marcar');
+                var pausaEl = document.getElementById(uid + '-se-pausa');
+                var reiniciarEl = document.getElementById(uid + '-se-reiniciar');
+
+                if (clockEl) {
+                    clockEl.innerText = '00:00';
+                    _marcarRelojPausado(uid + '-se-clock', false);
+                }
+                if (statusEl) statusEl.innerText = 'LISTO PARA EMPEZAR';
+                if (infoEl) infoEl.innerText = '';
+                if (btnEl) btnEl.style.display = 'inline-block';
+                if (marcarEl) {
+                    marcarEl.style.display = 'none';
+                    marcarEl.disabled = false;
+                    marcarEl.innerText = '✓ MARCAR RONDA';
+                }
+                if (pausaEl) {
+                    pausaEl.style.display = 'none';
+                    pausaEl.innerText = '⏸ PAUSA';
+                }
+                if (reiniciarEl) reiniciarEl.style.display = 'none';
+
+                for (var i = 0; i < totalRondas; i++) {
+                    var el = document.getElementById(uid + '-se-r' + i);
+                    if (el) el.classList.remove('activa', 'completada');
+                }
+
+                if (_progresoSegmentos[_progresoSegActual]) {
+                    _progresoSegmentos[_progresoSegActual].completados = 0;
+                    actualizarProgresoUI();
+                }
+
+                mostrarToast('Bloque reiniciado');
             }
 
             const mixBloqueVueltas = {};
+
 
             function marcarVueltaMixBloque(uid, contId, pausaVuelta, totalVueltas) {
                 if (!mixBloqueVueltas[uid]) mixBloqueVueltas[uid] = totalVueltas;
