@@ -383,7 +383,7 @@
         
         .card-ej-header:has(.card-numero-idx-inline),
         .card-ej-header:has(.card-min-badge) {
-            padding-left: 78px;
+            padding-left: 84px;
         }
         
         .card-ej-header:active {
@@ -2231,20 +2231,23 @@
         
         .card-min-badge {
             position: absolute;
-            left: 10px;
+            left: 8px;
             top: 50%;
             transform: translateY(-50%);
             display: inline-block;
-            font-size: 0.95rem;
+            max-width: 68px;
+            font-size: 0.78rem;
             font-weight: 900;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
             color: #000000;
             background: var(--amarillo);
             border: 1.5px solid #000;
-            padding: 3px 9px;
+            padding: 3px 6px;
             border-radius: 7px;
-            white-space: nowrap;
-            line-height: 1.2;
+            white-space: normal;
+            word-break: break-word;
+            line-height: 1.15;
+            text-align: center;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
             z-index: 2;
         }
@@ -3045,9 +3048,10 @@
                 padding: 3px 8px;
             }
             .card-min-badge {
-                font-size: 1.15rem;
-                left: 8px;
-                padding: 3px 8px;
+                font-size: 0.9rem;
+                left: 6px;
+                max-width: 80px;
+                padding: 3px 6px;
             }
             #warmup-titulo {
                 font-size: 1.15rem;
@@ -3066,7 +3070,7 @@
             }
             .card-ej-header:has(.card-numero-idx-inline),
             .card-ej-header:has(.card-min-badge) {
-                padding-left: 92px;
+                padding-left: 98px;
             }
             .card-thumb {
                 width: 100%;
@@ -8871,7 +8875,8 @@
                         '<div id="' + tabInfoId + '" style="font-size:0.75rem; color:var(--texto-suave);"></div>' +
                         '<div class="emom-inline-clock" id="' + tabClockId + '">00</div>' +
                         '<button id="' + tabBtnId + '" class="btn-principal" style="background:linear-gradient(135deg,var(--naranja),#d35400); margin-top:12px; width:100%;" ' +
-                        'onclick="iniciarTabataBloque(\'' + tabBtnId + '\',\'' + tabStatusId + '\',\'' + tabEjId + '\',\'' + tabInfoId + '\',\'' + tabClockId + '\',' + JSON.stringify(tc) + ',' + JSON.stringify(rutinaTab) + ')">INICIAR TABATA</button>' +
+                        'data-tc="' + encodeURIComponent(JSON.stringify(tc)) + '" data-rutina="' + encodeURIComponent(JSON.stringify(rutinaTab)) + '" ' +
+                        'onclick="iniciarTabataBloque(\'' + tabBtnId + '\',\'' + tabStatusId + '\',\'' + tabEjId + '\',\'' + tabInfoId + '\',\'' + tabClockId + '\')">INICIAR TABATA</button>' +
                         '<button id="' + tabPausaId + '" class="btn-pausa" style="max-width:280px; margin:8px auto 0; display:none;" onclick="togglePausaTabataMix(\'' + tabPausaId + '\',\'' + tabBtnId + '\')">⏸ PAUSAR</button>' +
                         '<button class="btn-fullscreen" style="max-width:280px; margin:8px auto 0; display:block;" onclick="entrarFullscreen(\'inline\',{status:\'' + tabStatusId + '\',ej:\'' + tabEjId + '\',info:\'' + tabInfoId + '\',clock:\'' + tabClockId + '\'})">⛶ PANTALLA COMPLETA</button>' +
                         '</div></div>';
@@ -9536,7 +9541,7 @@
                     '<div id="' + ejId + '" style="font-size:0.9rem; color:var(--texto); min-height:1.4rem; margin:4px 0;"></div>' +
                     '<div id="' + infoId + '" style="font-size:0.75rem; color:var(--texto-suave);"></div>' +
                     '<div class="emom-inline-clock" id="' + timerId + '">00</div>' +
-                    '<button id="' + btnId + '" class="btn-rest" style="max-width:280px; margin:10px auto 0;" onclick="iniciarTabataBloque(\'' + btnId + '\',\'' + statusId + '\',\'' + ejId + '\',\'' + infoId + '\',\'' + timerId + '\',' + JSON.stringify(tc) + ',' + JSON.stringify(rutina) + ')">INICIAR TABATA</button>' +
+                    '<button id="' + btnId + '" class="btn-rest" style="max-width:280px; margin:10px auto 0;" data-tc="' + encodeURIComponent(JSON.stringify(tc)) + '" data-rutina="' + encodeURIComponent(JSON.stringify(rutina)) + '" onclick="iniciarTabataBloque(\'' + btnId + '\',\'' + statusId + '\',\'' + ejId + '\',\'' + infoId + '\',\'' + timerId + '\')">INICIAR TABATA</button>' +
                     '<button id="' + pausaId + '" class="btn-pausa" style="max-width:280px; margin:8px auto 0; display:none;" onclick="togglePausaTabataMix(\'' + pausaId + '\',\'' + btnId + '\')">⏸ PAUSAR</button>' +
                     '<button class="btn-fullscreen" onclick="entrarFullscreen(\'inline\',{status:\'' + statusId + '\',ej:\'' + ejId + '\',info:\'' + infoId + '\',clock:\'' + timerId + '\'})">⛶ PANTALLA COMPLETA</button>' +
                     '</div></div>';
@@ -11181,6 +11186,15 @@
             function iniciarTabataBloque(btnId, statusId, ejId, infoId, timerId, tc, rutina) {
                 const btn = document.getElementById(btnId);
                 if (!btn || tabataRunningFlags[btnId]) return;
+                if (!tc || !rutina) {
+                    try {
+                        tc = JSON.parse(decodeURIComponent(btn.dataset.tc || '%7B%7D'));
+                        rutina = JSON.parse(decodeURIComponent(btn.dataset.rutina || '%5B%5D'));
+                    } catch (e) {
+                        tc = tc || {};
+                        rutina = rutina || [];
+                    }
+                }
                 if (hayTimerActivo()) return;
                 activarTimerGlobal();
                 tabataRunningFlags[btnId] = true;
