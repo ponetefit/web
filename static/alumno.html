@@ -9069,8 +9069,20 @@
 
             // ─── REINICIAR un bloque "Por Tiempo": vuelve todo al estado inicial, listo para arrancar de nuevo ───
             function reiniciarBloquePorTiempo(uid, totalVueltas) {
-                if (!confirm('¿Reiniciar vueltas?')) return;
+                mostrarConfirmModal(
+                    '¿Reiniciar vueltas?',
+                    'Se perderá el progreso de este bloque.',
+                    function() {
+                        _reiniciarBloquePorTiempoEjecutar(uid, totalVueltas);
+                    }, {
+                        emoji: '↺',
+                        textoSi: 'Sí, reiniciar',
+                        textoNo: 'Cancelar'
+                    }
+                );
+            }
 
+            function _reiniciarBloquePorTiempoEjecutar(uid, totalVueltas) {
                 // Detener y limpiar el estado interno del cronómetro
                 if (window._porTiempoState && window._porTiempoState[uid]) {
                     var s = window._porTiempoState[uid];
