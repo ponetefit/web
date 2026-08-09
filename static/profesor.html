@@ -4678,8 +4678,23 @@
         }
         diasData[idxOrKey].warmupEmomConfig = config;
         diasData[idxOrKey].warmupEmomCiclo = cicloLen;
+        // Poblar tambien warmupEjercicios con la lista unica de ejercicios del ciclo
+        // (igual que se hace en el bloque EMOM principal) para que el resto del sistema
+        // -resumen visual, badge del dia, Vista Compacta, exportacion a PDF, deteccion de
+        // duplicados, etc.- que siempre lee dia.warmupEjercicios detecte que el calentamiento
+        // tiene contenido cargado. Sin esto, un calentamiento EMOM queda invisible aunque
+        // los datos SI se hayan guardado en warmupEmomConfig.
+        const _todosEjsEmom = [];
+        cicloPattern.forEach(minEjs => {
+            (minEjs || []).forEach(e => {
+                if (!_todosEjsEmom.some(x => x.nombre === e.nombre)) _todosEjsEmom.push(e);
+            });
+        });
+        diasData[idxOrKey].warmupEjercicios = _todosEjsEmom;
         // Actualizar badge del dia
         actualizarBadgeDia(idxOrKey);
+        // Refrescar el resumen visual (tarjeta "🔥 Calentamiento") para que se vea de inmediato
+        if (typeof actualizarResumenCalentamientoDia === 'function') actualizarResumenCalentamientoDia(idxOrKey);
     }
 
     function actualizarEMOMWarmupMinutosConfig(idxOrKey) {
@@ -7000,17 +7015,28 @@
             const ejsFlat = toArray(datos.rutina || datos.datos || []);
             if (tipo === 'EMOM') {
                 const minutosCiclo = toArray(datos.minutos_ciclo);
+                // Fallback: si no hay minutos_ciclo, intentar emom_config_por_minuto (nuevo formato)
+                const emomCfgFallback = toArray(datos.emom_config_por_minuto);
+                const emomSrc = minutosCiclo.length > 0 ? minutosCiclo : emomCfgFallback;
                 const totalMins = datos.minutos_totales || 10;
                 html += `<div style="${subHeaderStyle('EMOM')}">EMOM: ${totalMins} minutos totales</div>`;
                 if (datos.descripcion) html += `<p style="${ff}color:#666;font-size:12px;font-style:italic;margin:0 0 8px 2px;">${datos.descripcion}</p>`;
-                if (minutosCiclo.length > 0) {
-                    minutosCiclo.forEach((minCfg, mi) => {
+                if (emomSrc.length > 0) {
+                    // Colapsar el ciclo que se repite en vez de listar cada minuto del total
+                    // (ej: ciclo de 3 min repetido 3 veces para llegar a 9 min -> mostrar solo 3 + nota "Repetir 3 veces")
+                    const _fCiclo = _pfDetectarCicloEMOM(emomSrc);
+                    const _fMostrar = _fCiclo < emomSrc.length ? emomSrc.slice(0, _fCiclo) : emomSrc;
+                    _fMostrar.forEach((minCfg, mi) => {
                         html += `<div style="${ff}background:#FFD54F22;border-left:3px solid #FFD54F;padding:4px 10px;margin:6px 0 2px;border-radius:4px;font-size:11px;font-weight:700;color:#b8860b;">MINUTO ${mi+1}</div>`;
                         const ejsMin = minCfg.ejercicios || [];
                         if (ejsMin.length === 0) {
                             html += `<p style="${ff}color:#aaa;font-size:11px;font-style:italic;margin:2px 0 6px 10px;">Sin ejercicios</p>`;
                         } else { ejsMin.forEach(ej => { html += ejBox(ej, 'EMOM'); }); }
                     });
+                    if (_fCiclo < emomSrc.length) {
+                        const _fVeces = Math.ceil(emomSrc.length / _fCiclo);
+                        html += `<p style="${ff}color:#b8860b;font-size:11px;font-weight:700;margin:2px 0 6px 4px;">↻ Repetir este ciclo ${_fVeces} veces (${emomSrc.length} minutos totales)</p>`;
+                    }
                 } else {
                     ejsFlat.forEach(ej => { html += ejBox(ej, 'EMOM'); });
                 }
@@ -7621,7 +7647,11 @@
                     const emomSrc = minutosCiclo.length > 0 ? minutosCiclo : emomCfgFallback;
                     subBarTipo('EMOM  —  ' + (datos.minutos_totales||10) + ' min', 'EMOM');
                     if (emomSrc.length > 0) {
-                        emomSrc.forEach((minCfg, mi) => {
+                        // Colapsar el ciclo que se repite en vez de listar cada minuto del total
+                        // (ej: ciclo de 3 min repetido 3 veces para llegar a 9 min -> mostrar solo 3 + nota "Repetir 3 veces")
+                        const _fCiclo = _pfDetectarCicloEMOM(emomSrc);
+                        const _fMostrar = _fCiclo < emomSrc.length ? emomSrc.slice(0, _fCiclo) : emomSrc;
+                        _fMostrar.forEach((minCfg, mi) => {
                             chk(8);
                             doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(180, 130, 0);
                             doc.text('MINUTO ' + (mi + 1), mL + 2, y); y += 5;
@@ -7631,6 +7661,13 @@
                                 doc.text('Sin ejercicios', mL + 4, y); y += 5;
                             } else { ejsMin.forEach(ej => ejGris(ej, tipo)); }
                         });
+                        if (_fCiclo < emomSrc.length) {
+                            const _fVeces = Math.ceil(emomSrc.length / _fCiclo);
+                            chk(6);
+                            doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(8.5); doc.setTextColor(180, 130, 0);
+                            doc.text('Repetir este ciclo ' + _fVeces + ' veces (' + emomSrc.length + ' min totales)', mL + 2, y);
+                            y += 6;
+                        }
                     } else {
                         toArray(datos.rutina || datos.datos || []).forEach(ej => ejGris(ej, tipo));
                     }
