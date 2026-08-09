@@ -8885,6 +8885,7 @@
                     const tabClockId = tabUid + "-clock";
                     const tabBtnId = tabUid + "-btn";
                     const tabPausaId = tabUid + "-pausa";
+                    const tabReinId = tabUid + "-rein";
                     let htmlTab = '<div class="bloque-mix" id="' + uid + '" style="border-color:var(--naranja);--card-color:var(--naranja);">' +
                         '<div class="bloque-mix-titulo" style="color:var(--naranja);">BLOQUE ' + idx + ' — TABATA</div>' +
                         '<div class="info-block" style="border-color:var(--naranja);">' +
@@ -8908,6 +8909,8 @@
                         'data-tc="' + encodeURIComponent(JSON.stringify(tc)) + '" data-rutina="' + encodeURIComponent(JSON.stringify(rutinaTab)) + '" ' +
                         'onclick="iniciarTabataBloque(\'' + tabBtnId + '\',\'' + tabStatusId + '\',\'' + tabEjId + '\',\'' + tabInfoId + '\',\'' + tabClockId + '\')">INICIAR TABATA</button>' +
                         '<button id="' + tabPausaId + '" class="btn-pausa" style="max-width:280px; margin:8px auto 0; display:none;" onclick="togglePausaTabataMix(\'' + tabPausaId + '\',\'' + tabBtnId + '\')">⏸ PAUSAR</button>' +
+                        '<button id="' + tabReinId + '" class="btn-pausa" style="max-width:280px; margin:8px auto 0; display:none; background:var(--tarjeta-alt); color:var(--texto-suave); border-color:var(--borde);" ' +
+                        'onclick="reiniciarTabataBloque(\'' + tabBtnId + '\',\'' + tabStatusId + '\',\'' + tabEjId + '\',\'' + tabInfoId + '\',\'' + tabClockId + '\',\'' + tabPausaId + '\',\'' + tabReinId + '\')">&#8635; REINICIAR</button>' +
                         '<button class="btn-fullscreen" style="max-width:280px; margin:8px auto 0; display:block;" onclick="entrarFullscreen(\'inline\',{status:\'' + tabStatusId + '\',ej:\'' + tabEjId + '\',info:\'' + tabInfoId + '\',clock:\'' + tabClockId + '\'})">⛶ PANTALLA COMPLETA</button>' +
                         '</div></div>';
                     pLista.innerHTML += htmlTab;
@@ -9573,7 +9576,8 @@
                     infoId = uid + "-info";
                 const timerId = uid + "-clock",
                     btnId = uid + "-btn",
-                    pausaId = uid + "-pausa";
+                    pausaId = uid + "-pausa",
+                    reinId = uid + "-rein";
                 let html = '<div class="mix-seccion" style="border-color:var(--naranja);--card-color:var(--naranja);">' +
                     '<div class="mix-seccion-titulo" style="color:var(--naranja);">TABATA — ' + tc.trabajo + 's / ' + tc.pausa + 's | ' + tc.rondas + ' ronda(s) × ' + (tc.cantidad || 8) + ' ejercicios</div>';
                 // Tabata es por tiempo - sin carga individual (el tiempo ya se ve arriba)
@@ -9589,6 +9593,7 @@
                     '<div class="emom-inline-clock" id="' + timerId + '">00</div>' +
                     '<button id="' + btnId + '" class="btn-rest" style="max-width:280px; margin:10px auto 0;" data-tc="' + encodeURIComponent(JSON.stringify(tc)) + '" data-rutina="' + encodeURIComponent(JSON.stringify(rutina)) + '" onclick="iniciarTabataBloque(\'' + btnId + '\',\'' + statusId + '\',\'' + ejId + '\',\'' + infoId + '\',\'' + timerId + '\')">INICIAR TABATA</button>' +
                     '<button id="' + pausaId + '" class="btn-pausa" style="max-width:280px; margin:8px auto 0; display:none;" onclick="togglePausaTabataMix(\'' + pausaId + '\',\'' + btnId + '\')">⏸ PAUSAR</button>' +
+                    '<button id="' + reinId + '" class="btn-pausa" style="max-width:280px; margin:8px auto 0; display:none; background:var(--tarjeta-alt); color:var(--texto-suave); border-color:var(--borde);" onclick="reiniciarTabataBloque(\'' + btnId + '\',\'' + statusId + '\',\'' + ejId + '\',\'' + infoId + '\',\'' + timerId + '\',\'' + pausaId + '\',\'' + reinId + '\')">&#8635; REINICIAR</button>' +
                     '<button class="btn-fullscreen" onclick="entrarFullscreen(\'inline\',{status:\'' + statusId + '\',ej:\'' + ejId + '\',info:\'' + infoId + '\',clock:\'' + timerId + '\'})">⛶ PANTALLA COMPLETA</button>' +
                     '</div></div>';
                 return html;
@@ -11228,6 +11233,7 @@
 
             // ─── TABATA BLOQUE MIX ───
             const tabataRunningFlags = {};
+            var _tabataBloqueIvs = {}; // interval activo por timerId (para poder cancelar al reiniciar)
 
             function iniciarTabataBloque(btnId, statusId, ejId, infoId, timerId, tc, rutina) {
                 const btn = document.getElementById(btnId);
@@ -11246,9 +11252,15 @@
                 tabataRunningFlags[btnId] = true;
                 const pausaId = btnId.replace('-btn', '-pausa');
                 const pausaBtn = document.getElementById(pausaId);
+                const reinId = btnId.replace('-btn', '-rein');
+                const reinBtn = document.getElementById(reinId);
                 btn.disabled = true;
                 btn.innerText = "En curso...";
-                if (pausaBtn) pausaBtn.style.display = "block";
+                if (pausaBtn) {
+                    pausaBtn.style.display = "block";
+                    pausaBtn.innerText = "⏸ PAUSAR";
+                }
+                if (reinBtn) reinBtn.style.display = "block";
                 solicitarWakeLock();
 
                 const trabajo = tc.trabajo || 20;
@@ -11257,6 +11269,10 @@
                 const rondas = tc.rondas || 1;
                 const pausaRonda = tc.pausa_entre_rondas || 0;
                 let pausado = false;
+                // Deadline compartido de la fase actual (trabajo/descanso/pausa entre rondas).
+                // Al recalibrarlo al reanudar, la pausa realmente detiene la cuenta en vez
+                // de solo congelar el número en pantalla mientras el reloj sigue corriendo.
+                let _tabDeadline = 0;
                 if (pausaBtn) pausaBtn.onclick = function() {
                     pausado = !pausado;
                     pausaBtn.innerText = pausado ? "▶ REANUDAR" : "⏸ PAUSAR";
@@ -11267,6 +11283,10 @@
                         // >>> COACH: Pausa tabata bloque
                         coachPausa();
                     } else {
+                        // Recalibrar el deadline de la fase actual con el tiempo que quedaba
+                        var _tabClockEl = document.getElementById(timerId);
+                        var remSecs = _tabClockEl ? (parseInt(_tabClockEl.innerText) || 0) : 0;
+                        _tabDeadline = Date.now() + remSecs * 1000;
                         solicitarWakeLock();
                     }
                 };
@@ -11287,6 +11307,7 @@
                             document.getElementById(timerId).innerText = "OK";
                             _marcarRelojPausado(timerId, false);
                             if (pausaBtn) pausaBtn.style.display = "none";
+                            if (reinBtn) reinBtn.style.display = "none";
                             btn.disabled = false;
                             btn.innerText = "Reiniciar";
                             tabataRunningFlags[btnId] = false;
@@ -11299,14 +11320,14 @@
                                 document.getElementById(statusId).innerText = "PAUSA RONDAS";
                                 document.getElementById(ejId).innerText = "Ronda " + rondaActual + "/" + rondas;
                                 let rp = pausaRonda;
-                                var _ivRpDeadline = Date.now() + pausaRonda * 1000;
+                                _tabDeadline = Date.now() + pausaRonda * 1000;
                                 document.getElementById(timerId).innerText = rp;
-                                const _ivRp = bgSetInterval(function() {
+                                _tabataBloqueIvs[timerId] = bgSetInterval(function() {
                                     if (pausado) return;
-                                    rp = Math.max(0, Math.round((_ivRpDeadline - Date.now()) / 1000));
+                                    rp = Math.max(0, Math.round((_tabDeadline - Date.now()) / 1000));
                                     document.getElementById(timerId).innerText = rp;
                                     if (rp <= 0) {
-                                        bgClearInterval(_ivRp);
+                                        bgClearInterval(_tabataBloqueIvs[timerId]);
                                         siguiente(0, rondaActual + 1);
                                     }
                                 }, 1000);
@@ -11326,17 +11347,17 @@
                         var _tipTabMix = _obtenerTip(nombre);
                         if (_tipTabMix) hablarCoach(_tipTabMix);
                         let t = trabajo;
-                        var _ivTDeadline = Date.now() + trabajo * 1000;
+                        _tabDeadline = Date.now() + trabajo * 1000;
                         document.getElementById(timerId).innerText = t;
-                        const _ivT = bgSetInterval(function() {
+                        _tabataBloqueIvs[timerId] = bgSetInterval(function() {
                             if (pausado) return;
-                            t = Math.max(0, Math.round((_ivTDeadline - Date.now()) / 1000));
+                            t = Math.max(0, Math.round((_tabDeadline - Date.now()) / 1000));
                             document.getElementById(timerId).innerText = t;
                             // >>> COACH: Motivacional/tip a la mitad del trabajo (Tabata Mix)
                             if (t === Math.floor(trabajo / 2) && t > 3) coachMotivacional(nombre);
                             if (t <= 3 && t > 0) beep(400);
                             if (t <= 0) {
-                                bgClearInterval(_ivT);
+                                bgClearInterval(_tabataBloqueIvs[timerId]);
                                 beep(800);
                                 incrementarProgreso(1);
                                 // Si es el último ejercicio de la última ronda, saltar la pausa
@@ -11360,15 +11381,15 @@
                                     document.getElementById(ejId).innerText = "Respira...";
                                 }
                                 let p = pausa;
-                                var _ivPDeadline = Date.now() + pausa * 1000;
+                                _tabDeadline = Date.now() + pausa * 1000;
                                 document.getElementById(timerId).innerText = p;
-                                const _ivP = bgSetInterval(function() {
+                                _tabataBloqueIvs[timerId] = bgSetInterval(function() {
                                     if (pausado) return;
-                                    p = Math.max(0, Math.round((_ivPDeadline - Date.now()) / 1000));
+                                    p = Math.max(0, Math.round((_tabDeadline - Date.now()) / 1000));
                                     document.getElementById(timerId).innerText = p;
                                     // >>> COACH: Tabata Mix - NO decir 3 2 1 en descanso
                                     if (p <= 0) {
-                                        bgClearInterval(_ivP);
+                                        bgClearInterval(_tabataBloqueIvs[timerId]);
                                         siguiente(ejIdx + 1, rondaActual);
                                     }
                                 }, 1000);
@@ -11377,6 +11398,55 @@
                     }
                 }
                 runTabata();
+            }
+
+            // ─── REINICIAR TABATA BLOQUE MIX INLINE ───
+            function reiniciarTabataBloque(btnId, statusId, ejId, infoId, timerId, pausaId, reinId) {
+                mostrarConfirmModal(
+                    '¿Reiniciar Tabata?',
+                    'Se perderá el progreso de este bloque.',
+                    function() {
+                        _reiniciarTabataBloqueEjecutar(btnId, statusId, ejId, infoId, timerId, pausaId, reinId);
+                    }, {
+                        emoji: '↺',
+                        textoSi: 'Sí, reiniciar',
+                        textoNo: 'Cancelar'
+                    }
+                );
+            }
+
+            function _reiniciarTabataBloqueEjecutar(btnId, statusId, ejId, infoId, timerId, pausaId, reinId) {
+                if (_tabataBloqueIvs[timerId]) {
+                    bgClearInterval(_tabataBloqueIvs[timerId]);
+                    delete _tabataBloqueIvs[timerId];
+                }
+                tabataRunningFlags[btnId] = false;
+                desactivarTimerGlobal();
+                detenerCoach();
+                liberarWakeLock();
+                _marcarRelojPausado(timerId, false);
+                _marcarRelojPausado('fs-clock', false);
+
+                var btn = document.getElementById(btnId);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = "INICIAR TABATA";
+                }
+                var pausaBtnEl = document.getElementById(pausaId);
+                if (pausaBtnEl) {
+                    pausaBtnEl.style.display = 'none';
+                    pausaBtnEl.innerText = '⏸ PAUSAR';
+                }
+                var reinBtnEl = document.getElementById(reinId);
+                if (reinBtnEl) reinBtnEl.style.display = 'none';
+                var statusEl = document.getElementById(statusId);
+                if (statusEl) statusEl.innerText = 'LISTO PARA TABATA';
+                var clockEl = document.getElementById(timerId);
+                if (clockEl) clockEl.innerText = '00';
+                var ejEl = document.getElementById(ejId);
+                if (ejEl) ejEl.innerHTML = '';
+                var infoEl = document.getElementById(infoId);
+                if (infoEl) infoEl.innerText = '';
             }
 
             function togglePausaTabataMix(pausaId, btnId) {
