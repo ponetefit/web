@@ -8450,7 +8450,7 @@
                     'onclick="marcarVueltaPorTiempo(\'' + ptUid + '\',\'' + ptVCountId + '\',\'' + ptLogId + '\',\'' + ptMarcarId + '\',' + ptVueltas + ')">' +
                     '✓ MARCAR VUELTA</button>' +
                     '<button id="' + ptMarcarId + '-reset" style="display:none;background:var(--tarjeta-alt);border:1px solid var(--borde);color:var(--texto-suave);font-size:0.8rem;font-weight:700;padding:10px 14px;border-radius:12px;cursor:pointer;min-height:48px;" ' +
-                    'onclick="if(confirm(\'¿Reiniciar vueltas?\')){var el=document.getElementById(\'' + ptMarcarId + '\');if(el){el.style.display=\'none\';}var logE=document.getElementById(\'' + ptLogId + '\');if(logE)logE.innerHTML=\'\';var vcE=document.getElementById(\'' + ptVCountId + '\');if(vcE)vcE.innerText=\'Vueltas: 0 / ' + ptVueltas + '\';var btnE=document.getElementById(\'' + ptBtnId + '\');if(btnE){btnE.style.display=\'\';}var rs=document.getElementById(\'' + ptMarcarId + '-reset\');if(rs)rs.style.display=\'none\';var pb=document.getElementById(\'' + ptUid + '-pausa\');if(pb){pb.style.display=\'none\';pb.innerText=\'⏸ PAUSA\';}var fb=document.getElementById(\'' + ptUid + '-fs\');if(fb)fb.style.display=\'none\';if(window._porTiempoState&&window._porTiempoState[\'' + ptUid + '\']){var s=window._porTiempoState[\'' + ptUid + '\'];if(s.iv)bgClearInterval(s.iv);if(s.motivoIv)bgClearInterval(s.motivoIv);desactivarTimerGlobal();liberarWakeLock();delete window._porTiempoState[\'' + ptUid + '\'];}}">' +
+                    'onclick="reiniciarBloquePorTiempo(\'' + ptUid + '\',' + ptVueltas + ')">' +
                     '↺ REINICIAR</button>' +
                     '</div>' +
                     '<div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:10px;">' +
@@ -8710,7 +8710,7 @@
                         'onclick="marcarVueltaPorTiempo(\'' + ptUid + '\',\'' + ptVCountId + '\',\'' + ptLogId + '\',\'' + ptMarcarId + '\',' + ptVueltas + ')">' +
                         '✓ MARCAR VUELTA</button>' +
                         '<button id="' + ptMarcarId + '-reset" style="display:none;background:var(--tarjeta-alt);border:1px solid var(--borde);color:var(--texto-suave);font-size:0.8rem;font-weight:700;padding:10px 14px;border-radius:12px;cursor:pointer;min-height:48px;" ' +
-                        'onclick="if(confirm(\'¿Reiniciar vueltas?\')){var el=document.getElementById(\'' + ptMarcarId + '\');if(el){el.style.display=\'none\';}var logE=document.getElementById(\'' + ptLogId + '\');if(logE)logE.innerHTML=\'\';var vcE=document.getElementById(\'' + ptVCountId + '\');if(vcE)vcE.innerText=\'Vueltas: 0 / ' + ptVueltas + '\';var btnE=document.getElementById(\'' + ptBtnId + '\');if(btnE){btnE.style.display=\'\';}var rs=document.getElementById(\'' + ptMarcarId + '-reset\');if(rs)rs.style.display=\'none\';var pb=document.getElementById(\'' + ptUid + '-pausa\');if(pb){pb.style.display=\'none\';pb.innerText=\'⏸ PAUSA\';}var fb=document.getElementById(\'' + ptUid + '-fs\');if(fb)fb.style.display=\'none\';if(window._porTiempoState&&window._porTiempoState[\'' + ptUid + '\']){var s=window._porTiempoState[\'' + ptUid + '\'];if(s.iv)bgClearInterval(s.iv);if(s.motivoIv)bgClearInterval(s.motivoIv);desactivarTimerGlobal();liberarWakeLock();delete window._porTiempoState[\'' + ptUid + '\'];}}">' +
+                        'onclick="reiniciarBloquePorTiempo(\'' + ptUid + '\',' + ptVueltas + ')">' +
                         '↺ REINICIAR</button>' +
                         '</div>' +
                         '<div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:10px;">' +
@@ -9065,6 +9065,75 @@
                 var pausado = !!(st && !st.running);
                 _ptFsPausado = pausado;
                 if (pausaBtnFs) pausaBtnFs.innerText = pausado ? '▶ REANUDAR' : '⏸ PAUSA';
+            }
+
+            // ─── REINICIAR un bloque "Por Tiempo": vuelve todo al estado inicial, listo para arrancar de nuevo ───
+            function reiniciarBloquePorTiempo(uid, totalVueltas) {
+                if (!confirm('¿Reiniciar vueltas?')) return;
+
+                // Detener y limpiar el estado interno del cronómetro
+                if (window._porTiempoState && window._porTiempoState[uid]) {
+                    var s = window._porTiempoState[uid];
+                    if (s.iv) bgClearInterval(s.iv);
+                    if (s.motivoIv) bgClearInterval(s.motivoIv);
+                    desactivarTimerGlobal();
+                    liberarWakeLock();
+                    delete window._porTiempoState[uid];
+                }
+
+                // Reloj de vuelta a 00:00 (antes quedaba con el tiempo final)
+                var clockEl = document.getElementById(uid + '-clock');
+                if (clockEl) clockEl.innerText = '00:00';
+
+                // Contador de vueltas
+                var vcE = document.getElementById(uid + '-vcount');
+                if (vcE) vcE.innerText = 'Vueltas: 0 / ' + totalVueltas;
+
+                // Log de vueltas
+                var logE = document.getElementById(uid + '-log');
+                if (logE) logE.innerHTML = '';
+
+                // Quitar banner "MEJOR VUELTA" y botón "FINALIZAR RUTINA" si habían quedado del intento anterior
+                if (logE && logE.parentNode) {
+                    Array.prototype.forEach.call(logE.parentNode.children, function(child) {
+                        if (child.textContent && child.textContent.indexOf('MEJOR VUELTA') !== -1) child.remove();
+                    });
+                    var finBtn = logE.parentNode.querySelector('.btn-finalizar-rutina');
+                    if (finBtn) finBtn.remove();
+                }
+
+                // Botón MARCAR VUELTA: ocultar y resetear su estado (antes quedaba en "BLOQUE COMPLETO")
+                var marcarEl = document.getElementById(uid + '-marcar');
+                if (marcarEl) {
+                    marcarEl.style.display = 'none';
+                    marcarEl.disabled = false;
+                    marcarEl.innerText = '✓ MARCAR VUELTA';
+                }
+
+                // Botón EMPEZAR: mostrar de nuevo como si nada hubiera pasado
+                var btnE = document.getElementById(uid + '-btn');
+                if (btnE) btnE.style.display = '';
+
+                // Ocultar el propio botón de reiniciar
+                var rs = document.getElementById(uid + '-marcar-reset');
+                if (rs) rs.style.display = 'none';
+
+                // Ocultar pausa y pantalla completa
+                var pb = document.getElementById(uid + '-pausa');
+                if (pb) {
+                    pb.style.display = 'none';
+                    pb.innerText = '⏸ PAUSA';
+                }
+                var fb = document.getElementById(uid + '-fs');
+                if (fb) fb.style.display = 'none';
+
+                // Si la pantalla completa de este bloque estaba abierta, cerrarla
+                var ovPt = document.getElementById('overlay-pt-fs');
+                if (_ptFsUid === uid && ovPt && ovPt.classList.contains('visible')) {
+                    _ptFsCerrar();
+                }
+
+                mostrarToast('Bloque reiniciado');
             }
 
             function _ptFsMarcar() {
