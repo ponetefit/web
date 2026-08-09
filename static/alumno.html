@@ -2393,8 +2393,8 @@
             gap: 4px;
             padding: 6px 10px;
             border-radius: 20px;
-            font-size: 0.82rem;
-            font-weight: 700;
+            font-size: 1.1rem;
+            font-weight: 900;
             white-space: nowrap;
         }
         
@@ -2407,7 +2407,7 @@
         
         .se-chip-nuevo {
             background: var(--card-color);
-            color: #14141a;
+            color: #fff;
             font-weight: 900;
         }
         
@@ -3534,7 +3534,7 @@
                         <div id="warmup-ej"></div>
                         <div id="warmup-clock">--</div>
                         <button class="btn-rest" id="warmup-btn" onclick="iniciarWarmupTimer()" style="background:linear-gradient(135deg,var(--azul),#0288d1); color:#000; max-width:300px; margin:0 auto;">Iniciar Calentamiento</button>
-                        <button class="btn-fullscreen" onclick="entrarFullscreen('warmup')">⛶ PANTALLA COMPLETA</button>
+                        <button class="btn-fullscreen" id="warmup-fs-btn" style="display:none;" onclick="entrarFullscreen('warmup')">⛶ PANTALLA COMPLETA</button>
                     </div>
                 </div>
 
@@ -3568,7 +3568,7 @@
                         <button class="btn-principal" id="btnStartTimer" onclick="iniciarCronometroTiempo()" style="background:linear-gradient(135deg,var(--verde),#00c853); color:#000; margin-bottom:10px;">EMPEZAR</button>
                         <button class="btn-pausa" id="btnPausaTimer" onclick="togglePausaTimer()" style="display:none;">⏸ PAUSAR</button>
                         <button class="btn-pausa" id="btnReiniciarTimer" onclick="reiniciarTimer()" style="display:none; margin-top:10px; background:var(--tarjeta-alt); color:var(--texto-suave); border-color:var(--borde);">↺ REINICIAR</button>
-                        <button class="btn-fullscreen" onclick="entrarFullscreen('tabata')">⛶ PANTALLA COMPLETA</button>
+                        <button class="btn-fullscreen" id="tabata-fs-btn" style="display:none;" onclick="entrarFullscreen('tabata')">⛶ PANTALLA COMPLETA</button>
                     </div>
                 </div>
 
@@ -3586,7 +3586,7 @@
                         <button class="btn-principal" id="btnStartEmom" onclick="iniciarEmom()" style="background:linear-gradient(135deg,var(--verde),#00c853); color:#000; margin-bottom:10px;">EMPEZAR</button>
                         <button class="btn-pausa" id="btnPausaEmom" onclick="pausarEmom()" style="display:none;">⏸ PAUSAR</button>
                         <button class="btn-pausa" id="btnReiniciarEmom" onclick="reiniciarEmom()" style="display:none; margin-top:10px; background:var(--tarjeta-alt); color:var(--texto-suave); border-color:var(--borde);">↺ REINICIAR</button>
-                        <button class="btn-fullscreen" onclick="entrarFullscreen('emom')">⛶ PANTALLA COMPLETA</button>
+                        <button class="btn-fullscreen" id="emom-fs-btn" style="display:none;" onclick="entrarFullscreen('emom')">⛶ PANTALLA COMPLETA</button>
                     </div>
                 </div>
             </div>
@@ -7218,6 +7218,8 @@
                         btn.disabled = true;
                         btn.innerText = "En curso...";
                     }
+                    var btnFsWarmup = document.getElementById('warmup-fs-btn');
+                    if (btnFsWarmup) btnFsWarmup.style.display = 'block';
                     document.getElementById('warmup-ej').innerText = "";
                     var clockEl = document.getElementById('warmup-clock');
                     var statusEl = document.getElementById('warmup-status');
@@ -7396,6 +7398,8 @@
                 }
                 var reiniciarBtn = document.getElementById('warmup-tabata-reiniciar');
                 if (reiniciarBtn) reiniciarBtn.style.display = 'none';
+                var btnFsWarmupR = document.getElementById('warmup-fs-btn');
+                if (btnFsWarmupR) btnFsWarmupR.style.display = 'none';
                 liberarWakeLock();
                 // Retroceder la barra de progreso general de la rutina (segmento Calentamiento)
                 if (_progresoSegmentos[_progresoSegActual]) {
@@ -7428,6 +7432,8 @@
                 }
                 var reiniciarBtn = document.getElementById('warmup-ct-reiniciar');
                 if (reiniciarBtn) reiniciarBtn.style.display = 'none';
+                var btnFsWarmupR2 = document.getElementById('warmup-fs-btn');
+                if (btnFsWarmupR2) btnFsWarmupR2.style.display = 'none';
                 liberarWakeLock();
                 // Retroceder la barra de progreso general de la rutina (segmento Calentamiento)
                 if (_progresoSegmentos[_progresoSegActual]) {
@@ -7465,6 +7471,8 @@
                 }
                 var reiniciarBtn = document.getElementById('warmup-emom-reiniciar');
                 if (reiniciarBtn) reiniciarBtn.style.display = 'none';
+                var btnFsWarmupR3 = document.getElementById('warmup-fs-btn');
+                if (btnFsWarmupR3) btnFsWarmupR3.style.display = 'none';
                 liberarWakeLock();
                 // Retroceder la barra de progreso general de la rutina (segmento Calentamiento)
                 if (_progresoSegmentos[_progresoSegActual]) {
@@ -10933,6 +10941,8 @@
                 }
                 var btnReiniciar = document.getElementById('btnReiniciarTimer');
                 if (btnReiniciar) btnReiniciar.style.display = 'block';
+                var btnFsTabata = document.getElementById('tabata-fs-btn');
+                if (btnFsTabata) btnFsTabata.style.display = 'block';
                 if (dataGlobal && dataGlobal.tipo === 'Circuito por Tiempo') hablarCoach('Arranca el circuito, vamos con todo!');
 
                 tSegs = 5;
@@ -11202,6 +11212,8 @@
                 document.getElementById('btnPausaTimer').style.display = "none";
                 document.getElementById('btnPausaTimer').innerText = "⏸ PAUSAR";
                 document.getElementById('btnReiniciarTimer').style.display = "none";
+                var _btnFsTabataReset = document.getElementById('tabata-fs-btn');
+                if (_btnFsTabataReset) _btnFsTabataReset.style.display = 'none';
                 var _volverRein = document.getElementById('timer-volver-container');
                 if (_volverRein) _volverRein.style.display = 'block';
                 detenerCoach();
@@ -11364,6 +11376,8 @@
                 document.getElementById('btnStartEmom').style.display = "none";
                 document.getElementById('btnPausaEmom').style.display = "block";
                 document.getElementById('btnReiniciarEmom').style.display = "block";
+                var btnFsEmom = document.getElementById('emom-fs-btn');
+                if (btnFsEmom) btnFsEmom.style.display = "block";
                 document.getElementById('emom-ejercicio-nombre').innerHTML = "";
 
                 var clock = document.getElementById('emom-clock');
@@ -11548,6 +11562,8 @@
                 document.getElementById('btnPausaEmom').style.display = "none";
                 document.getElementById('btnPausaEmom').innerText = "⏸ PAUSAR";
                 document.getElementById('btnReiniciarEmom').style.display = "none";
+                var _btnFsEmomReset = document.getElementById('emom-fs-btn');
+                if (_btnFsEmomReset) _btnFsEmomReset.style.display = 'none';
                 detenerCoach();
                 liberarWakeLock();
             }
