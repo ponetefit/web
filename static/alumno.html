@@ -8132,7 +8132,16 @@
                 var progContainer = document.getElementById('rutina-progress-container');
                 if (progContainer) progContainer.style.display = 'none';
                 var mdContainer = document.getElementById('multidia-container');
-                if (mdContainer) mdContainer.style.display = 'flex';
+                if (esMultidia && (!mdContainer || !mdContainer.innerHTML.trim())) {
+                    // El contenedor de días no existe o quedó vacío (por ejemplo,
+                    // tras retomar una sesión). Reconstruirlo ahora en vez de
+                    // dejar la pantalla vacía/negra.
+                    cargarProgresoLocal(currentCode);
+                    renderMultidia(dataGlobal, currentCode);
+                    mdContainer = document.getElementById('multidia-container');
+                } else if (mdContainer) {
+                    mdContainer.style.display = 'flex';
+                }
                 // Ocultar botón "Días" del header
                 var btnVolverHeader = document.getElementById('btn-volver-dias-header');
                 if (btnVolverHeader) btnVolverHeader.style.display = 'none';
@@ -12179,6 +12188,19 @@
                 // algunos ejercicios sueltos en lugar del entrenamiento completo.
                 var _dataParaRetomar = estado.dataRenderActual || dataGlobal;
 
+                // ─── Reconstruir la pantalla de selección de días ANTES de entrar
+                // al entrenamiento. Al retomar una sesión tras cerrar/recargar la
+                // app, "multidia-container" nunca se llega a crear (ese paso solo
+                // ocurría en el flujo normal al cargar la rutina). Sin esto, el
+                // botón "Días" luego no tiene nada que mostrar (pantalla negra) o
+                // muestra contenido desactualizado. Se construye igual que en el
+                // flujo normal (_bvEmpezar) y luego se oculta, porque entramos
+                // directo al entrenamiento del día guardado. ───
+                if (esMultidia) {
+                    cargarProgresoLocal(currentCode);
+                    renderMultidia(dataGlobal, currentCode);
+                }
+
                 // Configurar header
                 var cod = currentCode;
                 if (cod.includes('-')) {
@@ -12230,6 +12252,17 @@
                 // Renderizar la rutina (usando los datos del día activo si es multi-día)
                 _pantallaFinMostrada = false;
                 render(_dataParaRetomar);
+
+                // ─── Asegurar visibilidad correcta de las secciones, sea multi-día
+                // o no. renderMultidia() (arriba) oculta calentamiento/entrenamiento
+                // y muestra la lista de días; ahora que ya elegimos el día guardado,
+                // se invierte: se muestra el entrenamiento y se oculta la lista. ───
+                var _secWarmupRet = document.getElementById('sec-warmup');
+                var _secPrincipalRet = document.getElementById('sec-principal');
+                if (_secWarmupRet) _secWarmupRet.style.display = '';
+                if (_secPrincipalRet) _secPrincipalRet.style.display = '';
+                var _mdContainerRet = document.getElementById('multidia-container');
+                if (_mdContainerRet) _mdContainerRet.style.display = 'none';
 
                 // Si es multi-día, restaurar también el callback de "día completado"
                 // (igual que hace iniciarDia()), para que al terminar se marque el día.
