@@ -745,6 +745,70 @@
             color: var(--amarillo);
             text-shadow: 0 0 40px var(--amarillo-glow);
         }
+        /* ─── TRANSICIÓN DE COLOR EN LOS ÚLTIMOS SEGUNDOS DE TRABAJO ─── */
+        #clock.clock-warn,
+        #emom-clock.clock-warn {
+            color: var(--amarillo);
+            text-shadow: 0 0 40px var(--amarillo-glow);
+        }
+        #clock.clock-danger,
+        #emom-clock.clock-danger {
+            color: var(--rojo);
+            text-shadow: 0 0 40px var(--rojo-glow);
+        }
+        /* ─── ANILLO DE PROGRESO CIRCULAR (Tabata / EMOM) ─── */
+        .clock-ring-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: clamp(220px, 68vw, 360px);
+            aspect-ratio: 1 / 1;
+            margin: 4px auto 12px;
+        }
+        .clock-ring-wrap #clock,
+        .clock-ring-wrap #emom-clock {
+            margin: 0;
+            position: relative;
+            z-index: 1;
+        }
+        .clock-ring-svg {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+            pointer-events: none;
+        }
+        .clock-ring-bg {
+            fill: none;
+            stroke: var(--borde);
+            stroke-width: 3.5;
+        }
+        .clock-ring-fill {
+            fill: none;
+            stroke: var(--verde);
+            stroke-width: 3.5;
+            stroke-linecap: round;
+            stroke-dasharray: 283;
+            stroke-dashoffset: 0;
+            transition: stroke-dashoffset 1s linear, stroke 0.3s, filter 0.3s;
+            filter: drop-shadow(0 0 6px var(--verde-glow));
+        }
+        /* ─── PULSO/GLOW DURANTE LA CUENTA REGRESIVA DE PREPARACIÓN ─── */
+        @keyframes ringPrepPulse {
+            0%, 100% {
+                filter: drop-shadow(0 0 6px rgba(255, 196, 0, 0.55));
+                stroke-width: 3.5;
+            }
+            50% {
+                filter: drop-shadow(0 0 20px rgba(255, 196, 0, 0.85));
+                stroke-width: 5;
+            }
+        }
+        .clock-ring-wrap.fase-prep .clock-ring-fill {
+            animation: ringPrepPulse 1s ease-in-out infinite;
+        }
         /* ─── RELOJ EN PAUSA: cambio de fondo visible, no solo el texto del botón ─── */
         
         #clock,
@@ -3584,7 +3648,13 @@
                         <div class="timer-progress-bar">
                             <div class="timer-progress-fill" id="timer-progress-fill"></div>
                         </div>
-                        <div id="clock">05</div>
+                        <div class="clock-ring-wrap" id="clock-ring-wrap">
+                            <svg class="clock-ring-svg" viewBox="0 0 100 100">
+                                <circle class="clock-ring-bg" cx="50" cy="50" r="45"></circle>
+                                <circle class="clock-ring-fill" id="clock-ring-fill" cx="50" cy="50" r="45"></circle>
+                            </svg>
+                            <div id="clock">05</div>
+                        </div>
                         <div id="t-ejercicio" style="font-size:var(--fs-sm); color:var(--texto-suave); margin-bottom:12px;">Preparate</div>
                         <div id="next-ej-container">
                             PROXIMO: <span id="next-ej-name">---</span>
@@ -3605,7 +3675,13 @@
                         <div class="timer-progress-bar">
                             <div class="timer-progress-fill" id="emom-progress-fill"></div>
                         </div>
-                        <div id="emom-clock">00</div>
+                        <div class="clock-ring-wrap" id="emom-clock-ring-wrap">
+                            <svg class="clock-ring-svg" viewBox="0 0 100 100">
+                                <circle class="clock-ring-bg" cx="50" cy="50" r="45"></circle>
+                                <circle class="clock-ring-fill" id="emom-clock-ring-fill" cx="50" cy="50" r="45"></circle>
+                            </svg>
+                            <div id="emom-clock">00</div>
+                        </div>
                         <div id="emom-subtexto" style="font-size:var(--fs-sm); color:var(--texto-suave); margin-bottom:12px;">Preparate</div>
                         <button class="btn-principal" id="btnStartEmom" onclick="iniciarEmom()" style="background:linear-gradient(135deg,var(--verde),#00c853); color:#000; margin-bottom:10px;">EMPEZAR</button>
                         <button class="btn-pausa" id="btnPausaEmom" onclick="pausarEmom()" style="display:none;">⏸ PAUSAR</button>
@@ -10950,6 +11026,58 @@
             let timerTrabajoCurr = 1;
             var _tPhaseDeadline = 0; // timestamp en ms cuando termina la fase actual
 
+            // ─── ANILLO DE PROGRESO CIRCULAR + TRANSICIÓN DE COLOR (Tabata / EMOM) ───
+            var _CLOCK_RING_CIRC = 2 * Math.PI * 45; // ≈ 282.74, coincide con stroke-dasharray
+
+            function _actualizarClockRing(wrapId, fillId, restantes, total, fase) {
+                var wrap = document.getElementById(wrapId);
+                var fill = document.getElementById(fillId);
+                if (!fill) return;
+                var frac = total > 0 ? Math.max(0, Math.min(1, restantes / total)) : 0;
+                fill.style.strokeDashoffset = (_CLOCK_RING_CIRC * (1 - frac));
+
+                var esPrep = (fase === 'prep' || fase === 'arrancamos');
+                var color, glow;
+                if (esPrep) {
+                    color = 'var(--amarillo)';
+                    glow = 'rgba(255, 196, 0, 0.55)';
+                } else if (fase === 'pausa' || fase === 'descanso') {
+                    color = 'var(--rojo)';
+                    glow = 'var(--rojo-glow)';
+                } else if (fase === 'trabajo') {
+                    if (frac <= 0.15) {
+                        color = 'var(--rojo)';
+                        glow = 'var(--rojo-glow)';
+                    } else if (frac <= 0.4) {
+                        color = 'var(--amarillo)';
+                        glow = 'var(--amarillo-glow)';
+                    } else {
+                        color = 'var(--verde)';
+                        glow = 'var(--verde-glow)';
+                    }
+                } else {
+                    color = 'var(--verde)';
+                    glow = 'var(--verde-glow)';
+                }
+                fill.style.stroke = color;
+                if (!esPrep) fill.style.filter = 'drop-shadow(0 0 6px ' + glow + ')';
+                if (wrap) wrap.classList.toggle('fase-prep', esPrep);
+            }
+
+            // Transición gradual verde→amarillo→rojo en el dígito durante los
+            // últimos segundos de la fase de trabajo (no solo al llegar a cero).
+            function _actualizarClockColorTrabajo(clockId, restantes, total, fase) {
+                var el = document.getElementById(clockId);
+                if (!el) return;
+                if (fase !== 'trabajo') {
+                    el.classList.remove('clock-warn', 'clock-danger');
+                    return;
+                }
+                var frac = total > 0 ? restantes / total : 0;
+                el.classList.toggle('clock-danger', frac <= 0.15);
+                el.classList.toggle('clock-warn', frac > 0.15 && frac <= 0.4);
+            }
+
             function iniciarCronometroTiempo() {
                 if (timerActivo) return;
                 if (hayTimerActivo()) return;
@@ -11028,6 +11156,8 @@
                         fillEl.style.width = ((tSegs / total) * 100) + '%';
                         fillEl.style.background = tFase === "trabajo" ? "var(--verde)" : (tFase === "pausa" ? "var(--rojo)" : "var(--amarillo)");
                         fillEl.style.transition = "width 1s linear, background 0.3s";
+                        _actualizarClockRing('clock-ring-wrap', 'clock-ring-fill', tSegs, total, tFase);
+                        _actualizarClockColorTrabajo('clock', tSegs, total, tFase);
                     }
                     document.getElementById('clock').innerText = tSegs < 10 ? "0" + tSegs : tSegs;
                 }
@@ -11047,6 +11177,8 @@
                             fillEl.style.width = ((tSegs / total) * 100) + '%';
                             fillEl.style.transition = "none";
                         }
+                        _actualizarClockRing('clock-ring-wrap', 'clock-ring-fill', tSegs, total, tFase);
+                        _actualizarClockColorTrabajo('clock', tSegs, total, tFase);
                         if (tSegs <= 3 && tSegs > 0) beep(400);
                         if (tFase === "trabajo" && tSegs === Math.floor(trabajo / 2) && tSegs > 3) {
                             var _ejMotivTab = rutina.length > 0 ? rutina[tIdx % rutina.length] : null;
@@ -11235,6 +11367,8 @@
                 document.getElementById('t-status').innerText = "LISTO";
                 document.getElementById('clock').innerText = "05";
                 document.getElementById('clock').className = '';
+                document.getElementById('clock').classList.remove('clock-warn', 'clock-danger');
+                _actualizarClockRing('clock-ring-wrap', 'clock-ring-fill', 5, 5, 'prep');
                 _marcarRelojPausado('fs-clock', false);
                 document.getElementById('t-ejercicio').innerText = "Preparate";
                 document.getElementById('t-ejercicio-nombre').innerText = "";
@@ -11390,6 +11524,8 @@
                     fillEl.style.width = ((emomSegs / total) * 100) + '%';
                     fillEl.style.background = emomFase === "prep" ? "var(--amarillo)" : "var(--verde)";
                     fillEl.style.transition = "width 1s linear, background 0.3s";
+                    _actualizarClockRing('emom-clock-ring-wrap', 'emom-clock-ring-fill', emomSegs, total, emomFase);
+                    _actualizarClockColorTrabajo('emom-clock', emomSegs, total, emomFase);
                 }
             }
 
@@ -11439,6 +11575,8 @@
                             fillEl.style.width = ((emomSegs / total) * 100) + '%';
                             fillEl.style.transition = "none";
                         }
+                        _actualizarClockRing('emom-clock-ring-wrap', 'emom-clock-ring-fill', emomSegs, total, emomFase);
+                        _actualizarClockColorTrabajo('emom-clock', emomSegs, total, emomFase);
                         if (emomSegs <= 3 && emomSegs > 0) beep(400);
 
                         if (emomFase === "trabajo" && emomSegs === 15) {
@@ -11590,6 +11728,8 @@
                 document.getElementById('emom-ejercicio-nombre').innerText = "";
                 document.getElementById('emom-clock').innerText = "05";
                 document.getElementById('emom-clock').className = '';
+                document.getElementById('emom-clock').classList.remove('clock-warn', 'clock-danger');
+                _actualizarClockRing('emom-clock-ring-wrap', 'emom-clock-ring-fill', 5, 5, 'prep');
                 _marcarRelojPausado('fs-clock', false);
                 document.getElementById('emom-subtexto').innerText = "Preparate";
                 var fillEl = document.getElementById('emom-progress-fill');
