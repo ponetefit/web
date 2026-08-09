@@ -379,6 +379,23 @@
             }
             /* Dejar espacio abajo para que el boton fijo no tape el ultimo contenido */
             #sec-rutina { padding-bottom: 72px; }
+
+            /* ── Selector de Tipo de Entrenamiento en tarjetas (Calentamiento y Bloque) ── */
+            .pf-select-oculto-mobile { display: none !important; }
+            .pf-tipo-cards { display: grid !important; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 4px; }
+        }
+        /* Oculto por defecto en desktop: ahi se sigue viendo el <select> de toda la vida */
+        .pf-tipo-cards { display: none; }
+        .pf-tipo-card {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 4px; padding: 12px 8px; border-radius: 12px;
+            border: 1px solid rgb(255 255 255 / 0.1); background: rgba(255,255,255,0.03);
+            color: #8a8a9a; text-align: center; min-height: 64px;
+        }
+        .pf-tipo-card-ico { font-size: 1.1rem; line-height: 1; }
+        .pf-tipo-card-txt { font-size: 0.7rem; font-weight: 700; line-height: 1.15; }
+        .pf-tipo-card-activa {
+            border-color: #FF6B35; background: rgba(255,107,53,0.12); color: #FF6B35;
         }
         /* Estilos del stepper mobile (+/-) y swipe-to-delete (siempre definidos;
            los elementos que los usan ya llevan su propia clase sm:hidden) */
@@ -3712,6 +3729,7 @@
     function actualizarWarmupUIDia(idx) {
         const sel = document.getElementById('warmup-tipo-' + idx);
         if (!sel) return;
+        _pfCardificarSelectTipo('warmup-tipo-' + idx);
         const tipo = sel.value;
         const container = document.getElementById('warmup-params-container-' + idx);
         if (!container) return;
@@ -4386,6 +4404,7 @@
         const tipoEl = document.getElementById('bloque-tipo');
         const container = document.getElementById('bloque-params-container');
         if (!tipoEl || !container) return;
+        _pfCardificarSelectTipo('bloque-tipo');
         const tipo = tipoEl.value;
         const ejPanel = document.getElementById('bloque-ejercicios-panel');
         let html = '';
@@ -4893,7 +4912,7 @@
         if (buscador) buscador.value = '';
         // Restaurar lista completa después de buscar
         cargarEjsBloque();
-        bloqueEjsTemp.push({ nombre, link, reps: '12', unit: 'Reps', series: 4, descanso: '60', nota_tecnica: '', con_carga, tip1, tip2, elemento });
+        bloqueEjsTemp.push({ nombre, link, reps: '10', unit: 'Reps', series: 3, descanso: '60', nota_tecnica: '', con_carga, tip1, tip2, elemento });
         renderBloqueEjsTemp();
     }
 
@@ -12581,6 +12600,56 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         if (!p1 || !p2) return;
         if (n === 1) { p1.classList.remove('hidden'); p2.classList.add('hidden'); }
         else { p1.classList.add('hidden'); p2.classList.remove('hidden'); }
+    }
+
+    // ── Selector de "Tipo de Entrenamiento" en tarjetas (mobile) ──────────────
+    // Convierte visualmente el <select id="bloque-tipo"> / "warmup-tipo-N" en
+    // una grilla de tarjetas tocables SOLO en mobile (el select original sigue
+    // existiendo, oculto, y sigue siendo la unica fuente de verdad: todo el
+    // codigo de cada modo de entrenamiento (Circuito/Tabata/EMOM/Series/etc.)
+    // sigue leyendo su .value exactamente igual que antes). En desktop no se
+    // toca nada: el select se ve y funciona como siempre.
+    const _pfIconosTipo = [
+        [/tabata/i, '🔥'],
+        [/emom/i, '⏱️'],
+        [/sumando/i, '➕'],
+        [/circuito.*tiempo/i, '⏲️'],
+        [/por\s*tiempo/i, '⏳'],
+        [/series/i, '📊'],
+        [/circuito/i, '🔁']
+    ];
+    function _pfIconoTipo(txt) {
+        for (const [re, icono] of _pfIconosTipo) { if (re.test(txt)) return icono; }
+        return '💪';
+    }
+    function _pfCardificarSelectTipo(selectId) {
+        const sel = document.getElementById(selectId);
+        if (!sel) return;
+        let wrap = document.getElementById(selectId + '-cards');
+        if (!wrap) {
+            sel.classList.add('pf-select-oculto-mobile');
+            wrap = document.createElement('div');
+            wrap.id = selectId + '-cards';
+            wrap.className = 'pf-tipo-cards';
+            Array.from(sel.options).forEach(opt => {
+                const card = document.createElement('button');
+                card.type = 'button';
+                card.className = 'pf-tipo-card';
+                card.dataset.val = opt.value;
+                card.innerHTML = '<span class="pf-tipo-card-ico">' + _pfIconoTipo(opt.textContent) + '</span>' +
+                    '<span class="pf-tipo-card-txt">' + opt.textContent + '</span>';
+                card.onclick = function () {
+                    if (sel.value === opt.value) return;
+                    sel.value = opt.value;
+                    sel.dispatchEvent(new Event('change', { bubbles: true }));
+                };
+                wrap.appendChild(card);
+            });
+            sel.insertAdjacentElement('afterend', wrap);
+        }
+        wrap.querySelectorAll('.pf-tipo-card').forEach(c => {
+            c.classList.toggle('pf-tipo-card-activa', c.dataset.val === sel.value);
+        });
     }
 
     function _pfBloquePaso(n) {
