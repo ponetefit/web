@@ -8825,6 +8825,13 @@
                         pausa_entre_rondas: bloque.pausa_entre_rondas || 0
                     };
                     const rutinaTab = bloque.rutina || bloque.ejercicios || [];
+                    const tabUid = uid + "-tab";
+                    const tabStatusId = tabUid + "-status";
+                    const tabEjId = tabUid + "-ej";
+                    const tabInfoId = tabUid + "-info";
+                    const tabClockId = tabUid + "-clock";
+                    const tabBtnId = tabUid + "-btn";
+                    const tabPausaId = tabUid + "-pausa";
                     let htmlTab = '<div class="bloque-mix" id="' + uid + '" style="border-color:var(--naranja);--card-color:var(--naranja);">' +
                         '<div class="bloque-mix-titulo" style="color:var(--naranja);">BLOQUE ' + idx + ' — TABATA</div>' +
                         '<div class="info-block" style="border-color:var(--naranja);">' +
@@ -8839,8 +8846,16 @@
                         const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
                         htmlTab += crearCardNumero(i + 1, rutinaTab.length, n, l, cc);
                     });
-                    htmlTab += '<button class="btn-principal" id="' + uid + '-tab-start-btn" style="background:linear-gradient(135deg,var(--naranja),#d35400); margin-top:16px; width:100%;" ' +
-                        'onclick="iniciarTabataMixEnUI(' + (idx - 1) + ')">INICIAR TABATA</button></div>';
+                    htmlTab += '<div class="emom-inline-box">' +
+                        '<div id="' + tabStatusId + '" style="font-size:0.7rem; font-weight:900; letter-spacing:3px; color:var(--naranja);">LISTO PARA TABATA</div>' +
+                        '<div id="' + tabEjId + '" style="font-size:0.9rem; color:var(--texto); min-height:1.4rem; margin:4px 0;"></div>' +
+                        '<div id="' + tabInfoId + '" style="font-size:0.75rem; color:var(--texto-suave);"></div>' +
+                        '<div class="emom-inline-clock" id="' + tabClockId + '">00</div>' +
+                        '<button id="' + tabBtnId + '" class="btn-principal" style="background:linear-gradient(135deg,var(--naranja),#d35400); margin-top:12px; width:100%;" ' +
+                        'onclick="iniciarTabataBloque(\'' + tabBtnId + '\',\'' + tabStatusId + '\',\'' + tabEjId + '\',\'' + tabInfoId + '\',\'' + tabClockId + '\',' + JSON.stringify(tc) + ',' + JSON.stringify(rutinaTab) + ')">INICIAR TABATA</button>' +
+                        '<button id="' + tabPausaId + '" class="btn-pausa" style="max-width:280px; margin:8px auto 0; display:none;" onclick="togglePausaTabataMix(\'' + tabPausaId + '\',\'' + tabBtnId + '\')">⏸ PAUSAR</button>' +
+                        '<button class="btn-fullscreen" style="max-width:280px; margin:8px auto 0; display:block;" onclick="entrarFullscreen(\'inline\',{status:\'' + tabStatusId + '\',ej:\'' + tabEjId + '\',info:\'' + tabInfoId + '\',clock:\'' + tabClockId + '\'})">⛶ PANTALLA COMPLETA</button>' +
+                        '</div></div>';
                     pLista.innerHTML += htmlTab;
 
                 } else if (tipo === "EMOM") {
