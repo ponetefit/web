@@ -8483,23 +8483,15 @@
                 // Guardar en global para uso del timer
                 emomMinutosCiclo = _cicloEnriq;
 
-                // Mostrar ejercicios por minuto con thumbnails (agrupando repetidos)
+                // Mostrar ejercicios por minuto con thumbnails (agrupando repetidos).
+                // El campo de carga/peso para los ejercicios que lo necesitan ya se agrega
+                // automaticamente dentro de cada card agrupada (crearCard lo resuelve solo
+                // via el parametro con_carga), asi que NO hay que volver a agregarlos aparte
+                // -eso es lo que causaba que ejercicios con carga aparecieran duplicados
+                // como cards sueltas despues del ultimo minuto del EMOM.
                 if (_cicloEnriq.length > 0) {
                     pLista.innerHTML += '<div style="margin-bottom:10px;">' + _emomCicloHtmlAgrupado(_cicloEnriq) + '</div>';
                 }
-
-                // Mostrar campo de carga para ejercicios que lo tengan
-                var _yaConCarga = new Set();
-                _cicloEnriq.forEach(function(minData) {
-                    if (!minData.es_descanso) {
-                        (minData.ejercicios || []).forEach(function(ej) {
-                            if (!_yaConCarga.has(ej.nombre) && (ej.con_carga || _obtenerConCarga(ej.nombre))) {
-                                _yaConCarga.add(ej.nombre);
-                                pLista.innerHTML += crearCard(ej.nombre, ej.link || '', ej.reps ? ej.reps + ' ' + (ej.unit || 'Reps').toUpperCase() : 'EMOM', true);
-                            }
-                        });
-                    }
-                });
 
                 document.getElementById('emom-status').innerText = "LISTO";
                 document.getElementById('emom-clock').innerText = "05";
@@ -8888,23 +8880,12 @@
                         }
                     }
                     var _cicloEnriqMix = _emomEnriquecerCiclo(_cicloBaseMix, _fuenteMix);
-                    // Mostrar por minuto con thumbnails (agrupando repetidos)
+                    // Mostrar por minuto con thumbnails (agrupando repetidos). El campo de
+                    // carga/peso ya se agrega solo dentro de cada card agrupada, asi que no
+                    // hay que volver a listar los ejercicios con carga aparte (evita duplicados).
                     if (_cicloEnriqMix.length > 0) {
                         emomHtml += '<div style="margin-bottom:10px;">' + _emomCicloHtmlAgrupado(_cicloEnriqMix) + '</div>';
                     }
-                    // Carga si corresponde
-                    var yaMostradosBlq = new Set();
-                    _cicloEnriqMix.forEach(function(minData) {
-                        if (!minData.es_descanso) {
-                            (minData.ejercicios || []).forEach(function(ej) {
-                                if (!yaMostradosBlq.has(ej.nombre) && (ej.con_carga || (bloque.carga_por_ejercicio || {})[ej.nombre])) {
-                                    yaMostradosBlq.add(ej.nombre);
-                                    var ejU = (ej.unit || 'Reps').toUpperCase();
-                                    emomHtml += crearCard(ej.nombre, ej.link || '', ej.reps ? ej.reps + ' ' + ejU : 'EMOM', true);
-                                }
-                            });
-                        }
-                    });
                     var emomPausaId = emomUid + "-pausa";
                     var emomReinId = emomUid + "-rein";
                     emomHtml += '<div class="emom-inline-box">' +
