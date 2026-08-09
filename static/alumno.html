@@ -6512,12 +6512,34 @@
                 return html;
             }
 
+            // ─── EMOM: formatea una lista de minutos (ej: [1,2,3,5,6]) de forma compacta ───
+            // en vez de un chip por minuto. Devuelve texto listo para mostrar:
+            //   - Si aparece en TODOS los minutos no-descanso del ciclo -> "CADA MINUTO ×N"
+            //   - Si es un tramo seguido -> "MIN 2-6"
+            //   - Si hay huecos -> rangos compactos separados por coma -> "MIN 1-2, 4-5"
+            function _emomFormatearMinutos(minutosArr, totalMinutosCiclo) {
+                var n = minutosArr.length;
+                if (totalMinutosCiclo > 1 && n === totalMinutosCiclo) {
+                    return 'CADA MINUTO ×' + n;
+                }
+                var rangos = [];
+                var inicio = minutosArr[0], prev = minutosArr[0];
+                for (var i = 1; i < n; i++) {
+                    if (minutosArr[i] === prev + 1) { prev = minutosArr[i]; continue; }
+                    rangos.push(inicio === prev ? ('' + inicio) : (inicio + '-' + prev));
+                    inicio = minutosArr[i]; prev = minutosArr[i];
+                }
+                rangos.push(inicio === prev ? ('' + inicio) : (inicio + '-' + prev));
+                return 'MIN ' + rangos.join(', ');
+            }
+
             // ─── EMOM: agrupar ejercicios que se repiten en varios minutos en una sola card ───
             // (en vez de repetir la card completa por cada minuto, se muestra una vez con
-            // chips "MIN X" indicando en qué minutos toca)
+            // un texto compacto indicando en qué minutos toca, sin llenar la card de chips)
             function _emomCicloHtmlAgrupado(cicloEnriq) {
                 var html = '';
                 var yaRenderizado = {};
+                var totalMinutosNoDescanso = cicloEnriq.filter(function(md) { return !md.es_descanso; }).length;
                 cicloEnriq.forEach(function(minData, mi) {
                     var esD = minData.es_descanso || false;
                     var minLabel = 'MIN ' + (mi + 1);
@@ -6554,18 +6576,19 @@
                         var cc = ej.con_carga || _obtenerConCarga(n);
 
                         if (apariciones.length > 1) {
-                            // Repetido: una sola card con chips de todos los minutos
-                            var chipsHtml = apariciones.map(function(a) {
-                                return '<span class="card-min-chip">MIN ' + a.min + '</span>';
-                            }).join('');
+                            // Repetido: una sola card con un texto compacto de minutos
+                            // ("CADA MINUTO ×6" / "MIN 2-6" / "MIN 1-2, 4-5") en vez de
+                            // una fila de chips individuales que se hace larga y satura la vista
+                            var minutosArr = apariciones.map(function(a) { return a.min; });
+                            var minutosLabel = _emomFormatearMinutos(minutosArr, totalMinutosNoDescanso);
                             var repsBase = apariciones[0].reps,
                                 unitBase = apariciones[0].unit;
                             var mismasReps = apariciones.every(function(a) {
                                 return a.reps === repsBase;
                             });
                             var metaTexto = mismasReps && repsBase ? (repsBase + ' ' + unitBase + ' c/vez') : '';
-                            var metaHtml = '<div class="card-min-chips">' + chipsHtml + '</div>' +
-                                (metaTexto ? '<div style="margin-top:2px;">' + metaTexto + '</div>' : '');
+                            var metaHtml = '<span class="card-min-badge" style="position:static;display:inline-block;transform:none;">' + minutosLabel + '</span>' +
+                                (metaTexto ? '<div style="margin-top:4px;">' + metaTexto + '</div>' : '');
                             html += '<div style="margin-bottom:10px;">' + crearCard(n, l, metaHtml, cc) + '</div>';
                         } else {
                             // Aparece una sola vez: igual que antes
