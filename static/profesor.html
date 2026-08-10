@@ -72,6 +72,44 @@
         .exercise-chip {
             animation: fadeIn 0.2s ease-in;
         }
+        /* Accesibilidad: letra mas grande y en negrita al elegir/editar ejercicios
+           (aplica a todas las tarjetas de ejercicios: Circuito, Series, Tabata,
+           EMOM, calentamiento, etc.) para que sea mas facil de leer y tocar. */
+        .exercise-chip .text-xs {
+            font-size: 0.9rem !important;
+            font-weight: 700 !important;
+        }
+        .exercise-chip .text-sm {
+            font-size: 1.05rem !important;
+        }
+        .exercise-chip input,
+        .exercise-chip select {
+            font-size: 1rem !important;
+            font-weight: 700 !important;
+            min-height: 38px !important;
+        }
+        .exercise-chip .text-\[9px\] {
+            font-size: 0.7rem !important;
+        }
+        .ac-item-ej {
+            font-size: 1.1rem !important;
+        }
+        .ac-item-ej-cat {
+            font-size: 0.85rem !important;
+            font-weight: 700 !important;
+        }
+        #emom-minutos-config label, #emom-minutos-config p, #emom-minutos-config span,
+        [id^="emom-warmup-config-"] label, [id^="emom-warmup-config-"] p, [id^="emom-warmup-config-"] span {
+            font-size: 0.9rem !important;
+            font-weight: 700 !important;
+        }
+        #emom-minutos-config input, #emom-minutos-config select,
+        [id^="emom-warmup-config-"] input, [id^="emom-warmup-config-"] select {
+            font-size: 0.95rem !important;
+            font-weight: 700 !important;
+            min-height: 38px !important;
+            padding: 8px 10px !important;
+        }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-4px); }
             to { opacity: 1; transform: translateY(0); }
@@ -503,6 +541,44 @@
             #bloque-params-home > div, [id^="warmup-params-home-"] > div {
                 background: #141418; border: 1.5px solid #2a2a35; border-radius: 14px;
                 padding: 14px; margin-bottom: 12px;
+            }
+            /* EMOM: tiene su propia UI compacta (varios inputs/selects chicos
+               por minuto, dentro de bloque-params-container / emom-warmup-config-N).
+               No debe heredar el tamaño grande/centrado de la pantalla de
+               Parametros, o se vuelve inusable. */
+            #emom-minutos-config, [id^="emom-warmup-config-"] {
+                text-align: left;
+            }
+            #emom-minutos-config label, #emom-minutos-config p,
+            [id^="emom-warmup-config-"] label, [id^="emom-warmup-config-"] p {
+                font-size: 0.95rem !important;
+                font-weight: 700 !important;
+                text-align: left !important;
+            }
+            #emom-minutos-config input, #emom-minutos-config select,
+            [id^="emom-warmup-config-"] input, [id^="emom-warmup-config-"] select {
+                font-size: 1rem !important;
+                padding: 10px 12px !important;
+                min-height: 44px !important;
+                font-weight: 700 !important;
+                text-align: left !important;
+            }
+            #emom-minutos-config span, [id^="emom-warmup-config-"] span {
+                font-size: 0.95rem !important;
+                font-weight: 700 !important;
+            }
+            #emom-minutos-config button, [id^="emom-warmup-config-"] button {
+                min-height: 40px !important;
+                font-size: 0.9rem !important;
+            }
+            #emom-minutos-config [id*="-lista"] > div,
+            [id^="emom-warmup-config-"] [id*="-lista"] > div {
+                flex-wrap: wrap !important;
+                row-gap: 6px !important;
+            }
+            #emom-minutos-config [id*="-lista"] input[type="text"],
+            [id^="emom-warmup-config-"] [id*="-lista"] input[type="text"] {
+                width: 4.5rem !important;
             }
 
             /* ── Buscador de ejercicios (mobile): tarjeta grande con lupa, en vez
@@ -3959,8 +4035,8 @@
             html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Trabajo (seg)</label><input id="warmup-trabajo-' + idx + '" type="number" value="' + (_cfg.trabajo||20) + '" min="5" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label><input id="warmup-pausa-' + idx + '" type="number" value="' + (_cfg.pausa||10) + '" min="5" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de ejercicios</label><input id="warmup-cantidad-' + idx + '" type="number" value="' + (diasData[idx] ? diasData[idx].warmupEjercicios.length : 0) + '" min="0" readonly class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondo/50 text-textoSuave cursor-not-allowed"></div></div><p class="text-xs text-textoSuave mt-1">Se actualiza automáticamente según los ejercicios agregados abajo</p>';
         } else if (tipo === 'EMOM') {
             html = '<div class="grid grid-cols-2 gap-3">' +
-                   '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Minutos totales</label><input id="warmup-minutos-' + idx + '" type="number" value="' + (_cfg.minutos||5) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ');actualizarEMOMWarmupMinutosConfig(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>' +
-                   '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repetir ciclo cada (min)</label><input id="warmup-emom-ciclo-' + idx + '" type="number" value="' + (_cfg.emom_ciclo||_cfg.minutos||5) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ');actualizarEMOMWarmupMinutosConfig(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>' +
+                   '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Minutos totales</label><input id="warmup-minutos-' + idx + '" type="number" inputmode="numeric" value="' + (_cfg.minutos||5) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ')" onchange="actualizarEMOMWarmupMinutosConfig(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>' +
+                   '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repetir ciclo cada (min)</label><input id="warmup-emom-ciclo-' + idx + '" type="number" inputmode="numeric" value="' + (_cfg.emom_ciclo||_cfg.minutos||5) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ')" onchange="actualizarEMOMWarmupMinutosConfig(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>' +
                    '</div>' +
                    '<p class="text-xs text-textoSuave mt-2">Cargá los ejercicios de UN ciclo (ej: 5 min = 5 ejercicios) y se repite automáticamente hasta completar los minutos totales</p>' +
                    '<div id="emom-warmup-repeat-note-' + idx + '" class="text-xs font-bold mt-1" style="color:#FFD54F"></div>' +
@@ -4649,9 +4725,9 @@
         } else if (tipo === 'EMOM') {
             html = `<div class="grid grid-cols-2 gap-3">
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Minutos totales</label>
-                <input id="bp-minutos" type="number" value="10" min="1" max="60" oninput="actualizarEMOMMinutosConfig();_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+                <input id="bp-minutos" type="number" inputmode="numeric" value="10" min="1" max="60" oninput="_pfActualizarDuracionViva()" onchange="actualizarEMOMMinutosConfig();_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repetir ciclo cada (min)</label>
-                <input id="bp-emom-ciclo" type="number" value="10" min="1" max="60" oninput="actualizarEMOMMinutosConfig();_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+                <input id="bp-emom-ciclo" type="number" inputmode="numeric" value="10" min="1" max="60" oninput="_pfActualizarDuracionViva()" onchange="actualizarEMOMMinutosConfig();_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
             </div>
             <p class="text-xs text-textoSuave mt-2">Cargá los ejercicios de UN ciclo (ej: 5 min = 5 ejercicios) y se repite automáticamente hasta completar los minutos totales</p>
             <div id="emom-repeat-note" class="text-xs font-bold mt-1" style="color:#FFD54F"></div>
