@@ -621,6 +621,28 @@
                 color: #FF6B35; display: flex; align-items: center; justify-content: center;
                 font-size: 1.2rem; font-weight: 900; flex-shrink: 0;
             }
+            /* Panel "elegir por categoria": chips grandes + lista de ejercicios
+               tocables, para agregar ejercicios sin necesidad de escribir ni
+               abrir el teclado. */
+            .ac-cat-panel { margin-top: 10px; }
+            .ac-cat-chips {
+                display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;
+            }
+            .ac-cat-chip {
+                font-family: 'Roboto', sans-serif;
+                font-size: 0.95rem; font-weight: 700;
+                background: #141418; border: 1.5px solid #2a2a35; color: #f0f0f5;
+                border-radius: 999px; padding: 10px 16px; min-height: 44px;
+                touch-action: manipulation;
+            }
+            .ac-cat-chip:active { border-color: #FF6B35; }
+            .ac-cat-chip-activa {
+                background: rgba(255,107,53,0.18) !important;
+                border-color: #FF6B35 !important; color: #FF6B35 !important;
+            }
+            .ac-cat-lista { margin-top: 4px; max-height: 320px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+            .ac-cat-lista .ac-item-ej { margin-bottom: 8px; }
+            .ac-cat-lista-vacia { font-size: 0.9rem; font-weight: 700; color: #8a8a9a; padding: 10px 4px; }
             /* Ejercicios ya agregados: tarjetas mas grandes y redondeadas */
             #bloque-paso-2 .exercise-chip, [id^="warmup-paso-2-"] .exercise-chip {
                 border-radius: 14px !important;
@@ -2254,6 +2276,46 @@
     let warmupEjercicios = [];
     let bloquesRutina = [];
     let bloqueEjsTemp = [];
+    // Indices de ejercicios del bloque que estan "expandidos" (tarjeta abierta para editar).
+    // Por defecto arrancan colapsados (tarjeta chica, resumen); tocar la tarjeta la abre/cierra.
+    let bloqueEjExpandidos = new Set();
+    function _pfToggleEjBloque(e, i) {
+        if (window.innerWidth >= 640) return; // en desktop las tarjetas ya muestran todo, no hace falta tocar
+        if (e && e.target && e.target.closest('button, input, select, textarea, .drag-handle')) return;
+        if (bloqueEjExpandidos.has(i)) bloqueEjExpandidos.delete(i);
+        else bloqueEjExpandidos.add(i);
+        renderBloqueEjsTemp();
+    }
+    // Resumen corto (1 linea) del ejercicio para mostrar en la tarjeta colapsada
+    function _pfResumenEjBloque(ej, tipo, i, numVueltas, totalEjs) {
+        const unidad = (ej.unit === 'Segs') ? 'seg' : 'reps';
+        if (tipo === 'Circuito') {
+            const arr = (ej.reps_por_vuelta || []).filter(v => v !== undefined && v !== null && v !== '');
+            const iguales = arr.length && arr.every(v => v === arr[0]);
+            const txt = arr.length ? (iguales ? arr[0] : arr.join('/')) : (ej.reps || '');
+            return txt ? (txt + ' ' + unidad) : 'Sin datos';
+        }
+        if (tipo === 'Series') {
+            const reps = (ej.reps_por_serie || []).filter(v => v !== undefined && v !== null && v !== '');
+            const repsIguales = reps.length && reps.every(v => v === reps[0]);
+            const repsTxt = reps.length ? (repsIguales ? reps[0] : reps.join('/')) : '';
+            const pausas = (ej.pausa_por_serie || []).filter(v => v !== undefined && v !== null && v !== '');
+            const pausasIguales = pausas.length && pausas.every(v => v === pausas[0]);
+            const pausaTxt = pausas.length ? (pausasIguales ? pausas[0] : pausas.join('/')) : '';
+            return (ej.series || '?') + 'x' + (repsTxt || '?') + ' ' + unidad + (pausaTxt ? (' · ' + pausaTxt + 's') : '');
+        }
+        if (tipo === 'Tabata') {
+            return 'Por tiempo';
+        }
+        if (tipo === 'Sumando Ejercicio') {
+            return (ej.reps || '?') + ' ' + unidad + ' fijas';
+        }
+        if (tipo === 'Por Tiempo') {
+            return (ej.reps || '?') + ' ' + unidad + '/vuelta';
+        }
+        // EMOM, Circuito por Tiempo, fallback
+        return (ej.reps || '?') + ' ' + unidad;
+    }
     let editandoBloqueIdx = null;
 
     // Helper para asegurar longitud de arrays por vuelta/serie
@@ -2397,6 +2459,52 @@
         box.className = 'ac-suggestions-ej hidden bg-tarjeta border-borde';
         box.style.cssText = 'position:absolute;top:100%;left:0;right:0;z-index:40;max-height:260px;overflow-y:auto;margin-top:4px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 8px 24px rgba(0,0,0,0.4);';
         wrap.appendChild(box);
+
+        // ── Panel de categorias: alternativa sin teclado para agregar
+        //    ejercicios (tocar categoria -> tocar ejercicio, sin escribir). ──
+        const catPanel = document.createElement('div');
+        catPanel.className = 'ac-cat-panel';
+        wrap.parentNode.insertBefore(catPanel, wrap.nextSibling);
+
+        function renderEjerciciosCategoria(cat, listaEl) {
+            const ejs = (videotecaCache[cat] || []).map(e => ({ nombre: e.nombre || e[0], cat })).filter(e => e.nombre);
+            if (ejs.length === 0) {
+                listaEl.innerHTML = '<p class="ac-cat-lista-vacia">Sin ejercicios en esta categoría</p>';
+                return;
+            }
+            listaEl.innerHTML = ejs.map((m, i) => {
+                const usos = (typeof _pfUsosDeEjercicio === 'function') ? _pfUsosDeEjercicio(m.nombre) : [];
+                const avisoBadge = usos.length ? ' <span style="color:#c4a820;font-size:10px;font-weight:700;" title="Ya usado en: ' + usos.join(', ') + '">⚠ usado</span>' : '';
+                return '<div class="ac-item-ej" data-idx="' + i + '">' +
+                    '<span class="ac-item-ej-ico">🏋️</span>' +
+                    '<span class="ac-item-ej-info">' + m.nombre + avisoBadge + '</span>' +
+                    '<span class="ac-item-ej-add">+</span>' +
+                    '</div>';
+            }).join('');
+            listaEl.querySelectorAll('.ac-item-ej').forEach((el, i) => {
+                el.addEventListener('click', () => seleccionar(ejs[i]));
+            });
+        }
+
+        function renderCategorias() {
+            const cats = Object.keys(videotecaCache || {}).filter(c => (videotecaCache[c] || []).length > 0).sort();
+            if (cats.length === 0) { catPanel.innerHTML = ''; return; }
+            catPanel.innerHTML = '<div class="ac-cat-chips">' +
+                cats.map(c => '<button type="button" class="ac-cat-chip" data-cat="' + c.replace(/"/g, '&quot;') + '">' + c + '</button>').join('') +
+                '</div><div class="ac-cat-lista"></div>';
+            const listaEl = catPanel.querySelector('.ac-cat-lista');
+            catPanel.querySelectorAll('.ac-cat-chip').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const yaActiva = btn.classList.contains('ac-cat-chip-activa');
+                    catPanel.querySelectorAll('.ac-cat-chip').forEach(b => b.classList.remove('ac-cat-chip-activa'));
+                    if (yaActiva) { listaEl.innerHTML = ''; return; }
+                    btn.classList.add('ac-cat-chip-activa');
+                    renderEjerciciosCategoria(btn.dataset.cat, listaEl);
+                });
+            });
+        }
+
+        renderCategorias();
 
         let activeIdx = -1;
         let currentMatches = [];
@@ -4636,6 +4744,7 @@
     function agregarBloque() {
         editandoBloqueIdx = null;
         bloqueEjsTemp = [];
+        bloqueEjExpandidos = new Set();
         document.getElementById('bloque-tipo').value = 'Circuito';
         document.getElementById('bloque-desc').value = '';
         actualizarBloqueParams();
@@ -5429,16 +5538,36 @@
                     '</div>';
             }
 
+            // "expandido" solo importa en mobile (en desktop los controles se ven siempre, como antes)
+            const expandido = bloqueEjExpandidos.has(i);
+            const resumen = _pfResumenEjBloque(ej, tipo, i, numVueltas, bloqueEjsTemp.length);
+            const notaIcon = (ej.nota_tecnica && ej.nota_tecnica.trim()) ? ' <span title="Tiene nota del profe">📝</span>' : '';
+            // Resumen y chevron: SOLO mobile (sm:hidden). En desktop no se muestran porque
+            // los controles completos ya estan siempre visibles.
+            const resumenHtml = !expandido
+                ? '<div class="text-xs text-textoSuave mt-0.5 truncate sm:hidden">' + resumen + notaIcon + '</div>'
+                : '';
+            const chevron = '<svg class="pf-chip-chevron flex-shrink-0 sm:hidden" style="transition:transform .15s;transform:rotate(' + (expandido ? '180' : '0') + 'deg);" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+            // Controles: en mobile ocultos salvo que la tarjeta este expandida (tocada);
+            // en desktop (sm:block) siempre visibles, sin importar el estado.
+            const controlsClass = (expandido ? '' : 'hidden') + ' sm:block mt-2';
+
             return `<div class="exercise-chip bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50" draggable="true" data-idx="${i}" data-list="bloque" ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)">
-                <div class="flex items-center justify-between mb-2">
-                    <div class="flex items-center gap-2">
+                <div class="flex items-center justify-between" onclick="_pfToggleEjBloque(event, ${i})" style="cursor:pointer;">
+                    <div class="flex items-center gap-2 min-w-0" style="flex:1;">
                         <span class="drag-handle" title="Arrastrar para reordenar"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
                         ${_flechasHtml('bloque', i, bloqueEjsTemp.length)}
-                        <span class="text-sm font-bold ej-hover-preview" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">${i+1}. ${ej.nombre}</span>${cargaBadge}${incompletoBadge}
+                        <div class="min-w-0" style="flex:1;">
+                            <span class="text-sm font-bold ej-hover-preview" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">${i+1}. ${ej.nombre}</span>${cargaBadge}${incompletoBadge}
+                            ${resumenHtml}
+                        </div>
                     </div>
-                    <button onclick="quitarEjBloque(${i})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none">&times;</button>
+                    <div class="flex items-center gap-1 flex-shrink-0">
+                        ${chevron}
+                        <button onclick="quitarEjBloque(${i})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none px-1">&times;</button>
+                    </div>
                 </div>
-                ${controlsHtml}
+                <div class="${controlsClass}">${controlsHtml}</div>
             </div>`;
         }).join('');
         initTouchDragForList(lista, 'bloque');
@@ -5635,6 +5764,7 @@
         }
 
         bloqueEjsTemp = JSON.parse(JSON.stringify(b.ejercicios || []));
+        bloqueEjExpandidos = new Set();
         renderBloqueEjsTemp();
         cargarEjsBloque();
         // Actualizar texto del botón de confirmar para indicar que se está editando
