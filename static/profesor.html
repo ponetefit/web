@@ -2438,6 +2438,34 @@
 
     // ====================================================================
     // BUSCADOR DE EJERCICIOS PARA MOBILE (solo se usa en pantallas < 640px)
+    // Zonas fijas del cuerpo para elegir ejercicios tocando (bloque principal y calentamiento).
+    // Mismo criterio que usa el filtro de Zona en Videoteca (musculo1/musculo2/sinergista),
+    // mas "Aerobico" (por nombre de categoria de Firebase) y "Todo el cuerpo" como zona
+    // (ejercicios que tocan 2+ grupos, o que no tienen musculo cargado).
+    const PF_ZONAS = [
+        { id: 'piernas',     label: 'Piernas',       emoji: '🦵' },
+        { id: 'brazos',      label: 'Brazos',        emoji: '💪' },
+        { id: 'zona_media',  label: 'Zona Media',    emoji: '🎯' },
+        { id: 'todo_cuerpo', label: 'Todo el cuerpo', emoji: '🧍' },
+        { id: 'aerobico',    label: 'Aeróbico',      emoji: '🏃' }
+    ];
+    // Musculos por zona duplicados aca a proposito: ZONA_MUSCULOS se define mas abajo en el
+    // archivo (junto a Videoteca) y esta funcion se ejecuta recien cuando el profe toca un
+    // chip de zona, momento en que ZONA_MUSCULOS ya esta inicializada.
+    function _pfZonaDeEjercicio(ej, categoriaNombre) {
+        const catLower = (categoriaNombre || '').toLowerCase();
+        if (catLower.indexOf('aerob') !== -1 || catLower.indexOf('cardio') !== -1) return 'aerobico';
+        const musculos = [ej.musculo1, ej.musculo2, ej.sinergista].filter(Boolean).map(m => String(m).toLowerCase());
+        const zonasMatch = [];
+        Object.keys(ZONA_MUSCULOS).forEach(zona => {
+            const lista = ZONA_MUSCULOS[zona].map(m => m.toLowerCase());
+            if (musculos.some(m => lista.includes(m))) zonasMatch.push(zona);
+        });
+        if (zonasMatch.length >= 2) return 'todo_cuerpo';
+        if (zonasMatch.length === 1) return zonasMatch[0];
+        return 'todo_cuerpo'; // sin musculo cargado -> catch-all
+    }
+
     // Reemplaza visualmente el combo categoria->elemento->select por un buscador
     // unico con sugerencias tocables. Reutiliza el <select> real de desktop
     // (poblando una opcion en el) para no duplicar la logica de "agregar ejercicio".
@@ -2466,10 +2494,18 @@
         catPanel.className = 'ac-cat-panel';
         wrap.parentNode.insertBefore(catPanel, wrap.nextSibling);
 
-        function renderEjerciciosCategoria(cat, listaEl) {
-            const ejs = (videotecaCache[cat] || []).map(e => ({ nombre: e.nombre || e[0], cat })).filter(e => e.nombre);
+        function renderEjerciciosZona(zonaId, listaEl) {
+            const ejs = [];
+            Object.keys(videotecaCache || {}).forEach(cat => {
+                (videotecaCache[cat] || []).forEach(e => {
+                    const nombre = e.nombre || e[0];
+                    if (!nombre) return;
+                    if (_pfZonaDeEjercicio(e, cat) === zonaId) ejs.push({ nombre, cat });
+                });
+            });
+            ejs.sort((a, b) => a.nombre.localeCompare(b.nombre));
             if (ejs.length === 0) {
-                listaEl.innerHTML = '<p class="ac-cat-lista-vacia">Sin ejercicios en esta categoría</p>';
+                listaEl.innerHTML = '<p class="ac-cat-lista-vacia">Sin ejercicios en esta zona todavía</p>';
                 return;
             }
             listaEl.innerHTML = ejs.map((m, i) => {
@@ -2487,10 +2523,8 @@
         }
 
         function renderCategorias() {
-            const cats = Object.keys(videotecaCache || {}).filter(c => (videotecaCache[c] || []).length > 0).sort();
-            if (cats.length === 0) { catPanel.innerHTML = ''; return; }
             catPanel.innerHTML = '<div class="ac-cat-chips">' +
-                cats.map(c => '<button type="button" class="ac-cat-chip" data-cat="' + c.replace(/"/g, '&quot;') + '">' + c + '</button>').join('') +
+                PF_ZONAS.map(z => '<button type="button" class="ac-cat-chip ac-cat-chip-zona" data-zona="' + z.id + '">' + z.emoji + ' ' + z.label + '</button>').join('') +
                 '</div><div class="ac-cat-lista"></div>';
             const listaEl = catPanel.querySelector('.ac-cat-lista');
             catPanel.querySelectorAll('.ac-cat-chip').forEach(btn => {
@@ -2499,7 +2533,7 @@
                     catPanel.querySelectorAll('.ac-cat-chip').forEach(b => b.classList.remove('ac-cat-chip-activa'));
                     if (yaActiva) { listaEl.innerHTML = ''; return; }
                     btn.classList.add('ac-cat-chip-activa');
-                    renderEjerciciosCategoria(btn.dataset.cat, listaEl);
+                    renderEjerciciosZona(btn.dataset.zona, listaEl);
                 });
             });
         }
