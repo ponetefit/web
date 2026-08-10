@@ -625,6 +625,21 @@
                tocarlas, abren una pantalla completa con todos los ejercicios de
                esa categoria y un boton "Volver" para regresar a la seleccion. */
             .ac-cat-panel { margin-top: 10px; }
+            .ac-cat-header {
+                display: flex; align-items: center; justify-content: space-between;
+                gap: 10px; margin-bottom: 10px;
+            }
+            .ac-cat-header-label {
+                font-family: 'Roboto', sans-serif; font-size: 0.8rem; font-weight: 800;
+                color: #8a8a9a; text-transform: uppercase; letter-spacing: 0.03em;
+            }
+            .ac-cat-toggle {
+                width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+                background: #141418; border: 1.5px solid #2a2a35; color: #f0f0f5;
+                font-size: 1.4rem; font-weight: 900; display: flex; align-items: center;
+                justify-content: center; touch-action: manipulation;
+            }
+            .ac-cat-toggle:active { border-color: #FF6B35; background: rgba(255,107,53,0.15); }
             .ac-cat-chips {
                 display: flex; flex-direction: column; gap: 12px; margin-bottom: 8px;
             }
@@ -667,6 +682,17 @@
                 font-family: 'Roboto', sans-serif; font-size: 1.4rem; font-weight: 900;
                 line-height: 1.2;
             }
+            .ac-cat-buscador-wrap { position: relative; margin-bottom: 12px; }
+            .ac-cat-buscador-wrap::before {
+                content: '🔍'; position: absolute; left: 14px; top: 50%;
+                transform: translateY(-50%); font-size: 1rem; pointer-events: none;
+            }
+            .ac-cat-buscador-zona {
+                width: 100%; background: #141418 !important; border: 1.5px solid #2a2a35 !important;
+                border-radius: 12px; color: #f0f0f5; padding: 12px 14px 12px 40px !important;
+                font-size: 0.95rem; font-family: 'Roboto', sans-serif;
+            }
+            .ac-cat-buscador-zona:focus { outline: none; border-color: #FF6B35 !important; }
             .ac-cat-lista { margin-top: 4px; }
             .ac-cat-lista .ac-item-ej-wrap { margin-bottom: 10px; }
             .ac-cat-lista .ac-item-ej { margin-bottom: 0; }
@@ -2591,7 +2617,7 @@
             listaEl.innerHTML = ejs.map((m, i) => {
                 const usos = (typeof _pfUsosDeEjercicio === 'function') ? _pfUsosDeEjercicio(m.nombre) : [];
                 const avisoBadge = usos.length ? ' <span style="color:#c4a820;font-size:10px;font-weight:700;" title="Ya usado en: ' + usos.join(', ') + '">⚠ usado</span>' : '';
-                return '<div class="ac-item-ej-wrap">' +
+                return '<div class="ac-item-ej-wrap" data-nombre="' + m.nombre.toLowerCase() + '">' +
                     '<div class="ac-item-ej ac-item-ej-toggle" data-idx="' + i + '">' +
                         '<span class="ac-item-ej-ico">🏋️</span>' +
                         '<span class="ac-item-ej-info">' + m.nombre + avisoBadge + '</span>' +
@@ -2665,6 +2691,10 @@
 
         function renderCategorias() {
             catPanel.innerHTML =
+                '<div class="ac-cat-header">' +
+                    '<span class="ac-cat-header-label">📂 Elegir por categoría</span>' +
+                    '<button type="button" class="ac-cat-toggle" aria-label="Ocultar categorías">−</button>' +
+                '</div>' +
                 '<div class="ac-cat-chips">' +
                     PF_ZONAS.map(z =>
                         '<button type="button" class="ac-cat-chip ac-cat-chip-zona" data-zona="' + z.id + '">' +
@@ -2678,6 +2708,9 @@
                         '<button type="button" class="ac-cat-volver">← Volver</button>' +
                         '<span class="ac-cat-detalle-titulo"></span>' +
                     '</div>' +
+                    '<div class="ac-cat-buscador-wrap">' +
+                        '<input type="text" class="ac-cat-buscador-zona" autocomplete="off" placeholder="Buscar ejercicio en esta categoría...">' +
+                    '</div>' +
                     '<div class="ac-cat-lista"></div>' +
                 '</div>';
 
@@ -2685,18 +2718,46 @@
             const tituloEl = catPanel.querySelector('.ac-cat-detalle-titulo');
             const listaEl = catPanel.querySelector('.ac-cat-lista');
             const btnVolver = catPanel.querySelector('.ac-cat-volver');
+            const chipsGrid = catPanel.querySelector('.ac-cat-chips');
+            const btnToggle = catPanel.querySelector('.ac-cat-toggle');
+            const buscadorZona = catPanel.querySelector('.ac-cat-buscador-zona');
+
+            // Boton "−" que colapsa las 5 tarjetas de categoria: en rutinas con
+            // muchos ejercicios, esas tarjetas tapan la lista de ejercicios ya
+            // agregados, asi que el profe las puede minimizar y usar el buscador
+            // de arriba (input de texto) para seguir agregando mas rapido.
+            btnToggle.addEventListener('click', () => {
+                const colapsado = chipsGrid.classList.toggle('hidden');
+                btnToggle.textContent = colapsado ? '+' : '−';
+                btnToggle.setAttribute('aria-label', colapsado ? 'Mostrar categorías' : 'Ocultar categorías');
+            });
 
             function abrirZona(btn) {
                 catPanel.querySelectorAll('.ac-cat-chip').forEach(b => b.classList.remove('ac-cat-chip-activa'));
                 btn.classList.add('ac-cat-chip-activa');
                 const z = PF_ZONAS.find(zz => zz.id === btn.dataset.zona);
                 tituloEl.textContent = (z ? z.emoji + ' ' + z.label : '');
+                if (buscadorZona) buscadorZona.value = '';
                 renderEjerciciosZona(btn.dataset.zona, listaEl);
                 vistaDetalle.classList.remove('hidden');
+                if (buscadorZona) setTimeout(() => buscadorZona.focus({ preventScroll: true }), 300);
             }
 
             function volverASeleccion() {
                 vistaDetalle.classList.add('hidden');
+            }
+
+            // Buscador dentro de la pantalla de la categoria: filtra en vivo la
+            // lista de ejercicios ya renderizada, para encontrar mas rapido el
+            // ejercicio en zonas con muchos ejercicios.
+            if (buscadorZona) {
+                buscadorZona.addEventListener('input', () => {
+                    const q = buscadorZona.value.trim().toLowerCase();
+                    listaEl.querySelectorAll('.ac-item-ej-wrap').forEach(wrap => {
+                        const nombre = (wrap.dataset.nombre || '');
+                        wrap.classList.toggle('hidden', q !== '' && !nombre.includes(q));
+                    });
+                });
             }
 
             catPanel.querySelectorAll('.ac-cat-chip').forEach(btn => {
