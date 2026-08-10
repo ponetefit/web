@@ -621,26 +621,53 @@
                 color: #FF6B35; display: flex; align-items: center; justify-content: center;
                 font-size: 1.2rem; font-weight: 900; flex-shrink: 0;
             }
-            /* Panel "elegir por categoria": chips grandes + lista de ejercicios
-               tocables, para agregar ejercicios sin necesidad de escribir ni
-               abrir el teclado. */
+            /* Panel "elegir por categoria": tarjetas grandes (estilo H1) que, al
+               tocarlas, abren una pantalla completa con todos los ejercicios de
+               esa categoria y un boton "Volver" para regresar a la seleccion. */
             .ac-cat-panel { margin-top: 10px; }
             .ac-cat-chips {
-                display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;
+                display: flex; flex-direction: column; gap: 12px; margin-bottom: 8px;
             }
             .ac-cat-chip {
                 font-family: 'Roboto', sans-serif;
-                font-size: 0.95rem; font-weight: 700;
-                background: #141418; border: 1.5px solid #2a2a35; color: #f0f0f5;
-                border-radius: 999px; padding: 10px 16px; min-height: 44px;
-                touch-action: manipulation;
+                font-size: 1.75rem; font-weight: 900; line-height: 1.15;
+                background: #141418; border: 2px solid #2a2a35; color: #f0f0f5;
+                border-radius: 18px; padding: 18px 20px; min-height: 76px;
+                display: flex; align-items: center; gap: 16px;
+                touch-action: manipulation; text-align: left; width: 100%;
             }
-            .ac-cat-chip:active { border-color: #FF6B35; }
+            .ac-cat-chip:active { border-color: #FF6B35; background: rgba(255,107,53,0.1); }
+            .ac-cat-chip-ico { font-size: 2.1rem; line-height: 1; flex-shrink: 0; }
+            .ac-cat-chip-label { flex: 1; }
             .ac-cat-chip-activa {
                 background: rgba(255,107,53,0.18) !important;
                 border-color: #FF6B35 !important; color: #FF6B35 !important;
             }
-            .ac-cat-lista { margin-top: 4px; max-height: 320px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+            /* Pantalla completa con los ejercicios de la categoria elegida */
+            .ac-cat-view-detalle {
+                position: fixed; inset: 0; z-index: 60;
+                background: #0a0a0c; overflow-y: auto; -webkit-overflow-scrolling: touch;
+                padding: 16px; padding-bottom: 32px;
+            }
+            .ac-cat-detalle-header {
+                position: sticky; top: 0; z-index: 2;
+                display: flex; align-items: center; gap: 12px;
+                background: #0a0a0c; padding-bottom: 14px; margin-bottom: 10px;
+                border-bottom: 1px solid #2a2a35;
+            }
+            .ac-cat-volver {
+                font-family: 'Roboto', sans-serif; font-weight: 800; font-size: 1rem;
+                background: #141418; border: 1.5px solid #2a2a35; color: #FF6B35;
+                border-radius: 12px; padding: 10px 16px; min-height: 44px;
+                display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+                touch-action: manipulation;
+            }
+            .ac-cat-volver:active { background: rgba(255,107,53,0.15); }
+            .ac-cat-detalle-titulo {
+                font-family: 'Roboto', sans-serif; font-size: 1.4rem; font-weight: 900;
+                line-height: 1.2;
+            }
+            .ac-cat-lista { margin-top: 4px; }
             .ac-cat-lista .ac-item-ej { margin-bottom: 8px; }
             .ac-cat-lista-vacia { font-size: 0.9rem; font-weight: 700; color: #8a8a9a; padding: 10px 4px; }
             /* Ejercicios ya agregados: tarjetas mas grandes y redondeadas */
@@ -2523,19 +2550,45 @@
         }
 
         function renderCategorias() {
-            catPanel.innerHTML = '<div class="ac-cat-chips">' +
-                PF_ZONAS.map(z => '<button type="button" class="ac-cat-chip ac-cat-chip-zona" data-zona="' + z.id + '">' + z.emoji + ' ' + z.label + '</button>').join('') +
-                '</div><div class="ac-cat-lista"></div>';
+            catPanel.innerHTML =
+                '<div class="ac-cat-chips">' +
+                    PF_ZONAS.map(z =>
+                        '<button type="button" class="ac-cat-chip ac-cat-chip-zona" data-zona="' + z.id + '">' +
+                            '<span class="ac-cat-chip-ico">' + z.emoji + '</span>' +
+                            '<span class="ac-cat-chip-label">' + z.label + '</span>' +
+                        '</button>'
+                    ).join('') +
+                '</div>' +
+                '<div class="ac-cat-view-detalle hidden">' +
+                    '<div class="ac-cat-detalle-header">' +
+                        '<button type="button" class="ac-cat-volver">← Volver</button>' +
+                        '<span class="ac-cat-detalle-titulo"></span>' +
+                    '</div>' +
+                    '<div class="ac-cat-lista"></div>' +
+                '</div>';
+
+            const vistaDetalle = catPanel.querySelector('.ac-cat-view-detalle');
+            const tituloEl = catPanel.querySelector('.ac-cat-detalle-titulo');
             const listaEl = catPanel.querySelector('.ac-cat-lista');
+            const btnVolver = catPanel.querySelector('.ac-cat-volver');
+
+            function abrirZona(btn) {
+                catPanel.querySelectorAll('.ac-cat-chip').forEach(b => b.classList.remove('ac-cat-chip-activa'));
+                btn.classList.add('ac-cat-chip-activa');
+                const z = PF_ZONAS.find(zz => zz.id === btn.dataset.zona);
+                tituloEl.textContent = (z ? z.emoji + ' ' + z.label : '');
+                renderEjerciciosZona(btn.dataset.zona, listaEl);
+                vistaDetalle.classList.remove('hidden');
+            }
+
+            function volverASeleccion() {
+                vistaDetalle.classList.add('hidden');
+            }
+
             catPanel.querySelectorAll('.ac-cat-chip').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const yaActiva = btn.classList.contains('ac-cat-chip-activa');
-                    catPanel.querySelectorAll('.ac-cat-chip').forEach(b => b.classList.remove('ac-cat-chip-activa'));
-                    if (yaActiva) { listaEl.innerHTML = ''; return; }
-                    btn.classList.add('ac-cat-chip-activa');
-                    renderEjerciciosZona(btn.dataset.zona, listaEl);
-                });
+                btn.addEventListener('click', () => abrirZona(btn));
             });
+            btnVolver.addEventListener('click', volverASeleccion);
         }
 
         renderCategorias();
@@ -2654,22 +2707,22 @@
 
         const valSpan = document.createElement('span');
         valSpan.id = input.id + '_val';
-        valSpan.className = 'sm:hidden inline-flex items-center justify-center text-xs font-bold';
-        valSpan.style.cssText = 'min-width:22px;text-align:center;';
+        valSpan.className = 'sm:hidden inline-flex items-center justify-center text-base font-black';
+        valSpan.style.cssText = 'min-width:30px;text-align:center;';
         valSpan.textContent = input.value || '0';
 
         const btnMinus = document.createElement('button');
         btnMinus.type = 'button';
         btnMinus.textContent = '−';
         btnMinus.setAttribute('aria-label', 'Restar');
-        btnMinus.className = 'pf-stepper-btn sm:hidden w-7 h-7 flex-shrink-0 inline-flex items-center justify-center rounded-md bg-fondoAlt text-textoSuave text-sm font-bold active:bg-borde';
+        btnMinus.className = 'pf-stepper-btn sm:hidden w-11 h-11 flex-shrink-0 inline-flex items-center justify-center rounded-lg bg-fondoAlt text-texto text-2xl font-black active:bg-borde';
         btnMinus.onclick = function() { _pfAjustarValorInput(input.id, -1, min); };
 
         const btnPlus = document.createElement('button');
         btnPlus.type = 'button';
         btnPlus.textContent = '+';
         btnPlus.setAttribute('aria-label', 'Sumar');
-        btnPlus.className = 'pf-stepper-btn sm:hidden w-7 h-7 flex-shrink-0 inline-flex items-center justify-center rounded-md bg-fondoAlt text-textoSuave text-sm font-bold active:bg-borde';
+        btnPlus.className = 'pf-stepper-btn sm:hidden w-11 h-11 flex-shrink-0 inline-flex items-center justify-center rounded-lg bg-fondoAlt text-texto text-2xl font-black active:bg-borde';
         btnPlus.onclick = function() { _pfAjustarValorInput(input.id, 1, min); };
 
         input.parentNode.insertBefore(btnMinus, input);
