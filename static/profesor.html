@@ -424,6 +424,52 @@
             .pf-select-oculto-mobile { display: none !important; }
             .pf-tipo-cards { display: grid !important; grid-template-columns: 1fr; gap: 12px; margin-bottom: 8px; }
 
+            /* ── Botones "+ Agregar Calentamiento" / "+ Agregar Bloque": tarjetas
+               grandes con letra tipo titulo (H1), para identificarlas y tocarlas
+               facil. Al tocarlas se abre el modal con los 7 tipos de entrenamiento
+               (ya en tarjetas .pf-tipo-cards de arriba). ── */
+            .pf-add-card-btn {
+                display: flex !important;
+                width: 100% !important;
+                align-items: center;
+                justify-content: center;
+                gap: 12px;
+                font-family: 'Roboto', sans-serif !important;
+                font-size: 1.5rem !important;
+                font-weight: 900 !important;
+                line-height: 1.15;
+                padding: 24px 16px !important;
+                border-radius: 18px !important;
+                min-height: 84px;
+                border: 2px solid transparent !important;
+            }
+            .pf-add-card-btn::before { font-size: 2rem; line-height: 1; flex-shrink: 0; }
+            .pf-add-card-cal::before { content: '🔥'; }
+            .pf-add-card-bloque::before { content: '💪'; }
+
+            /* ── Tarjeta ya agregada (calentamiento / bloque): el nombre del tipo
+               de entrenamiento se ve grande (estilo H1) y los ejercicios de esa
+               tarjeta se ven en letra chica, para que se distingan de un vistazo. ── */
+            [id^="bloques-lista-"] .pf-bloque-tipo-h1 {
+                font-size: 1.35rem !important;
+                font-weight: 900 !important;
+                font-family: 'Roboto', sans-serif;
+                padding: 4px 10px !important;
+                letter-spacing: 0.01em;
+                line-height: 1.2;
+            }
+            .pf-warmup-tipo-h1 {
+                font-size: 1.25rem !important;
+                font-weight: 900 !important;
+                font-family: 'Roboto', sans-serif !important;
+                color: #f0f0f5 !important;
+                line-height: 1.2;
+            }
+            [id^="bloques-lista-"] .bloque-card-pills span,
+            [id^="warmup-resumen-pills-"] span {
+                font-size: 0.62rem !important;
+            }
+
             /* Botones grandes en el paso "Ejercicios" (busqueda, agregar, agregar bloque, cancelar) */
             #bloque-paso-2 .btn-primary,
             #bloque-paso-2 button,
@@ -4065,14 +4111,14 @@
                     <div>
                         <div class="flex items-center justify-between mb-3">
                             <h3 class="text-sm font-bold text-azul uppercase tracking-wider">1. Calentamiento</h3>
-                            <button id="warmup-btn-agregar-${idx}" onclick="abrirModalCalentamientoDia(${idx})" class="bg-azul/20 text-azul px-3 py-2 rounded-lg text-xs font-bold hover:bg-azul/30 transition">+ Agregar Calentamiento</button>
+                            <button id="warmup-btn-agregar-${idx}" onclick="abrirModalCalentamientoDia(${idx})" class="pf-add-card-btn pf-add-card-cal bg-azul/20 text-azul px-3 py-2 rounded-lg text-xs font-bold hover:bg-azul/30 transition">+ Agregar Calentamiento</button>
                         </div>
                         <div id="warmup-resumen-${idx}" class="hidden bg-fondoAlt rounded-2xl border border-azul/30 p-3">
                             <div class="flex items-start justify-between gap-2">
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center gap-2 mb-1.5">
                                         <span class="px-2 py-0.5 rounded text-xs font-bold bg-azul/20 text-azul uppercase tracking-wider">🔥 Calentamiento</span>
-                                        <span class="text-xs text-textoSuave" id="warmup-resumen-tipo-${idx}"></span>
+                                        <span class="text-xs text-textoSuave pf-warmup-tipo-h1" id="warmup-resumen-tipo-${idx}"></span>
                                     </div>
                                     <div id="warmup-resumen-pills-${idx}" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;"></div>
                                 </div>
@@ -4170,7 +4216,7 @@
                     <div>
                         <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
                             <h3 class="text-sm font-bold text-verde uppercase tracking-wider">2. Bloque Principal</h3>
-                            <button onclick="agregarBloqueDia(${idx})" class="bg-purpura/20 text-purpura px-3 py-2 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">+ Agregar Bloque</button>
+                            <button onclick="agregarBloqueDia(${idx})" class="pf-add-card-btn pf-add-card-bloque bg-purpura/20 text-purpura px-3 py-2 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">+ Agregar Bloque</button>
                         </div>
                         <div id="bloques-lista-${idx}" class="space-y-3 bloques-lista-container"></div>
                         <div id="sin-bloques-${idx}" class="text-textoSuave text-xs text-center py-6">
@@ -4788,7 +4834,7 @@
                 _flechasHtml('bloques-dia-' + idx, i, bloques.length) +
                 '<div class="flex-1 min-w-0">' +
                 '<div class="flex items-center gap-2 mb-1 flex-wrap">' +
-                '<span class="px-2 py-0.5 rounded text-xs font-bold bg-' + color + '/20 text-' + color + ' uppercase tracking-wider">' + b.tipo + '</span>' +
+                '<span class="px-2 py-0.5 rounded text-xs font-bold bg-' + color + '/20 text-' + color + ' uppercase tracking-wider pf-bloque-tipo-h1">' + b.tipo + '</span>' +
                 (detalleBloque ? '<span class="text-[11px] text-textoSuave">' + detalleBloque + '</span>' : '') +
                 '</div>' +
                 (b.descripcion ? '<p class="text-xs text-textoSuave/80 italic mb-1.5 truncate">' + b.descripcion + '</p>' : '') +
