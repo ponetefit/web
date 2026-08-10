@@ -380,23 +380,189 @@
             /* Dejar espacio abajo para que el boton fijo no tape el ultimo contenido */
             #sec-rutina { padding-bottom: 72px; }
 
-            /* ── Selector de Tipo de Entrenamiento en tarjetas (Calentamiento y Bloque) ── */
+            /* ── Selector de Tipo de Entrenamiento en tarjetas (Calentamiento y Bloque) ──
+               Accesibilidad: tarjetas grandes, apiladas (una por fila, ancho completo),
+               texto tamaño titulo, alto contraste de color por tipo. ── */
             .pf-select-oculto-mobile { display: none !important; }
-            .pf-tipo-cards { display: grid !important; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 4px; }
+            .pf-tipo-cards { display: grid !important; grid-template-columns: 1fr; gap: 12px; margin-bottom: 8px; }
+
+            /* Botones grandes en el paso "Ejercicios" (busqueda, agregar, agregar bloque, cancelar) */
+            #bloque-paso-2 .btn-primary,
+            #bloque-paso-2 button,
+            [id^="warmup-paso-2-"] .btn-primary,
+            [id^="warmup-paso-2-"] button,
+            #bloque-buscar-ej-mobile,
+            [id^="warmup-buscar-ej-mobile-"] {
+                font-size: 1.05rem !important;
+                padding-top: 14px !important;
+                padding-bottom: 14px !important;
+                min-height: 52px;
+            }
+            #bloque-paso-2 .flex.gap-3.pt-2 button,
+            [id^="warmup-paso-2-"] .flex.gap-3.pt-2 button {
+                font-size: 1.1rem !important;
+                font-weight: 900;
+            }
+            .pf-btn-paso-siguiente {
+                font-size: 1.15rem !important;
+                padding-top: 16px !important;
+                padding-bottom: 16px !important;
+                min-height: 56px;
+            }
+
+            /* ── Pantalla "Ejercicios" (paso 2) a pantalla completa en mobile ──
+               Igual de intuitiva que la grilla de tarjetas del paso 1: titulo
+               h1 grande en Roboto con el color/icono del tipo elegido, arriba
+               los parametros propios de ese tipo (vueltas, tiempo, series...)
+               con botones e inputs grandes, y despues los ejercicios. ── */
+            #bloque-paso-2:not(.hidden), [id^="warmup-paso-2-"]:not(.hidden) {
+                position: fixed;
+                inset: 0;
+                z-index: 65;
+                background: #0a0a0c;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                padding: 14px 14px calc(24px + env(safe-area-inset-bottom, 0px)) 14px;
+                margin: 0;
+                border-radius: 0;
+            }
+            /* Todo el contenido de la pantalla de Ejercicios centrado, como una
+               columna angosta en el medio de la pantalla (igual al ejemplo). */
+            #bloque-paso-2 > *, [id^="warmup-paso-2-"] > * {
+                max-width: 480px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+            /* Tarjeta "Volver a Tipo": ancho completo, icono + texto, tocable */
+            .pf-paso2-back {
+                display: flex; align-items: center; gap: 12px; width: 100%;
+                font-family: 'Roboto', sans-serif; font-size: 0.9rem; font-weight: 700;
+                color: #8a8a9a; text-align: left;
+                background: #141418; border: 1.5px solid #2a2a35; border-radius: 14px;
+                padding: 12px 16px; margin-bottom: 16px; min-height: 44px;
+            }
+            .pf-paso2-back:active { color: #f0f0f5; border-color: #FF6B35; }
+            .pf-paso2-back-ico {
+                width: 32px; height: 32px; border-radius: 10px; background: #1a1a20;
+                display: flex; align-items: center; justify-content: center;
+                font-size: 1.1rem; flex-shrink: 0;
+            }
+            .pf-paso2-h1 {
+                font-family: 'Roboto', sans-serif;
+                font-weight: 900;
+                font-size: 1.7rem;
+                line-height: 1.15;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+                gap: 12px;
+                padding: 16px 18px;
+                border-radius: 16px;
+                margin-bottom: 14px;
+            }
+            .pf-paso2-h1-ico { font-size: 2rem; line-height: 1; flex-shrink: 0; }
+            /* Pantalla propia de "Parametros" (fase 2 del paso 1, mobile):
+               misma pantalla completa e inputs grandes/centrados que antes
+               tenia la franja de parametros arriba de "Ejercicios". */
+            #bloque-fase-params:not(.hidden), [id^="warmup-fase-params-"]:not(.hidden) {
+                position: fixed;
+                inset: 0;
+                z-index: 65;
+                background: #0a0a0c;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                padding: 14px 14px calc(24px + env(safe-area-inset-bottom, 0px)) 14px;
+                margin: 0;
+                border-radius: 0;
+            }
+            #bloque-fase-params:not(.hidden) > *, [id^="warmup-fase-params-"]:not(.hidden) > * {
+                max-width: 480px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+            #bloque-params-home, [id^="warmup-params-home-"] { margin-bottom: 6px; }
+            #bloque-params-home label, [id^="warmup-params-home-"] label {
+                font-size: 0.8rem !important;
+                text-align: center; display: block;
+            }
+            #bloque-params-home input, #bloque-params-home select,
+            [id^="warmup-params-home-"] input, [id^="warmup-params-home-"] select {
+                font-size: 1.2rem !important;
+                padding: 14px !important;
+                min-height: 54px;
+                font-weight: 700;
+                text-align: center;
+            }
+            #bloque-params-home p, [id^="warmup-params-home-"] p {
+                font-size: 0.8rem !important;
+                text-align: center;
+            }
+            /* Contenedor de parametros: tarjeta unica, centrada, con separacion
+               clara entre cada campo (igual criterio visual que el resto). */
+            #bloque-params-home > div, [id^="warmup-params-home-"] > div {
+                background: #141418; border: 1.5px solid #2a2a35; border-radius: 14px;
+                padding: 14px; margin-bottom: 12px;
+            }
+
+            /* ── Buscador de ejercicios (mobile): tarjeta grande con lupa, en vez
+               de un input chico. Solo afecta a los inputs "-mobile" ── */
+            #bloque-buscar-ej-mobile, [id^="warmup-buscar-ej-mobile-"] {
+                background: #141418 !important;
+                border: 2px solid #2a2a35 !important;
+                border-radius: 16px !important;
+                padding-left: 44px !important;
+            }
+            #bloque-buscar-ej-mobile:focus, [id^="warmup-buscar-ej-mobile-"]:focus {
+                border-color: #FF6B35 !important;
+            }
+            .ac-wrap-ej { position: relative; }
+            .ac-wrap-ej::before {
+                content: '🔍';
+                position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+                font-size: 1.05rem; pointer-events: none; z-index: 1;
+            }
+            /* Resultados de busqueda de ejercicios (mobile): tarjetas tocables completas */
+            .ac-suggestions-ej {
+                background: transparent !important; border: none !important; box-shadow: none !important;
+                padding: 0; margin-top: 10px !important;
+            }
+            .ac-item-ej {
+                display: flex !important; align-items: center; gap: 12px;
+                background: #141418; border: 1.5px solid #2a2a35; border-radius: 14px;
+                padding: 12px 14px !important; margin-bottom: 10px;
+                font-size: 1rem !important; font-weight: 700;
+            }
+            .ac-item-ej-ico {
+                width: 40px; height: 40px; border-radius: 10px; background: #1a1a20;
+                display: flex; align-items: center; justify-content: center;
+                font-size: 1.2rem; flex-shrink: 0;
+            }
+            .ac-item-ej-info { flex: 1; min-width: 0; }
+            .ac-item-ej-cat { font-size: 0.75rem; font-weight: 400; color: #8a8a9a; display: block; margin-top: 2px; }
+            .ac-item-ej-add {
+                width: 36px; height: 36px; border-radius: 10px; background: rgba(255,107,53,0.15);
+                color: #FF6B35; display: flex; align-items: center; justify-content: center;
+                font-size: 1.2rem; font-weight: 900; flex-shrink: 0;
+            }
+            /* Ejercicios ya agregados: tarjetas mas grandes y redondeadas */
+            #bloque-paso-2 .exercise-chip, [id^="warmup-paso-2-"] .exercise-chip {
+                border-radius: 14px !important;
+                padding: 12px 14px !important;
+                margin-bottom: 10px !important;
+            }
         }
         /* Oculto por defecto en desktop: ahi se sigue viendo el <select> de toda la vida */
         .pf-tipo-cards { display: none; }
         .pf-tipo-card {
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            gap: 4px; padding: 12px 8px; border-radius: 12px;
-            border: 1px solid rgb(255 255 255 / 0.1); background: rgba(255,255,255,0.03);
-            color: #8a8a9a; text-align: center; min-height: 64px;
+            display: flex; flex-direction: row; align-items: center; justify-content: flex-start;
+            gap: 14px; width: 100%; padding: 20px 18px; border-radius: 16px;
+            border: 3px solid transparent; text-align: left; min-height: 80px;
+            font-family: 'Roboto', sans-serif;
         }
-        .pf-tipo-card-ico { font-size: 1.1rem; line-height: 1; }
-        .pf-tipo-card-txt { font-size: 0.7rem; font-weight: 700; line-height: 1.15; }
-        .pf-tipo-card-activa {
-            border-color: #FF6B35; background: rgba(255,107,53,0.12); color: #FF6B35;
-        }
+        .pf-tipo-card-ico { font-size: 2rem; line-height: 1; flex-shrink: 0; }
+        .pf-tipo-card-txt { font-size: 1.35rem; font-weight: 900; line-height: 1.2; }
+        .pf-tipo-card-activa { border-color: rgba(0,0,0,0.55); box-shadow: 0 0 0 2px rgba(255,255,255,0.5) inset; }
         /* Estilos del stepper mobile (+/-) y swipe-to-delete (siempre definidos;
            los elementos que los usan ya llevan su propia clase sm:hidden) */
         .pf-stepper-btn { touch-action: manipulation; user-select: none; }
@@ -1847,34 +2013,56 @@
             </div>
             <div class="space-y-4">
                 <div id="bloque-paso-1">
-                    <div>
-                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Tipo de Entrenamiento</label>
-                        <select id="bloque-tipo" onchange="actualizarBloqueParams();renderBloqueEjsTemp()" class="w-full rounded-lg px-3 py-2.5 text-sm">
-                            <option value="Circuito">Circuito (Vueltas)</option>
-                            <option value="Circuito por Tiempo">Circuito por Tiempo</option>
-                            <option value="Por Tiempo">Por Tiempo (Cronómetro)</option>
-                            <option value="Tabata">Tabata</option>
-                            <option value="EMOM">EMOM</option>
-                            <option value="Series">Series / Repeticiones</option>
-                            <option value="Sumando Ejercicio">Sumando Ejercicio</option>
-                        </select>
+                    <!-- Fase "Tipo" (mobile): solo las tarjetas de los 7 modos. Al tocar una,
+                         se pasa directo a la fase de Parametros (sin boton "Siguiente" aparte). -->
+                    <div id="bloque-fase-tipo">
+                        <div>
+                            <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Tipo de Entrenamiento</label>
+                            <select id="bloque-tipo" onchange="actualizarBloqueParams();renderBloqueEjsTemp()" class="w-full rounded-lg px-3 py-2.5 text-sm">
+                                <option value="Circuito">Circuito (Vueltas)</option>
+                                <option value="Circuito por Tiempo">Circuito por Tiempo</option>
+                                <option value="Por Tiempo">Por Tiempo (Cronómetro)</option>
+                                <option value="Tabata">Tabata</option>
+                                <option value="EMOM">EMOM</option>
+                                <option value="Series">Series / Repeticiones</option>
+                                <option value="Sumando Ejercicio">Sumando Ejercicio</option>
+                            </select>
+                        </div>
                     </div>
-                    <div id="bloque-params-container" class="space-y-3 mt-3">
-                        <!-- Se llena dinamicamente -->
-                    </div>
-                    <div class="mt-3">
-                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Descripcion (opcional)</label>
-                        <textarea id="bloque-desc" rows="2" placeholder="Ej: Enfocarse en la tecnica..." class="w-full rounded-lg px-3 py-2.5 text-sm"></textarea>
-                    </div>
-                    <!-- Avanzar al paso de ejercicios (mobile y desktop) -->
-                    <div class="pt-3">
-                        <button type="button" onclick="_pfBloquePaso(2)" class="btn-primary w-full py-3 rounded-xl text-white font-bold text-sm">Siguiente: Ejercicios →</button>
+                    <!-- Fase "Parametros" (mobile: pantalla propia; desktop: siempre visible junto al select) -->
+                    <div id="bloque-fase-params" class="hidden sm:block">
+                        <div class="sm:hidden">
+                            <button type="button" onclick="_pfBloqueFaseTipo()" class="pf-paso2-back"><span class="pf-paso2-back-ico">←</span><span>Volver a Tipo</span></button>
+                            <h1 id="bloque-fase-params-h1" class="pf-paso2-h1"></h1>
+                        </div>
+                        <div id="bloque-params-home">
+                        <div id="bloque-params-container" class="space-y-3 mt-3">
+                            <!-- Se llena dinamicamente -->
+                        </div>
+                        </div>
+                        <div class="mt-3">
+                            <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Descripcion (opcional)</label>
+                            <textarea id="bloque-desc" rows="2" placeholder="Ej: Enfocarse en la tecnica..." class="w-full rounded-lg px-3 py-2.5 text-sm"></textarea>
+                        </div>
+                        <!-- Avanzar al paso de ejercicios (mobile y desktop) -->
+                        <div class="pt-3">
+                            <button type="button" id="bloque-btn-siguiente" onclick="_pfBloquePaso(2)" class="btn-primary pf-btn-paso-siguiente w-full py-3 rounded-xl text-white font-bold text-sm">
+                                <span class="sm:hidden">Listo: Ver Ejercicios →</span>
+                                <span class="hidden sm:inline">Siguiente: Ejercicios →</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <div id="bloque-paso-2" class="hidden">
-                    <!-- Volver al paso de tipo/parametros (mobile y desktop) -->
-                    <button type="button" onclick="_pfBloquePaso(1)" class="text-xs text-textoSuave mb-3 flex items-center gap-1 hover:text-texto transition">← Volver a Tipo y Parámetros</button>
+                    <!-- Volver al paso de tipo/parametros (DESKTOP) -->
+                    <button type="button" onclick="_pfBloquePaso(1)" class="hidden sm:flex text-xs text-textoSuave mb-3 items-center gap-1 hover:text-texto transition">← Volver a Tipo y Parámetros</button>
+
+                    <!-- Cabecera pantalla completa (MOBILE): volver + titulo h1 del tipo -->
+                    <div class="sm:hidden">
+                        <button type="button" onclick="_pfBloquePaso(1)" class="pf-paso2-back"><span class="pf-paso2-back-ico">←</span><span>Volver a Parámetros</span></button>
+                        <h1 id="bloque-paso2-h1" class="pf-paso2-h1"></h1>
+                    </div>
 
                     <!-- Ejercicios del bloque -->
                     <div id="bloque-ejercicios-panel">
@@ -2122,15 +2310,15 @@
         input._acEjInit = true;
 
         let wrap = input.parentElement;
-        if (!wrap || !wrap.classList.contains('ac-wrap')) {
+        if (!wrap || !wrap.classList.contains('ac-wrap-ej')) {
             wrap = document.createElement('div');
-            wrap.className = 'ac-wrap';
+            wrap.className = 'ac-wrap-ej';
             wrap.style.position = 'relative';
             input.parentNode.insertBefore(wrap, input);
             wrap.appendChild(input);
         }
         const box = document.createElement('div');
-        box.className = 'ac-suggestions hidden bg-tarjeta border-borde';
+        box.className = 'ac-suggestions-ej hidden bg-tarjeta border-borde';
         box.style.cssText = 'position:absolute;top:100%;left:0;right:0;z-index:40;max-height:260px;overflow-y:auto;margin-top:4px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 8px 24px rgba(0,0,0,0.4);';
         wrap.appendChild(box);
 
@@ -2151,8 +2339,8 @@
         function ocultar() { box.classList.add('hidden'); box.innerHTML = ''; activeIdx = -1; }
 
         function resaltar() {
-            box.querySelectorAll('.ac-item').forEach((el, i) => {
-                el.style.background = i === activeIdx ? 'rgba(255,255,255,0.08)' : '';
+            box.querySelectorAll('.ac-item-ej').forEach((el, i) => {
+                el.style.borderColor = i === activeIdx ? '#FF6B35' : '';
             });
         }
 
@@ -2181,12 +2369,15 @@
             if (matches.length === 0) { ocultar(); return; }
             box.innerHTML = matches.map((m, i) => {
                 const usos = (typeof _pfUsosDeEjercicio === 'function') ? _pfUsosDeEjercicio(m.nombre) : [];
-                const avisoBadge = usos.length ? ' <span style="color:#c4a820;font-size:10px;" title="Ya usado en: ' + usos.join(', ') + '">⚠ usado</span>' : '';
-                return '<div class="ac-item" data-idx="' + i + '" style="padding:10px 12px;cursor:pointer;font-size:0.85rem;">' +
-                m.nombre + ' <span style="font-size:10px;color:var(--tw-text-opacity,1);opacity:0.5;">· ' + m.cat + '</span>' + avisoBadge + '</div>';
+                const avisoBadge = usos.length ? ' <span style="color:#c4a820;font-size:10px;font-weight:700;" title="Ya usado en: ' + usos.join(', ') + '">⚠ usado</span>' : '';
+                return '<div class="ac-item-ej" data-idx="' + i + '">' +
+                    '<span class="ac-item-ej-ico">🏋️</span>' +
+                    '<span class="ac-item-ej-info">' + m.nombre + avisoBadge + '<span class="ac-item-ej-cat">' + m.cat + '</span></span>' +
+                    '<span class="ac-item-ej-add">+</span>' +
+                    '</div>';
             }).join('');
             box.classList.remove('hidden');
-            box.querySelectorAll('.ac-item').forEach(el => {
+            box.querySelectorAll('.ac-item-ej').forEach(el => {
                 el.addEventListener('mousedown', (e) => { e.preventDefault(); seleccionar(currentMatches[parseInt(el.dataset.idx)]); });
             });
         }
@@ -3445,7 +3636,9 @@
                             </div>
                             <div id="warmup-paso-1-${idx}">
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-                                    <div>
+                                    <!-- Fase "Tipo" (mobile): solo las tarjetas de los 7 modos. Al tocar una,
+                                         se pasa directo a la fase de Parametros (sin boton "Siguiente" aparte). -->
+                                    <div id="warmup-fase-tipo-${idx}">
                                         <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Tipo</label>
                                         <select id="warmup-tipo-${idx}" onchange="actualizarWarmupUIDia(${idx})" class="w-full rounded-lg px-3 py-2.5 text-sm">
                                             <option>Circuito (Vueltas)</option>
@@ -3457,12 +3650,31 @@
                                             <option>Sumando Ejercicio</option>
                                         </select>
                                     </div>
-                                    <div id="warmup-params-container-${idx}" class="md:col-span-2"></div>
+                                    <!-- Fase "Parametros" (mobile: pantalla propia; desktop: siempre visible junto al select) -->
+                                    <div id="warmup-fase-params-${idx}" class="md:col-span-2 hidden sm:block">
+                                        <div class="sm:hidden">
+                                            <button type="button" onclick="_pfWarmupFaseTipo(${idx})" class="pf-paso2-back"><span class="pf-paso2-back-ico">←</span><span>Volver a Tipo</span></button>
+                                            <h1 id="warmup-fase-params-h1-${idx}" class="pf-paso2-h1"></h1>
+                                        </div>
+                                        <div id="warmup-params-home-${idx}">
+                                        <div id="warmup-params-container-${idx}"></div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <button type="button" onclick="_pfWarmupPaso(${idx},2)" class="btn-primary w-full py-3 rounded-xl text-white font-bold text-sm mb-3">Siguiente: Ejercicios →</button>
+                                <button type="button" id="warmup-btn-siguiente-${idx}" onclick="_pfWarmupPaso(${idx},2)" class="btn-primary pf-btn-paso-siguiente w-full py-3 rounded-xl text-white font-bold text-sm mb-3 hidden sm:block">
+                                    <span class="sm:hidden">Listo: Ver Ejercicios →</span>
+                                    <span class="hidden sm:inline">Siguiente: Ejercicios →</span>
+                                </button>
                             </div>
                             <div id="warmup-paso-2-${idx}" class="hidden">
-                                <button type="button" onclick="_pfWarmupPaso(${idx},1)" class="text-xs text-textoSuave mb-3 flex items-center gap-1 hover:text-texto transition">← Volver a Tipo</button>
+                                <button type="button" onclick="_pfWarmupPaso(${idx},1)" class="hidden sm:flex text-xs text-textoSuave mb-3 items-center gap-1 hover:text-texto transition">← Volver a Tipo</button>
+
+                                <!-- Cabecera pantalla completa (MOBILE): volver + titulo h1 del tipo -->
+                                <div class="sm:hidden">
+                                    <button type="button" onclick="_pfWarmupPaso(${idx},1)" class="pf-paso2-back"><span class="pf-paso2-back-ico">←</span><span>Volver a Parámetros</span></button>
+                                    <h1 id="warmup-paso2-h1-${idx}" class="pf-paso2-h1"></h1>
+                                </div>
+
                                 <div id="warmup-ej-panel-${idx}">
                                 <!-- Busqueda DESKTOP/TABLET (sin cambios) -->
                                 <div class="hidden sm:block mb-2">
@@ -4075,6 +4287,7 @@
         cargarEjsBloque();
         const btnConfirmar = document.querySelector('#modal-bloque button[onclick="confirmarBloque()"]');
         if (btnConfirmar) btnConfirmar.textContent = 'Agregar Bloque';
+        _pfBloqueResetFases();
         _pfBloquePaso(1);
         document.getElementById('modal-bloque').classList.remove('hidden');
     }
@@ -4354,6 +4567,7 @@
         cargarEjsBloque();
         const btnConfirmar = document.querySelector('#modal-bloque button[onclick="confirmarBloque()"]');
         if (btnConfirmar) btnConfirmar.textContent = 'Agregar Bloque';
+        _pfBloqueResetFases();
         _pfBloquePaso(1);
         document.getElementById('modal-bloque').classList.remove('hidden');
     }
@@ -5350,6 +5564,7 @@
         // Actualizar texto del botón de confirmar para indicar que se está editando
         const btnConfirmar = document.querySelector('#modal-bloque button[onclick="confirmarBloque()"]');
         if (btnConfirmar) btnConfirmar.textContent = 'Guardar Cambios';
+        _pfBloqueResetFases();
         _pfBloquePaso(1);
         document.getElementById('modal-bloque').classList.remove('hidden');
     }
@@ -12457,6 +12672,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
     }
 
     function abrirModalCalentamientoDia(idx) {
+        _pfWarmupResetFases(idx);
         _pfWarmupPaso(idx, 1);
         const modal = document.getElementById('modal-calentamiento-' + idx);
         if (modal) modal.classList.remove('hidden');
@@ -12598,8 +12814,102 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         const p1 = document.getElementById('warmup-paso-1-' + idx);
         const p2 = document.getElementById('warmup-paso-2-' + idx);
         if (!p1 || !p2) return;
-        if (n === 1) { p1.classList.remove('hidden'); p2.classList.add('hidden'); }
-        else { p1.classList.add('hidden'); p2.classList.remove('hidden'); }
+        if (n === 1) {
+            p1.classList.remove('hidden'); p2.classList.add('hidden');
+        } else {
+            p1.classList.add('hidden'); p2.classList.remove('hidden');
+            _pfPrepararPaso2Mobile('warmup-tipo-' + idx, 'warmup-paso2-h1-' + idx);
+        }
+        window.scrollTo(0, 0);
+    }
+
+    // ── Fases "Tipo" / "Parametros" dentro del paso 1 (mobile) ────────────────
+    // En mobile, elegir un tipo desde las tarjetas pasa directo a una pantalla
+    // propia con los parametros de ese modo (vueltas, tiempo, series, etc.) y
+    // un boton "Listo" al final, que recien ahi lleva a la pantalla de
+    // Ejercicios. Asi no hace falta tocar un boton "Siguiente" aparte sobre
+    // las tarjetas. En desktop ambas fases se siguen viendo juntas, como
+    // siempre (el CSS "hidden sm:block" se encarga de eso).
+    function _pfBloqueFaseParams() {
+        const ft = document.getElementById('bloque-fase-tipo');
+        const fp = document.getElementById('bloque-fase-params');
+        if (ft) ft.classList.add('hidden');
+        if (fp) fp.classList.remove('hidden');
+        const sel = document.getElementById('bloque-tipo');
+        const h1 = document.getElementById('bloque-fase-params-h1');
+        if (sel && h1) {
+            const opt = sel.options[sel.selectedIndex];
+            const txt = opt ? opt.textContent : '';
+            const color = _pfColorTipo(txt);
+            h1.innerHTML = '<span class="pf-paso2-h1-ico">' + _pfIconoTipo(txt) + '</span><span>' + txt + '</span>';
+            h1.style.background = color.bg;
+            h1.style.color = color.fg;
+        }
+        const modalBody = document.querySelector('#modal-bloque > div');
+        if (modalBody) modalBody.scrollTop = 0;
+        window.scrollTo(0, 0);
+    }
+    function _pfBloqueFaseTipo() {
+        const ft = document.getElementById('bloque-fase-tipo');
+        const fp = document.getElementById('bloque-fase-params');
+        if (fp) fp.classList.add('hidden');
+        if (ft) ft.classList.remove('hidden');
+        const modalBody = document.querySelector('#modal-bloque > div');
+        if (modalBody) modalBody.scrollTop = 0;
+        window.scrollTo(0, 0);
+    }
+    // Deja el paso 1 del bloque listo en la fase "Tipo" (tarjetas), como
+    // corresponde cada vez que se abre el modal para un bloque nuevo o para
+    // editar uno existente.
+    function _pfBloqueResetFases() {
+        const ft = document.getElementById('bloque-fase-tipo');
+        const fp = document.getElementById('bloque-fase-params');
+        if (fp) fp.classList.add('hidden');
+        if (ft) ft.classList.remove('hidden');
+    }
+    function _pfWarmupFaseParams(idx) {
+        const ft = document.getElementById('warmup-fase-tipo-' + idx);
+        const fp = document.getElementById('warmup-fase-params-' + idx);
+        const btn = document.getElementById('warmup-btn-siguiente-' + idx);
+        if (ft) ft.classList.add('hidden');
+        if (fp) fp.classList.remove('hidden');
+        if (btn) btn.classList.remove('hidden');
+        const sel = document.getElementById('warmup-tipo-' + idx);
+        const h1 = document.getElementById('warmup-fase-params-h1-' + idx);
+        if (sel && h1) {
+            const opt = sel.options[sel.selectedIndex];
+            const txt = opt ? opt.textContent : '';
+            const color = _pfColorTipo(txt);
+            h1.innerHTML = '<span class="pf-paso2-h1-ico">' + _pfIconoTipo(txt) + '</span><span>' + txt + '</span>';
+            h1.style.background = color.bg;
+            h1.style.color = color.fg;
+        }
+        window.scrollTo(0, 0);
+    }
+    function _pfWarmupFaseTipo(idx) {
+        const ft = document.getElementById('warmup-fase-tipo-' + idx);
+        const fp = document.getElementById('warmup-fase-params-' + idx);
+        const btn = document.getElementById('warmup-btn-siguiente-' + idx);
+        if (fp) fp.classList.add('hidden');
+        if (ft) ft.classList.remove('hidden');
+        if (btn) btn.classList.add('hidden');
+        window.scrollTo(0, 0);
+    }
+    function _pfWarmupResetFases(idx) {
+        const ft = document.getElementById('warmup-fase-tipo-' + idx);
+        const fp = document.getElementById('warmup-fase-params-' + idx);
+        const btn = document.getElementById('warmup-btn-siguiente-' + idx);
+        if (fp) fp.classList.add('hidden');
+        if (ft) ft.classList.remove('hidden');
+        if (btn) btn.classList.add('hidden');
+    }
+    // Dado el id del select de tipo, devuelve la funcion que avanza (mobile)
+    // de la fase "Tipo" a la fase "Parametros" (mismo patron para el bloque
+    // principal y para cada dia de calentamiento).
+    function _pfFaseParamsDeSelect(selectId) {
+        if (selectId === 'bloque-tipo') return _pfBloqueFaseParams;
+        const m = /^warmup-tipo-(.+)$/.exec(selectId);
+        return m ? function () { _pfWarmupFaseParams(m[1]); } : null;
     }
 
     // ── Selector de "Tipo de Entrenamiento" en tarjetas (mobile) ──────────────
@@ -12622,6 +12932,28 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         for (const [re, icono] of _pfIconosTipo) { if (re.test(txt)) return icono; }
         return '💪';
     }
+    // Color de fondo propio por tipo de entrenamiento (alto contraste con el texto, para
+    // que se distingan de un vistazo aunque haya dificultad visual)
+    const _pfColoresTipo = [
+        [/tabata/i, '#FF6B35', '#161311'],
+        [/emom/i, '#FFD54F', '#161311'],
+        [/sumando/i, '#F48FB1', '#1a1013'],
+        [/circuito.*tiempo/i, '#4FC3F7', '#0f171b'],
+        [/por\s*tiempo/i, '#CE93D8', '#18131a'],
+        [/series/i, '#69F0AE', '#0e1a14'],
+        [/circuito/i, '#4FC3F7', '#0f171b']
+    ];
+    function _pfColorTipo(txt) {
+        for (const [re, bg, fg] of _pfColoresTipo) { if (re.test(txt)) return { bg, fg }; }
+        return { bg: '#8a8a9a', fg: '#141414' };
+    }
+    // Dado el id del select de tipo, devuelve el id del boton "Siguiente: Ejercicios"
+    // asociado (mismo patron para bloque principal y para cada dia de calentamiento).
+    function _pfBotonSiguienteDeSelect(selectId) {
+        if (selectId === 'bloque-tipo') return 'bloque-btn-siguiente';
+        const m = /^warmup-tipo-(.+)$/.exec(selectId);
+        return m ? ('warmup-btn-siguiente-' + m[1]) : null;
+    }
     function _pfCardificarSelectTipo(selectId) {
         const sel = document.getElementById(selectId);
         if (!sel) return;
@@ -12632,16 +12964,24 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             wrap.id = selectId + '-cards';
             wrap.className = 'pf-tipo-cards';
             Array.from(sel.options).forEach(opt => {
+                const color = _pfColorTipo(opt.textContent);
                 const card = document.createElement('button');
                 card.type = 'button';
                 card.className = 'pf-tipo-card';
                 card.dataset.val = opt.value;
+                card.style.background = color.bg;
+                card.style.color = color.fg;
                 card.innerHTML = '<span class="pf-tipo-card-ico">' + _pfIconoTipo(opt.textContent) + '</span>' +
                     '<span class="pf-tipo-card-txt">' + opt.textContent + '</span>';
                 card.onclick = function () {
-                    if (sel.value === opt.value) return;
-                    sel.value = opt.value;
-                    sel.dispatchEvent(new Event('change', { bubbles: true }));
+                    if (sel.value !== opt.value) {
+                        sel.value = opt.value;
+                        sel.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                    // Mobile: al tocar una tarjeta se pasa directo a la pantalla de
+                    // Parametros de ese modo (sin tener que tocar "Siguiente" aparte).
+                    const avanzar = _pfFaseParamsDeSelect(selectId);
+                    if (avanzar) avanzar();
                 };
                 wrap.appendChild(card);
             });
@@ -12650,16 +12990,52 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         wrap.querySelectorAll('.pf-tipo-card').forEach(c => {
             c.classList.toggle('pf-tipo-card-activa', c.dataset.val === sel.value);
         });
+        // El boton "Siguiente: Ejercicios" toma el mismo color que la tarjeta elegida,
+        // asi el paso siguiente se siente conectado al tipo de entrenamiento activo.
+        const btnId = _pfBotonSiguienteDeSelect(selectId);
+        const btn = btnId ? document.getElementById(btnId) : null;
+        if (btn) {
+            const opt = sel.options[sel.selectedIndex];
+            const color = _pfColorTipo(opt ? opt.textContent : '');
+            btn.style.background = color.bg;
+            btn.style.color = color.fg;
+            btn.style.borderColor = color.bg;
+        }
+    }
+
+    // ── Pantalla completa de "Ejercicios" por tipo (mobile) ────────────────
+    // Al pasar al paso 2 (Ejercicios), en mobile se actualiza el titulo h1
+    // grande con el icono y color del tipo elegido (misma paleta que las
+    // tarjetas del paso 1 / la pantalla de Parametros). Los parametros del
+    // tipo (vueltas, tiempo, series, etc.) ya se configuraron en la pantalla
+    // anterior y quedan ahi; esta pantalla es solo para elegir ejercicios.
+    // En desktop no se toca nada.
+    function _pfPrepararPaso2Mobile(selectId, h1Id) {
+        const sel = document.getElementById(selectId);
+        const h1 = document.getElementById(h1Id);
+        if (sel && h1) {
+            const opt = sel.options[sel.selectedIndex];
+            const txt = opt ? opt.textContent : '';
+            const color = _pfColorTipo(txt);
+            h1.innerHTML = '<span class="pf-paso2-h1-ico">' + _pfIconoTipo(txt) + '</span><span>' + txt + '</span>';
+            h1.style.background = color.bg;
+            h1.style.color = color.fg;
+        }
     }
 
     function _pfBloquePaso(n) {
         const p1 = document.getElementById('bloque-paso-1');
         const p2 = document.getElementById('bloque-paso-2');
         if (!p1 || !p2) return;
-        if (n === 1) { p1.classList.remove('hidden'); p2.classList.add('hidden'); }
-        else { p1.classList.add('hidden'); p2.classList.remove('hidden'); }
+        if (n === 1) {
+            p1.classList.remove('hidden'); p2.classList.add('hidden');
+        } else {
+            p1.classList.add('hidden'); p2.classList.remove('hidden');
+            _pfPrepararPaso2Mobile('bloque-tipo', 'bloque-paso2-h1');
+        }
         const modalBody = document.querySelector('#modal-bloque > div');
         if (modalBody) modalBody.scrollTop = 0;
+        window.scrollTo(0, 0);
     }
 
     function _pfGuardarMobile() {
