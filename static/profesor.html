@@ -2652,6 +2652,19 @@
         });
     }
 
+    // Despues de setear input.value por codigo (ej: al editar un bloque existente),
+    // el numerito visible del stepper mobile no se actualiza solo. Este helper
+    // recorre un contenedor y sincroniza cada valSpan con el valor real del input.
+    function _pfSincronizarStepperSpans(containerId) {
+        const lista = document.getElementById(containerId);
+        if (!lista) return;
+        lista.querySelectorAll('input[type="text"], input[type="number"]').forEach(input => {
+            if (!input.id) return;
+            const valSpan = document.getElementById(input.id + '_val');
+            if (valSpan) valSpan.textContent = input.value || '0';
+        });
+    }
+
     // ── #7: Recordar los ultimos valores usados (reps/series/pausa) para precargarlos ──
     let _pfUltimosValoresEj = { reps: null, series: null, descanso: null };
 
@@ -4855,6 +4868,7 @@
             <div id="se-vista-previa" class="mt-3 space-y-1"></div>`;
         }
         container.innerHTML = html;
+        _pfAgregarSteppersMobileEnContenedor('bloque-params-container');
         if (tipo === 'Sumando Ejercicio') setTimeout(() => _pfRenderVistaPreviaSumando(), 0);
         // Ocultar el panel generico de ejercicios cuando el tipo es EMOM
         // (el EMOM tiene su propia UI de ejercicios por minuto dentro de bloque-params-container)
@@ -5383,6 +5397,33 @@
         return !ej.reps || String(ej.reps).trim() === '';
     }
 
+    // Chips de reps rapidas: tocar en vez de escribir. Solo mobile (sm:hidden),
+    // en desktop el input de texto/numero de siempre sigue ahi.
+    const _pfRepsRapidasValores = [8, 10, 12, 15, 20];
+    function _pfChipsRepsSimple(i, campo) {
+        return '<div class="flex gap-1 flex-wrap mt-1 sm:hidden">' +
+            _pfRepsRapidasValores.map(v => '<button type="button" onclick="bloqueEjsTemp[' + i + '].' + campo + '=\'' + v + '\';renderBloqueEjsTemp()" class="text-[11px] font-bold px-2.5 py-1 rounded-md bg-fondoAlt border border-borde text-textoSuave active:border-naranja active:text-naranja">' + v + '</button>').join('') +
+            '</div>';
+    }
+    function _pfChipsRepsArray(i, campoArray) {
+        return '<div class="flex gap-1 flex-wrap mt-1 sm:hidden">' +
+            _pfRepsRapidasValores.map(v => '<button type="button" onclick="bloqueEjsTemp[' + i + '].' + campoArray + ' = bloqueEjsTemp[' + i + '].' + campoArray + '.map(function(){return \'' + v + '\';});renderBloqueEjsTemp()" class="text-[11px] font-bold px-2.5 py-1 rounded-md bg-fondoAlt border border-borde text-textoSuave active:border-naranja active:text-naranja">' + v + ' (todas)</button>').join('') +
+            '</div>';
+    }
+
+    // Reemplaza el <select> Reps/Segs por dos botones tocables (pill toggle).
+    // Siempre re-renderiza al tocar para reflejar el estado activo.
+    function _pfUnitToggleHtml(i, currentUnit) {
+        const esSegs = currentUnit === 'Segs';
+        const base = 'text-[11px] font-bold px-2 py-1 border border-borde';
+        const activo = ' bg-naranja text-white border-naranja';
+        const inactivo = ' bg-fondoAlt text-textoSuave';
+        return '<div class="inline-flex rounded-lg overflow-hidden ml-1" style="flex-shrink:0;">' +
+            '<button type="button" onclick="bloqueEjsTemp[' + i + '].unit=\'Reps\';renderBloqueEjsTemp()" class="' + base + (!esSegs ? activo : inactivo) + '" style="border-radius:6px 0 0 6px;">Reps</button>' +
+            '<button type="button" onclick="bloqueEjsTemp[' + i + '].unit=\'Segs\';renderBloqueEjsTemp()" class="' + base + (esSegs ? activo : inactivo) + '" style="border-radius:0 6px 6px 0;border-left:none;">Segs</button>' +
+            '</div>';
+    }
+
     function renderBloqueEjsTemp() {
         const lista = document.getElementById('bloque-ejercicios-lista');
         const tipoEl = document.getElementById('bloque-tipo');
@@ -5428,8 +5469,9 @@
                 controlsHtml = '<div class="flex gap-1 items-center flex-wrap">' +
                     '<span class="text-xs text-textoSuave font-bold mr-1">Reps:</span>' +
                     vueltaInputs +
-                    '<select onchange="bloqueEjsTemp[' + i + '].unit=this.value" class="rounded-lg px-1 py-1 text-xs ml-1"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' +
+                    _pfUnitToggleHtml(i, ej.unit) +
                     '</div>' +
+                    _pfChipsRepsArray(i, 'reps_por_vuelta') +
                     '<div class="flex gap-2 items-center flex-wrap mt-1">' +
                     '<input type="text" value="' + (ej.nota_tecnica||'') + '" onchange="bloqueEjsTemp[' + i + '].nota_tecnica=this.value" class="rounded-lg px-2 py-1 text-xs flex-1" placeholder="Nota del profe...">' +
                     '</div>';
@@ -5454,12 +5496,13 @@
                 controlsHtml = '<div class="flex gap-2 items-center flex-wrap">' +
                     '<input type="number" value="' + ej.series + '" min="1" onchange="bloqueEjsTemp[' + i + '].series=parseInt(this.value);renderBloqueEjsTemp()" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Series">' +
                     '<span class="text-xs text-textoSuave">series</span>' +
-                    '<select onchange="bloqueEjsTemp[' + i + '].unit=this.value" class="rounded-lg px-1 py-1 text-xs ml-1"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' +
+                    _pfUnitToggleHtml(i, ej.unit) +
                     '</div>' +
                     '<div class="flex gap-1 items-center flex-wrap mt-1">' +
                     '<span class="text-xs text-textoSuave font-bold mr-1">Reps:</span>' +
                     serieRepsInputs +
                     '</div>' +
+                    _pfChipsRepsArray(i, 'reps_por_serie') +
                     '<div class="flex gap-1 items-center flex-wrap mt-1">' +
                     '<span class="text-xs text-textoSuave font-bold mr-1">Pausa:</span>' +
                     seriePausaInputs +
@@ -5481,8 +5524,9 @@
                 controlsHtml = '<div class="flex gap-2 items-center flex-wrap">' +
                     '<span class="text-xs text-textoSuave font-bold">Reps:</span>' +
                     '<input type="text" value="' + (ej.reps||'10') + '" onchange="bloqueEjsTemp[' + i + '].reps=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Reps">' +
-                    '<select onchange="bloqueEjsTemp[' + i + '].unit=this.value" class="rounded-lg px-2 py-1 text-xs"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' +
+                    _pfUnitToggleHtml(i, ej.unit) +
                     '</div>' +
+                    _pfChipsRepsSimple(i, 'reps') +
                     '<div class="flex gap-2 items-center flex-wrap mt-1">' +
                     '<input type="text" value="' + (ej.nota_tecnica||'') + '" onchange="bloqueEjsTemp[' + i + '].nota_tecnica=this.value" class="rounded-lg px-2 py-1 text-xs flex-1" placeholder="Nota del profe...">' +
                     '</div>';
@@ -5492,8 +5536,9 @@
                 controlsHtml = '<div class="flex gap-2 items-center flex-wrap">' +
                     '<span class="text-xs text-textoSuave font-bold">Reps:</span>' +
                     '<input type="text" value="' + (ej.reps||'12') + '" onchange="bloqueEjsTemp[' + i + '].reps=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Reps">' +
-                    '<select onchange="bloqueEjsTemp[' + i + '].unit=this.value" class="rounded-lg px-2 py-1 text-xs"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' +
+                    _pfUnitToggleHtml(i, ej.unit) +
                     '</div>' +
+                    _pfChipsRepsSimple(i, 'reps') +
                     '<div class="flex gap-2 items-center flex-wrap mt-1">' +
                     '<input type="text" value="' + (ej.nota_tecnica||'') + '" onchange="bloqueEjsTemp[' + i + '].nota_tecnica=this.value" class="rounded-lg px-2 py-1 text-xs flex-1" placeholder="Nota del profe...">' +
                     '</div>';
@@ -5503,8 +5548,9 @@
                 controlsHtml = '<div class="flex gap-2 items-center flex-wrap">' +
                     '<span class="text-xs text-textoSuave font-bold">Reps por vuelta:</span>' +
                     '<input type="text" value="' + (ej.reps||'12') + '" onchange="bloqueEjsTemp[' + i + '].reps=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Reps">' +
-                    '<select onchange="bloqueEjsTemp[' + i + '].unit=this.value" class="rounded-lg px-2 py-1 text-xs"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' +
+                    _pfUnitToggleHtml(i, ej.unit) +
                     '</div>' +
+                    _pfChipsRepsSimple(i, 'reps') +
                     '<div class="flex gap-2 items-center flex-wrap mt-1">' +
                     '<input type="text" value="' + (ej.nota_tecnica||'') + '" onchange="bloqueEjsTemp[' + i + '].nota_tecnica=this.value" class="rounded-lg px-2 py-1 text-xs flex-1" placeholder="Nota del profe...">' +
                     '</div>';
@@ -5520,9 +5566,10 @@
                 controlsHtml = '<div class="flex gap-2 items-center flex-wrap">' +
                     '<span class="text-xs text-textoSuave font-bold">Reps fijas:</span>' +
                     '<input type="text" value="' + (ej.reps||'10') + '" onchange="bloqueEjsTemp[' + i + '].reps=this.value;renderBloqueEjsTemp();_pfRenderVistaPreviaSumando()" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Reps">' +
-                    '<select onchange="bloqueEjsTemp[' + i + '].unit=this.value;renderBloqueEjsTemp();_pfRenderVistaPreviaSumando()" class="rounded-lg px-2 py-1 text-xs"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' +
+                    _pfUnitToggleHtml(i, ej.unit) +
                     '<span class="text-[11px] font-bold ml-auto" style="background:rgba(206,147,216,.15);color:#CE93D8;padding:3px 10px;border-radius:999px;">' + _sumTotalTxt + '</span>' +
                     '</div>' +
+                    _pfChipsRepsSimple(i, 'reps') +
                     '<div class="flex gap-2 items-center flex-wrap mt-1">' +
                     '<input type="text" value="' + (ej.nota_tecnica||'') + '" onchange="bloqueEjsTemp[' + i + '].nota_tecnica=this.value" class="rounded-lg px-2 py-1 text-xs flex-1" placeholder="Nota del profe...">' +
                     '</div>';
@@ -5531,8 +5578,9 @@
                 // Fallback genérico
                 controlsHtml = '<div class="flex gap-2 items-center flex-wrap">' +
                     '<input type="text" value="' + ej.reps + '" onchange="bloqueEjsTemp[' + i + '].reps=this.value" class="rounded-lg px-2 py-1 text-xs w-16" placeholder="Reps">' +
-                    '<select onchange="bloqueEjsTemp[' + i + '].unit=this.value" class="rounded-lg px-2 py-1 text-xs"><option ' + (ej.unit==='Reps'?'selected':'') + '>Reps</option><option ' + (ej.unit==='Segs'?'selected':'') + '>Segs</option></select>' +
+                    _pfUnitToggleHtml(i, ej.unit) +
                     '</div>' +
+                    _pfChipsRepsSimple(i, 'reps') +
                     '<div class="flex gap-2 items-center flex-wrap mt-1">' +
                     '<input type="text" value="' + (ej.nota_tecnica||'') + '" onchange="bloqueEjsTemp[' + i + '].nota_tecnica=this.value" class="rounded-lg px-2 py-1 text-xs flex-1" placeholder="Nota del profe...">' +
                     '</div>';
@@ -5762,6 +5810,8 @@
                 actualizarEMOMMinutosConfig();
             }
         }
+
+        _pfSincronizarStepperSpans('bloque-params-container');
 
         bloqueEjsTemp = JSON.parse(JSON.stringify(b.ejercicios || []));
         bloqueEjExpandidos = new Set();
