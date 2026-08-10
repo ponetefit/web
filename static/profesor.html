@@ -668,8 +668,56 @@
                 line-height: 1.2;
             }
             .ac-cat-lista { margin-top: 4px; }
-            .ac-cat-lista .ac-item-ej { margin-bottom: 8px; }
+            .ac-cat-lista .ac-item-ej-wrap { margin-bottom: 10px; }
+            .ac-cat-lista .ac-item-ej { margin-bottom: 0; }
             .ac-cat-lista-vacia { font-size: 0.9rem; font-weight: 700; color: #8a8a9a; padding: 10px 4px; }
+
+            /* Panel desplegable de configuracion del ejercicio (reps/seg + descripcion)
+               que se abre al tocar la tarjeta de un ejercicio dentro de una categoria. */
+            .ac-item-ej-config {
+                background: #141418; border: 1.5px solid #FF6B35; border-top: none;
+                border-radius: 0 0 14px 14px; padding: 16px 14px 14px; margin-top: -2px;
+            }
+            .ac-cfg-reps-row {
+                display: flex; align-items: center; justify-content: center; gap: 20px;
+                margin-bottom: 14px;
+            }
+            .ac-cfg-btn {
+                width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0;
+                background: #1a1a20; border: 1.5px solid #2a2a35; color: #f0f0f5;
+                font-size: 1.9rem; font-weight: 900; display: flex; align-items: center;
+                justify-content: center; touch-action: manipulation;
+            }
+            .ac-cfg-btn:active { border-color: #FF6B35; background: rgba(255,107,53,0.15); }
+            .ac-cfg-reps-valor {
+                font-family: 'Roboto', sans-serif; font-size: 2.3rem; font-weight: 900;
+                min-width: 70px; text-align: center;
+            }
+            .ac-cfg-unit-row { display: flex; gap: 8px; margin-bottom: 14px; }
+            .ac-cfg-unit-btn {
+                flex: 1; padding: 12px; border-radius: 10px; background: #0f0f13;
+                border: 1.5px solid #2a2a35; color: #8a8a9a; font-weight: 800;
+                font-size: 0.9rem; touch-action: manipulation;
+            }
+            .ac-cfg-unit-activo { background: rgba(255,107,53,0.18) !important; border-color: #FF6B35 !important; color: #FF6B35 !important; }
+            .ac-cfg-desc {
+                width: 100%; background: #0f0f13; border: 1.5px solid #2a2a35; border-radius: 10px;
+                color: #f0f0f5; padding: 10px 12px; font-size: 0.9rem; margin-bottom: 12px;
+                font-family: 'Roboto', sans-serif; resize: none;
+            }
+            .ac-cfg-desc:focus { outline: none; border-color: #FF6B35; }
+            .ac-cfg-agregar {
+                width: 100%; background: #FF6B35; color: #0a0a0c; font-weight: 900;
+                font-size: 1.05rem; border-radius: 12px; padding: 14px; margin-bottom: 10px;
+                touch-action: manipulation;
+            }
+            .ac-cfg-agregar:active { background: #e85a2a; }
+            .ac-cfg-volver {
+                width: 100%; background: transparent; color: #8a8a9a; font-weight: 700;
+                font-size: 0.9rem; border: 1.5px solid #2a2a35; border-radius: 12px;
+                padding: 12px; touch-action: manipulation;
+            }
+            .ac-cfg-volver:active { background: #1a1a20; }
             /* Ejercicios ya agregados: tarjetas mas grandes y redondeadas */
             #bloque-paso-2 .exercise-chip, [id^="warmup-paso-2-"] .exercise-chip {
                 border-radius: 14px !important;
@@ -2493,6 +2541,11 @@
         return 'todo_cuerpo'; // sin musculo cargado -> catch-all
     }
 
+    // Config temporal capturada en el panel desplegable de "tocar ejercicio ->
+    // configurar reps/seg + descripcion -> Agregar", leida por agregarEjBloque()
+    // y agregarEjWarmupDia() al agregar el ejercicio. Se resetea despues de usarse.
+    let _pfConfigEjSeleccionado = null;
+
     // Reemplaza visualmente el combo categoria->elemento->select por un buscador
     // unico con sugerencias tocables. Reutiliza el <select> real de desktop
     // (poblando una opcion en el) para no duplicar la logica de "agregar ejercicio".
@@ -2538,14 +2591,75 @@
             listaEl.innerHTML = ejs.map((m, i) => {
                 const usos = (typeof _pfUsosDeEjercicio === 'function') ? _pfUsosDeEjercicio(m.nombre) : [];
                 const avisoBadge = usos.length ? ' <span style="color:#c4a820;font-size:10px;font-weight:700;" title="Ya usado en: ' + usos.join(', ') + '">⚠ usado</span>' : '';
-                return '<div class="ac-item-ej" data-idx="' + i + '">' +
-                    '<span class="ac-item-ej-ico">🏋️</span>' +
-                    '<span class="ac-item-ej-info">' + m.nombre + avisoBadge + '</span>' +
-                    '<span class="ac-item-ej-add">+</span>' +
-                    '</div>';
+                return '<div class="ac-item-ej-wrap">' +
+                    '<div class="ac-item-ej ac-item-ej-toggle" data-idx="' + i + '">' +
+                        '<span class="ac-item-ej-ico">🏋️</span>' +
+                        '<span class="ac-item-ej-info">' + m.nombre + avisoBadge + '</span>' +
+                        '<span class="ac-item-ej-add">+</span>' +
+                    '</div>' +
+                    '<div class="ac-item-ej-config hidden" data-idx="' + i + '">' +
+                        '<div class="ac-cfg-reps-row">' +
+                            '<button type="button" class="ac-cfg-btn ac-cfg-menos" aria-label="Menos">−</button>' +
+                            '<div class="ac-cfg-reps-valor">10</div>' +
+                            '<button type="button" class="ac-cfg-btn ac-cfg-mas" aria-label="Mas">+</button>' +
+                        '</div>' +
+                        '<div class="ac-cfg-unit-row">' +
+                            '<button type="button" class="ac-cfg-unit-btn ac-cfg-unit-activo" data-unit="Reps">REP</button>' +
+                            '<button type="button" class="ac-cfg-unit-btn" data-unit="Seg">SEG</button>' +
+                        '</div>' +
+                        '<textarea class="ac-cfg-desc" placeholder="Agregar una descripción (opcional)..." rows="2"></textarea>' +
+                        '<button type="button" class="ac-cfg-agregar">Agregar</button>' +
+                        '<button type="button" class="ac-cfg-volver">Volver</button>' +
+                    '</div>' +
+                '</div>';
             }).join('');
-            listaEl.querySelectorAll('.ac-item-ej').forEach((el, i) => {
-                el.addEventListener('click', () => seleccionar(ejs[i]));
+
+            // Tocar la tarjeta del ejercicio despliega hacia abajo su configuracion
+            // (solo una abierta a la vez).
+            listaEl.querySelectorAll('.ac-item-ej-toggle').forEach(el => {
+                el.addEventListener('click', () => {
+                    const wrap = el.closest('.ac-item-ej-wrap');
+                    const cfg = wrap.querySelector('.ac-item-ej-config');
+                    const yaAbierto = !cfg.classList.contains('hidden');
+                    listaEl.querySelectorAll('.ac-item-ej-config').forEach(c => c.classList.add('hidden'));
+                    if (!yaAbierto) {
+                        cfg.classList.remove('hidden');
+                        setTimeout(() => cfg.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+                    }
+                });
+            });
+
+            listaEl.querySelectorAll('.ac-item-ej-config').forEach(cfg => {
+                const idx = parseInt(cfg.dataset.idx);
+                let reps = 10;
+                let unit = 'Reps';
+                const repsValorEl = cfg.querySelector('.ac-cfg-reps-valor');
+
+                cfg.querySelector('.ac-cfg-menos').addEventListener('click', () => {
+                    reps = Math.max(1, reps - 1);
+                    repsValorEl.textContent = reps;
+                });
+                cfg.querySelector('.ac-cfg-mas').addEventListener('click', () => {
+                    reps = reps + 1;
+                    repsValorEl.textContent = reps;
+                });
+                cfg.querySelectorAll('.ac-cfg-unit-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        cfg.querySelectorAll('.ac-cfg-unit-btn').forEach(b => b.classList.remove('ac-cfg-unit-activo'));
+                        btn.classList.add('ac-cfg-unit-activo');
+                        unit = btn.dataset.unit;
+                    });
+                });
+                cfg.querySelector('.ac-cfg-volver').addEventListener('click', () => {
+                    cfg.classList.add('hidden');
+                });
+                cfg.querySelector('.ac-cfg-agregar').addEventListener('click', () => {
+                    const desc = cfg.querySelector('.ac-cfg-desc').value.trim();
+                    _pfConfigEjSeleccionado = { reps: String(reps), unit: unit, nota_tecnica: desc };
+                    seleccionar(ejs[idx]);
+                    _pfConfigEjSeleccionado = null;
+                    cfg.classList.add('hidden');
+                });
             });
         }
 
@@ -4357,8 +4471,9 @@
     function agregarEjWarmupDia(idx) {
         const selEj = document.getElementById('warmup-ej-select-' + idx);
         const nombre = selEj ? selEj.value : '';
-        const reps = document.getElementById('warmup-ej-reps-' + idx)?.value.trim() || '';
-        const unit = document.getElementById('warmup-ej-unit-' + idx)?.value || 'Reps';
+        const reps = (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.reps) || document.getElementById('warmup-ej-reps-' + idx)?.value.trim() || '';
+        const unit = (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.unit) || document.getElementById('warmup-ej-unit-' + idx)?.value || 'Reps';
+        const nota_tecnica = (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.nota_tecnica) || '';
         if (!nombre || nombre === 'Sin ejercicios' || nombre === 'Sin resultados') return;
         if (mostrarAdvertenciaSiProhibido(nombre, () => agregarEjWarmupDia(idx))) return;
         const selectedOption = selEj.options[selEj.selectedIndex];
@@ -4388,7 +4503,7 @@
             if (listEl) {
                 let ejs = [];
                 try { ejs = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { ejs = []; }
-                ejs.push({ nombre, link, reps, unit, con_carga });
+                ejs.push({ nombre, link, reps, unit, con_carga, nota_tecnica });
                 listEl.dataset.ejs = JSON.stringify(ejs);
                 listEl.innerHTML = ejs.map((ej, ei) => emomChipHtml(ej, ei, minIdx, 'warmup', idx)).join('');
                 const cntEl = document.getElementById('emow-min-' + idx + '-' + minIdx + '-cnt');
@@ -4403,7 +4518,7 @@
 
         cargarEjsWarmupDia(idx);
         if (!diasData[idx]) return;
-        diasData[idx].warmupEjercicios.push({ nombre, link, reps, unit, con_carga, tip1, tip2, elemento });
+        diasData[idx].warmupEjercicios.push({ nombre, link, reps, unit, con_carga, tip1, tip2, elemento, nota_tecnica });
         renderWarmupEjsDia(idx);
         const repsInput = document.getElementById('warmup-ej-reps-' + idx);
         if (repsInput) repsInput.value = '';
@@ -5412,7 +5527,14 @@
         if (buscador) buscador.value = '';
         // Restaurar lista completa después de buscar
         cargarEjsBloque();
-        bloqueEjsTemp.push({ nombre, link, reps: '10', unit: 'Reps', series: 3, descanso: '60', nota_tecnica: '', con_carga, tip1, tip2, elemento });
+        bloqueEjsTemp.push({
+            nombre, link,
+            reps: (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.reps) || '10',
+            unit: (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.unit) || 'Reps',
+            series: 3, descanso: '60',
+            nota_tecnica: (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.nota_tecnica) || '',
+            con_carga, tip1, tip2, elemento
+        });
         renderBloqueEjsTemp();
     }
 
