@@ -2924,6 +2924,21 @@
     // Indices de ejercicios del bloque que estan "expandidos" (tarjeta abierta para editar).
     // Por defecto arrancan colapsados (tarjeta chica, resumen); tocar la tarjeta la abre/cierra.
     let bloqueEjExpandidos = new Set();
+    // Toggle generico +/- para las tarjetas resumen de Calentamiento y Bloque:
+    // despliega u oculta el listado de ejercicios seleccionados sin re-renderizar toda la tarjeta.
+    function _pfToggleResumenPills(pillsId, btnEl) {
+        const el = document.getElementById(pillsId);
+        if (!el) return;
+        const seVaAbrir = el.classList.contains('hidden');
+        el.classList.toggle('hidden', !seVaAbrir);
+        el.style.display = seVaAbrir ? 'flex' : 'none';
+        if (btnEl) {
+            const ico = btnEl.querySelector('.pf-toggle-ej-ico');
+            const label = btnEl.querySelector('.pf-toggle-ej-label');
+            if (ico) ico.textContent = seVaAbrir ? '−' : '+';
+            if (label) label.textContent = seVaAbrir ? 'Ocultar ejercicios' : 'Ver ejercicios';
+        }
+    }
     function _pfToggleEjBloque(e, i) {
         if (window.innerWidth >= 640) return; // en desktop las tarjetas ya muestran todo, no hace falta tocar
         if (e && e.target && e.target.closest('button, input, select, textarea, .drag-handle')) return;
@@ -4619,11 +4634,14 @@
                         <div id="warmup-resumen-${idx}" class="hidden bg-fondoAlt rounded-2xl border border-azul/30 p-3">
                             <div class="flex items-start justify-between gap-2">
                                 <div class="flex-1 min-w-0">
-                                    <div class="flex items-center gap-2 mb-1.5">
-                                        <span class="px-2 py-0.5 rounded text-xs font-bold bg-azul/20 text-azul uppercase tracking-wider">🔥 Calentamiento</span>
-                                        <span class="text-xs text-textoSuave pf-warmup-tipo-h1" id="warmup-resumen-tipo-${idx}"></span>
+                                    <div class="flex items-center gap-2 mb-1 flex-wrap">
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-azul/20 text-azul uppercase tracking-wider" id="warmup-resumen-tipo-${idx}"></span>
                                     </div>
-                                    <div id="warmup-resumen-pills-${idx}" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;"></div>
+                                    <p class="text-xs text-textoSuave mb-1.5" id="warmup-resumen-desc-${idx}"></p>
+                                    <button type="button" onclick="_pfToggleResumenPills('warmup-resumen-pills-${idx}', this)" class="pf-toggle-ej-btn text-xs font-bold text-azul flex items-center gap-1">
+                                        <span class="pf-toggle-ej-ico">+</span><span class="pf-toggle-ej-label">Ver ejercicios</span><span class="pf-toggle-ej-count" id="warmup-resumen-count-${idx}"></span>
+                                    </button>
+                                    <div id="warmup-resumen-pills-${idx}" class="hidden" style="display:none;flex-wrap:wrap;gap:4px;align-items:center;margin-top:8px;"></div>
                                 </div>
                                 <div class="flex gap-1.5 flex-shrink-0">
                                     <button onclick="abrirModalCopiarCalentamiento(${idx})" title="Copiar a otro día" class="bg-purpura/20 text-purpura px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">⧉</button>
@@ -5330,6 +5348,7 @@
             const masEjs = ejs.length > 6 ? '<span style="font-size:0.65rem;color:#8a8a9a;padding:2px 4px;">+' + (ejs.length - 6) + '</span>' : '';
             // Detalle auto-generado del bloque (vueltas/pausa, trabajo/pausa de tabata, etc.)
             const detalleBloque = _pfDetalleBloque(b);
+            const pillsId = 'bloque-pills-' + idx + '-' + i;
             return '<div class="exercise-chip bg-fondoAlt rounded-2xl border border-' + color + '/30 p-3"' +
                 ' draggable="true" data-idx="' + i + '" data-list="bloques-dia-' + idx + '"' +
                 ' ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)">' +
@@ -5339,11 +5358,14 @@
                 _flechasHtml('bloques-dia-' + idx, i, bloques.length) +
                 '<div class="flex-1 min-w-0">' +
                 '<div class="flex items-center gap-2 mb-1 flex-wrap">' +
-                '<span class="px-2 py-0.5 rounded text-xs font-bold bg-' + color + '/20 text-' + color + ' uppercase tracking-wider pf-bloque-tipo-h1">' + b.tipo + '</span>' +
+                '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-' + color + '/20 text-' + color + ' uppercase tracking-wider pf-bloque-tipo-h1">' + b.tipo + '</span>' +
                 (detalleBloque ? '<span class="text-[11px] text-textoSuave">' + detalleBloque + '</span>' : '') +
                 '</div>' +
-                (b.descripcion ? '<p class="text-xs text-textoSuave/80 italic mb-1.5 truncate">' + b.descripcion + '</p>' : '') +
-                (ejPills || masEjs ? '<div class="bloque-card-pills" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">' + ejPills + masEjs + '</div>' : '<p class="text-xs text-textoSuave bloque-card-pills">' + ejs.length + ' ejercicio(s)</p>') +
+                (b.descripcion ? '<p class="text-xs text-textoSuave/80 italic mb-1.5">' + b.descripcion + '</p>' : '') +
+                '<button type="button" onclick="_pfToggleResumenPills(\'' + pillsId + '\', this)" class="pf-toggle-ej-btn text-xs font-bold text-' + color + ' flex items-center gap-1">' +
+                '<span class="pf-toggle-ej-ico">+</span><span class="pf-toggle-ej-label">Ver ejercicios</span><span class="pf-toggle-ej-count"> (' + ejs.length + ')</span>' +
+                '</button>' +
+                '<div id="' + pillsId + '" class="bloque-card-pills hidden" style="display:none;flex-wrap:wrap;gap:4px;align-items:center;margin-top:8px;">' + ejPills + masEjs + '</div>' +
                 '</div>' +
                 '</div>' +
                 '<div class="flex gap-1.5 flex-shrink-0">' +
@@ -13898,10 +13920,15 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             const tipoSel = document.getElementById('warmup-tipo-' + idx);
             const tipo = tipoSel ? tipoSel.value : '';
             const tipoEl = document.getElementById('warmup-resumen-tipo-' + idx);
-            if (tipoEl) {
+            if (tipoEl) tipoEl.textContent = tipo;
+            const descEl = document.getElementById('warmup-resumen-desc-' + idx);
+            if (descEl) {
                 const detalleCal = _pfDetalleCalentamiento({ ...dia, _warmupCfg: { tipo, ...(dia._warmupCfg||{}) } });
-                tipoEl.textContent = tipo + (detalleCal ? ' · ' + detalleCal : '');
+                descEl.textContent = detalleCal || '';
+                descEl.classList.toggle('hidden', !detalleCal);
             }
+            const countEl = document.getElementById('warmup-resumen-count-' + idx);
+            if (countEl) countEl.textContent = ' (' + ejs.length + ')';
             const pillsEl = document.getElementById('warmup-resumen-pills-' + idx);
             if (pillsEl) {
                 const ejPills = ejs.slice(0, 6).map(e => {
@@ -13912,6 +13939,16 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
                 }).filter(Boolean).join('');
                 const masEjs = ejs.length > 6 ? '<span style="font-size:0.65rem;color:#8a8a9a;padding:2px 4px;">+' + (ejs.length - 6) + '</span>' : '';
                 pillsEl.innerHTML = ejPills + masEjs;
+                // Colapsar el listado de ejercicios cada vez que se re-renderiza la tarjeta
+                pillsEl.classList.add('hidden');
+                pillsEl.style.display = 'none';
+                const toggleBtn = resumen.querySelector('.pf-toggle-ej-btn');
+                if (toggleBtn) {
+                    const ico = toggleBtn.querySelector('.pf-toggle-ej-ico');
+                    const label = toggleBtn.querySelector('.pf-toggle-ej-label');
+                    if (ico) ico.textContent = '+';
+                    if (label) label.textContent = 'Ver ejercicios';
+                }
             }
         } else {
             btnAgregar.classList.remove('hidden');
