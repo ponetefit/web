@@ -157,6 +157,34 @@
         }
         .btn-primary:hover { transform: scale(1.02); }
         .btn-primary:active { transform: scale(0.98); box-shadow: 0 4px 12px rgba(255,107,53,0.3); }
+
+        /* Feedback táctil global: en mobile no hay :hover, así que sin :active
+           el usuario no tiene forma de saber si el toque "prendió". Se limita a
+           dispositivos táctiles (hover:none) para no pisar los estados hover de
+           desktop que ya existen en botones puntuales. */
+        @media (hover: none) {
+            button:not(:disabled):active,
+            [role="button"]:not(:disabled):active,
+            .pf-tap:active,
+            .exercise-chip:active {
+                transform: scale(0.96);
+                opacity: 0.82;
+                transition: transform 0.08s ease, opacity 0.08s ease;
+            }
+        }
+
+        /* Spinner reutilizable para estados de carga (guardar / compartir / IA) */
+        @keyframes pf-spin { to { transform: rotate(360deg); } }
+        .pf-btn-spinner {
+            display: inline-block; width: 1em; height: 1em;
+            border: 2px solid rgba(255,255,255,0.35);
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: pf-spin 0.7s linear infinite;
+            vertical-align: -0.15em;
+            margin-right: 0.5em;
+            flex-shrink: 0;
+        }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #0a0a0c; }
         ::-webkit-scrollbar-thumb { background: #2a2a35; border-radius: 3px; }
@@ -1808,7 +1836,7 @@
                     </div>
                     <p id="repo-status" class="text-xs text-verde text-center min-h-[1.2rem]"></p>
                     <div class="flex gap-3">
-                        <button onclick="guardarEnRepositorio()" class="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold text-sm">Guardar</button>
+                        <button id="btn-repo-guardar-confirm" onclick="guardarEnRepositorio()" class="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold text-sm">Guardar</button>
                         <button onclick="document.getElementById('modal-repo-guardar').classList.add('hidden')" class="flex-1 py-2.5 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
                     </div>
                 </div>
@@ -3636,6 +3664,32 @@
         t.innerText = msg;
         t.style.transform = 'translateX(-50%) translateY(0)';
         setTimeout(() => t.style.transform = 'translateX(-50%) translateY(80px)', 2800);
+    }
+
+    // ====================================================================
+    // ESTADO DE LOADING CONSISTENTE PARA BOTONES (guardar / compartir / IA)
+    // ====================================================================
+    // pfBtnLoadingOn: deshabilita el botón, guarda su contenido original y lo
+    // reemplaza por un spinner + texto de carga, para que en mobile (sin hover)
+    // el usuario tenga feedback claro de que la acción está en curso.
+    function pfBtnLoadingOn(btn, textoCarga) {
+        if (!btn || btn.dataset.pfLoading === '1') return;
+        btn.dataset.pfLoading = '1';
+        btn.dataset.pfOriginalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.setAttribute('aria-busy', 'true');
+        btn.style.opacity = '0.85';
+        btn.innerHTML = '<span class="pf-btn-spinner"></span><span>' + textoCarga + '</span>';
+    }
+    // pfBtnLoadingOff: restaura el contenido y estado original del botón.
+    function pfBtnLoadingOff(btn) {
+        if (!btn || btn.dataset.pfLoading !== '1') return;
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        btn.style.opacity = '';
+        if (btn.dataset.pfOriginalHtml !== undefined) btn.innerHTML = btn.dataset.pfOriginalHtml;
+        delete btn.dataset.pfLoading;
+        delete btn.dataset.pfOriginalHtml;
     }
 
     // ====================================================================
@@ -6596,8 +6650,7 @@
         }
 
         const btn = document.getElementById('btn-compartir-rutina');
-        btn.innerText = 'SUBIENDO...';
-        btn.disabled = true;
+        pfBtnLoadingOn(btn, 'SUBIENDO...');
 
         try {
             // ── Construir datos de cada dia ──────────────────────────────────
@@ -6851,8 +6904,7 @@
         } catch (e) {
             toast('Error de conexion');
         } finally {
-            btn.innerText = 'COMPARTIR RUTINA';
-            btn.disabled = false;
+            pfBtnLoadingOff(btn);
         }
     }
     function copiarCodigo() {
@@ -10294,6 +10346,9 @@
             return;
         }
 
+        const btnGuardar = document.getElementById('btn-repo-guardar-confirm');
+        pfBtnLoadingOn(btnGuardar, 'Guardando...');
+
         // Capturar estado actual de diasData incluyendo configuraciones DOM
         const snapshot = {
             nombre,
@@ -10339,6 +10394,7 @@
         document.getElementById('repo-status').textContent = '✓ Guardado correctamente';
         document.getElementById('repo-status').className = 'text-xs text-verde text-center min-h-[1.2rem]';
         setTimeout(() => {
+            pfBtnLoadingOff(btnGuardar);
             document.getElementById('modal-repo-guardar').classList.add('hidden');
             if (typeof window._repoGuardarCallback === 'function') {
                 window._repoGuardarCallback();
@@ -11774,16 +11830,24 @@
     async function iaConfirmarGenerar() {
         const numDias    = parseInt(document.getElementById('ia-num-dias')?.value) || 1;
         const numBloques = parseInt(document.getElementById('ia-num-bloques')?.value) || 1;
-        document.getElementById('modal-ia-config').classList.add('hidden');
 
         const tieneContenido = diasData.some(d => d.warmupEjercicios.length > 0 || d.bloquesRutina.length > 0);
         if (tieneContenido && !confirm('¿Reemplazar la rutina actual con la generada por IA?')) return;
 
-        toast('🤖 Generando rutina...');
+        // Mantenemos el modal abierto con el botón en estado "cargando" en vez de
+        // cerrarlo de entrada: así el usuario ve que la IA está trabajando y no
+        // se siente "colgado" mientras se genera la rutina.
+        const btnGenerar = document.getElementById('ia-btn-generar');
+        pfBtnLoadingOn(btnGenerar, 'Generando...');
+        // Pequeña espera para que el navegador pinte el spinner antes del cálculo (síncrono y rápido)
+        await new Promise(r => setTimeout(r, 30));
+
         try {
             const patrones  = _iaExtraerPatrones(_iaHistorialCache, getRepositorio());
             const nuevaData = _iaGenerarDias(videotecaCache, patrones, numDias, numBloques);
             if (!nuevaData || nuevaData.length === 0) { toast('No se pudo generar. Revisá la Videoteca.'); return; }
+
+            document.getElementById('modal-ia-config').classList.add('hidden');
 
             // Balance muscular
             const balanceMsg = iaChequearBalance(nuevaData);
@@ -11795,6 +11859,7 @@
             const fuenteMsg = _iaHistorialCache.length > 0 ? `(basada en ${_iaHistorialCache.length} rutinas de ${_iaAlumnoSeleccionado.toUpperCase()})` : '(basada en repositorio)';
             toast(`✅ Rutina generada ${fuenteMsg}`);
         } catch(e) { console.error('iaConfirmarGenerar error:', e); toast('Error al generar la rutina.'); }
+        finally { pfBtnLoadingOff(btnGenerar); }
     }
     // ====================================================================
     // DIGITALIZACIÓN DE PIZARRA
