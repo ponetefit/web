@@ -359,8 +359,8 @@
             .exercise-chip button[onclick*="quitar"] { min-width: 32px; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; }
 
             /* ── Mejora: botones ⧉/Editar/✕ de las tarjetas de bloque y calentamiento, mas grandes y separados ── */
-            button[onclick*="abrirModalCopiarBloque"], button[onclick*="eliminarBloqueDia"], button[onclick*="editarBloqueDia"],
-            button[onclick*="abrirModalCopiarCalentamiento"], button[onclick*="eliminarCalentamientoDia"], button[onclick*="abrirModalCalentamientoDia"] {
+            button[onclick*="abrirModalCopiarBloque"]:not(.pf-add-card-btn), button[onclick*="eliminarBloqueDia"]:not(.pf-add-card-btn), button[onclick*="editarBloqueDia"]:not(.pf-add-card-btn),
+            button[onclick*="abrirModalCopiarCalentamiento"]:not(.pf-add-card-btn), button[onclick*="eliminarCalentamientoDia"]:not(.pf-add-card-btn), button[onclick*="abrirModalCalentamientoDia"]:not(.pf-add-card-btn) {
                 min-width: 40px; min-height: 40px; padding: 9px 13px !important; font-size: 0.8rem !important;
             }
             .flex.gap-1\.5.flex-shrink-0 { gap: 10px !important; }
@@ -405,19 +405,8 @@
                 margin-left: -1rem; margin-right: -1rem; padding-left: 1rem; padding-right: 1rem;
             }
 
-            /* ── Mejora #1: boton "Guardar" flotante fijo en Crear Rutina ── */
-            #mob-sticky-guardar {
-                position: fixed;
-                left: 0; right: 0;
-                bottom: var(--pf-bottomnav-h, 0px);
-                z-index: 45;
-                padding: 10px 12px 10px 12px;
-                background: rgb(20 20 24 / 0.97);
-                backdrop-filter: blur(6px);
-                border-top: 1px solid rgba(255,255,255,0.08);
-            }
-            /* Dejar espacio abajo para que los botones fijos no tapen el ultimo contenido */
-            #sec-rutina { padding-bottom: 132px; }
+            /* Dejar espacio abajo para que la barra inferior no tape el ultimo contenido */
+            #sec-rutina { padding-bottom: 24px; }
 
             /* ── Barra inferior de acceso rápido (mobile) ──
                Fondo naranja de marca, emojis blancos. Las pantallas "más profundas"
@@ -508,6 +497,47 @@
             .pf-add-card-btn::before { font-size: 2rem; line-height: 1; flex-shrink: 0; }
             .pf-add-card-cal::before { content: '🔥'; }
             .pf-add-card-bloque::before { content: '💪'; }
+
+            /* ── Rediseño mobile de "Crear Rutina": mismo lenguaje visual que las
+               tarjetas de los 7 tipos de entrenamiento (una tarjeta debajo de la
+               otra, texto centrado, titulo grande en Roboto). Se aplica a los
+               titulos de sección y a los botones de acción de toda la pantalla. ── */
+            #sec-rutina .pf-seccion-h1,
+            #sec-rutina .pf-panel-toggle,
+            #sec-rutina .pf-subseccion-row {
+                flex-direction: column !important;
+                align-items: center !important;
+                text-align: center !important;
+                gap: 10px !important;
+            }
+            #sec-rutina .pf-seccion-h1,
+            #sec-rutina .pf-panel-toggle span:first-child,
+            #sec-rutina .pf-subseccion-row h3 {
+                font-family: 'Roboto', sans-serif !important;
+                font-size: 1.3rem !important;
+                font-weight: 900 !important;
+                letter-spacing: 0.01em;
+                line-height: 1.2;
+            }
+            #sec-rutina .pf-subseccion-row .pf-add-card-btn { margin-top: 2px; }
+
+            /* Botones de acción (Agregar Día, Vista Compacta, IA, Guardar en
+               Repositorio, Compartir Rutina): tarjetas grandes apiladas, una
+               debajo de otra, con texto centrado tipo H1 (igual que arriba). */
+            #sec-rutina .pf-acciones-crear {
+                flex-direction: column !important;
+            }
+            #sec-rutina .pf-acciones-crear > button {
+                width: 100% !important;
+                font-family: 'Roboto', sans-serif !important;
+                font-size: 1.25rem !important;
+                font-weight: 900 !important;
+                text-align: center !important;
+                justify-content: center !important;
+                padding-top: 20px !important;
+                padding-bottom: 20px !important;
+                min-height: 68px;
+            }
 
             /* ── Tarjeta ya agregada (calentamiento / bloque): el nombre del tipo
                de entrenamiento se ve grande (estilo H1) y los ejercicios de esa
@@ -1389,14 +1419,9 @@
                 </div>
             </div>
 
-            <!-- Boton fijo "Guardar" solo mobile (aparece siempre visible en Crear Rutina) -->
-            <div id="mob-sticky-guardar" class="sm:hidden hidden">
-                <button onclick="_pfGuardarMobile()" class="btn-primary w-full py-3 rounded-xl text-white font-bold text-sm uppercase tracking-widest">💾 Guardar Rutina</button>
-            </div>
-
             <!-- Paso 1: Nombre del alumno -->
             <div class="bg-tarjeta rounded-2xl border border-borde p-6 mb-6">
-                <h2 class="text-lg font-bold text-verde uppercase tracking-wider mb-4">Datos de la Rutina</h2>
+                <h2 class="pf-seccion-h1 text-lg font-bold text-verde uppercase tracking-wider mb-4">Datos de la Rutina</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Nombre del Alumno</label>
@@ -1426,7 +1451,7 @@
 
             <!-- Rutinas guardadas en el Repositorio: buscar, filtrar y usar una acá mismo -->
             <div class="bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
-                <button type="button" onclick="_pfTogglePanelRepoCrear()" class="w-full flex items-center justify-between gap-2">
+                <button type="button" onclick="_pfTogglePanelRepoCrear()" class="pf-panel-toggle w-full flex items-center justify-between gap-2">
                     <span class="text-sm font-bold text-purpura uppercase tracking-wider flex items-center gap-2">
                         📁 Rutinas del Repositorio
                     </span>
@@ -1450,7 +1475,7 @@
 
             <!-- Mapa de calor muscular en vivo -->
             <div class="bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
-                <button type="button" onclick="toggleMapaCalorVivo()" class="w-full flex items-center justify-between gap-2">
+                <button type="button" onclick="toggleMapaCalorVivo()" class="pf-panel-toggle w-full flex items-center justify-between gap-2">
                     <span class="text-sm font-bold text-naranja uppercase tracking-wider flex items-center gap-2">
                         🔥 Balance Muscular en Vivo
                         <span id="mapa-calor-vivo-dia-label" class="text-textoSuave normal-case font-normal text-xs"></span>
@@ -1480,7 +1505,7 @@
             </div>
 
             <!-- Botones Agregar Dia + acción principal -->
-            <div class="flex flex-col sm:flex-row gap-3 mb-6">
+            <div class="pf-acciones-crear flex flex-col sm:flex-row gap-3 mb-6">
                 <button onclick="agregarDia()" class="flex-1 py-3 rounded-2xl border-2 border-dashed border-verde/40 text-verde font-bold text-sm uppercase tracking-wider hover:border-verde hover:bg-verde/5 transition flex items-center justify-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     Agregar Día
@@ -3517,9 +3542,6 @@
             poblarDatalistEjerciciosAlumno();
             cargarPerfilesAlumnos();
         }
-        // Boton "Guardar" flotante mobile: visible solo en Crear Rutina
-        const stickyGuardar = document.getElementById('mob-sticky-guardar');
-        if (stickyGuardar) stickyGuardar.classList.toggle('hidden', tab !== 'rutina');
     }
 
     // ── Control de tamaño de letra (A-/A+) para mobile: pensado para usar el celu en el gym
@@ -4160,7 +4182,7 @@
                     <div id="dia-timeline-${idx}" class="flex items-center gap-1.5 overflow-x-auto" style="scrollbar-width:thin;padding-bottom:2px;"></div>
                     <!-- Calentamiento del dia -->
                     <div>
-                        <div class="flex items-center justify-between mb-3">
+                        <div class="pf-subseccion-row flex items-center justify-between mb-3">
                             <h3 class="text-sm font-bold text-azul uppercase tracking-wider">1. Calentamiento</h3>
                             <button id="warmup-btn-agregar-${idx}" onclick="abrirModalCalentamientoDia(${idx})" class="pf-add-card-btn pf-add-card-cal bg-azul/20 text-azul px-3 py-2 rounded-lg text-xs font-bold hover:bg-azul/30 transition">+ Agregar Calentamiento</button>
                         </div>
@@ -4265,7 +4287,7 @@
 
                     <!-- Bloque Principal del dia -->
                     <div>
-                        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+                        <div class="pf-subseccion-row flex items-center justify-between mb-3 flex-wrap gap-2">
                             <h3 class="text-sm font-bold text-verde uppercase tracking-wider">2. Bloque Principal</h3>
                             <button onclick="agregarBloqueDia(${idx})" class="pf-add-card-btn pf-add-card-bloque bg-purpura/20 text-purpura px-3 py-2 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">+ Agregar Bloque</button>
                         </div>
@@ -13658,14 +13680,6 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         const modalBody = document.querySelector('#modal-bloque > div');
         if (modalBody) modalBody.scrollTop = 0;
         window.scrollTo(0, 0);
-    }
-
-    function _pfGuardarMobile() {
-        if (modoRepositorio) {
-            guardarEnRepositorioDirecto();
-        } else {
-            compartirRutina();
-        }
     }
 
     function initAtajosTeclado() {
