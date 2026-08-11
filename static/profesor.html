@@ -595,6 +595,55 @@
                 padding: 14px 10px !important;
                 border-radius: 12px !important;
             }
+            /* ── Crear Alumno: mismo lenguaje visual de tarjetas grandes que el
+               resto de la app en mobile — botones de accion apilados, y cada
+               alumno cargado como tarjeta grande y clara con sus acciones
+               debajo, ancho completo. ── */
+            #sec-crear-alumno .pf-acciones-crear {
+                flex-direction: column !important;
+            }
+            #sec-crear-alumno .pf-acciones-crear > button {
+                width: 100% !important;
+                font-family: 'Roboto', sans-serif !important;
+                font-size: 1.15rem !important;
+                font-weight: 900 !important;
+                text-align: center !important;
+                justify-content: center !important;
+                padding-top: 18px !important;
+                padding-bottom: 18px !important;
+                border-radius: 18px !important;
+                min-height: 64px;
+            }
+            #ca-lista-alumnos { gap: 14px !important; }
+            #ca-lista-alumnos .pf-alumno-card {
+                flex-direction: column !important;
+                align-items: stretch !important;
+                border-radius: 18px !important;
+                padding: 18px 16px !important;
+                gap: 12px !important;
+            }
+            #ca-lista-alumnos .pf-alumno-card-info { text-align: center; }
+            #ca-lista-alumnos .pf-alumno-card-nombre {
+                font-family: 'Roboto', sans-serif !important;
+                font-size: 1.1rem !important;
+                font-weight: 900 !important;
+            }
+            #ca-lista-alumnos .pf-alumno-card-info p { text-align: center; }
+            #ca-lista-alumnos .pf-alumno-card-actions {
+                width: 100% !important;
+                gap: 10px !important;
+            }
+            #ca-lista-alumnos .pf-alumno-card-actions button {
+                flex: 1 1 0 !important;
+                width: 100%;
+                font-family: 'Roboto', sans-serif !important;
+                font-size: 0.95rem !important;
+                font-weight: 800 !important;
+                padding: 14px 10px !important;
+                border-radius: 12px !important;
+            }
+            #ca-lista-alumnos .pf-alumno-card-extra { align-items: center !important; }
+
             /* Botones "Digitalizar Pizarra" / "Crear Entrenamiento": mismas
                tarjetas grandes apiladas que el resto de botones de accion en
                mobile (Agregar Día, Guardar en Repositorio, etc). */
@@ -2186,7 +2235,7 @@
         <!-- ═══════════════════════════════════════════ -->
         <section id="sec-crear-alumno" class="hidden">
             <div class="bg-tarjeta rounded-2xl border border-borde p-6 mb-6">
-                <h2 id="ca-form-titulo" class="text-lg font-bold text-naranja uppercase tracking-wider mb-4">Nueva Ficha de Alumno</h2>
+                <h2 id="ca-form-titulo" class="pf-seccion-h1 text-lg font-bold text-naranja uppercase tracking-wider mb-4">Nueva Ficha de Alumno</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Nombre del Alumno</label>
@@ -2218,14 +2267,14 @@
                     <div id="ca-chips-ejercicios" class="flex flex-wrap gap-2 mt-3"></div>
                 </div>
 
-                <div class="flex gap-3 mt-6">
+                <div class="pf-acciones-crear flex gap-3 mt-6">
                     <button id="btn-guardar-alumno" onclick="guardarPerfilAlumno()" class="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold text-sm uppercase tracking-wider">Guardar Alumno</button>
                     <button onclick="limpiarFormAlumno()" class="px-5 py-2.5 rounded-xl border border-borde text-textoSuave text-sm font-bold hover:text-texto transition">Cancelar</button>
                 </div>
             </div>
 
             <div class="bg-tarjeta rounded-2xl border border-borde p-6">
-                <h2 class="text-lg font-bold text-naranja uppercase tracking-wider mb-4">Alumnos Cargados</h2>
+                <h2 class="pf-seccion-h1 text-lg font-bold text-naranja uppercase tracking-wider mb-4">Alumnos Cargados</h2>
                 <div id="ca-lista-alumnos" class="space-y-3">
                     <p class="text-textoSuave text-sm text-center py-8">Cargando alumnos...</p>
                 </div>
@@ -3773,14 +3822,14 @@
                 const p = _perfilAlumnosCache[clave];
                 const prohibidos = p.ejerciciosProhibidos || [];
                 const elementos = p.elementos || [];
-                html += '<div class="bg-fondoAlt rounded-xl border border-borde p-3 flex items-start justify-between gap-3 flex-wrap">' +
-                    '<div class="min-w-0">' +
-                    '<p class="font-bold text-sm">' + (p.nombre || '') + (p.edad ? ' <span class="text-textoSuave font-normal">(' + p.edad + ' años)</span>' : '') + '</p>' +
+                html += '<div class="pf-alumno-card bg-fondoAlt rounded-xl border border-borde p-3 flex items-start justify-between gap-3 flex-wrap">' +
+                    '<div class="pf-alumno-card-info min-w-0">' +
+                    '<p class="pf-alumno-card-nombre font-bold text-sm">' + (p.nombre || '') + (p.edad ? ' <span class="text-textoSuave font-normal">(' + p.edad + ' años)</span>' : '') + '</p>' +
                     (elementos.length ? '<p class="text-xs text-azul mt-0.5">🏋️ ' + elementos.join(', ') + '</p>' : '') +
                     (p.lesiones ? '<p class="text-xs text-rojo mt-0.5">⚠️ ' + p.lesiones + '</p>' : '') +
                     (prohibidos.length ? '<p class="text-xs text-amarillo mt-0.5">🚫 ' + prohibidos.join(', ') + '</p>' : '') +
                     '</div>' +
-                    '<div class="flex gap-2 flex-shrink-0">' +
+                    '<div class="pf-alumno-card-actions flex gap-2 flex-shrink-0">' +
                     '<button onclick="editarPerfilAlumno(\'' + clave + '\')" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">Editar</button>' +
                     '<button onclick="eliminarPerfilAlumno(\'' + clave + '\')" class="bg-rojo/20 text-rojo px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition">✕</button>' +
                     '</div>' +
@@ -3788,9 +3837,11 @@
             });
         extras.sort((a, b) => a.localeCompare(b)).forEach(n => {
             const nEsc = n.replace(/'/g, "\\'");
-            html += '<div class="bg-fondoAlt rounded-xl border border-borde/50 p-3 flex items-center justify-between gap-3 flex-wrap" style="border-style:dashed">' +
-                '<p class="text-sm text-textoSuave">' + n.toUpperCase() + ' <span class="text-[10px]">(sin ficha todavía)</span></p>' +
+            html += '<div class="pf-alumno-card pf-alumno-card-extra bg-fondoAlt rounded-xl border border-borde/50 p-3 flex items-center justify-between gap-3 flex-wrap" style="border-style:dashed">' +
+                '<p class="pf-alumno-card-nombre text-sm text-textoSuave">' + n.toUpperCase() + ' <span class="text-[10px]">(sin ficha todavía)</span></p>' +
+                '<div class="pf-alumno-card-actions">' +
                 '<button onclick="document.getElementById(\'ca-nombre\').value=\'' + nEsc + '\'; document.getElementById(\'ca-nombre\').scrollIntoView({behavior:\'smooth\'});" class="bg-naranja/20 text-naranja px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition">Crear ficha</button>' +
+                '</div>' +
                 '</div>';
         });
         if (!html) html = '<p class="text-textoSuave text-sm text-center py-8">Todavía no hay alumnos cargados</p>';
