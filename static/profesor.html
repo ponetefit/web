@@ -537,6 +537,64 @@
                 }
             }
 
+            /* ── Historial: una vez cargado un alumno, cada rutina pasa a verse
+               como tarjeta grande y clara (mismo lenguaje visual que el resto
+               de la app en mobile): titulo grande centrado, datos apilados y
+               botones grandes de ancho completo, uno debajo del otro. ── */
+            #sec-historial .bg-tarjeta { padding: 1rem; }
+            #sec-historial .pf-seccion-h1 {
+                text-align: center !important;
+                font-family: 'Roboto', sans-serif !important;
+                font-size: 1.3rem !important;
+                font-weight: 900 !important;
+                letter-spacing: 0.01em;
+                line-height: 1.2;
+            }
+            #historial-lista { gap: 16px !important; }
+            #historial-lista .pf-hist-card {
+                border-radius: 18px !important;
+                padding: 18px 16px !important;
+            }
+            #historial-lista .pf-hist-card-header {
+                flex-direction: column !important;
+                align-items: center !important;
+                text-align: center;
+                gap: 6px !important;
+            }
+            #historial-lista .pf-hist-card-info { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+            #historial-lista .pf-hist-card-codigo {
+                font-size: 1.2rem !important;
+                letter-spacing: 0.02em;
+            }
+            #historial-lista .pf-hist-card-meta {
+                margin-left: 0 !important;
+                font-size: 0.8rem !important;
+            }
+            #historial-lista .pf-hist-card-alumno { font-size: 0.8rem !important; }
+            #historial-lista .pf-hist-card-actions {
+                flex-direction: column !important;
+                gap: 10px !important;
+                margin-top: 14px !important;
+            }
+            #historial-lista .pf-hist-card-actions button {
+                width: 100% !important;
+                min-width: 0 !important;
+                font-family: 'Roboto', sans-serif !important;
+                font-size: 0.95rem !important;
+                font-weight: 800 !important;
+                padding: 14px 10px !important;
+                border-radius: 12px !important;
+            }
+            /* Buscador de alumno y botones de arriba del historial, mas grandes y apilados */
+            #sec-historial .flex.gap-3.mb-4 { flex-direction: column !important; gap: 10px !important; }
+            #sec-historial .flex.gap-3.mb-4 input,
+            #sec-historial .flex.gap-3.mb-4 button {
+                width: 100% !important;
+                padding: 12px 14px !important;
+                font-size: 0.95rem !important;
+                border-radius: 12px !important;
+            }
+
             /* ── Rediseño mobile de "Crear Rutina": mismo lenguaje visual que las
                tarjetas de los 7 tipos de entrenamiento (una tarjeta debajo de la
                otra, texto centrado, titulo grande en Roboto). Se aplica a los
@@ -1994,7 +2052,7 @@
         <!-- ═══════════════════════════════════════════ -->
         <section id="sec-historial" class="hidden">
             <div class="bg-tarjeta rounded-2xl border border-borde p-6">
-                <h2 class="text-lg font-bold text-purpura uppercase tracking-wider mb-4">Rutinas Compartidas</h2>
+                <h2 class="pf-seccion-h1 text-lg font-bold text-purpura uppercase tracking-wider mb-4">Rutinas Compartidas</h2>
                 <div class="flex gap-3 mb-4">
                     <input id="select-alumno" type="text" autocomplete="off" placeholder="Buscar alumno..." class="rounded-lg px-3 py-2.5 text-sm flex-1">
                     <button onclick="cargarListaAlumnos()" class="bg-purpura/20 text-purpura px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition whitespace-nowrap">Actualizar</button>
@@ -7206,15 +7264,15 @@
             const r    = historialRutinasCache[cod];
             const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
             const tipo  = r.tipo || 'ENTRENAMIENTO';
-            return `<div class="bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-1">
-                    <div>
-                        <span class="font-mono font-bold text-amarillo text-sm">${cod.toUpperCase()}</span>
-                        <span class="text-xs text-textoSuave ml-2">${tipo} | ${fecha}</span>
+            return `<div class="pf-hist-card bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50">
+                <div class="pf-hist-card-header flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-1">
+                    <div class="pf-hist-card-info">
+                        <span class="pf-hist-card-codigo font-mono font-bold text-amarillo text-sm">${cod.toUpperCase()}</span>
+                        <span class="pf-hist-card-meta text-xs text-textoSuave ml-2">${tipo} | ${fecha}</span>
                     </div>
-                    <span class="text-xs text-textoSuave">${r.alumno || nombre}</span>
+                    <span class="pf-hist-card-alumno text-xs text-textoSuave">${r.alumno || nombre}</span>
                 </div>
-                <div class="flex flex-wrap gap-2 mt-2">
+                <div class="pf-hist-card-actions flex flex-wrap gap-2 mt-2">
                     <button onclick="verRutina('${cod}')"
                         class="bg-azul/20 text-azul px-3 py-2 rounded-lg text-xs font-bold hover:bg-azul/30 transition flex-1 min-w-[100px]">
                         Ver Rutina
