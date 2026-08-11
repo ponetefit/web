@@ -488,7 +488,7 @@
                 font-family: 'Roboto', sans-serif !important;
                 font-size: 1.5rem !important;
                 font-weight: 900 !important;
-                line-height: 1.15;
+                line-height: 1.9;
                 padding: 24px 16px !important;
                 border-radius: 18px !important;
                 min-height: 84px;
@@ -497,6 +497,17 @@
             .pf-add-card-btn::before { font-size: 2rem; line-height: 1; flex-shrink: 0; }
             .pf-add-card-cal::before { content: '🔥'; }
             .pf-add-card-bloque::before { content: '💪'; }
+            /* En pantallas chicas el texto del boton se parte en 2 lineas
+               ("+ Agregar" / "Calentamiento") y quedaban pegadas: mas separacion. */
+            @media (max-width: 420px) {
+                .pf-add-card-btn {
+                    font-size: 1.25rem !important;
+                    line-height: 1.6 !important;
+                    padding-top: 20px !important;
+                    padding-bottom: 20px !important;
+                    min-height: 128px !important;
+                }
+            }
 
             /* ── Rediseño mobile de "Crear Rutina": mismo lenguaje visual que las
                tarjetas de los 7 tipos de entrenamiento (una tarjeta debajo de la
@@ -887,6 +898,27 @@
                 border-radius: 14px !important;
                 padding: 12px 14px !important;
                 margin-bottom: 10px !important;
+            }
+
+            /* ── Jerarquía visual: la tarjeta "Día" (contenedor) pesa más que las
+               tarjetas "Bloque"/"Calentamiento" que viven adentro. El Día se ve
+               elevado (fondo con leve degradé, borde más claro, sombra) y los
+               bloques se ven planos y "hundidos" dentro de él. ── */
+            #sec-rutina .dia-card {
+                background: linear-gradient(180deg, #18181e 0%, #131317 100%) !important;
+                border: 1.5px solid #3a3a46 !important;
+                box-shadow: 0 6px 18px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.04) inset !important;
+            }
+            #sec-rutina .dia-card > .flex.items-center.justify-between.px-4.py-3 {
+                background: linear-gradient(135deg, #1d1d24, #18181e) !important;
+            }
+            /* Bloques y calentamiento: contenido DENTRO del día, mas planos y sin
+               sombra propia, para que se lean como "hijos" de la tarjeta Día. */
+            #sec-rutina [id^="bloques-lista-"] .exercise-chip,
+            #sec-rutina [id^="warmup-resumen-"] {
+                background: #0d0d11 !important;
+                box-shadow: none !important;
+                border-width: 1px !important;
             }
         }
         /* Oculto por defecto en desktop: ahi se sigue viendo el <select> de toda la vida */
