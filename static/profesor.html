@@ -4747,13 +4747,7 @@
                                     <div id="warmup-fase-tipo-${idx}">
                                         <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Tipo</label>
                                         <select id="warmup-tipo-${idx}" onchange="actualizarWarmupUIDia(${idx})" class="w-full rounded-lg px-3 py-2.5 text-sm">
-                                            <option>Circuito (Vueltas)</option>
-                                            <option>Circuito por Tiempo</option>
-                                            <option>Por Tiempo</option>
-                                            <option>Tabata</option>
-                                            <option>EMOM</option>
-                                            <option>Series/Reps</option>
-                                            <option>Sumando Ejercicio</option>
+                                            ${['Circuito (Vueltas)','Circuito por Tiempo','Por Tiempo','Tabata','EMOM','Series/Reps','Sumando Ejercicio'].map(op => '<option' + ((dia._warmupCfg && dia._warmupCfg.tipo) === op ? ' selected' : '') + '>' + op + '</option>').join('')}
                                         </select>
                                     </div>
                                     <!-- Fase "Parametros" (mobile: pantalla propia; desktop: siempre visible junto al select) -->
@@ -14055,7 +14049,12 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             btnAgregar.classList.add('hidden');
             resumen.classList.remove('hidden');
             const tipoSel = document.getElementById('warmup-tipo-' + idx);
-            const tipo = tipoSel ? tipoSel.value : '';
+            // Fuente de verdad: el tipo guardado en diasData (igual que hace el bloque
+            // principal con b.tipo). Si todavia no hay nada guardado, se usa el valor
+            // en vivo del select como respaldo. Esto evita que la tarjeta quede con el
+            // color por defecto (gris/negro, ilegible) cuando el <select> del DOM
+            // todavia no fue sincronizado con el tipo real guardado del dia.
+            const tipo = (dia._warmupCfg && dia._warmupCfg.tipo) || (tipoSel ? tipoSel.value : '') || 'Circuito (Vueltas)';
             const tipoEl = document.getElementById('warmup-resumen-tipo-' + idx);
             const colorTipo = _pfColorTipo(tipo);
             if (tipoEl) {
