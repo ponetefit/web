@@ -5033,6 +5033,15 @@
         const sel = document.getElementById('warmup-tipo-' + idx);
         if (!sel) return;
         _pfCardificarSelectTipo('warmup-tipo-' + idx);
+        // Si la tarjeta-resumen del calentamiento ya está visible (p.ej. al cargar
+        // una rutina existente, donde el tipo se restaura recién después del primer
+        // render), refrescarla acá para que tome el color del tipo actual y no se
+        // quede pegada al color por defecto ("Circuito", que se ve muy oscuro/apagado
+        // sobre el fondo negro, a diferencia del bloque principal).
+        const resumenVisible = document.getElementById('warmup-resumen-' + idx);
+        if (resumenVisible && !resumenVisible.classList.contains('hidden')) {
+            actualizarResumenCalentamientoDia(idx);
+        }
         const tipo = sel.value;
         const container = document.getElementById('warmup-params-container-' + idx);
         if (!container) return;
