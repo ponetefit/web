@@ -6253,9 +6253,15 @@
 
             // Sube una carga a la nube en segundo plano, sin bloquear ni romper la UI
             // si no hay conexión (falla en silencio y queda igual guardado localmente).
-            function _subirCargaNube(path, peso) {
+            // Ademas de guardar el valor "actual" (que se pisa, como antes), agrega un
+            // registro nuevo al historial con fecha y metodo, para que el Panel del
+            // Profesor pueda graficar la evolucion del peso en el tiempo.
+            function _subirCargaNube(path, peso, ejercicioNorm) {
                 if (!currentCode) return;
                 try {
+                    var ahora = Date.now();
+                    var fechaStr = new Date(ahora).toISOString().slice(0, 10); // YYYY-MM-DD
+
                     fetch(FIREBASE_CARGAS_URL + currentCode + "/" + path + ".json", {
                         method: "PUT",
                         headers: {
@@ -6263,9 +6269,26 @@
                         },
                         body: JSON.stringify({
                             v: peso,
-                            t: Date.now()
+                            t: ahora
                         })
                     }).catch(function(e) {});
+
+                    // Historial: un registro NUEVO por cada carga guardada (no se pisa),
+                    // con fecha y metodo de entrenamiento en el momento de guardarla.
+                    if (ejercicioNorm) {
+                        fetch(FIREBASE_CARGAS_URL + currentCode + "/historial/" + ejercicioNorm + ".json", {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json"
+                            },
+                            body: JSON.stringify({
+                                v: peso,
+                                t: ahora,
+                                fecha: fechaStr,
+                                metodo: _tipoEntrenamientoGlobal || ''
+                            })
+                        }).catch(function(e) {});
+                    }
                 } catch (e) {}
             }
 
@@ -6273,7 +6296,7 @@
                 try {
                     if (peso && !isNaN(peso) && peso > 0) {
                         localStorage.setItem(_pesoKey(nombreEj), peso);
-                        _subirCargaNube('simple/' + _cargaNombreNorm(nombreEj), peso);
+                        _subirCargaNube('simple/' + _cargaNombreNorm(nombreEj), peso, _cargaNombreNorm(nombreEj));
                     }
                 } catch (e) {}
             }
@@ -6337,7 +6360,7 @@
                 try {
                     if (peso && !isNaN(peso) && peso > 0) {
                         localStorage.setItem(_pesoSerieKey(nombreEj, serieIdx), peso);
-                        _subirCargaNube('serie/' + _cargaNombreNorm(nombreEj) + '/' + serieIdx, peso);
+                        _subirCargaNube('serie/' + _cargaNombreNorm(nombreEj) + '/' + serieIdx, peso, _cargaNombreNorm(nombreEj));
                     }
                 } catch (e) {}
             }
