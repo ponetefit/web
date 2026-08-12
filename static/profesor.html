@@ -842,10 +842,34 @@
                 color: #f0f0f5 !important;
                 line-height: 1.2;
             }
-            [id^="bloques-lista-"] .bloque-card-pills span,
-            [id^="warmup-resumen-pills-"] span {
-                font-size: 0.62rem !important;
+
+            /* ── Tarjeta resumen de Calentamiento / Bloque en mobile: titulo a todo
+               el ancho arriba, despues los botones Editar / Copiar / Eliminar uno al
+               lado del otro, y abajo los ejercicios (mismo estilo que "Repositorio →
+               Ver Entrenamiento") detras de un boton "+" que los despliega. ── */
+            .pf-card-resumen {
+                grid-template-columns: 1fr !important;
+                grid-template-areas: "title" "actions" "exercises" !important;
             }
+            .pf-cr-title { width: 100%; }
+            .pf-cr-title .pf-warmup-tipo-h1,
+            .pf-cr-title .pf-bloque-tipo-h1 {
+                display: block !important;
+                width: 100%;
+                text-align: center;
+                border-radius: 12px !important;
+                padding: 10px 12px !important;
+            }
+            .pf-cr-title p { text-align: center; }
+            .pf-cr-actions { width: 100%; }
+            .pf-cr-actions button {
+                flex: 1 1 0;
+                min-width: 0;
+                white-space: nowrap;
+            }
+            .pf-cr-exercises .pf-toggle-ej-btn { justify-content: center; width: 100%; }
+            .pf-cr-exercises .pf-vr-ej-item { padding: 10px 12px !important; }
+            .pf-cr-exercises .pf-vr-ej-nombre { font-size: 0.9rem !important; }
 
             /* Botones grandes en el paso "Ejercicios" (busqueda, agregar, agregar bloque, cancelar) */
             #bloque-paso-2 .btn-primary,
@@ -1315,6 +1339,22 @@
         .bloques-lista-container.vista-compacta .drag-handle { display: none !important; }
         .bloques-lista-container.vista-compacta .bloque-card-pills { flex-wrap: nowrap !important; overflow-x: auto !important; }
         .hist-pill { display: inline-block; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 2px 8px; font-size: 0.7rem; color: #8a8a9a; white-space: nowrap; }
+
+        /* ── Tarjeta resumen de Calentamiento / Bloque ya cargado (en "Crear Rutina"):
+           3 zonas ubicadas por grid-area (titulo, acciones, ejercicios) para poder
+           reordenarlas distinto en mobile sin duplicar markup. En desktop, titulo y
+           acciones comparten la fila de arriba; los ejercicios quedan abajo, a lo ancho. ── */
+        .pf-card-resumen {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            grid-template-areas: "title actions" "exercises exercises";
+            align-items: start;
+            column-gap: 12px;
+            row-gap: 10px;
+        }
+        .pf-cr-title { grid-area: title; min-width: 0; }
+        .pf-cr-actions { grid-area: actions; display: flex; gap: 8px; flex-shrink: 0; }
+        .pf-cr-exercises { grid-area: exercises; min-width: 0; }
     </style>
 
     <!-- PWA: Inline Manifest + Service Worker + Icons -->
@@ -4631,23 +4671,21 @@
                             <h3 class="text-sm font-bold text-azul uppercase tracking-wider">1. Calentamiento</h3>
                             <button id="warmup-btn-agregar-${idx}" onclick="abrirModalCalentamientoDia(${idx})" class="pf-add-card-btn pf-add-card-cal bg-azul/20 text-azul px-3 py-2 rounded-lg text-xs font-bold hover:bg-azul/30 transition">+ Agregar Calentamiento</button>
                         </div>
-                        <div id="warmup-resumen-${idx}" class="hidden bg-fondoAlt rounded-2xl border border-azul/30 p-3">
-                            <div class="flex items-start justify-between gap-2">
-                                <div class="flex-1 min-w-0">
-                                    <div class="flex items-center gap-2 mb-1 flex-wrap">
-                                        <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-azul/20 text-azul uppercase tracking-wider" id="warmup-resumen-tipo-${idx}"></span>
-                                    </div>
-                                    <p class="text-xs text-textoSuave mb-1.5" id="warmup-resumen-desc-${idx}"></p>
-                                    <button type="button" onclick="_pfToggleResumenPills('warmup-resumen-pills-${idx}', this)" class="pf-toggle-ej-btn text-xs font-bold text-azul flex items-center gap-1">
-                                        <span class="pf-toggle-ej-ico">+</span><span class="pf-toggle-ej-label">Ver ejercicios</span><span class="pf-toggle-ej-count" id="warmup-resumen-count-${idx}"></span>
-                                    </button>
-                                    <div id="warmup-resumen-pills-${idx}" class="hidden" style="display:none;flex-wrap:wrap;gap:4px;align-items:center;margin-top:8px;"></div>
-                                </div>
-                                <div class="flex gap-1.5 flex-shrink-0">
-                                    <button onclick="abrirModalCopiarCalentamiento(${idx})" title="Copiar a otro día" class="bg-purpura/20 text-purpura px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">⧉</button>
-                                    <button onclick="abrirModalCalentamientoDia(${idx})" class="bg-azul/20 text-azul px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">Editar</button>
-                                    <button onclick="eliminarCalentamientoDia(${idx})" class="bg-rojo/20 text-rojo px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition">✕</button>
-                                </div>
+                        <div id="warmup-resumen-${idx}" class="hidden pf-card-resumen bg-fondoAlt rounded-2xl border border-azul/30 p-3">
+                            <div class="pf-cr-title">
+                                <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-azul/20 text-azul uppercase tracking-wider pf-warmup-tipo-h1" id="warmup-resumen-tipo-${idx}"></span>
+                                <p class="text-xs text-textoSuave mt-1 mb-0" id="warmup-resumen-desc-${idx}"></p>
+                            </div>
+                            <div class="pf-cr-actions">
+                                <button onclick="abrirModalCopiarCalentamiento(${idx})" title="Copiar a otro día" class="bg-purpura/20 text-purpura px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">⧉ Copiar</button>
+                                <button onclick="abrirModalCalentamientoDia(${idx})" class="bg-azul/20 text-azul px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">Editar</button>
+                                <button onclick="eliminarCalentamientoDia(${idx})" class="bg-rojo/20 text-rojo px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition">✕</button>
+                            </div>
+                            <div class="pf-cr-exercises">
+                                <button type="button" onclick="_pfToggleResumenPills('warmup-resumen-pills-${idx}', this)" class="pf-toggle-ej-btn text-xs font-bold text-azul flex items-center gap-1">
+                                    <span class="pf-toggle-ej-ico">+</span><span class="pf-toggle-ej-label">Ver ejercicios</span><span class="pf-toggle-ej-count" id="warmup-resumen-count-${idx}"></span>
+                                </button>
+                                <div id="warmup-resumen-pills-${idx}" class="hidden pf-vr-ej-list" style="display:none;margin-top:8px;"></div>
                             </div>
                         </div>
                     </div>
@@ -5338,22 +5376,24 @@
         lista.innerHTML = bloques.map((b, i) => {
             const color = colores[b.tipo] || 'purpura';
             const ejs = b.ejercicios || [];
-            // Preview pills de ejercicios, con reps/seg al lado de cada nombre
-            const ejPills = ejs.slice(0, 6).map(e => {
+            // Listado de ejercicios igual que las tarjetas de "Ver Entrenamiento" del
+            // repositorio: cada uno en su propio recuadro, nombre + reps/seg grandes.
+            const ejItems = ejs.map(e => {
                 const n = typeof e === 'object' ? (e.nombre || '') : (Array.isArray(e) ? e[0] : '');
                 if (!n) return '';
                 const reps = typeof e === 'object' ? _pfRepsEjercicio(e) : '';
-                return '<span style="display:inline-block;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;font-size:0.65rem;color:#8a8a9a;white-space:nowrap;">' + n + (reps ? ' <b style="color:#e8e8ec">· ' + reps + '</b>' : '') + '</span>';
+                return '<div class="pf-vr-ej-item">' +
+                    '<span class="pf-vr-ej-nombre">' + n + '</span>' +
+                    (reps ? '<span class="pf-vr-ej-reps">' + reps + '</span>' : '') +
+                '</div>';
             }).filter(Boolean).join('');
-            const masEjs = ejs.length > 6 ? '<span style="font-size:0.65rem;color:#8a8a9a;padding:2px 4px;">+' + (ejs.length - 6) + '</span>' : '';
             // Detalle auto-generado del bloque (vueltas/pausa, trabajo/pausa de tabata, etc.)
             const detalleBloque = _pfDetalleBloque(b);
             const pillsId = 'bloque-pills-' + idx + '-' + i;
-            return '<div class="exercise-chip bg-fondoAlt rounded-2xl border border-' + color + '/30 p-3"' +
+            return '<div class="exercise-chip pf-card-resumen bg-fondoAlt rounded-2xl border border-' + color + '/30 p-3"' +
                 ' draggable="true" data-idx="' + i + '" data-list="bloques-dia-' + idx + '"' +
                 ' ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)">' +
-                '<div class="flex items-start justify-between gap-2">' +
-                '<div class="flex items-start gap-2 flex-1 min-w-0">' +
+                '<div class="pf-cr-title flex items-start gap-2">' +
                 '<span class="drag-handle mt-1 text-textoSuave flex-shrink-0">' + svgHandle + '</span>' +
                 _flechasHtml('bloques-dia-' + idx, i, bloques.length) +
                 '<div class="flex-1 min-w-0">' +
@@ -5361,18 +5401,19 @@
                 '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-' + color + '/20 text-' + color + ' uppercase tracking-wider pf-bloque-tipo-h1">' + b.tipo + '</span>' +
                 (detalleBloque ? '<span class="text-[11px] text-textoSuave">' + detalleBloque + '</span>' : '') +
                 '</div>' +
-                (b.descripcion ? '<p class="text-xs text-textoSuave/80 italic mb-1.5">' + b.descripcion + '</p>' : '') +
-                '<button type="button" onclick="_pfToggleResumenPills(\'' + pillsId + '\', this)" class="pf-toggle-ej-btn text-xs font-bold text-' + color + ' flex items-center gap-1">' +
-                '<span class="pf-toggle-ej-ico">+</span><span class="pf-toggle-ej-label">Ver ejercicios</span><span class="pf-toggle-ej-count"> (' + ejs.length + ')</span>' +
-                '</button>' +
-                '<div id="' + pillsId + '" class="bloque-card-pills hidden" style="display:none;flex-wrap:wrap;gap:4px;align-items:center;margin-top:8px;">' + ejPills + masEjs + '</div>' +
+                (b.descripcion ? '<p class="text-xs text-textoSuave/80 italic mb-0">' + b.descripcion + '</p>' : '') +
                 '</div>' +
                 '</div>' +
-                '<div class="flex gap-1.5 flex-shrink-0">' +
-                '<button onclick="abrirModalCopiarBloque(' + idx + ',' + i + ')" title="Duplicar bloque" class="bg-purpura/20 text-purpura px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">⧉</button>' +
+                '<div class="pf-cr-actions">' +
+                '<button onclick="abrirModalCopiarBloque(' + idx + ',' + i + ')" title="Duplicar bloque" class="bg-purpura/20 text-purpura px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">⧉ Copiar</button>' +
                 '<button onclick="editarBloqueDia(' + idx + ',' + i + ')" class="bg-azul/20 text-azul px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">Editar</button>' +
                 '<button onclick="eliminarBloqueDia(' + idx + ',' + i + ')" class="bg-rojo/20 text-rojo px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition">✕</button>' +
                 '</div>' +
+                '<div class="pf-cr-exercises">' +
+                '<button type="button" onclick="_pfToggleResumenPills(\'' + pillsId + '\', this)" class="pf-toggle-ej-btn text-xs font-bold text-' + color + ' flex items-center gap-1">' +
+                '<span class="pf-toggle-ej-ico">+</span><span class="pf-toggle-ej-label">Ver ejercicios</span><span class="pf-toggle-ej-count"> (' + ejs.length + ')</span>' +
+                '</button>' +
+                '<div id="' + pillsId + '" class="bloque-card-pills hidden pf-vr-ej-list" style="display:none;margin-top:8px;">' + ejItems + '</div>' +
                 '</div>' +
                 '</div>';
         }).join('');
@@ -13931,14 +13972,17 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             if (countEl) countEl.textContent = ' (' + ejs.length + ')';
             const pillsEl = document.getElementById('warmup-resumen-pills-' + idx);
             if (pillsEl) {
-                const ejPills = ejs.slice(0, 6).map(e => {
+                // Igual que las tarjetas de "Ver Entrenamiento" del repositorio: cada
+                // ejercicio en su propio recuadro, nombre + reps/seg bien grandes.
+                pillsEl.innerHTML = ejs.map(e => {
                     const n = typeof e === 'object' ? (e.nombre || '') : (Array.isArray(e) ? e[0] : '');
                     if (!n) return '';
                     const reps = typeof e === 'object' ? _pfRepsEjercicio(e) : '';
-                    return '<span style="display:inline-block;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;font-size:0.65rem;color:#8a8a9a;white-space:nowrap;">' + n + (reps ? ' <b style="color:#e8e8ec">· ' + reps + '</b>' : '') + '</span>';
+                    return '<div class="pf-vr-ej-item">' +
+                        '<span class="pf-vr-ej-nombre">' + n + '</span>' +
+                        (reps ? '<span class="pf-vr-ej-reps">' + reps + '</span>' : '') +
+                    '</div>';
                 }).filter(Boolean).join('');
-                const masEjs = ejs.length > 6 ? '<span style="font-size:0.65rem;color:#8a8a9a;padding:2px 4px;">+' + (ejs.length - 6) + '</span>' : '';
-                pillsEl.innerHTML = ejPills + masEjs;
                 // Colapsar el listado de ejercicios cada vez que se re-renderiza la tarjeta
                 pillsEl.classList.add('hidden');
                 pillsEl.style.display = 'none';
