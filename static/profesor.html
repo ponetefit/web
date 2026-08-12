@@ -4582,6 +4582,11 @@
     // Crea la estructura inicial con Dia 1
     function initMultiDia() {
         diasData = [];
+        // Al arrancar una rutina totalmente nueva (vacía) ya no estamos
+        // trabajando sobre ningún ítem del repositorio, así que limpiamos
+        // el índice de origen para no asociar por error el próximo
+        // "compartir" con una plantilla anterior.
+        _pfRepoOrigenIdx = null;
         agregarDia();
     }
 
@@ -10864,8 +10869,14 @@
         // Si venimos de "editar rutina completa", reemplazar el ítem existente en vez de agregar uno nuevo
         if (window._repoEditandoIdx !== undefined && window._repoEditandoIdx !== null && repo[window._repoEditandoIdx]) {
             repo[window._repoEditandoIdx] = snapshot;
+            _pfRepoOrigenIdx = window._repoEditandoIdx;
         } else {
             repo.unshift(snapshot);
+            // La rutina recién guardada queda en el índice 0. La marcamos como
+            // "origen" para que, si el profe la comparte a continuación desde
+            // "Crear Rutina" (sin recargar), el uso quede registrado en este
+            // mismo ítem del repositorio (ver /api/rutina/compartir más abajo).
+            _pfRepoOrigenIdx = 0;
         }
         setRepositorio(repo);
         _pfLimpiarBorrador();
