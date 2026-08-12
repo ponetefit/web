@@ -1366,6 +1366,16 @@
         .pf-cr-title { grid-area: title; min-width: 0; }
         .pf-cr-actions { grid-area: actions; display: flex; gap: 8px; flex-shrink: 0; }
         .pf-cr-exercises { grid-area: exercises; min-width: 0; }
+        /* Borde neutro + una franja de color fija a la izquierda que identifica la
+           categoría (Calentamiento = celeste, Bloque = violeta) sin competir con el
+           color propio del tipo de entrenamiento (que se ve en el fondo y en el título). */
+        .pf-card-resumen {
+            border: 1px solid rgba(255,255,255,0.08);
+            border-left-width: 4px;
+            border-left-style: solid;
+        }
+        .pf-cr-cal { border-left-color: #4FC3F7; }
+        .pf-cr-bloque { border-left-color: #CE93D8; }
     </style>
 
     <!-- PWA: Inline Manifest + Service Worker + Icons -->
@@ -4682,7 +4692,7 @@
                             <h3 class="text-sm font-bold text-azul uppercase tracking-wider">1. Calentamiento</h3>
                             <button id="warmup-btn-agregar-${idx}" onclick="abrirModalCalentamientoDia(${idx})" class="pf-add-card-btn pf-add-card-cal bg-azul/20 text-azul px-3 py-2 rounded-lg text-xs font-bold hover:bg-azul/30 transition">+ Agregar Calentamiento</button>
                         </div>
-                        <div id="warmup-resumen-${idx}" class="hidden pf-card-resumen bg-azul/20 rounded-2xl border border-azul/30 p-3">
+                        <div id="warmup-resumen-${idx}" class="hidden pf-card-resumen pf-cr-cal rounded-2xl p-3">
                             <div class="pf-cr-title">
                                 <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-azul/20 text-azul uppercase tracking-wider pf-warmup-tipo-h1" id="warmup-resumen-tipo-${idx}"></span>
                                 <p class="text-xs text-textoSuave mt-1 mb-0" id="warmup-resumen-desc-${idx}"></p>
@@ -5382,10 +5392,8 @@
             return;
         }
         if (sinBloques) sinBloques.style.display = 'none';
-        const colores = { 'Circuito': 'naranja', 'Circuito por Tiempo': 'azul', 'Por Tiempo': 'purpura', 'Tabata': 'rojo', 'EMOM': 'amarillo', 'Series': 'verde', 'Sumando Ejercicio': 'purpura' };
         const svgHandle = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><circle cx="9" cy="5" r="1.8"/><circle cx="15" cy="5" r="1.8"/><circle cx="9" cy="12" r="1.8"/><circle cx="15" cy="12" r="1.8"/><circle cx="9" cy="19" r="1.8"/><circle cx="15" cy="19" r="1.8"/></svg>';
         lista.innerHTML = bloques.map((b, i) => {
-            const color = colores[b.tipo] || 'purpura';
             const colorTipo = _pfColorTipo(b.tipo || '');
             const ejs = b.ejercicios || [];
             // Listado de ejercicios igual que las tarjetas de "Ver Entrenamiento" del
@@ -5402,7 +5410,7 @@
             // Detalle auto-generado del bloque (vueltas/pausa, trabajo/pausa de tabata, etc.)
             const detalleBloque = _pfDetalleBloque(b);
             const pillsId = 'bloque-pills-' + idx + '-' + i;
-            return '<div class="exercise-chip pf-card-resumen bg-purpura/20 rounded-2xl border border-' + color + '/30 p-3"' +
+            return '<div class="exercise-chip pf-card-resumen pf-cr-bloque rounded-2xl p-3" style="background:' + colorTipo.bg + '2E;"' +
                 ' draggable="true" data-idx="' + i + '" data-list="bloques-dia-' + idx + '"' +
                 ' ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)">' +
                 '<div class="pf-cr-title flex items-start gap-2">' +
@@ -13979,6 +13987,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
                 tipoEl.style.background = colorTipo.bg;
                 tipoEl.style.color = colorTipo.fg;
             }
+            resumen.style.background = colorTipo.bg + '2E';
             const descEl = document.getElementById('warmup-resumen-desc-' + idx);
             if (descEl) {
                 const detalleCal = _pfDetalleCalentamiento({ ...dia, _warmupCfg: { tipo, ...(dia._warmupCfg||{}) } });
