@@ -1732,6 +1732,41 @@
                     </div>
                 </div>
 
+                <!-- Historial de Carga (peso) -->
+                <div id="dash-carga-wrap" class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6 hidden">
+                    <!-- Evolucion por ejercicio -->
+                    <div class="lg:col-span-3 bg-tarjeta rounded-2xl border border-borde p-5">
+                        <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
+                            <h3 class="text-sm font-bold text-azul uppercase tracking-wider">Historial de Carga</h3>
+                            <select id="dash-carga-ejercicio-select" onchange="renderCargaChartEjercicio()" class="rounded-lg px-3 py-2 text-xs flex-shrink-0" style="max-width:220px"></select>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 mb-4">
+                            <div class="bg-fondoAlt rounded-xl p-3 text-center">
+                                <p class="text-lg font-black text-texto" id="dash-carga-ultima">--</p>
+                                <p class="text-[10px] text-textoSuave uppercase tracking-wider mt-1">Ultima carga</p>
+                            </div>
+                            <div class="bg-fondoAlt rounded-xl p-3 text-center">
+                                <p class="text-lg font-black text-verde" id="dash-carga-max">--</p>
+                                <p class="text-[10px] text-textoSuave uppercase tracking-wider mt-1">Maximo (PR)</p>
+                            </div>
+                            <div class="bg-fondoAlt rounded-xl p-3 text-center">
+                                <p class="text-lg font-black text-verde" id="dash-carga-variacion">--</p>
+                                <p class="text-[10px] text-textoSuave uppercase tracking-wider mt-1">Variacion</p>
+                            </div>
+                        </div>
+                        <div class="relative" style="height:220px;">
+                            <canvas id="dash-chart-carga-ejercicio"></canvas>
+                        </div>
+                        <p id="dash-carga-sin-datos" class="text-textoSuave text-xs text-center py-8 hidden">Este alumno todavia no tiene cargas registradas en este rango</p>
+                    </div>
+
+                    <!-- Promedio por metodo -->
+                    <div class="lg:col-span-2 bg-tarjeta rounded-2xl border border-borde p-5">
+                        <h3 class="text-sm font-bold text-purpura uppercase tracking-wider mb-4">Carga Promedio por Metodo</h3>
+                        <div id="dash-carga-metodos-lista" class="space-y-3"></div>
+                    </div>
+                </div>
+
             </div>
 
             <!-- Estado vacio -->
@@ -9277,6 +9312,12 @@
     let dashMuscleExercises = {};   // musculo -> [{nombre, veces}], usado al tocar un musculo del mapa de calor
     let dashMuscleUltimaFecha = {}; // musculo -> ultimo timestamp trabajado, para detectar desequilibrios
 
+    // Historial de cargas (peso) del alumno, juntando todas sus rutinas (codigos).
+    // norm(ejercicio) -> [{v, t, fecha, metodo, codigo}], ordenado por fecha ascendente.
+    let dashCargasHistorial = {};
+    let dashCargaChartInstance = null;
+    const FIREBASE_CARGAS_URL_DASH = "https://ponetefit-app-default-rtdb.firebaseio.com/cargas/";
+
     async function cargarAlumnosDash() {
         const inp = document.getElementById('dash-select-alumno');
         if (!inp) return;
@@ -9344,7 +9385,43 @@
                         dashRutinasData[cod] = rutinasResumen[cod];
                     }
                 });
-                await Promise.all(fetches);
+
+                // El alumno guarda las cargas (peso) bajo el codigo de CADA rutina que
+                // usa, asi que para armar un historial completo hay que juntar el
+                // historial de todos sus codigos. Se pide en paralelo con las rutinas.
+                dashCargasHistorial = {};
+                const fetchesCargas = codigos.map(async (cod) => {
+                    try {
+                        const rc = await fetch(FIREBASE_CARGAS_URL_DASH + encodeURIComponent(cod) + '/historial.json');
+                        const remoto = await rc.json();
+                        if (!remoto) return;
+                        Object.keys(remoto).forEach((normEj) => {
+                            const registros = remoto[normEj];
+                            if (!registros) return;
+                            if (!dashCargasHistorial[normEj]) dashCargasHistorial[normEj] = [];
+                            Object.keys(registros).forEach((k) => {
+                                const r = registros[k];
+                                if (!r || r.v === undefined || r.v === null) return;
+                                dashCargasHistorial[normEj].push({
+                                    v: r.v,
+                                    t: r.t || 0,
+                                    fecha: r.fecha || '',
+                                    metodo: r.metodo || '',
+                                    codigo: cod
+                                });
+                            });
+                        });
+                    } catch (err) {
+                        // Sin conexion a Firebase o codigo sin cargas: seguimos sin ese dato
+                    }
+                });
+
+                await Promise.all([...fetches, ...fetchesCargas]);
+
+                // Ordenar cada serie de historial por fecha/hora ascendente
+                Object.keys(dashCargasHistorial).forEach((normEj) => {
+                    dashCargasHistorial[normEj].sort((a, b) => a.t - b.t);
+                });
 
                 // Nuevo alumno cargado: resetear el rango activo y repoblar los selects
                 dashRangoDesde = null;
@@ -9947,6 +10024,8 @@
             }
         });
         renderHeatMap(muscleCount);
+
+        renderHistorialCargaDash(keys);
     }
 
     // Busca un ejercicio por nombre en la videoteca cache
@@ -10510,6 +10589,178 @@
             return `<span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm inline-block" style="background:${colores[i]}"></span>${l} (${pct}%)</span>`;
         }).join('');
     }
+
+    // ====================================================================
+    // HISTORIAL DE CARGA (peso) — por ejercicio y por metodo
+    // ====================================================================
+
+    // dashCargasHistorial ya viene armado (juntando todos los codigos del
+    // alumno) desde cargarDashboard(). Esta funcion lo filtra por el rango
+    // de rutinas activo y arma la seccion del dashboard.
+    let dashCargaHistorialFiltrado = {}; // norm(ejercicio) -> [{v, t, fecha, metodo, codigo}]
+
+    function renderHistorialCargaDash(keysFiltradas) {
+        const wrap = document.getElementById('dash-carga-wrap');
+        if (!wrap) return;
+
+        const codigosSet = new Set(keysFiltradas);
+        dashCargaHistorialFiltrado = {};
+        Object.keys(dashCargasHistorial).forEach((normEj) => {
+            const filtrados = dashCargasHistorial[normEj].filter(r => codigosSet.has(r.codigo));
+            if (filtrados.length) dashCargaHistorialFiltrado[normEj] = filtrados;
+        });
+
+        const ejerciciosConCarga = Object.keys(dashCargaHistorialFiltrado).sort();
+
+        if (ejerciciosConCarga.length === 0) {
+            wrap.classList.add('hidden');
+            return;
+        }
+        wrap.classList.remove('hidden');
+
+        // Poblar el select de ejercicios (mantener seleccion si sigue existiendo)
+        const select = document.getElementById('dash-carga-ejercicio-select');
+        if (select) {
+            const actual = select.value;
+            select.innerHTML = ejerciciosConCarga.map(n => `<option value="${n}">${n}</option>`).join('');
+            select.value = ejerciciosConCarga.includes(actual) ? actual : ejerciciosConCarga[0];
+        }
+
+        renderCargaChartEjercicio();
+        renderCargaPorMetodo();
+    }
+
+    // Grafico de linea: evolucion del peso del ejercicio seleccionado
+    function renderCargaChartEjercicio() {
+        const select = document.getElementById('dash-carga-ejercicio-select');
+        const ctx = document.getElementById('dash-chart-carga-ejercicio');
+        const sinDatos = document.getElementById('dash-carga-sin-datos');
+        if (!select || !ctx) return;
+
+        const registros = dashCargaHistorialFiltrado[select.value] || [];
+
+        if (dashCargaChartInstance) {
+            dashCargaChartInstance.destroy();
+            dashCargaChartInstance = null;
+        }
+
+        if (registros.length === 0) {
+            ctx.classList.add('hidden');
+            if (sinDatos) sinDatos.classList.remove('hidden');
+            setText3('dash-carga-ultima', '--');
+            setText3('dash-carga-max', '--');
+            setText3('dash-carga-variacion', '--');
+            return;
+        }
+        ctx.classList.remove('hidden');
+        if (sinDatos) sinDatos.classList.add('hidden');
+
+        const labels = registros.map(r => r.fecha || new Date(r.t).toLocaleDateString('es-AR'));
+        const valores = registros.map(r => r.v);
+
+        const ultima = valores[valores.length - 1];
+        const maximo = Math.max(...valores);
+        const variacion = valores[valores.length - 1] - valores[0];
+
+        setText3('dash-carga-ultima', ultima + ' kg');
+        setText3('dash-carga-max', maximo + ' kg');
+        setText3('dash-carga-variacion', (variacion >= 0 ? '+' : '') + variacion + ' kg');
+
+        dashCargaChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Peso (kg)',
+                    data: valores,
+                    borderColor: '#4FC3F7',
+                    backgroundColor: 'rgba(79,195,247,0.12)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#4FC3F7',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1a1a20',
+                        titleColor: '#f0f0f5',
+                        bodyColor: '#8a8a9a',
+                        borderColor: '#2a2a35',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 10,
+                        callbacks: {
+                            afterLabel: (item) => {
+                                const m = registros[item.dataIndex].metodo;
+                                return m ? 'Metodo: ' + m : '';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: { ticks: { color: '#8a8a9a', callback: v => v + ' kg' }, grid: { color: 'rgba(138,138,154,0.15)' } },
+                    x: { ticks: { color: '#8a8a9a' }, grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // Barras: carga promedio por metodo, juntando TODOS los ejercicios con carga
+    function renderCargaPorMetodo() {
+        const cont = document.getElementById('dash-carga-metodos-lista');
+        if (!cont) return;
+
+        const sumas = {}; // metodo -> {total, count}
+        Object.values(dashCargaHistorialFiltrado).forEach(registros => {
+            registros.forEach(r => {
+                const m = r.metodo || 'Sin metodo';
+                if (!sumas[m]) sumas[m] = { total: 0, count: 0 };
+                sumas[m].total += r.v;
+                sumas[m].count += 1;
+            });
+        });
+
+        const entradas = Object.keys(sumas).map(m => [m, Math.round((sumas[m].total / sumas[m].count) * 10) / 10]);
+        entradas.sort((a, b) => b[1] - a[1]);
+
+        if (entradas.length === 0) {
+            cont.innerHTML = '<p class="text-textoSuave text-xs text-center py-4">Sin datos suficientes</p>';
+            return;
+        }
+
+        const colores = ['#4FC3F7', '#69F0AE', '#FF6B35', '#CE93D8', '#FFD54F', '#EF5350', '#80CBC4', '#FFB74D'];
+        const maxVal = Math.max(...entradas.map(e => e[1]));
+
+        cont.innerHTML = entradas.map(([metodo, promedio], i) => {
+            const pct = Math.max((promedio / maxVal) * 100, 4);
+            const color = colores[i % colores.length];
+            return `<div class="flex items-center gap-2">
+                <span class="text-xs text-textoSuave w-24 truncate text-right flex-shrink-0" title="${metodo}">${metodo}</span>
+                <div class="flex-1 bg-fondoAlt rounded h-5 overflow-hidden">
+                    <div class="bar-fill h-full" style="width:${pct}%;background:${color};"></div>
+                </div>
+                <span class="text-xs font-bold w-16 text-right" style="color:${color}">${promedio} kg</span>
+            </div>`;
+        }).join('');
+
+        setTimeout(() => {
+            cont.querySelectorAll('.bar-fill').forEach(b => {
+                const w = b.style.width;
+                b.style.width = '0%';
+                requestAnimationFrame(() => { b.style.width = w; });
+            });
+        }, 50);
+    }
+
+    // setText ya existe adentro de procesarDashboard (closure local); esta es la
+    // version global que usan las funciones de carga, que se llaman desde afuera.
+    function setText3(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
 
     // Obtiene los metodos reales de una rutina (bloque-level o inferido)
     function obtenerMetodosRutina(r) {
