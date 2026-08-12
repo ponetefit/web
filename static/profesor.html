@@ -4716,7 +4716,7 @@
                         </div>
                         <div id="warmup-resumen-${idx}" class="hidden pf-card-resumen pf-cr-cal rounded-2xl p-3">
                             <div class="pf-cr-title">
-                                <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-azul/20 text-azul uppercase tracking-wider pf-warmup-tipo-h1" id="warmup-resumen-tipo-${idx}"></span>
+                                <span class="px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider pf-warmup-tipo-h1" id="warmup-resumen-tipo-${idx}"></span>
                                 <p class="text-xs text-textoSuave mt-1 mb-0" id="warmup-resumen-desc-${idx}"></p>
                             </div>
                             <div class="pf-cr-actions">
@@ -14059,10 +14059,12 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             const colorTipo = _pfColorTipo(tipo);
             if (tipoEl) {
                 tipoEl.textContent = tipo;
-                tipoEl.style.background = colorTipo.bg;
-                tipoEl.style.color = colorTipo.fg;
+                // Igual que en el bloque principal: el color se fija con un atributo
+                // style completo (no clases bg-azul/text-azul ni propiedades sueltas),
+                // para que no quede pisado por ningun estado previo del elemento.
+                tipoEl.setAttribute('style', 'background:' + colorTipo.bg + ';color:' + colorTipo.fg + ';');
             }
-            resumen.style.background = colorTipo.bg + '2E';
+            resumen.setAttribute('style', 'background:' + colorTipo.bg + '2E;');
             const descEl = document.getElementById('warmup-resumen-desc-' + idx);
             if (descEl) {
                 const detalleCal = _pfDetalleCalentamiento({ ...dia, _warmupCfg: { tipo, ...(dia._warmupCfg||{}) } });
