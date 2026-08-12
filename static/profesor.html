@@ -2228,6 +2228,23 @@
             </div>
         </section>
 
+        <!-- Modal de Confirmación genérico (reemplaza los confirm() nativos del navegador
+             para acciones destructivas/importantes, con el mismo estilo visual del resto
+             de la app). Se usa con la función pfConfirm(mensaje, opciones), que devuelve
+             una Promise<boolean> igual que confirm() pero sin romper la estética. -->
+        <div id="modal-pf-confirm" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+            <div class="bg-tarjeta rounded-3xl border border-borde p-6 max-w-sm w-full">
+                <div class="flex items-start gap-3 mb-5">
+                    <span id="pf-confirm-icono" class="text-2xl flex-shrink-0 leading-none">⚠️</span>
+                    <p id="pf-confirm-mensaje" class="text-sm text-texto leading-relaxed whitespace-pre-line mt-0.5"></p>
+                </div>
+                <div class="flex gap-3">
+                    <button id="pf-confirm-btn-cancelar" onclick="_pfConfirmResolver(false)" class="flex-1 py-2.5 rounded-xl border border-borde text-textoSuave text-sm font-bold hover:text-texto transition">Cancelar</button>
+                    <button id="pf-confirm-btn-ok" onclick="_pfConfirmResolver(true)" class="flex-1 py-2.5 rounded-xl text-white font-bold text-sm transition">Eliminar</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Modal Guardar en Repositorio -->
         <div id="modal-repo-guardar" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
             <div class="bg-tarjeta rounded-3xl border border-borde p-6 max-w-sm w-full">
@@ -3874,7 +3891,7 @@
     async function eliminarPerfilAlumno(clave) {
         const p = _perfilAlumnosCache[clave];
         if (!p) return;
-        if (!confirm('¿Eliminar la ficha de ' + p.nombre + '? (No se eliminan sus rutinas ni su historial)')) return;
+        if (!await pfConfirm('¿Eliminar la ficha de ' + p.nombre + '? (No se eliminan sus rutinas ni su historial)')) return;
         try {
             await fetch(FIREBASE_BASE + '/alumnos_perfil/' + clave + '.json', { method: 'DELETE' });
             delete _perfilAlumnosCache[clave];
@@ -4386,7 +4403,7 @@
         const nombre = (document.getElementById('ej-nombre')?.value || '').trim();
         if (!nombre) { toast('Escribe el nombre a eliminar'); return; }
 
-        if (!confirm('Eliminar "' + nombre + '"?')) return;
+        if (!await pfConfirm('Eliminar "' + nombre + '"?')) return;
 
         try {
             const res = await fetch(API_BASE + '/api/videoteca/ejercicio', {
@@ -4483,7 +4500,7 @@
         const zonaVal = vtZona ? vtZona.value : '';
         const nombre = zonaVal.startsWith('cat:') ? zonaVal.slice(4) : '';
         if (!nombre) { toast('Seleccioná una categoría del filtro para eliminar'); return; }
-        if (!confirm('¿Eliminar la categoría "' + nombre + '" y todos sus ejercicios? Esta acción no se puede deshacer.')) return;
+        if (!await pfConfirm('¿Eliminar la categoría "' + nombre + '" y todos sus ejercicios? Esta acción no se puede deshacer.')) return;
         try {
             let ok = false;
             try {
@@ -6742,8 +6759,8 @@
         document.getElementById('modal-bloque').classList.remove('hidden');
     }
 
-    function eliminarBloque(idx) {
-        if (!confirm('Eliminar este bloque?')) return;
+    async function eliminarBloque(idx) {
+        if (!await pfConfirm('Eliminar este bloque?')) return;
         bloquesRutina.splice(idx, 1);
         diasData[diaActivoIdx].bloquesRutina = bloquesRutina;
         renderBloquesDia(diaActivoIdx);
@@ -7657,7 +7674,7 @@
     }
 
     async function eliminarRutinaHistorial(codigo) {
-        if (!confirm('¿Estas seguro de eliminar la rutina ' + codigo.toUpperCase() + '? Esta accion no se puede deshacer.')) return;
+        if (!await pfConfirm('¿Estas seguro de eliminar la rutina ' + codigo.toUpperCase() + '? Esta accion no se puede deshacer.')) return;
 
         toast('Eliminando rutina...');
         try {
@@ -7696,7 +7713,7 @@
     async function eliminarAlumno() {
         const nombre = document.getElementById('select-alumno').value;
         if (!nombre) { toast('Selecciona un alumno primero'); return; }
-        const confirmacion = confirm('¿Eliminar al alumno ' + nombre.toUpperCase() + ' y TODAS sus rutinas? Esta accion no se puede deshacer.');
+        const confirmacion = await pfConfirm('¿Eliminar al alumno ' + nombre.toUpperCase() + ' y TODAS sus rutinas? Esta accion no se puede deshacer.');
         if (!confirmacion) return;
         try {
             const res = await fetch(API_BASE + '/api/alumnos/' + encodeURIComponent(nombre), {
@@ -11197,8 +11214,8 @@
         document.getElementById('modal-ver-rutina').classList.remove('hidden');
     }
 
-    function eliminarDelRepositorio(idx) {
-        if (!confirm('¿Eliminar esta rutina del repositorio?')) return;
+    async function eliminarDelRepositorio(idx) {
+        if (!await pfConfirm('¿Eliminar esta rutina del repositorio?')) return;
         const repo = getRepositorio();
         repo.splice(idx, 1);
         setRepositorio(repo);
@@ -11448,7 +11465,7 @@
         const repo = getRepositorio();
         const r = repo[idx];
         if (!r) return;
-        if (!confirm('¿Cargar esta plantilla en "Crear Rutina"? Se reemplazará lo que tengas actualmente.')) return;
+        if (!await pfConfirm('¿Cargar esta plantilla en "Crear Rutina"? Se reemplazará lo que tengas actualmente.', { destructivo: false, textoConfirmar: 'Cargar' })) return;
         await cargarPlantillaEnEstado(r, null);
         _pfRepoOrigenIdx = idx;
         toast('Plantilla cargada en Crear Rutina');
@@ -12331,7 +12348,7 @@
         const numBloques = parseInt(document.getElementById('ia-num-bloques')?.value) || 1;
 
         const tieneContenido = diasData.some(d => d.warmupEjercicios.length > 0 || d.bloquesRutina.length > 0);
-        if (tieneContenido && !confirm('¿Reemplazar la rutina actual con la generada por IA?')) return;
+        if (tieneContenido && !await pfConfirm('¿Reemplazar la rutina actual con la generada por IA?', { destructivo: false, textoConfirmar: 'Reemplazar' })) return;
 
         // Mantenemos el modal abierto con el botón en estado "cargando" en vez de
         // cerrarlo de entrada: así el usuario ve que la IA está trabajando y no
@@ -13032,7 +13049,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         return { tipo:'Circuito', vueltas:3, pausa_vuelta:60 };
     }
 
-    function pizArmarRutina() {
+    async function pizArmarRutina() {
         const ejsV = pizEjs.filter(e=>e.nombre.trim());
         if (!ejsV.length) { toast('⚠️ Agregá al menos un ejercicio'); return; }
 
@@ -13050,7 +13067,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
 
         const noVT = ejsV.filter(e=>!pizCheckVT(e.nombre));
         if (noVT.length>0) {
-            if (!confirm(noVT.length+' ejercicio(s) sin Videoteca:\n'+noVT.map(e=>'• '+e.nombre).join('\n')+'\n\nSe incluirán SIN video. ¿Continuás?')) return;
+            if (!await pfConfirm(noVT.length+' ejercicio(s) sin Videoteca:\n'+noVT.map(e=>'• '+e.nombre).join('\n')+'\n\nSe incluirán SIN video. ¿Continuás?', { destructivo: false, textoConfirmar: 'Continuar' })) return;
         }
         const params = pizGetParams();
 
@@ -13212,10 +13229,43 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
 
 
     // ====================================================================
+    // MODAL DE CONFIRMACIÓN GENÉRICO (reemplaza confirm() nativo del navegador)
+    // ====================================================================
+    // Uso: if (!await pfConfirm('¿Eliminar X?')) return;
+    // Por defecto se muestra como una confirmación "destructiva" (ícono ⚠️, botón
+    // rojo "Eliminar"). Para confirmaciones no destructivas (ej: "¿Reemplazar la
+    // rutina actual?"), pasar { destructivo: false } para que se vea neutral.
+    let _pfConfirmResolve = null;
+    function pfConfirm(mensaje, opciones) {
+        opciones = opciones || {};
+        const destructivo = opciones.destructivo !== false;
+        return new Promise(resolve => {
+            _pfConfirmResolve = resolve;
+            document.getElementById('pf-confirm-mensaje').textContent = mensaje;
+            document.getElementById('pf-confirm-icono').textContent = opciones.icono || (destructivo ? '⚠️' : '❓');
+            const btnOk = document.getElementById('pf-confirm-btn-ok');
+            btnOk.textContent = opciones.textoConfirmar || (destructivo ? 'Eliminar' : 'Confirmar');
+            btnOk.className = 'flex-1 py-2.5 rounded-xl text-white font-bold text-sm transition ' +
+                (destructivo ? 'bg-rojo hover:bg-red-600' : 'btn-primary');
+            document.getElementById('pf-confirm-btn-cancelar').textContent = opciones.textoCancelar || 'Cancelar';
+            document.getElementById('modal-pf-confirm').classList.remove('hidden');
+        });
+    }
+    // Llamado por los botones del modal (y por Escape / cerrar el modal de otra forma)
+    function _pfConfirmResolver(valor) {
+        document.getElementById('modal-pf-confirm').classList.add('hidden');
+        if (_pfConfirmResolve) {
+            const r = _pfConfirmResolve;
+            _pfConfirmResolve = null;
+            r(valor);
+        }
+    }
+
+    // ====================================================================
     // ATAJOS DE TECLADO DEL EDITOR DE RUTINA
     // ====================================================================
     // IDs de los contenedores modales reales (fixed inset-0), en el orden en que aparecen en el DOM.
-    const MODAL_IDS = ['modal-dash-rutina', 'modal-codigo', 'modal-repo-guardar', 'modal-repo-editar',
+    const MODAL_IDS = ['modal-pf-confirm', 'modal-dash-rutina', 'modal-codigo', 'modal-repo-guardar', 'modal-repo-editar',
         'modal-repo-copiar', 'modal-ver-rutina', 'modal-piz-vt', 'modal-ia-config', 'modal-ia-preview',
         'modal-nueva-cat', 'modal-bloque', 'modal-copiar-destino', 'modal-historial-alumno', 'modal-vista-compacta-rutina',
         'modal-advertencia-ejercicio', 'modal-musculo-detalle'];
@@ -13235,7 +13285,13 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             const z = parseInt(getComputedStyle(el).zIndex) || 0;
             if (z >= mejorZ) { mejorZ = z; mejor = el; }
         });
-        if (mejor) { mejor.classList.add('hidden'); return true; }
+        if (mejor) {
+            // Si es el modal de confirmación genérico, cerrarlo con Escape equivale
+            // a tocar "Cancelar" (hay que resolver la Promise pendiente).
+            if (mejor.id === 'modal-pf-confirm') { _pfConfirmResolver(false); return true; }
+            mejor.classList.add('hidden');
+            return true;
+        }
         return false;
     }
 
@@ -13307,8 +13363,8 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
     }
 
     // "Copiar toda la rutina en todos los días": reemplaza por completo lo que hay en Crear Rutina
-    function _pfCopiarRutinaCompletaDesdeHistorial(codigo) {
-        if (!confirm('¿Copiar esta rutina completa? Se reemplazará todo lo que tengas actualmente en "Crear Rutina".')) return;
+    async function _pfCopiarRutinaCompletaDesdeHistorial(codigo) {
+        if (!await pfConfirm('¿Copiar esta rutina completa? Se reemplazará todo lo que tengas actualmente en "Crear Rutina".', { destructivo: false, textoConfirmar: 'Copiar' })) return;
         document.getElementById('modal-historial-alumno').classList.add('hidden');
         editarRutinaDesdeHistorial(codigo);
     }
@@ -13977,9 +14033,9 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         actualizarResumenCalentamientoDia(idx);
     }
 
-    function eliminarCalentamientoDia(idx) {
+    async function eliminarCalentamientoDia(idx) {
         if (!diasData[idx]) return;
-        if (!confirm('¿Eliminar el calentamiento de este día?')) return;
+        if (!await pfConfirm('¿Eliminar el calentamiento de este día?')) return;
         _pfGuardarUndoSnapshot('eliminar calentamiento');
         diasData[idx].warmupEjercicios = [];
         renderWarmupEjsDia(idx);
