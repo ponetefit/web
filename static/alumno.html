@@ -2442,6 +2442,46 @@
             white-space: nowrap;
         }
 
+        /* ─── BOTÓN DE PAUSA DEDICADO EN EL RELOJ DE SEGUNDOS (card-seg-badge) ─── */
+        .csb-pause {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            cursor: pointer;
+            padding: 6px 8px;
+            background: #FF6F00;
+            border: 1.5px solid #FF6F00;
+            border-radius: var(--radius-sm);
+        }
+
+        .csb-pause:active {
+            transform: scale(0.94);
+        }
+
+        .card-seg-badge.activo ~ .csb-pause {
+            display: flex;
+        }
+
+        .csb-pause-icon {
+            display: flex;
+            line-height: 1;
+        }
+
+        .csb-pause-icon svg {
+            display: block;
+        }
+
+        .csb-pause-label {
+            font-size: 8px;
+            font-weight: 900;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            color: #FFFFFF;
+            white-space: nowrap;
+        }
+
         .card-min-chips {
             display: flex;
             flex-wrap: wrap;
@@ -7007,6 +7047,9 @@
             // sin depender de desplegar la tarjeta con el "+".
             // Un solo toque hace todo: arranca → toque = pausa → toque = reanuda →
             // al llegar a 0 vuelve a quedar lista para arrancar de nuevo (reinicio).
+            var _ICONO_PAUSA = '<svg viewBox="0 0 24 24" width="17" height="17"><rect x="6" y="5" width="4" height="14" fill="#FFFFFF"/><rect x="14" y="5" width="4" height="14" fill="#FFFFFF"/></svg>';
+            var _ICONO_PLAY = '<svg viewBox="0 0 24 24" width="17" height="17"><path fill="#FFFFFF" d="M8,5v14l11-7L8,5z"/></svg>';
+
             var _segBadgeIdx = 0;
             var _segBadgeState = {}; // uid → {estado:'prep'|'corriendo'|'pausado', restante, total, intervalId}
             function crearSegBadge(segundos, nombre) {
@@ -7018,6 +7061,10 @@
                     '<span class="card-seg-badge" id="' + uid + '" data-segundos="' + segN + '" data-nombre="' + safeNombre + '" onclick="event.stopPropagation(); toggleSegBadge(\'' + uid + '\')">' +
                         '<span class="csb-activar">Activar</span>' +
                         '<span class="csb-time">⏱ ' + segN + 's</span>' +
+                    '</span>' +
+                    '<span class="csb-pause" id="pause-' + uid + '" onclick="event.stopPropagation(); toggleSegBadge(\'' + uid + '\')">' +
+                        '<span class="csb-pause-icon">' + _ICONO_PAUSA + '</span>' +
+                        '<span class="csb-pause-label">Pausa</span>' +
                     '</span>' +
                     '<span class="csb-reset" onclick="event.stopPropagation(); reiniciarSegBadge(\'' + uid + '\')">' +
                         '<span class="csb-reset-icon"><svg viewBox="0 0 24 24" width="17" height="17"><path fill="#FFFFFF" d="M12,5V1L7,6l5,5V7c3.31,0,6,2.69,6,6s-2.69,6-6,6s-6-2.69-6-6H4c0,4.42,3.58,8,8,8s8-3.58,8-8S16.42,5,12,5z"/></svg></span>' +
@@ -7055,15 +7102,29 @@
                     st.estado = 'pausado';
                     el.classList.add('pausado');
                     timeEl.innerText = 'Pausa';
+                    _actualizarBotonPausaSegBadge(uid, true);
                     return;
                 }
 
                 // Estaba pausado: reanudar desde la fase donde quedó.
+                _actualizarBotonPausaSegBadge(uid, false);
                 if (st.fase === 'prep') {
                     _correrPrepSegBadge(uid, el, timeEl);
                 } else {
                     _correrSegBadge(uid, el, timeEl, st.restante);
                 }
+            }
+
+            // Actualiza el ícono/etiqueta del botón dedicado de pausa: mientras el
+            // timer corre muestra "Pausa" (dos líneas paralelas); en pausa muestra
+            // "Reanudar" (triángulo de play) para dejar claro qué va a pasar al tocarlo.
+            function _actualizarBotonPausaSegBadge(uid, estaPausado) {
+                var pauseBtn = document.getElementById('pause-' + uid);
+                if (!pauseBtn) return;
+                var iconoEl = pauseBtn.querySelector('.csb-pause-icon');
+                var labelEl = pauseBtn.querySelector('.csb-pause-label');
+                if (iconoEl) iconoEl.innerHTML = estaPausado ? _ICONO_PLAY : _ICONO_PAUSA;
+                if (labelEl) labelEl.innerText = estaPausado ? 'Reanudar' : 'Pausa';
             }
 
             // Cuenta regresiva "5-4-3-2-1" inicial del badge, ahora pausable igual que
@@ -7113,6 +7174,7 @@
                         el.classList.remove('activo', 'pausado');
                         timeEl.innerText = '⏱ ' + total + 's';
                         delete _segBadgeState[uid];
+                        _actualizarBotonPausaSegBadge(uid, false);
                     }
                 }, 1000);
             }
@@ -7129,6 +7191,7 @@
                 var timeEl = el.querySelector('.csb-time');
                 var total = parseInt(el.getAttribute('data-segundos')) || 0;
                 if (timeEl) timeEl.innerText = '⏱ ' + total + 's';
+                _actualizarBotonPausaSegBadge(uid, false);
             }
 
             function iniciarCountdownSegGenerico(uid, segundos) {
