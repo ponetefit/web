@@ -1549,6 +1549,25 @@
                     </div>
                 </div>
 
+                <!-- Calendario de Asistencia -->
+                <div class="bg-tarjeta rounded-2xl border border-borde p-5 mb-6">
+                    <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                        <h3 class="text-sm font-bold text-verde uppercase tracking-wider">Calendario de Asistencia</h3>
+                        <div class="flex items-center gap-2">
+                            <button onclick="_pfCalMesAnterior()" class="w-8 h-8 rounded-lg bg-fondoAlt border border-borde text-textoSuave hover:text-texto transition">‹</button>
+                            <span id="dash-cal-mes-label" class="text-xs font-bold uppercase tracking-wider text-texto min-w-[110px] text-center"></span>
+                            <button onclick="_pfCalMesSiguiente()" class="w-8 h-8 rounded-lg bg-fondoAlt border border-borde text-textoSuave hover:text-texto transition">›</button>
+                        </div>
+                    </div>
+                    <div id="dash-cal-dias-semana" class="grid grid-cols-7 gap-1 mb-1 text-[10px] text-textoSuave uppercase text-center"></div>
+                    <div id="dash-cal-grid" class="grid grid-cols-7 gap-1"></div>
+                    <div class="flex items-center gap-4 mt-3 text-[11px] text-textoSuave flex-wrap">
+                        <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded" style="background:#2d8f5e"></div> Entrenó</div>
+                        <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded border border-borde"></div> No entrenó</div>
+                        <span id="dash-cal-resumen" class="ml-auto text-texto font-bold"></span>
+                    </div>
+                </div>
+
                 <!-- Analisis Videoteca: Top 10 Mas / Menos usados -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                     <!-- Top 10 Mas usados -->
@@ -3945,15 +3964,22 @@
         const nombresConFicha = new Set(claves.map(k => (_perfilAlumnosCache[k].nombre || '').toUpperCase()));
         const extras = (_alumnosCache || []).filter(n => !nombresConFicha.has(n.toUpperCase()));
 
+        // Targets para el badge de asistencia ("Entrenó hoy"), que se completa
+        // aparte (async) una vez que la lista ya está pintada en pantalla.
+        const _asistTargets = [];
+        let _asistIdx = 0;
+
         let html = '';
         claves.sort((a, b) => (_perfilAlumnosCache[a].nombre || '').localeCompare(_perfilAlumnosCache[b].nombre || ''))
             .forEach(clave => {
                 const p = _perfilAlumnosCache[clave];
                 const prohibidos = p.ejerciciosProhibidos || [];
                 const elementos = p.elementos || [];
+                const badgeId = 'asist-badge-' + (_asistIdx++);
+                if (p.nombre) _asistTargets.push({ id: badgeId, nombre: p.nombre });
                 html += '<div class="pf-alumno-card bg-fondoAlt rounded-xl border border-borde p-3 flex items-start justify-between gap-3 flex-wrap">' +
                     '<div class="pf-alumno-card-info min-w-0">' +
-                    '<p class="pf-alumno-card-nombre font-bold text-sm">' + (p.nombre || '') + (p.edad ? ' <span class="text-textoSuave font-normal">(' + p.edad + ' años)</span>' : '') + '</p>' +
+                    '<p class="pf-alumno-card-nombre font-bold text-sm">' + (p.nombre || '') + (p.edad ? ' <span class="text-textoSuave font-normal">(' + p.edad + ' años)</span>' : '') + ' <span id="' + badgeId + '"></span></p>' +
                     (elementos.length ? '<p class="text-xs text-azul mt-0.5">🏋️ ' + elementos.join(', ') + '</p>' : '') +
                     (p.lesiones ? '<p class="text-xs text-rojo mt-0.5">⚠️ ' + p.lesiones + '</p>' : '') +
                     (prohibidos.length ? '<p class="text-xs text-amarillo mt-0.5">🚫 ' + prohibidos.join(', ') + '</p>' : '') +
@@ -3966,8 +3992,10 @@
             });
         extras.sort((a, b) => a.localeCompare(b)).forEach(n => {
             const nEsc = n.replace(/'/g, "\\'");
+            const badgeId = 'asist-badge-' + (_asistIdx++);
+            _asistTargets.push({ id: badgeId, nombre: n });
             html += '<div class="pf-alumno-card pf-alumno-card-extra bg-fondoAlt rounded-xl border border-borde/50 p-3 flex items-center justify-between gap-3 flex-wrap" style="border-style:dashed">' +
-                '<p class="pf-alumno-card-nombre text-sm text-textoSuave">' + n.toUpperCase() + ' <span class="text-[10px]">(sin ficha todavía)</span></p>' +
+                '<p class="pf-alumno-card-nombre text-sm text-textoSuave">' + n.toUpperCase() + ' <span class="text-[10px]">(sin ficha todavía)</span> <span id="' + badgeId + '"></span></p>' +
                 '<div class="pf-alumno-card-actions">' +
                 '<button onclick="document.getElementById(\'ca-nombre\').value=\'' + nEsc + '\'; document.getElementById(\'ca-nombre\').scrollIntoView({behavior:\'smooth\'});" class="bg-naranja/20 text-naranja px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition">Crear ficha</button>' +
                 '</div>' +
@@ -3975,6 +4003,57 @@
         });
         if (!html) html = '<p class="text-textoSuave text-sm text-center py-8">Todavía no hay alumnos cargados</p>';
         cont.innerHTML = html;
+        _pfCargarBadgesAsistencia(_asistTargets);
+    }
+
+    // ── Badge "Entrenó hoy" en la lista de alumnos ──────────────────────
+    // Para cada alumno: pide sus códigos de rutina (mismo endpoint que ya usa
+    // el dashboard) y revisa en Firebase, por código, cuándo fue su último
+    // acceso. Se hace aparte del render principal para no trabar la lista,
+    // y con una concurrencia chica para no saturar con muchos alumnos.
+    const FIREBASE_ASISTENCIA_URL_LISTA = "https://ponetefit-app-default-rtdb.firebaseio.com/asistencia/";
+    async function _pfCargarBadgesAsistencia(targets) {
+        if (!targets || !targets.length) return;
+        const CONCURRENCIA = 4;
+        let idx = 0;
+        async function _procesarUno() {
+            while (idx < targets.length) {
+                const t = targets[idx++];
+                try {
+                    const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(t.nombre));
+                    const data = await res.json();
+                    if (!data.ok) continue;
+                    const codigos = Object.keys(data.rutinas || {});
+                    if (!codigos.length) continue;
+                    let ultimo = 0;
+                    await Promise.all(codigos.map(async (cod) => {
+                        try {
+                            const ra = await fetch(FIREBASE_ASISTENCIA_URL_LISTA + encodeURIComponent(cod) + '/ultimo.json');
+                            const val = await ra.json();
+                            if (val && val > ultimo) ultimo = val;
+                        } catch (e) {}
+                    }));
+                    if (!ultimo) continue;
+                    const el = document.getElementById(t.id);
+                    if (!el) continue;
+                    const hoy = new Date();
+                    const fechaAcceso = new Date(ultimo);
+                    const esHoy = fechaAcceso.toDateString() === hoy.toDateString();
+                    const ayer = new Date(hoy); ayer.setDate(ayer.getDate() - 1);
+                    const esAyer = fechaAcceso.toDateString() === ayer.toDateString();
+                    if (esHoy) {
+                        el.innerHTML = '<span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(45,143,94,.2);color:#4CAF50;">🟢 Entrenó hoy</span>';
+                    } else if (esAyer) {
+                        el.innerHTML = '<span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(255,213,79,.15);color:#FFD54F;">Entrenó ayer</span>';
+                    }
+                } catch (e) {
+                    // Sin conexion: se omite el badge para este alumno, no bloquea la lista
+                }
+            }
+        }
+        const workers = [];
+        for (let w = 0; w < CONCURRENCIA; w++) workers.push(_procesarUno());
+        await Promise.all(workers);
     }
 
     // ── Advertencia al agregar un ejercicio prohibido en Crear Rutina ──────
@@ -9318,6 +9397,13 @@
     let dashCargaChartInstance = null;
     const FIREBASE_CARGAS_URL_DASH = "https://ponetefit-app-default-rtdb.firebaseio.com/cargas/";
 
+    // Asistencia (días que el alumno entró a su rutina), juntando todos sus codigos.
+    // Set de fechas "YYYY-MM-DD". El alumno.html escribe acá cada vez que entra.
+    let dashAsistenciaFechas = new Set();
+    let dashAsistenciaUltimo = 0; // timestamp del ultimo acceso (el mas reciente entre todos sus codigos)
+    let dashCalMesActivo = new Date(); // primer día del mes que se está mostrando en el calendario
+    const FIREBASE_ASISTENCIA_URL_DASH = "https://ponetefit-app-default-rtdb.firebaseio.com/asistencia/";
+
     async function cargarAlumnosDash() {
         const inp = document.getElementById('dash-select-alumno');
         if (!inp) return;
@@ -9416,7 +9502,28 @@
                     }
                 });
 
-                await Promise.all([...fetches, ...fetchesCargas]);
+                // Asistencia: igual patrón que las cargas, un código a la vez, en paralelo.
+                dashAsistenciaFechas = new Set();
+                dashAsistenciaUltimo = 0;
+                const fetchesAsistencia = codigos.map(async (cod) => {
+                    try {
+                        const ra = await fetch(FIREBASE_ASISTENCIA_URL_DASH + encodeURIComponent(cod) + '.json');
+                        const remoto = await ra.json();
+                        if (!remoto) return;
+                        if (remoto.fechas) {
+                            Object.keys(remoto.fechas).forEach((f) => dashAsistenciaFechas.add(f));
+                        }
+                        if (remoto.ultimo && remoto.ultimo > dashAsistenciaUltimo) {
+                            dashAsistenciaUltimo = remoto.ultimo;
+                        }
+                    } catch (err) {
+                        // Sin conexion o codigo sin asistencia registrada: seguimos sin ese dato
+                    }
+                });
+
+                await Promise.all([...fetches, ...fetchesCargas, ...fetchesAsistencia]);
+                dashCalMesActivo = new Date();
+                _pfRenderCalendarioAsistencia();
 
                 // Ordenar cada serie de historial por fecha/hora ascendente
                 Object.keys(dashCargasHistorial).forEach((normEj) => {
@@ -9442,6 +9549,65 @@
             toast('Error de conexion');
             console.error(e);
         }
+    }
+
+    // ── Calendario de asistencia (dashboard) ───────────────────────────
+    // Pinta el mes de dashCalMesActivo marcando los días presentes en
+    // dashAsistenciaFechas (fechas "YYYY-MM-DD" que el alumno.html va
+    // escribiendo en Firebase cada vez que el alumno entra a su rutina).
+    function _pfRenderCalendarioAsistencia() {
+        const mesLabel = document.getElementById('dash-cal-mes-label');
+        const diasSemanaEl = document.getElementById('dash-cal-dias-semana');
+        const gridEl = document.getElementById('dash-cal-grid');
+        const resumenEl = document.getElementById('dash-cal-resumen');
+        if (!mesLabel || !gridEl) return;
+
+        const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        const DIAS = ['L','M','X','J','V','S','D'];
+        const anio = dashCalMesActivo.getFullYear();
+        const mes = dashCalMesActivo.getMonth();
+        mesLabel.textContent = MESES[mes] + ' ' + anio;
+        if (diasSemanaEl) diasSemanaEl.innerHTML = DIAS.map(d => '<span>' + d + '</span>').join('');
+
+        const primerDiaSemana = (new Date(anio, mes, 1).getDay() + 6) % 7; // lunes=0
+        const totalDias = new Date(anio, mes + 1, 0).getDate();
+        const hoy = new Date();
+        const hoyISO = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
+
+        let html = '';
+        for (let i = 0; i < primerDiaSemana; i++) html += '<div></div>';
+        let diasConAsistenciaEnMes = 0;
+        for (let d = 1; d <= totalDias; d++) {
+            const fechaISO = anio + '-' + String(mes + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+            const entreno = dashAsistenciaFechas.has(fechaISO);
+            if (entreno) diasConAsistenciaEnMes++;
+            const esHoy = fechaISO === hoyISO;
+            let clases = 'aspect-square rounded-lg flex items-center justify-center text-xs font-bold';
+            let estilo = '';
+            if (entreno) {
+                estilo = 'background:#2d8f5e;color:#fff;';
+            } else {
+                clases += ' border border-borde text-textoSuave';
+            }
+            if (esHoy) clases += ' ring-2 ring-naranja';
+            html += '<div class="' + clases + '" style="' + estilo + '">' + d + '</div>';
+        }
+        gridEl.innerHTML = html;
+        if (resumenEl) {
+            resumenEl.textContent = diasConAsistenciaEnMes > 0
+                ? diasConAsistenciaEnMes + ' día' + (diasConAsistenciaEnMes === 1 ? '' : 's') + ' entrenados este mes'
+                : 'Sin asistencia registrada este mes';
+        }
+    }
+
+    function _pfCalMesAnterior() {
+        dashCalMesActivo = new Date(dashCalMesActivo.getFullYear(), dashCalMesActivo.getMonth() - 1, 1);
+        _pfRenderCalendarioAsistencia();
+    }
+
+    function _pfCalMesSiguiente() {
+        dashCalMesActivo = new Date(dashCalMesActivo.getFullYear(), dashCalMesActivo.getMonth() + 1, 1);
+        _pfRenderCalendarioAsistencia();
     }
 
     // Muestra la ficha del alumno (lesiones, elementos, ejercicios prohibidos) en el Dashboard,
