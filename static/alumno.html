@@ -2389,6 +2389,14 @@
         .card-seg-badge.activo .csb-time {
             font-size: 2.3rem;
         }
+        
+        .card-seg-badge.pausado {
+            background: #FFAB40;
+        }
+        
+        .card-seg-badge.pausado .csb-time {
+            font-size: 1.3rem;
+        }
 
         .card-min-chips {
             display: flex;
@@ -6953,42 +6961,76 @@
             // Vive en el header de la tarjeta, igual que "EJ 1/6" o "MIN 2-6",
             // así el botón para activar el timer queda siempre a la vista
             // sin depender de desplegar la tarjeta con el "+".
+            // Un solo toque hace todo: arranca → toque = pausa → toque = reanuda →
+            // al llegar a 0 vuelve a quedar lista para arrancar de nuevo (reinicio).
             var _segBadgeIdx = 0;
-            var _segBadgeActivo = {};
+            var _segBadgeState = {}; // uid → {estado:'prep'|'corriendo'|'pausado', restante, total, intervalId}
             function crearSegBadge(segundos) {
                 var segN = parseInt(segundos) || 0;
                 if (segN <= 0) return '';
                 var uid = 'segb-' + (_segBadgeIdx++);
-                return '<span class="card-seg-badge" id="' + uid + '" data-segundos="' + segN + '" onclick="event.stopPropagation(); iniciarCountdownSegBadge(\'' + uid + '\')">' +
+                return '<span class="card-seg-badge" id="' + uid + '" data-segundos="' + segN + '" onclick="event.stopPropagation(); toggleSegBadge(\'' + uid + '\')">' +
                     '<span class="csb-activar">Activar</span>' +
                     '<span class="csb-time">⏱ ' + segN + 's</span>' +
                     '</span>';
             }
 
-            function iniciarCountdownSegBadge(uid) {
+            function toggleSegBadge(uid) {
                 var el = document.getElementById(uid);
-                if (!el || _segBadgeActivo[uid]) return;
-                var segundos = parseInt(el.getAttribute('data-segundos')) || 0;
-                if (segundos <= 0) return;
+                if (!el) return;
                 var timeEl = el.querySelector('.csb-time') || el;
-                _segBadgeActivo[uid] = true;
-                el.classList.add('activo');
-                timeEl.innerText = '5';
-                prepCountdown(timeEl, null, 440, function() {
-                    var deadline = Date.now() + segundos * 1000;
-                    var iv = bgSetInterval(function() {
-                        var rem = Math.max(0, Math.round((deadline - Date.now()) / 1000));
-                        timeEl.innerText = formatearTiempo(rem);
-                        if (rem <= 3 && rem > 0) beep(400);
-                        if (rem <= 0) {
-                            bgClearInterval(iv);
-                            beep(800);
-                            el.classList.remove('activo');
-                            timeEl.innerText = '⏱ ' + segundos + 's';
-                            delete _segBadgeActivo[uid];
-                        }
-                    }, 1000);
-                });
+                var st = _segBadgeState[uid];
+
+                // Sin cuenta corriendo todavía (o ya terminada): arrancar de cero.
+                if (!st) {
+                    var total = parseInt(el.getAttribute('data-segundos')) || 0;
+                    if (total <= 0) return;
+                    _segBadgeState[uid] = { estado: 'prep', restante: total, total: total };
+                    el.classList.add('activo');
+                    el.classList.remove('pausado');
+                    timeEl.innerText = '5';
+                    prepCountdown(timeEl, null, 440, function() {
+                        _correrSegBadge(uid, el, timeEl, total);
+                    });
+                    return;
+                }
+
+                // Durante el 5-4-3-2-1 inicial no se puede pausar (dura muy poco).
+                if (st.estado === 'prep') return;
+
+                if (st.estado === 'corriendo') {
+                    // Pausar: congelar el tiempo restante donde está.
+                    bgClearInterval(st.intervalId);
+                    st.estado = 'pausado';
+                    el.classList.add('pausado');
+                    timeEl.innerText = '⏸ ' + formatearTiempo(st.restante);
+                    return;
+                }
+
+                // Estaba pausado: reanudar desde donde quedó.
+                _correrSegBadge(uid, el, timeEl, st.restante);
+            }
+
+            function _correrSegBadge(uid, el, timeEl, segundosRestantes) {
+                var prevState = _segBadgeState[uid];
+                var total = prevState ? prevState.total : segundosRestantes;
+                var st = { estado: 'corriendo', restante: segundosRestantes, total: total };
+                _segBadgeState[uid] = st;
+                el.classList.remove('pausado');
+                var deadline = Date.now() + segundosRestantes * 1000;
+                st.intervalId = bgSetInterval(function() {
+                    var rem = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+                    st.restante = rem;
+                    timeEl.innerText = formatearTiempo(rem);
+                    if (rem <= 3 && rem > 0) beep(400);
+                    if (rem <= 0) {
+                        bgClearInterval(st.intervalId);
+                        beep(800);
+                        el.classList.remove('activo', 'pausado');
+                        timeEl.innerText = '⏱ ' + total + 's';
+                        delete _segBadgeState[uid];
+                    }
+                }, 1000);
             }
 
             function iniciarCountdownSegGenerico(uid, segundos) {
