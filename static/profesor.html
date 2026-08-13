@@ -1551,20 +1551,27 @@
 
                 <!-- Calendario de Asistencia -->
                 <div class="bg-tarjeta rounded-2xl border border-borde p-5 mb-6">
-                    <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-                        <h3 class="text-sm font-bold text-verde uppercase tracking-wider">Calendario de Asistencia</h3>
-                        <div class="flex items-center gap-2">
+                    <button type="button" onclick="toggleCalendarioAsistencia()" class="pf-panel-toggle w-full flex items-center justify-between gap-2">
+                        <span class="text-sm font-bold text-verde uppercase tracking-wider flex items-center gap-2">
+                            Calendario de Asistencia
+                            <span id="dash-cal-resumen-mini" class="text-textoSuave normal-case font-normal text-xs"></span>
+                        </span>
+                        <svg id="cal-asistencia-chevron" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-textoSuave transition-transform duration-200 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div id="cal-asistencia-content" class="hidden mt-4">
+                        <div class="flex items-center justify-end gap-2 mb-3">
                             <button onclick="_pfCalMesAnterior()" class="w-8 h-8 rounded-lg bg-fondoAlt border border-borde text-textoSuave hover:text-texto transition">‹</button>
                             <span id="dash-cal-mes-label" class="text-xs font-bold uppercase tracking-wider text-texto min-w-[110px] text-center"></span>
                             <button onclick="_pfCalMesSiguiente()" class="w-8 h-8 rounded-lg bg-fondoAlt border border-borde text-textoSuave hover:text-texto transition">›</button>
                         </div>
-                    </div>
-                    <div id="dash-cal-dias-semana" class="grid grid-cols-7 gap-1 mb-1 text-[10px] text-textoSuave uppercase text-center"></div>
-                    <div id="dash-cal-grid" class="grid grid-cols-7 gap-1"></div>
-                    <div class="flex items-center gap-4 mt-3 text-[11px] text-textoSuave flex-wrap">
-                        <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded" style="background:#2d8f5e"></div> Entrenó</div>
-                        <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded border border-borde"></div> No entrenó</div>
-                        <span id="dash-cal-resumen" class="ml-auto text-texto font-bold"></span>
+                        <div id="dash-cal-dias-semana" class="grid grid-cols-7 gap-1 mb-1 text-[10px] text-textoSuave uppercase text-center"></div>
+                        <div id="dash-cal-grid" class="grid grid-cols-7 gap-1"></div>
+                        <div class="flex items-center gap-4 mt-3 text-[11px] text-textoSuave flex-wrap">
+                            <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded" style="background:#2d8f5e"></div> Entrenó (tocá el día para ver la rutina)</div>
+                            <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded border border-borde"></div> No entrenó</div>
+                            <span id="dash-cal-resumen" class="ml-auto text-texto font-bold"></span>
+                        </div>
+                        <div id="dash-cal-detalle-dia" class="hidden mt-3 bg-fondoAlt border border-borde rounded-xl p-3 text-xs text-texto"></div>
                     </div>
                 </div>
 
@@ -9400,6 +9407,9 @@
     // Asistencia (días que el alumno entró a su rutina), juntando todos sus codigos.
     // Set de fechas "YYYY-MM-DD". El alumno.html escribe acá cada vez que entra.
     let dashAsistenciaFechas = new Set();
+    // fechaISO -> [codigo, codigo, ...] con la(s) rutina(s) que el alumno abrió ese día
+    // (normalmente una sola, pero un alumno puede tener más de un código).
+    let dashAsistenciaPorFecha = {};
     let dashAsistenciaUltimo = 0; // timestamp del ultimo acceso (el mas reciente entre todos sus codigos)
     let dashCalMesActivo = new Date(); // primer día del mes que se está mostrando en el calendario
     const FIREBASE_ASISTENCIA_URL_DASH = "https://ponetefit-app-default-rtdb.firebaseio.com/asistencia/";
@@ -9504,6 +9514,7 @@
 
                 // Asistencia: igual patrón que las cargas, un código a la vez, en paralelo.
                 dashAsistenciaFechas = new Set();
+                dashAsistenciaPorFecha = {};
                 dashAsistenciaUltimo = 0;
                 const fetchesAsistencia = codigos.map(async (cod) => {
                     try {
@@ -9511,7 +9522,11 @@
                         const remoto = await ra.json();
                         if (!remoto) return;
                         if (remoto.fechas) {
-                            Object.keys(remoto.fechas).forEach((f) => dashAsistenciaFechas.add(f));
+                            Object.keys(remoto.fechas).forEach((f) => {
+                                dashAsistenciaFechas.add(f);
+                                if (!dashAsistenciaPorFecha[f]) dashAsistenciaPorFecha[f] = [];
+                                if (!dashAsistenciaPorFecha[f].includes(cod)) dashAsistenciaPorFecha[f].push(cod);
+                            });
                         }
                         if (remoto.ultimo && remoto.ultimo > dashAsistenciaUltimo) {
                             dashAsistenciaUltimo = remoto.ultimo;
@@ -9560,7 +9575,13 @@
         const diasSemanaEl = document.getElementById('dash-cal-dias-semana');
         const gridEl = document.getElementById('dash-cal-grid');
         const resumenEl = document.getElementById('dash-cal-resumen');
+        const resumenMiniEl = document.getElementById('dash-cal-resumen-mini');
+        const detalleEl = document.getElementById('dash-cal-detalle-dia');
         if (!mesLabel || !gridEl) return;
+
+        // Al recalcular el mes (o cambiar de alumno) se cierra el detalle del
+        // día que hubiera quedado abierto, para no mostrar info vieja.
+        if (detalleEl) { detalleEl.classList.add('hidden'); detalleEl.innerHTML = ''; }
 
         const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
         const DIAS = ['L','M','X','J','V','S','D'];
@@ -9582,7 +9603,7 @@
             const entreno = dashAsistenciaFechas.has(fechaISO);
             if (entreno) diasConAsistenciaEnMes++;
             const esHoy = fechaISO === hoyISO;
-            let clases = 'aspect-square rounded-lg flex items-center justify-center text-xs font-bold';
+            let clases = 'aspect-square rounded-lg flex items-center justify-center text-xs font-bold cursor-pointer transition hover:opacity-80';
             let estilo = '';
             if (entreno) {
                 estilo = 'background:#2d8f5e;color:#fff;';
@@ -9590,7 +9611,7 @@
                 clases += ' border border-borde text-textoSuave';
             }
             if (esHoy) clases += ' ring-2 ring-naranja';
-            html += '<div class="' + clases + '" style="' + estilo + '">' + d + '</div>';
+            html += '<div class="' + clases + '" style="' + estilo + '" onclick="_pfMostrarDetalleDiaAsistencia(\'' + fechaISO + '\')">' + d + '</div>';
         }
         gridEl.innerHTML = html;
         if (resumenEl) {
@@ -9598,6 +9619,57 @@
                 ? diasConAsistenciaEnMes + ' día' + (diasConAsistenciaEnMes === 1 ? '' : 's') + ' entrenados este mes'
                 : 'Sin asistencia registrada este mes';
         }
+        if (resumenMiniEl) {
+            resumenMiniEl.textContent = diasConAsistenciaEnMes > 0
+                ? '· ' + diasConAsistenciaEnMes + ' día' + (diasConAsistenciaEnMes === 1 ? '' : 's') + ' este mes'
+                : '';
+        }
+    }
+
+    // Etiqueta legible para el tipo de rutina (mismo criterio que se usa en
+    // el resto del panel: MULTIDIA -> "Multi-día", el resto tal cual).
+    function _pfTipoRutinaLabel(tipo) {
+        const t = tipo || 'ENTRENAMIENTO';
+        if (t === 'MULTIDIA') return 'Multi-día';
+        return t.charAt(0) + t.slice(1).toLowerCase();
+    }
+
+    // Muestra, debajo del calendario, qué rutina(s) hizo el alumno en el día
+    // tocado (o avisa que ese día no hay asistencia registrada).
+    function _pfMostrarDetalleDiaAsistencia(fechaISO) {
+        const detalleEl = document.getElementById('dash-cal-detalle-dia');
+        if (!detalleEl) return;
+        const partes = fechaISO.split('-');
+        const fechaLegible = partes[2] + '/' + partes[1] + '/' + partes[0];
+        const codigosDia = dashAsistenciaPorFecha[fechaISO] || [];
+
+        if (!codigosDia.length) {
+            detalleEl.innerHTML = '<p class="text-texto"><span class="font-bold">' + fechaLegible + ':</span> <span class="text-textoSuave">sin asistencia registrada.</span></p>';
+            detalleEl.classList.remove('hidden');
+            return;
+        }
+
+        const items = codigosDia.map((cod) => {
+            const r = dashRutinasData ? dashRutinasData[cod] : null;
+            const tipoLabel = _pfTipoRutinaLabel(r && r.tipo);
+            return '<div class="flex items-center justify-between gap-2 py-1 border-t border-borde first:border-t-0 first:pt-0">' +
+                '<span class="font-bold text-verde">' + escapeHtml(String(cod).toUpperCase()) + '</span>' +
+                '<span class="text-textoSuave">' + escapeHtml(tipoLabel) + '</span>' +
+                '</div>';
+        }).join('');
+        detalleEl.innerHTML = '<p class="font-bold text-texto mb-1">' + fechaLegible + '</p>' + items;
+        detalleEl.classList.remove('hidden');
+    }
+
+    // Muestra/oculta el panel del calendario de asistencia (queda colapsado
+    // por defecto para no ocupar espacio hasta que el profesor lo abra).
+    let _calAsistenciaAbierto = false;
+    function toggleCalendarioAsistencia() {
+        _calAsistenciaAbierto = !_calAsistenciaAbierto;
+        const content = document.getElementById('cal-asistencia-content');
+        const chevron = document.getElementById('cal-asistencia-chevron');
+        if (content) content.classList.toggle('hidden', !_calAsistenciaAbierto);
+        if (chevron) chevron.style.transform = _calAsistenciaAbierto ? 'rotate(180deg)' : 'rotate(0deg)';
     }
 
     function _pfCalMesAnterior() {
