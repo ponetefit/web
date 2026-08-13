@@ -6875,6 +6875,47 @@
 
             var _cardCargaIdx = 0;
 
+            // ─── CUENTA REGRESIVA SEG GENÉRICA (para tarjetas sin "marcar serie" propio:
+            // Circuito, Sumando Ejercicio, Warmup). Es solo un ayudante de tiempo:
+            // no marca nada solo, el usuario sigue marcando la vuelta/ronda como siempre. ───
+            var _segGenIdx = 0;
+            function crearSegTimerHtml(segundos) {
+                var uid = 'segt-' + (_segGenIdx++);
+                var segN = parseInt(segundos) || 0;
+                if (segN <= 0) return '';
+                return '<div style="margin-top:8px;text-align:center;">' +
+                    '<div class="timer-display" id="clock-' + uid + '" style="display:none;"></div>' +
+                    '<button class="btn-rest" id="btn-' + uid + '" onclick="iniciarCountdownSegGenerico(\'' + uid + '\',' + segN + ')" style="background:linear-gradient(135deg,var(--verde),#1a7a4a);color:#000;padding:8px 12px;font-size:var(--fs-xs);min-height:44px;">Iniciar cuenta regresiva (' + segN + 's)</button>' +
+                    '</div>';
+            }
+            function iniciarCountdownSegGenerico(uid, segundos) {
+                var btn = document.getElementById('btn-' + uid);
+                var clock = document.getElementById('clock-' + uid);
+                if (btn && btn.disabled) return;
+                if (btn) btn.disabled = true;
+                if (clock) {
+                    clock.style.display = 'block';
+                    clock.innerText = '5';
+                }
+                prepCountdown(clock, null, 440, function() {
+                    var deadline = Date.now() + segundos * 1000;
+                    var iv = bgSetInterval(function() {
+                        var rem = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+                        if (clock) clock.innerText = formatearTiempo(rem);
+                        if (rem <= 3 && rem > 0) beep(400);
+                        if (rem <= 0) {
+                            bgClearInterval(iv);
+                            beep(800);
+                            if (clock) clock.style.display = 'none';
+                            if (btn) {
+                                btn.disabled = false;
+                                btn.innerText = 'Iniciar cuenta regresiva (' + segundos + 's)';
+                            }
+                        }
+                    }, 1000);
+                });
+            }
+
             function crearCard(nombre, link, meta, con_carga, elemento, extraHtml, omitirPesoGenerico, badgeHtml) {
                 var elem = elemento || _obtenerElemento(nombre);
                 var elemHtml = elem ? '<span class="card-elemento-badge">' + elem + '</span>' : '';
@@ -7067,6 +7108,7 @@
                         const u = Array.isArray(ej) ? (ej[3] || "Reps") : (ej.unit || "Reps");
                         const cc = (Array.isArray(ej) ? false : (ej.con_carga || false)) || _obtenerConCarga(n);
                         const desc = Array.isArray(ej) ? '' : (ej.descanso || '');
+                        const esSegW = (u === 'Segs' || (u && u.toUpperCase && u.toUpperCase() === 'SEGS'));
                         var wupBaseId = 'wup-peso-' + ejIdx;
 
                         // Mostrar reps por vuelta si existen (Circuito Vueltas con reps distintas por vuelta)
@@ -7074,8 +7116,9 @@
                             var metaExtra = desc && parseInt(desc) > 0 ? '<div style="color:var(--texto-suave);font-size:var(--fs-xs);margin-top:4px;">Pausa: ' + desc + 's</div>' : '';
                             var vFilaHtmlW = crearFilaVueltas(n, ej.reps_por_vuelta, u, wupBaseId, cc);
                             var metaVueltaW = ej.reps_por_vuelta.join('-') + ' ' + u.toUpperCase();
+                            var segTimerW1 = esSegW ? crearSegTimerHtml(ej.reps_por_vuelta[0]) : '';
                             // omitirPesoGenerico=true para evitar peso duplicado (la carga por vuelta ya está en la grilla)
-                            wLista.innerHTML += crearCard(n, l, metaVueltaW, false, '', vFilaHtmlW + metaExtra, true);
+                            wLista.innerHTML += crearCard(n, l, metaVueltaW, false, '', vFilaHtmlW + metaExtra + segTimerW1, true);
 
                             // Circuito (Vueltas) con carga: mostrar reps única + inputs de carga por vuelta
                         } else if (tipo === "Circuito (Vueltas)" && cc) {
@@ -7084,7 +7127,8 @@
                             var vFilaHtmlSimple = crearFilaVueltas(n, repsArrW, u, wupBaseId, true);
                             var metaExtraW = desc && parseInt(desc) > 0 ? '<div style="color:var(--texto-suave);font-size:var(--fs-xs);margin-top:4px;">Pausa: ' + desc + 's</div>' : '';
                             var metaVueltaW2 = r ? r + ' ' + u.toUpperCase() + ' c/vuelta' : '';
-                            wLista.innerHTML += crearCard(n, l, metaVueltaW2, false, '', vFilaHtmlSimple + metaExtraW, true);
+                            var segTimerW2 = esSegW ? crearSegTimerHtml(r) : '';
+                            wLista.innerHTML += crearCard(n, l, metaVueltaW2, false, '', vFilaHtmlSimple + metaExtraW + segTimerW2, true);
 
                             // Mostrar reps y pausa por serie si existen (Series/Reps)
                         } else if (!Array.isArray(ej) && ej.reps_por_serie && ej.reps_por_serie.length > 0) {
@@ -7093,11 +7137,13 @@
                             });
                             var vFilaHtmlSerieW = crearFilaDetalleSeries(n, ej.reps_por_serie, pausasArrW, u, wupBaseId);
                             var metaSerieW = ej.reps_por_serie.length + 'x' + ej.reps_por_serie[0] + ' ' + u.toUpperCase();
-                            wLista.innerHTML += crearCard(n, l, metaSerieW, false, '', vFilaHtmlSerieW, true);
+                            var segTimerW3 = esSegW ? crearSegTimerHtml(ej.reps_por_serie[0]) : '';
+                            wLista.innerHTML += crearCard(n, l, metaSerieW, false, '', vFilaHtmlSerieW + segTimerW3, true);
                         } else {
                             var metaStr = r ? r + " " + u.toUpperCase() : "";
                             if (desc && parseInt(desc) > 0) metaStr += (metaStr ? ' | ' : '') + 'Pausa: ' + desc + 's';
-                            wLista.innerHTML += crearCard(n, l, metaStr, cc);
+                            var segTimerW4 = esSegW ? crearSegTimerHtml(r) : '';
+                            wLista.innerHTML += crearCard(n, l, metaStr, cc, '', segTimerW4);
                         }
                     });
                 }
@@ -7268,15 +7314,18 @@
                     tBtn.style.display = "none";
 
                     // Mostrar cada serie con su pausa y carga
+                    var esSegWS = (wUnitS === 'SEGS');
                     let wSeriesHtml = '<div style="margin-top:10px;padding:10px;background:rgba(105,240,174,0.05);border:1px solid rgba(105,240,174,0.15);border-radius:var(--radius-md);">';
                     wSeriesHtml += '<div style="font-size:var(--fs-xs);font-weight:900;color:var(--verde);letter-spacing:1px;margin-bottom:8px;">SERIES DE CALENTAMIENTO</div>';
                     for (let si = 0; si < seriesW; si++) {
+                        var wsBtnOnclick = esSegWS ? ('iniciarCountdownSegWarmup(' + si + ',' + repsW + ',' + pausaSerieW + ',' + seriesW + ')') : ('marcarSerieWarmup(' + si + ',' + pausaSerieW + ',' + seriesW + ')');
+                        var wsBtnLabel = esSegWS ? 'Iniciar' : 'Marcar';
                         wSeriesHtml += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
                             '<span style="color:var(--verde);font-weight:900;font-size:var(--fs-xs);min-width:24px;">S' + (si + 1) + '</span>' +
                             '<span style="font-size:var(--fs-sm);font-weight:700;">' + repsW + ' ' + wUnitS + '</span>' +
                             '<span style="color:var(--verde);font-size:var(--fs-xs);margin-left:4px;">· Pausa: ' + formatearTiempo(pausaSerieW) + '</span>' +
-                            '<button class="btn-rest" id="warmup-serie-btn-' + si + '" onclick="marcarSerieWarmup(' + si + ',' + pausaSerieW + ',' + seriesW + ')" style="margin-left:auto;padding:8px 12px;font-size:var(--fs-xs);min-height:48px;background:linear-gradient(135deg,var(--verde),#1a7a4a);color:#000;">' +
-                            'Marcar</button>' +
+                            '<button class="btn-rest" id="warmup-serie-btn-' + si + '" onclick="' + wsBtnOnclick + '" style="margin-left:auto;padding:8px 12px;font-size:var(--fs-xs);min-height:48px;background:linear-gradient(135deg,var(--verde),#1a7a4a);color:#000;">' +
+                            wsBtnLabel + '</button>' +
                             '</div>';
                     }
                     wSeriesHtml += '</div>';
@@ -7907,6 +7956,33 @@
 
             const warmupSeriesRestantes = {};
             const warmupSeriesIntervals = {};
+
+            // ─── Cuenta regresiva SEG para "Series/Reps" del calentamiento: 5-4-3-2-1,
+            // cuenta los segundos configurados y al llegar a 0 marca la serie sola
+            // (arranca el descanso normal), igual que en el bloque principal. ───
+            function iniciarCountdownSegWarmup(idx, segundos, pausaSeg, totalSeries) {
+                const btn = document.getElementById("warmup-serie-btn-" + idx);
+                if (!btn || btn.disabled) return;
+                btn.disabled = true;
+                const clock = document.getElementById('warmup-clock');
+                clock.style.display = "block";
+                document.getElementById('warmup-status').innerText = "PREPARATE — Serie " + (idx + 1) + "/" + totalSeries;
+                document.getElementById('warmup-ej').innerText = "";
+                prepCountdown(clock, null, 440, function() {
+                    var deadline = Date.now() + segundos * 1000;
+                    var iv = bgSetInterval(function() {
+                        var rem = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+                        clock.innerText = formatearTiempo(rem);
+                        if (rem <= 3 && rem > 0) beep(400);
+                        if (rem <= 0) {
+                            bgClearInterval(iv);
+                            beep(800);
+                            btn.disabled = false;
+                            marcarSerieWarmup(idx, pausaSeg, totalSeries);
+                        }
+                    }, 1000);
+                });
+            }
 
             function marcarSerieWarmup(idx, pausaSeg, totalSeries) {
                 const btn = document.getElementById("warmup-serie-btn-" + idx);
@@ -8539,21 +8615,25 @@
                     pLista.innerHTML += '<div class="circ-bloque-header"><span class="circ-bloque-label">Circuito ' + (bIdx + 1) + ' — ' + vBloque + ' Vueltas</span></div>';
                     b.ejercicios.forEach(function(ej, ejIdx) {
                         var ejU = (ej.unit || "Reps").toUpperCase();
+                        var esSeg = (ej.unit === 'Segs');
                         var uid = 'circ-main-b' + bIdx + '-e' + ejIdx;
                         if (ej.reps_por_vuelta && ej.reps_por_vuelta.length > 0) {
                             var conCargaEj = !!(ej.con_carga || _obtenerConCarga(ej.nombre));
                             var vFilaHtml = crearFilaVueltas(ej.nombre, ej.reps_por_vuelta, ejU, uid, conCargaEj);
                             var metaVuelta = ej.reps_por_vuelta.join('-') + ' ' + ejU;
-                            pLista.innerHTML += crearCard(ej.nombre, ej.link, metaVuelta, false, '', vFilaHtml, true);
+                            var extraSeg1 = esSeg ? crearSegTimerHtml(ej.reps_por_vuelta[0]) : '';
+                            pLista.innerHTML += crearCard(ej.nombre, ej.link, metaVuelta, false, '', vFilaHtml + extraSeg1, true);
                         } else if (ej.con_carga || _obtenerConCarga(ej.nombre)) {
                             var repsArr = [];
                             for (var _vi = 0; _vi < vBloque; _vi++) repsArr.push(ej.reps || '');
                             var vFilaHtml2 = crearFilaVueltas(ej.nombre, repsArr, ejU, uid, true);
                             var metaVuelta2 = ej.reps ? ej.reps + ' ' + ejU + ' c/vuelta' : '';
-                            pLista.innerHTML += crearCard(ej.nombre, ej.link, metaVuelta2, false, '', vFilaHtml2, true);
+                            var extraSeg2 = esSeg ? crearSegTimerHtml(ej.reps) : '';
+                            pLista.innerHTML += crearCard(ej.nombre, ej.link, metaVuelta2, false, '', vFilaHtml2 + extraSeg2, true);
                         } else {
                             var metaStr = ej.reps ? ej.reps + ' ' + ejU : '';
-                            pLista.innerHTML += crearCard(ej.nombre, ej.link, metaStr, false);
+                            var extraSeg3 = esSeg ? crearSegTimerHtml(ej.reps) : '';
+                            pLista.innerHTML += crearCard(ej.nombre, ej.link, metaStr, false, '', extraSeg3);
                         }
                     });
                 });
@@ -9208,6 +9288,7 @@
                 for (let r = 0; r < totalRondas; r++) {
                     const rondaId = uid + '-se-r' + r;
                     let chipsHtml = '';
+                    let segTimerRondaHtml = '';
                     for (let e = 0; e <= r; e++) {
                         const ej = seEjs[e];
                         const ejNombre = ej.nombre || '';
@@ -9218,11 +9299,13 @@
                         const chipClase = esNuevo ? 'se-chip se-chip-nuevo' : 'se-chip se-chip-previo';
                         const prefijo = (esNuevo && r > 0) ? '+ ' : '';
                         chipsHtml += '<span class="' + chipClase + '"><span class="se-chip-reps">' + prefijo + '<b>' + ejReps + '</b> ' + ejUnit.toLowerCase() + '</span> <span class="se-chip-link" onclick="abrirVideo(\'' + ejLink + '\',\'' + ejNombre.replace(/'/g, "\\'") + '\')">' + ejNombre.toLowerCase() + '</span></span>';
+                        if (esNuevo && ej.unit === 'Segs') segTimerRondaHtml = crearSegTimerHtml(ejReps);
                     }
                     html += '<div id="' + rondaId + '" class="se-ronda">' +
                         '<div class="se-ronda-top">' +
                         '<span class="se-ronda-num">R' + (r + 1) + '</span>' +
                         '<span class="se-chips">' + chipsHtml + '</span>' +
+                        segTimerRondaHtml +
                         '</div></div>';
                 }
                 html += '<div class="se-control">' +
