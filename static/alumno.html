@@ -395,11 +395,11 @@
         .card-ej-header:has(.card-numero-idx-inline),
         .card-ej-header:has(.card-min-badge),
         .card-ej-header:has(.card-seg-badge) {
-            padding-left: 92px;
+            padding-left: 150px;
         }
         
         .serie-header:has(.card-seg-badge) {
-            padding-left: 92px;
+            padding-left: 150px;
         }
         
         .card-ej-header:active {
@@ -2335,10 +2335,7 @@
         }
         
         .card-seg-badge {
-            position: absolute;
-            left: 8px;
-            top: 50%;
-            transform: translateY(-50%);
+            position: relative;
             display: inline-flex;
             flex-direction: column;
             align-items: center;
@@ -2359,9 +2356,21 @@
             cursor: pointer;
             transition: transform 0.12s, background 0.15s;
         }
+
+        .csb-wrap {
+            position: absolute;
+            left: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: inline-flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 6px;
+            z-index: 3;
+        }
         
         .card-seg-badge:active {
-            transform: translateY(-50%) scale(0.94);
+            transform: scale(0.94);
         }
         
         .card-seg-badge .csb-activar {
@@ -2398,34 +2407,43 @@
             font-size: 1.3rem;
         }
 
-        .card-seg-badge .csb-reset {
+        .csb-reset {
             display: none;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 1px;
-            margin-top: 3px;
-            padding-top: 3px;
-            border-top: 1px solid rgba(0,0,0,0.25);
-            width: 100%;
+            gap: 2px;
+            cursor: pointer;
+            padding: 6px 8px;
+            background: rgba(211,47,47,0.08);
+            border: 1.5px solid #D32F2F;
+            border-radius: var(--radius-sm);
         }
 
-        .card-seg-badge.activo .csb-reset {
+        .csb-reset:active {
+            transform: scale(0.94);
+        }
+
+        .card-seg-badge.activo ~ .csb-reset {
             display: flex;
         }
 
-        .card-seg-badge .csb-reset-icon {
-            font-size: 1.05rem;
+        .csb-reset-icon {
+            display: flex;
             line-height: 1;
-            color: #D32F2F;
         }
 
-        .card-seg-badge .csb-reset-label {
+        .csb-reset-icon svg {
+            display: block;
+        }
+
+        .csb-reset-label {
             font-size: 8px;
             font-weight: 900;
             letter-spacing: 0.3px;
             text-transform: uppercase;
             color: #D32F2F;
+            white-space: nowrap;
         }
 
         .card-min-chips {
@@ -7000,11 +7018,13 @@
                 if (segN <= 0) return '';
                 var uid = 'segb-' + (_segBadgeIdx++);
                 var safeNombre = (nombre || '').replace(/"/g, '&quot;');
-                return '<span class="card-seg-badge" id="' + uid + '" data-segundos="' + segN + '" data-nombre="' + safeNombre + '" onclick="event.stopPropagation(); toggleSegBadge(\'' + uid + '\')">' +
-                    '<span class="csb-activar">Activar</span>' +
-                    '<span class="csb-time">⏱ ' + segN + 's</span>' +
+                return '<span class="csb-wrap">' +
+                    '<span class="card-seg-badge" id="' + uid + '" data-segundos="' + segN + '" data-nombre="' + safeNombre + '" onclick="event.stopPropagation(); toggleSegBadge(\'' + uid + '\')">' +
+                        '<span class="csb-activar">Activar</span>' +
+                        '<span class="csb-time">⏱ ' + segN + 's</span>' +
+                    '</span>' +
                     '<span class="csb-reset" onclick="event.stopPropagation(); reiniciarSegBadge(\'' + uid + '\')">' +
-                        '<span class="csb-reset-icon">↺</span>' +
+                        '<span class="csb-reset-icon"><svg viewBox="0 0 24 24" width="17" height="17"><path fill="#D32F2F" d="M12,5V1L7,6l5,5V7c3.31,0,6,2.69,6,6s-2.69,6-6,6s-6-2.69-6-6H4c0,4.42,3.58,8,8,8s8-3.58,8-8S16.42,5,12,5z"/></svg></span>' +
                         '<span class="csb-reset-label">Reiniciar</span>' +
                     '</span>' +
                     '</span>';
