@@ -7422,7 +7422,7 @@
                     wSeriesHtml += '<div style="font-size:var(--fs-xs);font-weight:900;color:var(--verde);letter-spacing:1px;margin-bottom:8px;">SERIES DE CALENTAMIENTO</div>';
                     for (let si = 0; si < seriesW; si++) {
                         var wsBtnOnclick = esSegWS ? ('iniciarCountdownSegWarmup(' + si + ',' + repsW + ',' + pausaSerieW + ',' + seriesW + ')') : ('marcarSerieWarmup(' + si + ',' + pausaSerieW + ',' + seriesW + ')');
-                        var wsBtnLabel = esSegWS ? 'Iniciar' : 'Marcar';
+                        var wsBtnLabel = esSegWS ? 'Activar' : 'Marcar';
                         wSeriesHtml += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
                             '<span style="color:var(--verde);font-weight:900;font-size:var(--fs-xs);min-width:24px;">S' + (si + 1) + '</span>' +
                             '<span style="font-size:var(--fs-sm);font-weight:700;">' + repsW + ' ' + wUnitS + '</span>' +
@@ -9146,20 +9146,23 @@
                     }
                     circEjs.forEach(function(b) {
                         html += '<div class="circ-bloque-header"><span class="circ-bloque-label">Bloque #' + (b.id || 1) + '</span></div>';
-                        (b.ejercicios || []).forEach(function(ej) {
+                        (b.ejercicios || []).forEach(function(ej, ejIdxMix) {
                             var ejU = (ej.unit || "Reps").toUpperCase();
+                            var esSegMix = (ej.unit === 'Segs');
                             // Mostrar reps por vuelta si el profesor las configuró
                             if (ej.reps_por_vuelta && ej.reps_por_vuelta.length > 0) {
                                 var descExtra = ej.descanso && parseInt(ej.descanso) > 0 ? '<div style="color:var(--texto-suave);font-size:var(--fs-xs);margin-top:4px;">Pausa: ' + ej.descanso + 's</div>' : '';
                                 var conCargaEj = !!(ej.con_carga || _obtenerConCarga(ej.nombre));
                                 var vFilaHtml = crearFilaVueltas(ej.nombre, ej.reps_por_vuelta, ejU, uid + '-circ-v-' + (b.id || 1) + '-' + (ej.nombre || '').replace(/\s/g, ''), conCargaEj);
                                 var metaVueltaMix = ej.reps_por_vuelta.join('-') + ' ' + ejU;
+                                var badgeSegMix1 = esSegMix ? crearSegBadge(ej.reps_por_vuelta[0]) : '';
                                 // omitirPesoGenerico=true para evitar peso duplicado (la carga por vuelta ya está en la grilla)
-                                html += crearCard(ej.nombre, ej.link, metaVueltaMix, false, '', vFilaHtml + descExtra, true);
+                                html += crearCard(ej.nombre, ej.link, metaVueltaMix, false, '', vFilaHtml + descExtra, true, badgeSegMix1);
                             } else {
                                 var metaStr = (ej.reps || "") + " " + ejU;
                                 if (ej.descanso && parseInt(ej.descanso) > 0) metaStr += ' | Pausa: ' + ej.descanso + 's';
-                                html += crearCard(ej.nombre, ej.link, metaStr, ej.con_carga);
+                                var badgeSegMix2 = esSegMix ? crearSegBadge(ej.reps) : '';
+                                html += crearCard(ej.nombre, ej.link, metaStr, ej.con_carga, '', '', false, badgeSegMix2);
                             }
                         });
                     });
