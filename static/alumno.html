@@ -393,7 +393,12 @@
         }
         
         .card-ej-header:has(.card-numero-idx-inline),
-        .card-ej-header:has(.card-min-badge) {
+        .card-ej-header:has(.card-min-badge),
+        .card-ej-header:has(.card-seg-badge) {
+            padding-left: 92px;
+        }
+        
+        .serie-header:has(.card-seg-badge) {
             padding-left: 92px;
         }
         
@@ -2330,40 +2335,45 @@
         }
         
         .card-seg-badge {
-            display: flex;
+            position: absolute;
+            left: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: inline-flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 2px;
-            width: 100%;
+            gap: 3px;
+            min-width: 64px;
             font-weight: 900;
             letter-spacing: 0.3px;
             color: #000000;
             background: #69F0AE;
-            border-bottom: 1.5px solid #000;
-            padding: 10px 14px;
+            border: 1.5px solid #000;
+            padding: 8px 12px;
+            border-radius:var(--radius-sm);
             white-space: nowrap;
             line-height: 1.15;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
             z-index: 3;
             cursor: pointer;
             transition: transform 0.12s, background 0.15s;
         }
         
         .card-seg-badge:active {
-            transform: scale(0.98);
+            transform: translateY(-50%) scale(0.94);
         }
         
         .card-seg-badge .csb-activar {
-            font-size:var(--fs-sm);
+            font-size: 11px;
             font-weight: 900;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
             text-transform: uppercase;
             opacity: 0.85;
         }
         
         .card-seg-badge .csb-time {
-            font-size: 1.9rem;
+            font-size: 1.3rem;
             font-weight: 900;
             font-family: 'Roboto Mono', monospace;
         }
@@ -7009,7 +7019,7 @@
                 });
             }
 
-            function crearCard(nombre, link, meta, con_carga, elemento, extraHtml, omitirPesoGenerico, badgeHtml, topBadgeHtml) {
+            function crearCard(nombre, link, meta, con_carga, elemento, extraHtml, omitirPesoGenerico, badgeHtml) {
                 var elem = elemento || _obtenerElemento(nombre);
                 var elemHtml = elem ? '<span class="card-elemento-badge">' + elem + '</span>' : '';
                 var pesoHtml = '';
@@ -7026,7 +7036,7 @@
                 _registrarLink(nombre, linkActual);
                 var contenido = elemHtml + thumbHtml + (extraHtml || '') + pesoHtml;
                 var nombreFinal = badgeHtml ? badgeHtml + nombre : nombre;
-                return '<div class="card-ejercicio">' + (topBadgeHtml || '') + crearAcordeonEjercicio(nombreFinal, contenido, meta) + '</div>';
+                return '<div class="card-ejercicio">' + crearAcordeonEjercicio(nombreFinal, contenido, meta) + '</div>';
             }
 
             function crearCardNumero(idx, total, nombre, link, con_carga, elemento, meta) {
@@ -7211,7 +7221,7 @@
                             var metaVueltaW = ej.reps_por_vuelta.join('-') + ' ' + u.toUpperCase();
                             var badgeSegW1 = esSegW ? crearSegBadge(ej.reps_por_vuelta[0]) : '';
                             // omitirPesoGenerico=true para evitar peso duplicado (la carga por vuelta ya está en la grilla)
-                            wLista.innerHTML += crearCard(n, l, metaVueltaW, false, '', vFilaHtmlW + metaExtra, true, '', badgeSegW1);
+                            wLista.innerHTML += crearCard(n, l, metaVueltaW, false, '', vFilaHtmlW + metaExtra, true, badgeSegW1);
 
                             // Circuito (Vueltas) con carga: mostrar reps única + inputs de carga por vuelta
                         } else if (tipo === "Circuito (Vueltas)" && cc) {
@@ -7221,7 +7231,7 @@
                             var metaExtraW = desc && parseInt(desc) > 0 ? '<div style="color:var(--texto-suave);font-size:var(--fs-xs);margin-top:4px;">Pausa: ' + desc + 's</div>' : '';
                             var metaVueltaW2 = r ? r + ' ' + u.toUpperCase() + ' c/vuelta' : '';
                             var badgeSegW2 = esSegW ? crearSegBadge(r) : '';
-                            wLista.innerHTML += crearCard(n, l, metaVueltaW2, false, '', vFilaHtmlSimple + metaExtraW, true, '', badgeSegW2);
+                            wLista.innerHTML += crearCard(n, l, metaVueltaW2, false, '', vFilaHtmlSimple + metaExtraW, true, badgeSegW2);
 
                             // Mostrar reps y pausa por serie si existen (Series/Reps)
                         } else if (!Array.isArray(ej) && ej.reps_por_serie && ej.reps_por_serie.length > 0) {
@@ -7231,12 +7241,12 @@
                             var vFilaHtmlSerieW = crearFilaDetalleSeries(n, ej.reps_por_serie, pausasArrW, u, wupBaseId);
                             var metaSerieW = ej.reps_por_serie.length + 'x' + ej.reps_por_serie[0] + ' ' + u.toUpperCase();
                             var badgeSegW3 = esSegW ? crearSegBadge(ej.reps_por_serie[0]) : '';
-                            wLista.innerHTML += crearCard(n, l, metaSerieW, false, '', vFilaHtmlSerieW, true, '', badgeSegW3);
+                            wLista.innerHTML += crearCard(n, l, metaSerieW, false, '', vFilaHtmlSerieW, true, badgeSegW3);
                         } else {
                             var metaStr = r ? r + " " + u.toUpperCase() : "";
                             if (desc && parseInt(desc) > 0) metaStr += (metaStr ? ' | ' : '') + 'Pausa: ' + desc + 's';
                             var badgeSegW4 = esSegW ? crearSegBadge(r) : '';
-                            wLista.innerHTML += crearCard(n, l, metaStr, cc, '', '', false, '', badgeSegW4);
+                            wLista.innerHTML += crearCard(n, l, metaStr, cc, '', '', false, badgeSegW4);
                         }
                     });
                 }
@@ -8673,8 +8683,8 @@
                         '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div></div>' : '<div class="card-thumb sin-video"><svg class="sinvideo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg><span>Sin video</span></div>';
                     var _s1Vt = crearVideoToggle(_s1ThumbHtml + serieDetalle);
                     var _s1SegBadge = esSegSerie1 ? crearSegBadge(_segBadgeVal1) : '';
-                    pLista.innerHTML += '<div class="serie-card">' + _s1SegBadge +
-                        '<div class="serie-header"><span class="serie-nombre">' + ej.nombre + '</span>' + _s1Vt.btn + '</div>' +
+                    pLista.innerHTML += '<div class="serie-card">' +
+                        '<div class="serie-header">' + _s1SegBadge + '<span class="serie-nombre">' + ej.nombre + '</span>' + _s1Vt.btn + '</div>' +
                         '<div class="serie-body">' +
                         elemHtml +
                         '<div class="serie-meta">' +
@@ -8718,18 +8728,18 @@
                             var vFilaHtml = crearFilaVueltas(ej.nombre, ej.reps_por_vuelta, ejU, uid, conCargaEj);
                             var metaVuelta = ej.reps_por_vuelta.join('-') + ' ' + ejU;
                             var badgeSeg1 = esSeg ? crearSegBadge(ej.reps_por_vuelta[0]) : '';
-                            pLista.innerHTML += crearCard(ej.nombre, ej.link, metaVuelta, false, '', vFilaHtml, true, '', badgeSeg1);
+                            pLista.innerHTML += crearCard(ej.nombre, ej.link, metaVuelta, false, '', vFilaHtml, true, badgeSeg1);
                         } else if (ej.con_carga || _obtenerConCarga(ej.nombre)) {
                             var repsArr = [];
                             for (var _vi = 0; _vi < vBloque; _vi++) repsArr.push(ej.reps || '');
                             var vFilaHtml2 = crearFilaVueltas(ej.nombre, repsArr, ejU, uid, true);
                             var metaVuelta2 = ej.reps ? ej.reps + ' ' + ejU + ' c/vuelta' : '';
                             var badgeSeg2 = esSeg ? crearSegBadge(ej.reps) : '';
-                            pLista.innerHTML += crearCard(ej.nombre, ej.link, metaVuelta2, false, '', vFilaHtml2, true, '', badgeSeg2);
+                            pLista.innerHTML += crearCard(ej.nombre, ej.link, metaVuelta2, false, '', vFilaHtml2, true, badgeSeg2);
                         } else {
                             var metaStr = ej.reps ? ej.reps + ' ' + ejU : '';
                             var badgeSeg3 = esSeg ? crearSegBadge(ej.reps) : '';
-                            pLista.innerHTML += crearCard(ej.nombre, ej.link, metaStr, false, '', '', false, '', badgeSeg3);
+                            pLista.innerHTML += crearCard(ej.nombre, ej.link, metaStr, false, '', '', false, badgeSeg3);
                         }
                     });
                 });
@@ -9148,12 +9158,12 @@
                                 var metaVueltaMix = ej.reps_por_vuelta.join('-') + ' ' + ejU;
                                 var badgeSegMix1 = esSegMix ? crearSegBadge(ej.reps_por_vuelta[0]) : '';
                                 // omitirPesoGenerico=true para evitar peso duplicado (la carga por vuelta ya está en la grilla)
-                                html += crearCard(ej.nombre, ej.link, metaVueltaMix, false, '', vFilaHtml + descExtra, true, '', badgeSegMix1);
+                                html += crearCard(ej.nombre, ej.link, metaVueltaMix, false, '', vFilaHtml + descExtra, true, badgeSegMix1);
                             } else {
                                 var metaStr = (ej.reps || "") + " " + ejU;
                                 if (ej.descanso && parseInt(ej.descanso) > 0) metaStr += ' | Pausa: ' + ej.descanso + 's';
                                 var badgeSegMix2 = esSegMix ? crearSegBadge(ej.reps) : '';
-                                html += crearCard(ej.nombre, ej.link, metaStr, ej.con_carga, '', '', false, '', badgeSegMix2);
+                                html += crearCard(ej.nombre, ej.link, metaStr, ej.con_carga, '', '', false, badgeSegMix2);
                             }
                         });
                     });
@@ -10337,8 +10347,8 @@
                         '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div></div>' : '<div class="card-thumb sin-video"><svg class="sinvideo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg><span>Sin video</span></div>';
                     var _s2Vt = crearVideoToggle(_s2ThumbHtml + serieDetalle);
                     var _s2SegBadge = esSegSerie2 ? crearSegBadge(_segBadgeVal2) : '';
-                    html += '<div class="serie-card">' + _s2SegBadge +
-                        '<div class="serie-header"><span class="serie-nombre">' + nombre + '</span>' + _s2Vt.btn + '</div>' +
+                    html += '<div class="serie-card">' +
+                        '<div class="serie-header">' + _s2SegBadge + '<span class="serie-nombre">' + nombre + '</span>' + _s2Vt.btn + '</div>' +
                         '<div class="serie-body">' +
                         elemHtml +
                         '<div class="serie-meta">' +
