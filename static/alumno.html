@@ -8493,6 +8493,7 @@
                     serieDetalle = crearFilaDetalleSeries(ej.nombre, _repsGridS1, _pausasGridS1, ej.unit || 'Reps', pesoInputId);
 
                     var pausaBoton = haPerSerie ? pausaPrimeraSerie : pausaN;
+                    _esSegData[i] = (ej.unit === 'Segs');
 
                     var _s1ThumbUrl = extraerYoutubeThumbnail(ej.link || '');
                     _registrarLink(ej.nombre, ej.link || '');
@@ -8513,7 +8514,7 @@
                         notaHtml +
                         '<div style="text-align:center;">' +
                         '<div class="timer-display" id="timer-' + i + '">' + formatearTiempo(pausaBoton) + '</div>' +
-                        '<button class="btn-rest" id="btn-' + i + '" style="background:linear-gradient(135deg,var(--verde),#1a7a4a);color:#000;" onclick="marcarSerieConPausa(' + i + ',' + pausaBoton + ')">Marcar Serie (' + seriesN + ' rest.)</button>' +
+                        '<button class="btn-rest" id="btn-' + i + '" style="background:linear-gradient(135deg,var(--verde),#1a7a4a);color:#000;" onclick="' + (ej.unit === 'Segs' ? ('iniciarCountdownSeg(' + i + ',' + pausaBoton + ')') : ('marcarSerieConPausa(' + i + ',' + pausaBoton + ')')) + '">' + _labelBotonSerie(i, seriesN) + '</button>' +
                         '</div></div></div>';
                 });
             }
@@ -10143,6 +10144,7 @@
 
                     // Pausa a usar para el timer y el botón
                     var pausaBoton = haPerSerie ? pausaPrimeraSerie : ((ej.descanso && parseInt(ej.descanso) > 0) ? parseInt(ej.descanso) : pausaN);
+                    _esSegData[idxS] = (ej.unit === 'Segs');
 
                     var _s2ThumbUrl = extraerYoutubeThumbnail(link);
                     _registrarLink(nombre, link);
@@ -10162,7 +10164,7 @@
                         _s2Vt.wrap +
                         notaHtml +
                         '<div style="text-align:center;"><div class="timer-display" id="timer-' + idxS + '">' + formatearTiempo(pausaBoton) + '</div>' +
-                        '<button class="btn-rest" id="btn-' + idxS + '" style="background:linear-gradient(135deg,var(--verde),#1a7a4a);color:#000;" onclick="marcarSerieConPausa(' + idxS + ',' + pausaBoton + ')">Marcar Serie (' + seriesN + ' rest.)</button></div></div></div>';
+                        '<button class="btn-rest" id="btn-' + idxS + '" style="background:linear-gradient(135deg,var(--verde),#1a7a4a);color:#000;" onclick="' + (ej.unit === 'Segs' ? ('iniciarCountdownSeg(' + idxS + ',' + pausaBoton + ')') : ('marcarSerieConPausa(' + idxS + ',' + pausaBoton + ')')) + '">' + _labelBotonSerie(idxS, seriesN) + '</button></div></div></div>';
                 });
                 html += '</div>';
                 pLista.innerHTML += html;
@@ -10334,7 +10336,7 @@
                     if (btn) {
                         btn.classList.remove('active');
                         btn.disabled = false;
-                        btn.innerText = 'Marcar Serie (' + seriesRestantes[i] + ' rest.)';
+                        btn.innerText = _labelBotonSerie(i, seriesRestantes[i]);
                     }
                     _spSerieIdx = -1;
                 });
@@ -10353,6 +10355,46 @@
             var _repsPorSerieData = {};
             var _seriesNData = {}; // índice → total series
             var _nombreEjData = {}; // índice → nombre ejercicio (para guardarPesoSerie)
+            var _esSegData = {}; // índice → true si el ejercicio se mide en SEG (isométrico)
+
+            // Texto del botón "Marcar Serie" según la unidad del ejercicio
+            function _labelBotonSerie(i, n) {
+                return _esSegData[i] ? ('Iniciar cuenta regresiva (' + n + ' rest.)') : ('Marcar Serie (' + n + ' rest.)');
+            }
+
+            // ─── CUENTA REGRESIVA POR EJERCICIO EN SEGUNDOS (isométricos: plancha, etc.) ───
+            // Reutiliza prepCountdown()/beep() (las mismas de Tabata/EMOM) para el 5-4-3-2-1
+            // y luego cuenta los segundos configurados hasta 0, marcando la serie sola al llegar a 0.
+            var _segCountdownIntervals = {};
+            function iniciarCountdownSeg(i, pausaBoton) {
+                var btn = document.getElementById('btn-' + i);
+                if (btn && btn.disabled) return;
+                var timer = document.getElementById('timer-' + i);
+                var rEl = document.getElementById('r-val-' + i);
+                var segundos = parseInt(rEl ? rEl.innerText : '') || 0;
+                if (segundos <= 0) {
+                    marcarSerieConPausa(i, pausaBoton);
+                    return;
+                }
+                if (btn) btn.disabled = true;
+                if (timer) {
+                    timer.style.display = 'block';
+                    timer.innerText = '5';
+                }
+                _segCountdownIntervals[i] = prepCountdown(timer, null, 440, function() {
+                    var deadline = Date.now() + segundos * 1000;
+                    _segCountdownIntervals[i] = bgSetInterval(function() {
+                        var rem = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+                        if (timer) timer.innerText = formatearTiempo(rem);
+                        if (rem <= 3 && rem > 0) beep(400);
+                        if (rem <= 0) {
+                            bgClearInterval(_segCountdownIntervals[i]);
+                            beep(800);
+                            marcarSerieConPausa(i, pausaBoton);
+                        }
+                    }, 1000);
+                });
+            }
 
             // ─── MARCAR SERIE CON PAUSA POR SERIE ───
             function marcarSerieConPausa(i, pausaDefault) {
