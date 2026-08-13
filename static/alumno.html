@@ -2361,14 +2361,14 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 3px;
-            min-width: 64px;
+            gap: 1px;
+            min-width: 46px;
             font-weight: 900;
             letter-spacing: 0.3px;
             color: #FFFFFF;
             background: var(--verde);
             border: 1.5px solid #000;
-            padding: 8px 12px;
+            padding: 6px 8px;
             border-radius:var(--radius-sm);
             white-space: nowrap;
             line-height: 1.15;
@@ -2413,17 +2413,23 @@
         }
         
         .card-seg-badge .csb-activar {
-            font-size: 11px;
+            font-size: 9.5px;
             font-weight: 900;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
             text-transform: uppercase;
             opacity: 0.85;
         }
+
+        .card-seg-badge .csb-icon {
+            font-size: 13px;
+            line-height: 1;
+        }
         
         .card-seg-badge .csb-time {
-            font-size: 1.3rem;
+            font-size: 1.1rem;
             font-weight: 900;
             font-family: 'Roboto Mono', monospace;
+            line-height: 1.05;
         }
         
         .card-seg-badge.activo {
@@ -2431,7 +2437,8 @@
             padding: 4px 6px;
         }
         
-        .card-seg-badge.activo .csb-activar {
+        .card-seg-badge.activo .csb-activar,
+        .card-seg-badge.activo .csb-icon {
             display: none;
         }
         
@@ -7271,7 +7278,8 @@
                 return '<span class="csb-wrap">' +
                     '<span class="card-seg-badge" id="' + uid + '" data-segundos="' + segN + '" data-nombre="' + safeNombre + '" data-color="' + col + '" onclick="event.stopPropagation(); toggleSegBadge(\'' + uid + '\')">' +
                         '<span class="csb-activar">Activar</span>' +
-                        '<span class="csb-time">⏱ ' + segN + 's</span>' +
+                        '<span class="csb-icon">⏱</span>' +
+                        '<span class="csb-time">' + segN + 's</span>' +
                     '</span>' +
                     '<span class="csb-pause" id="pause-' + uid + '" onclick="event.stopPropagation(); toggleSegBadge(\'' + uid + '\')">' +
                         '<span class="csb-pause-icon">' + _ICONO_PAUSA + '</span>' +
@@ -7414,7 +7422,7 @@
                         bgClearInterval(st.intervalId);
                         beep(800);
                         el.classList.remove('activo', 'pausado');
-                        _setSegTiempo(uid, timeEl, '⏱ ' + total + 's', false);
+                        _setSegTiempo(uid, timeEl, total + 's', false);
                         _ocultarSegExpandCard(uid);
                         var wrapFin = el.closest('.csb-wrap');
                         if (wrapFin) wrapFin.classList.remove('csb-oculto');
@@ -7436,7 +7444,7 @@
                 el.classList.remove('activo', 'pausado');
                 var timeEl = el.querySelector('.csb-time');
                 var total = parseInt(el.getAttribute('data-segundos')) || 0;
-                _setSegTiempo(uid, timeEl, '⏱ ' + total + 's', false);
+                _setSegTiempo(uid, timeEl, total + 's', false);
                 _ocultarSegExpandCard(uid);
                 var wrapReinicio = el.closest('.csb-wrap');
                 if (wrapReinicio) wrapReinicio.classList.remove('csb-oculto');
