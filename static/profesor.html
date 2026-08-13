@@ -9652,9 +9652,29 @@
         const items = codigosDia.map((cod) => {
             const r = dashRutinasData ? dashRutinasData[cod] : null;
             const tipoLabel = _pfTipoRutinaLabel(r && r.tipo);
-            return '<div class="flex items-center justify-between gap-2 py-1 border-t border-borde first:border-t-0 first:pt-0">' +
+            const prog = _pfProgresoDelDia(r, fechaISO, cod);
+
+            let progresoHTML = '';
+            if (prog && prog.multidia) {
+                if (prog.dia) {
+                    const pct = prog.totalEj > 0 ? Math.round(prog.hechos / prog.totalEj * 100) : 0;
+                    progresoHTML = '<div class="text-xs text-azul mt-0.5">📅 Día ' + prog.dia + ' de ' + prog.totalDias +
+                        ' · ' + prog.hechos + '/' + prog.totalEj + ' ejercicios registrados (' + pct + '%)</div>';
+                } else {
+                    progresoHTML = '<div class="text-xs text-textoSuave mt-0.5">Multi-día (' + prog.totalDias + ' días) · sin cargas registradas ese día para identificar cuál</div>';
+                }
+            } else if (prog && !prog.multidia) {
+                if (prog.totalEj > 0) {
+                    const pct = Math.round(prog.hechos / prog.totalEj * 100);
+                    progresoHTML = '<div class="text-xs text-azul mt-0.5">' + prog.hechos + '/' + prog.totalEj + ' ejercicios registrados (' + pct + '%)</div>';
+                }
+            }
+
+            return '<div class="py-1 border-t border-borde first:border-t-0 first:pt-0">' +
+                '<div class="flex items-center justify-between gap-2">' +
                 '<span class="font-bold text-verde">' + escapeHtml(String(cod).toUpperCase()) + '</span>' +
                 '<span class="text-textoSuave">' + escapeHtml(tipoLabel) + '</span>' +
+                '</div>' + progresoHTML +
                 '</div>';
         }).join('');
         detalleEl.innerHTML = '<p class="font-bold text-texto mb-1">' + fechaLegible + '</p>' + items;
@@ -10734,6 +10754,98 @@
         }
 
         return nombres;
+    }
+
+    // Normaliza un nombre de ejercicio para poder compararlo sin que
+    // importen mayúsculas/minúsculas, acentos o espacios de más.
+    function _pfNormNombreEj(s) {
+        return String(s || '')
+            .toUpperCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    // Extrae los nombres de ejercicio de UN solo día (dia_N) de una rutina
+    // MULTIDIA. Mismo criterio que extraerEjerciciosDeRutina, pero acotado
+    // a un día puntual (para poder comparar día por día).
+    function _pfEjerciciosDeUnDia(diaData) {
+        const nombres = [];
+        if (!diaData || !diaData.datos) return nombres;
+        const diaDatos = diaData.datos;
+        toArray(diaDatos.warmup_ejercicios).forEach(ej => { const e = normalizeEj(ej); if (e.nombre) nombres.push(e.nombre.toUpperCase()); });
+        const dBloques = toArray(diaDatos.bloques);
+        if (dBloques.length > 0) {
+            dBloques.forEach(b => {
+                if (b.tipo === 'EMOM' && b.emom_config_por_minuto && b.emom_config_por_minuto.length > 0) {
+                    b.emom_config_por_minuto.forEach(minCfg => {
+                        toArray(minCfg.ejercicios || []).forEach(ej => { const e = normalizeEj(ej); if (e.nombre) nombres.push(e.nombre.toUpperCase()); });
+                    });
+                } else {
+                    toArray(b.ejercicios || []).forEach(ej => { const e = normalizeEj(ej); if (e.nombre) nombres.push(e.nombre.toUpperCase()); });
+                }
+            });
+        } else {
+            const ejsFlat = toArray(diaDatos.rutina || diaDatos.datos || []);
+            ejsFlat.forEach(item => {
+                if (item && item.ejercicios) { toArray(item.ejercicios).forEach(ej => { const e = normalizeEj(ej); if (e.nombre) nombres.push(e.nombre.toUpperCase()); }); }
+                else { const e = normalizeEj(item); if (e.nombre) nombres.push(e.nombre.toUpperCase()); }
+            });
+        }
+        return nombres;
+    }
+
+    // Devuelve el set de nombres de ejercicio (normalizados) para los que
+    // hay una carga (peso) registrada en Firebase para ese código y esa
+    // fecha exacta. Esto es lo que usamos como indicador de "qué ejercicios
+    // hizo" ese día, ya que el alumno.html registra una carga por cada
+    // ejercicio que efectivamente completa.
+    function _pfEjerciciosLoggedEnFecha(fechaISO, codigo) {
+        const set = new Set();
+        Object.keys(dashCargasHistorial).forEach((normEj) => {
+            const registros = dashCargasHistorial[normEj] || [];
+            for (let i = 0; i < registros.length; i++) {
+                if (registros[i].codigo === codigo && registros[i].fecha === fechaISO) {
+                    set.add(_pfNormNombreEj(normEj));
+                    break;
+                }
+            }
+        });
+        return set;
+    }
+
+    // Estima "cuánto de la rutina hizo" el alumno en un día puntual.
+    // - Rutina simple: compara los ejercicios con carga registrada ese día
+    //   contra el total de ejercicios de la rutina.
+    // - Rutina MULTIDIA: además identifica CUÁL día es el más probable,
+    //   comparando los ejercicios con carga contra los de cada dia_N y
+    //   quedándose con el que más coincidencias tiene.
+    // Devuelve null si no hay información suficiente para estimar nada.
+    function _pfProgresoDelDia(r, fechaISO, codigo) {
+        if (!r) return null;
+        const logged = _pfEjerciciosLoggedEnFecha(fechaISO, codigo);
+
+        if (r.tipo === 'MULTIDIA') {
+            const total = r.total_dias || 0;
+            if (!total) return null;
+            let mejorDia = null, mejorMatch = -1, mejorTotalEj = 0;
+            for (let di = 1; di <= total; di++) {
+                const nombresSet = new Set(_pfEjerciciosDeUnDia(r['dia_' + di]).map(_pfNormNombreEj));
+                let match = 0;
+                nombresSet.forEach(n => { if (logged.has(n)) match++; });
+                if (match > mejorMatch) { mejorMatch = match; mejorDia = di; mejorTotalEj = nombresSet.size; }
+            }
+            if (logged.size === 0 || mejorMatch <= 0) {
+                return { multidia: true, totalDias: total, dia: null, hechos: 0, totalEj: 0 };
+            }
+            return { multidia: true, totalDias: total, dia: mejorDia, hechos: mejorMatch, totalEj: mejorTotalEj };
+        }
+
+        const datos = resolverDatos(r);
+        const nombresSet = new Set(extraerEjerciciosDeRutina(r, datos).map(_pfNormNombreEj));
+        let match = 0;
+        nombresSet.forEach(n => { if (logged.has(n)) match++; });
+        return { multidia: false, hechos: match, totalEj: nombresSet.size };
     }
 
     function renderBarChart(containerId, data, maxVal, color) {
