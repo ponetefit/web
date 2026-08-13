@@ -393,7 +393,8 @@
         }
         
         .card-ej-header:has(.card-numero-idx-inline),
-        .card-ej-header:has(.card-min-badge) {
+        .card-ej-header:has(.card-min-badge),
+        .card-ej-header:has(.card-seg-badge) {
             padding-left: 84px;
         }
         
@@ -2327,6 +2328,40 @@
             text-align: center;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
             z-index: 2;
+        }
+        
+        .card-seg-badge {
+            position: absolute;
+            left: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size:var(--fs-xs);
+            font-weight: 900;
+            letter-spacing: 0.3px;
+            color: #000000;
+            background: #69F0AE;
+            border: 1.5px solid #000;
+            padding: 3px 8px;
+            border-radius:var(--radius-sm);
+            white-space: nowrap;
+            line-height: 1.2;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+            z-index: 3;
+            cursor: pointer;
+            transition: transform 0.12s, background 0.15s;
+        }
+        
+        .card-seg-badge:active {
+            transform: translateY(-50%) scale(0.94);
+        }
+        
+        .card-seg-badge.activo {
+            background: #FFD54F;
+            min-width: 30px;
+            justify-content: center;
         }
 
         .card-min-chips {
@@ -6888,6 +6923,44 @@
                     '<button class="btn-rest" id="btn-' + uid + '" onclick="iniciarCountdownSegGenerico(\'' + uid + '\',' + segN + ')" style="background:linear-gradient(135deg,var(--verde),#1a7a4a);color:#000;padding:8px 12px;font-size:var(--fs-xs);min-height:44px;">Iniciar cuenta regresiva (' + segN + 's)</button>' +
                     '</div>';
             }
+            // ─── INSIGNIA DE SEGUNDOS EN EL HEADER (isométricos: plancha, etc.) ───
+            // Vive en el header de la tarjeta, igual que "EJ 1/6" o "MIN 2-6",
+            // así el botón para activar el timer queda siempre a la vista
+            // sin depender de desplegar la tarjeta con el "+".
+            var _segBadgeIdx = 0;
+            var _segBadgeActivo = {};
+            function crearSegBadge(segundos) {
+                var segN = parseInt(segundos) || 0;
+                if (segN <= 0) return '';
+                var uid = 'segb-' + (_segBadgeIdx++);
+                return '<span class="card-seg-badge" id="' + uid + '" data-segundos="' + segN + '" onclick="event.stopPropagation(); iniciarCountdownSegBadge(\'' + uid + '\')">⏱ ' + segN + 's</span>';
+            }
+
+            function iniciarCountdownSegBadge(uid) {
+                var el = document.getElementById(uid);
+                if (!el || _segBadgeActivo[uid]) return;
+                var segundos = parseInt(el.getAttribute('data-segundos')) || 0;
+                if (segundos <= 0) return;
+                _segBadgeActivo[uid] = true;
+                el.classList.add('activo');
+                el.innerText = '5';
+                prepCountdown(el, null, 440, function() {
+                    var deadline = Date.now() + segundos * 1000;
+                    var iv = bgSetInterval(function() {
+                        var rem = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+                        el.innerText = formatearTiempo(rem);
+                        if (rem <= 3 && rem > 0) beep(400);
+                        if (rem <= 0) {
+                            bgClearInterval(iv);
+                            beep(800);
+                            el.classList.remove('activo');
+                            el.innerText = '⏱ ' + segundos + 's';
+                            delete _segBadgeActivo[uid];
+                        }
+                    }, 1000);
+                });
+            }
+
             function iniciarCountdownSegGenerico(uid, segundos) {
                 var btn = document.getElementById('btn-' + uid);
                 var clock = document.getElementById('clock-' + uid);
@@ -7116,9 +7189,9 @@
                             var metaExtra = desc && parseInt(desc) > 0 ? '<div style="color:var(--texto-suave);font-size:var(--fs-xs);margin-top:4px;">Pausa: ' + desc + 's</div>' : '';
                             var vFilaHtmlW = crearFilaVueltas(n, ej.reps_por_vuelta, u, wupBaseId, cc);
                             var metaVueltaW = ej.reps_por_vuelta.join('-') + ' ' + u.toUpperCase();
-                            var segTimerW1 = esSegW ? crearSegTimerHtml(ej.reps_por_vuelta[0]) : '';
+                            var badgeSegW1 = esSegW ? crearSegBadge(ej.reps_por_vuelta[0]) : '';
                             // omitirPesoGenerico=true para evitar peso duplicado (la carga por vuelta ya está en la grilla)
-                            wLista.innerHTML += crearCard(n, l, metaVueltaW, false, '', vFilaHtmlW + metaExtra + segTimerW1, true);
+                            wLista.innerHTML += crearCard(n, l, metaVueltaW, false, '', vFilaHtmlW + metaExtra, true, badgeSegW1);
 
                             // Circuito (Vueltas) con carga: mostrar reps única + inputs de carga por vuelta
                         } else if (tipo === "Circuito (Vueltas)" && cc) {
@@ -7127,8 +7200,8 @@
                             var vFilaHtmlSimple = crearFilaVueltas(n, repsArrW, u, wupBaseId, true);
                             var metaExtraW = desc && parseInt(desc) > 0 ? '<div style="color:var(--texto-suave);font-size:var(--fs-xs);margin-top:4px;">Pausa: ' + desc + 's</div>' : '';
                             var metaVueltaW2 = r ? r + ' ' + u.toUpperCase() + ' c/vuelta' : '';
-                            var segTimerW2 = esSegW ? crearSegTimerHtml(r) : '';
-                            wLista.innerHTML += crearCard(n, l, metaVueltaW2, false, '', vFilaHtmlSimple + metaExtraW + segTimerW2, true);
+                            var badgeSegW2 = esSegW ? crearSegBadge(r) : '';
+                            wLista.innerHTML += crearCard(n, l, metaVueltaW2, false, '', vFilaHtmlSimple + metaExtraW, true, badgeSegW2);
 
                             // Mostrar reps y pausa por serie si existen (Series/Reps)
                         } else if (!Array.isArray(ej) && ej.reps_por_serie && ej.reps_por_serie.length > 0) {
@@ -7137,13 +7210,13 @@
                             });
                             var vFilaHtmlSerieW = crearFilaDetalleSeries(n, ej.reps_por_serie, pausasArrW, u, wupBaseId);
                             var metaSerieW = ej.reps_por_serie.length + 'x' + ej.reps_por_serie[0] + ' ' + u.toUpperCase();
-                            var segTimerW3 = esSegW ? crearSegTimerHtml(ej.reps_por_serie[0]) : '';
-                            wLista.innerHTML += crearCard(n, l, metaSerieW, false, '', vFilaHtmlSerieW + segTimerW3, true);
+                            var badgeSegW3 = esSegW ? crearSegBadge(ej.reps_por_serie[0]) : '';
+                            wLista.innerHTML += crearCard(n, l, metaSerieW, false, '', vFilaHtmlSerieW, true, badgeSegW3);
                         } else {
                             var metaStr = r ? r + " " + u.toUpperCase() : "";
                             if (desc && parseInt(desc) > 0) metaStr += (metaStr ? ' | ' : '') + 'Pausa: ' + desc + 's';
-                            var segTimerW4 = esSegW ? crearSegTimerHtml(r) : '';
-                            wLista.innerHTML += crearCard(n, l, metaStr, cc, '', segTimerW4);
+                            var badgeSegW4 = esSegW ? crearSegBadge(r) : '';
+                            wLista.innerHTML += crearCard(n, l, metaStr, cc, '', '', false, badgeSegW4);
                         }
                     });
                 }
@@ -8621,19 +8694,19 @@
                             var conCargaEj = !!(ej.con_carga || _obtenerConCarga(ej.nombre));
                             var vFilaHtml = crearFilaVueltas(ej.nombre, ej.reps_por_vuelta, ejU, uid, conCargaEj);
                             var metaVuelta = ej.reps_por_vuelta.join('-') + ' ' + ejU;
-                            var extraSeg1 = esSeg ? crearSegTimerHtml(ej.reps_por_vuelta[0]) : '';
-                            pLista.innerHTML += crearCard(ej.nombre, ej.link, metaVuelta, false, '', vFilaHtml + extraSeg1, true);
+                            var badgeSeg1 = esSeg ? crearSegBadge(ej.reps_por_vuelta[0]) : '';
+                            pLista.innerHTML += crearCard(ej.nombre, ej.link, metaVuelta, false, '', vFilaHtml, true, badgeSeg1);
                         } else if (ej.con_carga || _obtenerConCarga(ej.nombre)) {
                             var repsArr = [];
                             for (var _vi = 0; _vi < vBloque; _vi++) repsArr.push(ej.reps || '');
                             var vFilaHtml2 = crearFilaVueltas(ej.nombre, repsArr, ejU, uid, true);
                             var metaVuelta2 = ej.reps ? ej.reps + ' ' + ejU + ' c/vuelta' : '';
-                            var extraSeg2 = esSeg ? crearSegTimerHtml(ej.reps) : '';
-                            pLista.innerHTML += crearCard(ej.nombre, ej.link, metaVuelta2, false, '', vFilaHtml2 + extraSeg2, true);
+                            var badgeSeg2 = esSeg ? crearSegBadge(ej.reps) : '';
+                            pLista.innerHTML += crearCard(ej.nombre, ej.link, metaVuelta2, false, '', vFilaHtml2, true, badgeSeg2);
                         } else {
                             var metaStr = ej.reps ? ej.reps + ' ' + ejU : '';
-                            var extraSeg3 = esSeg ? crearSegTimerHtml(ej.reps) : '';
-                            pLista.innerHTML += crearCard(ej.nombre, ej.link, metaStr, false, '', extraSeg3);
+                            var badgeSeg3 = esSeg ? crearSegBadge(ej.reps) : '';
+                            pLista.innerHTML += crearCard(ej.nombre, ej.link, metaStr, false, '', '', false, badgeSeg3);
                         }
                     });
                 });
