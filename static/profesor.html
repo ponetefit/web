@@ -9410,6 +9410,11 @@
     // fechaISO -> [codigo, codigo, ...] con la(s) rutina(s) que el alumno abrió ese día
     // (normalmente una sola, pero un alumno puede tener más de un código).
     let dashAsistenciaPorFecha = {};
+    // fechaISO -> { codigo: { pct, dia } } — progreso REAL de la rutina que el
+    // alumno.html va subiendo (misma barra de progreso que ve el alumno; "dia"
+    // solo viene si la rutina es MULTIDIA, 1-based igual que dia_N). Puede no
+    // existir para fechas viejas, de antes de que el alumno.html mandara esto.
+    let dashAsistenciaProgresoPorFecha = {};
     let dashAsistenciaUltimo = 0; // timestamp del ultimo acceso (el mas reciente entre todos sus codigos)
     let dashCalMesActivo = new Date(); // primer día del mes que se está mostrando en el calendario
     const FIREBASE_ASISTENCIA_URL_DASH = "https://ponetefit-app-default-rtdb.firebaseio.com/asistencia/";
@@ -9515,6 +9520,7 @@
                 // Asistencia: igual patrón que las cargas, un código a la vez, en paralelo.
                 dashAsistenciaFechas = new Set();
                 dashAsistenciaPorFecha = {};
+                dashAsistenciaProgresoPorFecha = {};
                 dashAsistenciaUltimo = 0;
                 const fetchesAsistencia = codigos.map(async (cod) => {
                     try {
@@ -9526,6 +9532,16 @@
                                 dashAsistenciaFechas.add(f);
                                 if (!dashAsistenciaPorFecha[f]) dashAsistenciaPorFecha[f] = [];
                                 if (!dashAsistenciaPorFecha[f].includes(cod)) dashAsistenciaPorFecha[f].push(cod);
+                                // Formato viejo: solo un timestamp (number). Formato nuevo:
+                                // {ts, pct, dia?} con el progreso real de la rutina ese día.
+                                const val = remoto.fechas[f];
+                                if (val && typeof val === 'object' && typeof val.pct === 'number') {
+                                    if (!dashAsistenciaProgresoPorFecha[f]) dashAsistenciaProgresoPorFecha[f] = {};
+                                    dashAsistenciaProgresoPorFecha[f][cod] = {
+                                        pct: val.pct,
+                                        dia: typeof val.dia === 'number' ? val.dia : null
+                                    };
+                                }
                             });
                         }
                         if (remoto.ultimo && remoto.ultimo > dashAsistenciaUltimo) {
@@ -9652,21 +9668,35 @@
         const items = codigosDia.map((cod) => {
             const r = dashRutinasData ? dashRutinasData[cod] : null;
             const tipoLabel = _pfTipoRutinaLabel(r && r.tipo);
-            const prog = _pfProgresoDelDia(r, fechaISO, cod);
+
+            // Progreso REAL que el alumno.html sube (misma barra que ve el
+            // alumno). Si no está disponible (ej: asistencia de antes de esta
+            // función, o el alumno no llegó a mover la barra), se usa como
+            // respaldo la estimación por ejercicios con carga registrada.
+            const progReal = (dashAsistenciaProgresoPorFecha[fechaISO] || {})[cod] || null;
 
             let progresoHTML = '';
-            if (prog && prog.multidia) {
-                if (prog.dia) {
-                    const pct = prog.totalEj > 0 ? Math.round(prog.hechos / prog.totalEj * 100) : 0;
-                    progresoHTML = '<div class="text-xs text-azul mt-0.5">📅 Día ' + prog.dia + ' de ' + prog.totalDias +
-                        ' · ' + prog.hechos + '/' + prog.totalEj + ' ejercicios registrados (' + pct + '%)</div>';
+            if (progReal) {
+                if (r && r.tipo === 'MULTIDIA' && progReal.dia) {
+                    const totalDias = r.total_dias || progReal.dia;
+                    progresoHTML = '<div class="text-xs text-azul mt-0.5">📅 Día ' + progReal.dia + ' de ' + totalDias +
+                        ' · ' + progReal.pct + '% de la rutina completado</div>';
                 } else {
-                    progresoHTML = '<div class="text-xs text-textoSuave mt-0.5">Multi-día (' + prog.totalDias + ' días) · sin cargas registradas ese día para identificar cuál</div>';
+                    progresoHTML = '<div class="text-xs text-azul mt-0.5">' + progReal.pct + '% de la rutina completado</div>';
                 }
-            } else if (prog && !prog.multidia) {
-                if (prog.totalEj > 0) {
+            } else {
+                const prog = _pfProgresoDelDia(r, fechaISO, cod);
+                if (prog && prog.multidia) {
+                    if (prog.dia) {
+                        const pct = prog.totalEj > 0 ? Math.round(prog.hechos / prog.totalEj * 100) : 0;
+                        progresoHTML = '<div class="text-xs text-azul mt-0.5">📅 Día ' + prog.dia + ' de ' + prog.totalDias +
+                            ' (estimado) · ' + prog.hechos + '/' + prog.totalEj + ' ejercicios registrados (' + pct + '%)</div>';
+                    } else {
+                        progresoHTML = '<div class="text-xs text-textoSuave mt-0.5">Multi-día (' + prog.totalDias + ' días) · sin datos para identificar el día</div>';
+                    }
+                } else if (prog && !prog.multidia && prog.totalEj > 0) {
                     const pct = Math.round(prog.hechos / prog.totalEj * 100);
-                    progresoHTML = '<div class="text-xs text-azul mt-0.5">' + prog.hechos + '/' + prog.totalEj + ' ejercicios registrados (' + pct + '%)</div>';
+                    progresoHTML = '<div class="text-xs text-azul mt-0.5">' + prog.hechos + '/' + prog.totalEj + ' ejercicios registrados (' + pct + '%, estimado)</div>';
                 }
             }
 
