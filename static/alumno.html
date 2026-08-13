@@ -2553,25 +2553,33 @@
             white-space: nowrap;
         }
 
-        /* ─── TARJETA GRANDE DE CUENTA REGRESIVA (aparece al tocar "Activar") ───
-               Se inserta debajo del nombre del ejercicio, mismo color que Circuito
-               (var(--azul)). Contiene el reloj grande y, en el medio, los botones
-               de Pausa y Reiniciar. */
+        /* ─── SECCIÓN DE CUENTA REGRESIVA (aparece al tocar "Activar") ───
+               Se inserta pegada debajo del header, dentro de la misma tarjeta
+               del ejercicio: no tiene bordes redondeados, sombra ni margen
+               propios, así se ve como si la tarjeta creciera para mostrar el
+               reloj y los botones de Pausa/Reiniciar, en vez de aparecer una
+               tarjeta nueva y separada. */
         .seg-expand-card {
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 10px;
-            margin: 0 0 14px 0;
-            padding: 16px 14px;
-            background: var(--azul);
-            border-radius: var(--radius-md);
-            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+            gap: 18px;
+            margin: 0;
+            padding: 12px 14px;
+            background: var(--card-color, var(--naranja));
+            border-top: 1.5px solid rgba(0, 0, 0, 0.22);
+        }
+
+        /* En las tarjetas de "Series y repeticiones" el header no usa
+           --card-color (usa un degradé verde fijo): igualamos el fondo de la
+           sección de cuenta regresiva a ese mismo degradé para que siga
+           viéndose como una continuación de la misma tarjeta. */
+        .serie-header + .seg-expand-card {
+            background: linear-gradient(135deg, var(--verde), #1a7a4a);
         }
 
         .seg-expand-time {
-            font-size: 2.4rem;
+            font-size: 2rem;
             font-weight: 900;
             font-family: 'Roboto Mono', monospace;
             color: #000000;
@@ -2584,7 +2592,6 @@
             align-items: center;
             justify-content: center;
             gap: 12px;
-            width: 100%;
         }
 
         .seg-expand-btn {
@@ -2597,8 +2604,8 @@
             background: rgba(0, 0, 0, 0.22);
             border: 1.5px solid rgba(0, 0, 0, 0.35);
             border-radius: var(--radius-sm);
-            padding: 9px 18px;
-            min-width: 92px;
+            padding: 8px 14px;
+            min-width: 80px;
         }
 
         .seg-expand-btn:active {
@@ -7243,9 +7250,8 @@
             // Se crea recién al tocar "Activar" y vive como hermana del header
             // (.card-ej-header / .serie-header), no dentro del acordeón, así queda
             // visible sin depender del "+". Mismo color que Circuito (var(--azul)).
-            function _crearSegExpandCardHtml(uid, color) {
-                var col = color || 'var(--verde)';
-                return '<div class="seg-expand-card" id="segcard-' + uid + '" style="background:' + col + ';">' +
+            function _crearSegExpandCardHtml(uid) {
+                return '<div class="seg-expand-card" id="segcard-' + uid + '">' +
                     '<div class="seg-expand-time" id="segcard-time-' + uid + '"></div>' +
                     '<div class="seg-expand-actions">' +
                     '<button type="button" class="seg-expand-btn" id="segcard-pause-' + uid + '" onclick="event.stopPropagation(); toggleSegBadge(\'' + uid + '\')">' +
@@ -7268,8 +7274,7 @@
                 }
                 var header = el.closest('.card-ej-header') || el.closest('.serie-header');
                 if (!header) return null;
-                var color = el.getAttribute('data-color') || 'var(--verde)';
-                header.insertAdjacentHTML('afterend', _crearSegExpandCardHtml(uid, color));
+                header.insertAdjacentHTML('afterend', _crearSegExpandCardHtml(uid));
                 return document.getElementById('segcard-' + uid);
             }
 
