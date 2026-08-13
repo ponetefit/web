@@ -5572,6 +5572,10 @@
                 }
                 if (pctEl) pctEl.innerText = Math.round(pct) + '%';
 
+                // Avisar al profesor cuánto lleva hecho de la rutina hoy (con
+                // pequeño debounce para no saturar Firebase en cada incremento).
+                _sincronizarProgresoAsistencia(pct);
+
                 // Mostrar pantalla de finalización al llegar al 100%
                 if (pct >= 100) {
                     setTimeout(function() {
@@ -5589,6 +5593,40 @@
                         }
                     }, 600);
                 }
+            }
+
+            // ─── SINCRONIZAR PROGRESO REAL DE LA RUTINA (para el calendario del profe) ───
+            // Además de marcar "estuvo acá" (asistencia), guardamos cuánto llevaba
+            // hecho de la rutina (el mismo % de la barra de arriba) y, si es
+            // multi-día, cuál día está haciendo. Así el profesor ve el progreso
+            // real en vez de tener que adivinarlo. Debounce para no pegarle a
+            // Firebase en cada increment de progreso.
+            var _syncProgresoTimeout = null;
+            function _sincronizarProgresoAsistencia(pct) {
+                if (!currentCode) return;
+                clearTimeout(_syncProgresoTimeout);
+                _syncProgresoTimeout = setTimeout(function() {
+                    try {
+                        var ahora = Date.now();
+                        var hoy = new Date(ahora);
+                        var fechaISO = hoy.getFullYear() + '-' +
+                            String(hoy.getMonth() + 1).padStart(2, '0') + '-' +
+                            String(hoy.getDate()).padStart(2, '0');
+                        var base = FIREBASE_ASISTENCIA_URL + encodeURIComponent(currentCode) + '/';
+                        var payload = { ts: ahora, pct: Math.round(Math.min(100, Math.max(0, pct))) };
+                        if (esMultidia) payload.dia = diaActivo + 1; // 1-based, igual que dia_N en la rutina
+                        fetch(base + 'fechas/' + fechaISO + '.json', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        }).catch(function() {});
+                        fetch(base + 'ultimo.json', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(ahora)
+                        }).catch(function() {});
+                    } catch (e) {}
+                }, 1200);
             }
 
             // ─── TIEMPO DE SESIÓN ───
