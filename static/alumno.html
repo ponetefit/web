@@ -2357,6 +2357,16 @@
             transition: transform 0.12s, background 0.15s;
         }
 
+        /* ─── Ancho y alto compartidos por el reloj en cuenta regresiva, el botón
+               de pausa y el botón de reiniciar, para que los tres se vean parejos ─── */
+        .card-seg-badge.activo,
+        .csb-reset,
+        .csb-pause {
+            width: 72px;
+            height: 72px;
+            box-sizing: border-box;
+        }
+
         .csb-wrap {
             position: absolute;
             left: 8px;
@@ -2389,6 +2399,7 @@
         
         .card-seg-badge.activo {
             background: #FFD54F;
+            padding: 4px 6px;
         }
         
         .card-seg-badge.activo .csb-activar {
@@ -2403,6 +2414,10 @@
             background: #FFAB40;
         }
 
+        .card-seg-badge.pausado .csb-time {
+            font-size: 1.05rem;
+        }
+
         .csb-reset {
             display: none;
             flex-direction: column;
@@ -2410,7 +2425,7 @@
             justify-content: center;
             gap: 2px;
             cursor: pointer;
-            padding: 6px 8px;
+            padding: 4px 6px;
             background: #D32F2F;
             border: 1.5px solid #D32F2F;
             border-radius: var(--radius-sm);
@@ -2450,7 +2465,7 @@
             justify-content: center;
             gap: 2px;
             cursor: pointer;
-            padding: 6px 8px;
+            padding: 4px 6px;
             background: #FF6F00;
             border: 1.5px solid #FF6F00;
             border-radius: var(--radius-sm);
@@ -7166,12 +7181,15 @@
                 st.intervalId = bgSetInterval(function() {
                     var rem = Math.max(0, Math.round((deadline - Date.now()) / 1000));
                     st.restante = rem;
-                    timeEl.innerText = formatearTiempo(rem);
+                    var texto = formatearTiempo(rem);
+                    timeEl.innerText = texto;
+                    timeEl.style.fontSize = String(texto).length >= 4 ? '1.3rem' : '';
                     if (rem <= 3 && rem > 0) beep(400);
                     if (rem <= 0) {
                         bgClearInterval(st.intervalId);
                         beep(800);
                         el.classList.remove('activo', 'pausado');
+                        timeEl.style.fontSize = '';
                         timeEl.innerText = '⏱ ' + total + 's';
                         delete _segBadgeState[uid];
                         _actualizarBotonPausaSegBadge(uid, false);
@@ -7190,7 +7208,10 @@
                 el.classList.remove('activo', 'pausado');
                 var timeEl = el.querySelector('.csb-time');
                 var total = parseInt(el.getAttribute('data-segundos')) || 0;
-                if (timeEl) timeEl.innerText = '⏱ ' + total + 's';
+                if (timeEl) {
+                    timeEl.style.fontSize = '';
+                    timeEl.innerText = '⏱ ' + total + 's';
+                }
                 _actualizarBotonPausaSegBadge(uid, false);
             }
 
