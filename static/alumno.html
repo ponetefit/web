@@ -7285,6 +7285,24 @@
                     '</span>';
             }
 
+            // Ajusta el padding del header según si el badge de segundos está
+            // visible (en reposo) u oculto (reloj corriendo/pausado). Se maneja
+            // por JS -y no solo por CSS :has()- para que funcione también en
+            // navegadores/webviews que no soportan :has().
+            function _actualizarPaddingHeaderSeg(el) {
+                var header = el.closest('.card-ej-header') || el.closest('.serie-header');
+                if (!header) return;
+                var wrap = el.closest('.csb-wrap');
+                var oculto = wrap && wrap.classList.contains('csb-oculto');
+                if (oculto) {
+                    header.style.paddingLeft = '';
+                    header.style.paddingRight = '';
+                } else {
+                    header.style.paddingLeft = '100px';
+                    header.style.paddingRight = '100px';
+                }
+            }
+
             function toggleSegBadge(uid) {
                 var el = document.getElementById(uid);
                 if (!el) return;
@@ -7305,6 +7323,7 @@
                     // así no queda duplicado.
                     var wrapInicio = el.closest('.csb-wrap');
                     if (wrapInicio) wrapInicio.classList.add('csb-oculto');
+                    _actualizarPaddingHeaderSeg(el);
                     _mostrarSegExpandCard(uid, el);
                     _correrPrepSegBadge(uid, el, timeEl);
                     return;
@@ -7400,6 +7419,7 @@
                         _ocultarSegExpandCard(uid);
                         var wrapFin = el.closest('.csb-wrap');
                         if (wrapFin) wrapFin.classList.remove('csb-oculto');
+                        _actualizarPaddingHeaderSeg(el);
                         delete _segBadgeState[uid];
                         _actualizarBotonPausaSegBadge(uid, false);
                     }
@@ -7421,6 +7441,7 @@
                 _ocultarSegExpandCard(uid);
                 var wrapReinicio = el.closest('.csb-wrap');
                 if (wrapReinicio) wrapReinicio.classList.remove('csb-oculto');
+                _actualizarPaddingHeaderSeg(el);
                 _actualizarBotonPausaSegBadge(uid, false);
             }
 
@@ -9043,6 +9064,9 @@
                         pLista.innerHTML += crearCard(n, l, "", cc);
                     });
                 }
+                // Asegura que el nombre del ejercicio nunca quede tapado por el botón
+                // "Activar" del reloj de segundos, sin depender de soporte de :has() en CSS.
+                document.querySelectorAll('.card-seg-badge').forEach(_actualizarPaddingHeaderSeg);
             }
 
             // ─── MODO SERIES ───
