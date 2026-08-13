@@ -2378,6 +2378,14 @@
             gap: 6px;
             z-index: 3;
         }
+
+        /* Mientras el reloj corre (o está en pausa) la cuenta regresiva y los
+           botones de pausa/reiniciar se muestran solo en la tarjeta grande de
+           abajo (.seg-expand-card): el badge de arriba queda oculto para no
+           duplicar el reloj ni los botones. */
+        .csb-wrap.csb-oculto {
+            display: none;
+        }
         
         .card-seg-badge:active {
             transform: scale(0.94);
@@ -7254,6 +7262,11 @@
                     _segBadgeState[uid] = { fase: 'prep', estado: 'corriendo', restante: 5, total: total, nombre: nombre };
                     el.classList.add('activo');
                     el.classList.remove('pausado');
+                    // La cuenta regresiva y los botones de pausa/reiniciar quedan solo en
+                    // la tarjeta grande de abajo: ocultamos el badge de arriba mientras corre,
+                    // así no queda duplicado.
+                    var wrapInicio = el.closest('.csb-wrap');
+                    if (wrapInicio) wrapInicio.classList.add('csb-oculto');
                     _mostrarSegExpandCard(uid, el);
                     _correrPrepSegBadge(uid, el, timeEl);
                     return;
@@ -7347,6 +7360,8 @@
                         el.classList.remove('activo', 'pausado');
                         _setSegTiempo(uid, timeEl, '⏱ ' + total + 's', false);
                         _ocultarSegExpandCard(uid);
+                        var wrapFin = el.closest('.csb-wrap');
+                        if (wrapFin) wrapFin.classList.remove('csb-oculto');
                         delete _segBadgeState[uid];
                         _actualizarBotonPausaSegBadge(uid, false);
                     }
@@ -7366,6 +7381,8 @@
                 var total = parseInt(el.getAttribute('data-segundos')) || 0;
                 _setSegTiempo(uid, timeEl, '⏱ ' + total + 's', false);
                 _ocultarSegExpandCard(uid);
+                var wrapReinicio = el.closest('.csb-wrap');
+                if (wrapReinicio) wrapReinicio.classList.remove('csb-oculto');
                 _actualizarBotonPausaSegBadge(uid, false);
             }
 
