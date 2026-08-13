@@ -2336,20 +2336,20 @@
             top: 50%;
             transform: translateY(-50%);
             display: inline-flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 3px;
+            gap: 1px;
             min-width: 52px;
-            font-size:var(--fs-sm);
             font-weight: 900;
             letter-spacing: 0.3px;
             color: #000000;
             background: #69F0AE;
             border: 1.5px solid #000;
-            padding: 5px 10px;
+            padding: 4px 10px;
             border-radius:var(--radius-sm);
             white-space: nowrap;
-            line-height: 1.2;
+            line-height: 1.1;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
             z-index: 3;
             cursor: pointer;
@@ -2360,11 +2360,30 @@
             transform: translateY(-50%) scale(0.94);
         }
         
+        .card-seg-badge .csb-time {
+            font-size:var(--fs-sm);
+            font-weight: 900;
+        }
+        
+        .card-seg-badge .csb-activar {
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            opacity: 0.82;
+        }
+        
         .card-seg-badge.activo {
             background: #FFD54F;
+        }
+        
+        .card-seg-badge.activo .csb-time {
             font-size:var(--fs-lg);
-            padding: 6px 14px;
             font-family: 'Roboto Mono', monospace;
+        }
+        
+        .card-seg-badge.activo .csb-activar {
+            display: none;
         }
         
         .serie-header:has(.card-seg-badge) {
@@ -6926,8 +6945,8 @@
                 var segN = parseInt(segundos) || 0;
                 if (segN <= 0) return '';
                 return '<div style="margin-top:8px;text-align:center;">' +
-                    '<div class="timer-display" id="clock-' + uid + '" style="display:none;"></div>' +
-                    '<button class="btn-rest" id="btn-' + uid + '" onclick="iniciarCountdownSegGenerico(\'' + uid + '\',' + segN + ')" style="background:linear-gradient(135deg,var(--verde),#1a7a4a);color:#000;padding:8px 12px;font-size:var(--fs-xs);min-height:44px;">Iniciar cuenta regresiva (' + segN + 's)</button>' +
+                    '<div class="timer-display" id="clock-' + uid + '">' + formatearTiempo(segN) + '</div>' +
+                    '<button class="btn-rest" id="btn-' + uid + '" onclick="iniciarCountdownSegGenerico(\'' + uid + '\',' + segN + ')" style="background:linear-gradient(135deg,var(--verde),#1a7a4a);color:#000;padding:8px 12px;font-size:var(--fs-xs);min-height:44px;">Activar</button>' +
                     '</div>';
             }
             // ─── INSIGNIA DE SEGUNDOS EN EL HEADER (isométricos: plancha, etc.) ───
@@ -6940,7 +6959,10 @@
                 var segN = parseInt(segundos) || 0;
                 if (segN <= 0) return '';
                 var uid = 'segb-' + (_segBadgeIdx++);
-                return '<span class="card-seg-badge" id="' + uid + '" data-segundos="' + segN + '" onclick="event.stopPropagation(); iniciarCountdownSegBadge(\'' + uid + '\')">⏱ ' + segN + 's</span>';
+                return '<span class="card-seg-badge" id="' + uid + '" data-segundos="' + segN + '" onclick="event.stopPropagation(); iniciarCountdownSegBadge(\'' + uid + '\')">' +
+                    '<span class="csb-time">⏱ ' + segN + 's</span>' +
+                    '<span class="csb-activar">Activar</span>' +
+                    '</span>';
             }
 
             function iniciarCountdownSegBadge(uid) {
@@ -6948,20 +6970,21 @@
                 if (!el || _segBadgeActivo[uid]) return;
                 var segundos = parseInt(el.getAttribute('data-segundos')) || 0;
                 if (segundos <= 0) return;
+                var timeEl = el.querySelector('.csb-time') || el;
                 _segBadgeActivo[uid] = true;
                 el.classList.add('activo');
-                el.innerText = '5';
-                prepCountdown(el, null, 440, function() {
+                timeEl.innerText = '5';
+                prepCountdown(timeEl, null, 440, function() {
                     var deadline = Date.now() + segundos * 1000;
                     var iv = bgSetInterval(function() {
                         var rem = Math.max(0, Math.round((deadline - Date.now()) / 1000));
-                        el.innerText = formatearTiempo(rem);
+                        timeEl.innerText = formatearTiempo(rem);
                         if (rem <= 3 && rem > 0) beep(400);
                         if (rem <= 0) {
                             bgClearInterval(iv);
                             beep(800);
                             el.classList.remove('activo');
-                            el.innerText = '⏱ ' + segundos + 's';
+                            timeEl.innerText = '⏱ ' + segundos + 's';
                             delete _segBadgeActivo[uid];
                         }
                     }, 1000);
@@ -6986,10 +7009,10 @@
                         if (rem <= 0) {
                             bgClearInterval(iv);
                             beep(800);
-                            if (clock) clock.style.display = 'none';
+                            if (clock) clock.innerText = formatearTiempo(segundos);
                             if (btn) {
                                 btn.disabled = false;
-                                btn.innerText = 'Iniciar cuenta regresiva (' + segundos + 's)';
+                                btn.innerText = 'Activar';
                             }
                         }
                     }, 1000);
@@ -10536,21 +10559,26 @@
             function crearSegBadgeSerie(i, segundos, pausaBoton) {
                 var segN = parseInt(segundos) || 0;
                 if (segN <= 0) return '';
-                return '<span class="card-seg-badge" id="segb-serie-' + i + '" onclick="event.stopPropagation(); iniciarCountdownSeg(' + i + ',' + pausaBoton + ')">⏱ ' + segN + 's</span>';
+                return '<span class="card-seg-badge" id="segb-serie-' + i + '" onclick="event.stopPropagation(); iniciarCountdownSeg(' + i + ',' + pausaBoton + ')">' +
+                    '<span class="csb-time">⏱ ' + segN + 's</span>' +
+                    '<span class="csb-activar">Activar</span>' +
+                    '</span>';
             }
 
             // ─── CUENTA REGRESIVA POR EJERCICIO EN SEGUNDOS (isométricos: plancha, etc.) ───
             // Reutiliza prepCountdown()/beep() (las mismas de Tabata/EMOM) para el 5-4-3-2-1
             // y luego cuenta los segundos configurados hasta 0, marcando la serie sola al llegar a 0.
-            // El reloj se muestra en la insignia del header (grande, visible); el timer/botón
-            // de abajo se mantiene oculto pero funcional, para no romper el descanso post-serie.
+            // El reloj se muestra en la insignia del header (grande, visible, con la leyenda
+            // "Activar" debajo del tiempo); el timer/botón de abajo se mantiene oculto pero
+            // funcional, para no romper el descanso post-serie.
             var _segCountdownIntervals = {};
             function iniciarCountdownSeg(i, pausaBoton) {
                 var btn = document.getElementById('btn-' + i);
                 if (btn && btn.disabled) return;
                 var timer = document.getElementById('timer-' + i);
                 var badge = document.getElementById('segb-serie-' + i);
-                var displayEl = badge || timer;
+                var timeEl = badge ? (badge.querySelector('.csb-time') || badge) : null;
+                var displayEl = timeEl || timer;
                 var rEl = document.getElementById('r-val-' + i);
                 var segundos = parseInt(rEl ? rEl.innerText : '') || 0;
                 if (segundos <= 0) {
@@ -10571,8 +10599,12 @@
                             beep(800);
                             if (badge) {
                                 badge.classList.remove('activo');
-                                badge.innerText = '⏱ ' + segundos + 's';
+                                displayEl.innerText = '⏱ ' + segundos + 's';
                             }
+                            // Reactivar el botón ANTES de marcar la serie: marcarSerie()
+                            // aborta si el botón sigue disabled, lo que dejaba la serie
+                            // sin marcar y la pausa sin activarse al terminar el conteo.
+                            if (btn) btn.disabled = false;
                             marcarSerieConPausa(i, pausaBoton);
                         }
                     }, 1000);
@@ -10614,7 +10646,8 @@
                     if (_esSegData[i] && rEl) {
                         var segBadgeEl = document.getElementById('segb-serie-' + i);
                         if (segBadgeEl && !segBadgeEl.classList.contains('activo')) {
-                            segBadgeEl.innerText = '⏱ ' + rEl.innerText + 's';
+                            var segBadgeTimeEl = segBadgeEl.querySelector('.csb-time') || segBadgeEl;
+                            segBadgeTimeEl.innerText = '⏱ ' + rEl.innerText + 's';
                         }
                     }
                     // Actualizar descanso
