@@ -2398,6 +2398,36 @@
             font-size: 1.3rem;
         }
 
+        .card-seg-badge .csb-reset {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1px;
+            margin-top: 3px;
+            padding-top: 3px;
+            border-top: 1px solid rgba(0,0,0,0.25);
+            width: 100%;
+        }
+
+        .card-seg-badge.activo .csb-reset {
+            display: flex;
+        }
+
+        .card-seg-badge .csb-reset-icon {
+            font-size: 1.05rem;
+            line-height: 1;
+            color: #D32F2F;
+        }
+
+        .card-seg-badge .csb-reset-label {
+            font-size: 8px;
+            font-weight: 900;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            color: #D32F2F;
+        }
+
         .card-min-chips {
             display: flex;
             flex-wrap: wrap;
@@ -6973,6 +7003,10 @@
                 return '<span class="card-seg-badge" id="' + uid + '" data-segundos="' + segN + '" data-nombre="' + safeNombre + '" onclick="event.stopPropagation(); toggleSegBadge(\'' + uid + '\')">' +
                     '<span class="csb-activar">Activar</span>' +
                     '<span class="csb-time">⏱ ' + segN + 's</span>' +
+                    '<span class="csb-reset" onclick="event.stopPropagation(); reiniciarSegBadge(\'' + uid + '\')">' +
+                        '<span class="csb-reset-icon">↺</span>' +
+                        '<span class="csb-reset-label">Reiniciar</span>' +
+                    '</span>' +
                     '</span>';
             }
 
@@ -7004,8 +7038,7 @@
                     if (st.intervalId) bgClearInterval(st.intervalId);
                     st.estado = 'pausado';
                     el.classList.add('pausado');
-                    var label = st.fase === 'prep' ? st.restante : formatearTiempo(st.restante);
-                    timeEl.innerText = '⏸ ' + label;
+                    timeEl.innerText = 'Pausa';
                     return;
                 }
 
@@ -7066,6 +7099,20 @@
                         delete _segBadgeState[uid];
                     }
                 }, 1000);
+            }
+
+            // Reinicia el badge de segundos a su estado inicial ("Activar"), cancelando
+            // cualquier cuenta en curso (corriendo o en pausa).
+            function reiniciarSegBadge(uid) {
+                var el = document.getElementById(uid);
+                if (!el) return;
+                var st = _segBadgeState[uid];
+                if (st && st.intervalId) bgClearInterval(st.intervalId);
+                delete _segBadgeState[uid];
+                el.classList.remove('activo', 'pausado');
+                var timeEl = el.querySelector('.csb-time');
+                var total = parseInt(el.getAttribute('data-segundos')) || 0;
+                if (timeEl) timeEl.innerText = '⏱ ' + total + 's';
             }
 
             function iniciarCountdownSegGenerico(uid, segundos) {
