@@ -6965,11 +6965,12 @@
             // al llegar a 0 vuelve a quedar lista para arrancar de nuevo (reinicio).
             var _segBadgeIdx = 0;
             var _segBadgeState = {}; // uid → {estado:'prep'|'corriendo'|'pausado', restante, total, intervalId}
-            function crearSegBadge(segundos) {
+            function crearSegBadge(segundos, nombre) {
                 var segN = parseInt(segundos) || 0;
                 if (segN <= 0) return '';
                 var uid = 'segb-' + (_segBadgeIdx++);
-                return '<span class="card-seg-badge" id="' + uid + '" data-segundos="' + segN + '" onclick="event.stopPropagation(); toggleSegBadge(\'' + uid + '\')">' +
+                var safeNombre = (nombre || '').replace(/"/g, '&quot;');
+                return '<span class="card-seg-badge" id="' + uid + '" data-segundos="' + segN + '" data-nombre="' + safeNombre + '" onclick="event.stopPropagation(); toggleSegBadge(\'' + uid + '\')">' +
                     '<span class="csb-activar">Activar</span>' +
                     '<span class="csb-time">⏱ ' + segN + 's</span>' +
                     '</span>';
@@ -6985,36 +6986,70 @@
                 if (!st) {
                     var total = parseInt(el.getAttribute('data-segundos')) || 0;
                     if (total <= 0) return;
-                    _segBadgeState[uid] = { estado: 'prep', restante: total, total: total };
+                    var nombre = el.getAttribute('data-nombre') || '';
+                    if (nombre) hablarCoach('Arrancamos con ' + nombre + '.');
+                    _segBadgeState[uid] = { fase: 'prep', estado: 'corriendo', restante: 5, total: total, nombre: nombre };
                     el.classList.add('activo');
                     el.classList.remove('pausado');
-                    timeEl.innerText = '5';
-                    prepCountdown(timeEl, null, 440, function() {
-                        _correrSegBadge(uid, el, timeEl, total);
-                    });
+                    _correrPrepSegBadge(uid, el, timeEl);
                     return;
                 }
 
-                // Durante el 5-4-3-2-1 inicial no se puede pausar (dura muy poco).
-                if (st.estado === 'prep') return;
+                // Breve transición automática entre el "5-4-3-2-1" y el arranque real: no tocar.
+                if (st.transicion) return;
 
                 if (st.estado === 'corriendo') {
-                    // Pausar: congelar el tiempo restante donde está.
-                    bgClearInterval(st.intervalId);
+                    // Pausar: congelar el tiempo restante donde está (funciona tanto en el
+                    // 5-4-3-2-1 inicial como en la cuenta principal).
+                    if (st.intervalId) bgClearInterval(st.intervalId);
                     st.estado = 'pausado';
                     el.classList.add('pausado');
-                    timeEl.innerText = '⏸ ' + formatearTiempo(st.restante);
+                    var label = st.fase === 'prep' ? st.restante : formatearTiempo(st.restante);
+                    timeEl.innerText = '⏸ ' + label;
                     return;
                 }
 
-                // Estaba pausado: reanudar desde donde quedó.
-                _correrSegBadge(uid, el, timeEl, st.restante);
+                // Estaba pausado: reanudar desde la fase donde quedó.
+                if (st.fase === 'prep') {
+                    _correrPrepSegBadge(uid, el, timeEl);
+                } else {
+                    _correrSegBadge(uid, el, timeEl, st.restante);
+                }
+            }
+
+            // Cuenta regresiva "5-4-3-2-1" inicial del badge, ahora pausable igual que
+            // la cuenta principal. Al llegar a cero avisa "Vamos, dale!" y arranca la cuenta real.
+            function _correrPrepSegBadge(uid, el, timeEl) {
+                var st = _segBadgeState[uid];
+                st.fase = 'prep';
+                st.estado = 'corriendo';
+                el.classList.remove('pausado');
+                timeEl.innerText = st.restante;
+                st.intervalId = bgSetInterval(function() {
+                    beep(440);
+                    st.restante--;
+                    if (st.restante > 0) {
+                        timeEl.innerText = st.restante;
+                    } else {
+                        bgClearInterval(st.intervalId);
+                        st.intervalId = null;
+                        timeEl.innerText = '';
+                        hablarCoach('Vamos, dale!');
+                        st.transicion = true;
+                        setTimeout(function() {
+                            if (!_segBadgeState[uid]) return; // se canceló/reinició mientras tanto
+                            st.transicion = false;
+                            _correrSegBadge(uid, el, timeEl, st.total);
+                        }, 600);
+                    }
+                }, 1000);
             }
 
             function _correrSegBadge(uid, el, timeEl, segundosRestantes) {
                 var prevState = _segBadgeState[uid];
                 var total = prevState ? prevState.total : segundosRestantes;
-                var st = { estado: 'corriendo', restante: segundosRestantes, total: total };
+                var nombre = prevState ? prevState.nombre : '';
+                var st = { fase: 'main', estado: 'corriendo', restante: segundosRestantes, total: total, nombre: nombre };
                 _segBadgeState[uid] = st;
                 el.classList.remove('pausado');
                 var deadline = Date.now() + segundosRestantes * 1000;
@@ -7261,7 +7296,7 @@
                             var metaExtra = desc && parseInt(desc) > 0 ? '<div style="color:var(--texto-suave);font-size:var(--fs-xs);margin-top:4px;">Pausa: ' + desc + 's</div>' : '';
                             var vFilaHtmlW = crearFilaVueltas(n, ej.reps_por_vuelta, u, wupBaseId, cc);
                             var metaVueltaW = ej.reps_por_vuelta.join('-') + ' ' + u.toUpperCase();
-                            var badgeSegW1 = esSegW ? crearSegBadge(ej.reps_por_vuelta[0]) : '';
+                            var badgeSegW1 = esSegW ? crearSegBadge(ej.reps_por_vuelta[0], n) : '';
                             // omitirPesoGenerico=true para evitar peso duplicado (la carga por vuelta ya está en la grilla)
                             wLista.innerHTML += crearCard(n, l, metaVueltaW, false, '', vFilaHtmlW + metaExtra, true, badgeSegW1);
 
@@ -7272,7 +7307,7 @@
                             var vFilaHtmlSimple = crearFilaVueltas(n, repsArrW, u, wupBaseId, true);
                             var metaExtraW = desc && parseInt(desc) > 0 ? '<div style="color:var(--texto-suave);font-size:var(--fs-xs);margin-top:4px;">Pausa: ' + desc + 's</div>' : '';
                             var metaVueltaW2 = r ? r + ' ' + u.toUpperCase() + ' c/vuelta' : '';
-                            var badgeSegW2 = esSegW ? crearSegBadge(r) : '';
+                            var badgeSegW2 = esSegW ? crearSegBadge(r, n) : '';
                             wLista.innerHTML += crearCard(n, l, metaVueltaW2, false, '', vFilaHtmlSimple + metaExtraW, true, badgeSegW2);
 
                             // Mostrar reps y pausa por serie si existen (Series/Reps)
@@ -7282,12 +7317,12 @@
                             });
                             var vFilaHtmlSerieW = crearFilaDetalleSeries(n, ej.reps_por_serie, pausasArrW, u, wupBaseId);
                             var metaSerieW = ej.reps_por_serie.length + 'x' + ej.reps_por_serie[0] + ' ' + u.toUpperCase();
-                            var badgeSegW3 = esSegW ? crearSegBadge(ej.reps_por_serie[0]) : '';
+                            var badgeSegW3 = esSegW ? crearSegBadge(ej.reps_por_serie[0], n) : '';
                             wLista.innerHTML += crearCard(n, l, metaSerieW, false, '', vFilaHtmlSerieW, true, badgeSegW3);
                         } else {
                             var metaStr = r ? r + " " + u.toUpperCase() : "";
                             if (desc && parseInt(desc) > 0) metaStr += (metaStr ? ' | ' : '') + 'Pausa: ' + desc + 's';
-                            var badgeSegW4 = esSegW ? crearSegBadge(r) : '';
+                            var badgeSegW4 = esSegW ? crearSegBadge(r, n) : '';
                             wLista.innerHTML += crearCard(n, l, metaStr, cc, '', '', false, badgeSegW4);
                         }
                     });
@@ -8724,7 +8759,7 @@
                         '<img src="' + _s1ThumbUrl + '" alt="" loading="lazy">' +
                         '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div></div>' : '<div class="card-thumb sin-video"><svg class="sinvideo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg><span>Sin video</span></div>';
                     var _s1Vt = crearVideoToggle(_s1ThumbHtml + serieDetalle);
-                    var _s1SegBadge = esSegSerie1 ? crearSegBadge(_segBadgeVal1) : '';
+                    var _s1SegBadge = esSegSerie1 ? crearSegBadge(_segBadgeVal1, ej.nombre) : '';
                     pLista.innerHTML += '<div class="serie-card">' +
                         '<div class="serie-header">' + _s1SegBadge + '<span class="serie-nombre">' + ej.nombre + '</span>' + _s1Vt.btn + '</div>' +
                         '<div class="serie-body">' +
@@ -8769,18 +8804,18 @@
                             var conCargaEj = !!(ej.con_carga || _obtenerConCarga(ej.nombre));
                             var vFilaHtml = crearFilaVueltas(ej.nombre, ej.reps_por_vuelta, ejU, uid, conCargaEj);
                             var metaVuelta = ej.reps_por_vuelta.join('-') + ' ' + ejU;
-                            var badgeSeg1 = esSeg ? crearSegBadge(ej.reps_por_vuelta[0]) : '';
+                            var badgeSeg1 = esSeg ? crearSegBadge(ej.reps_por_vuelta[0], ej.nombre) : '';
                             pLista.innerHTML += crearCard(ej.nombre, ej.link, metaVuelta, false, '', vFilaHtml, true, badgeSeg1);
                         } else if (ej.con_carga || _obtenerConCarga(ej.nombre)) {
                             var repsArr = [];
                             for (var _vi = 0; _vi < vBloque; _vi++) repsArr.push(ej.reps || '');
                             var vFilaHtml2 = crearFilaVueltas(ej.nombre, repsArr, ejU, uid, true);
                             var metaVuelta2 = ej.reps ? ej.reps + ' ' + ejU + ' c/vuelta' : '';
-                            var badgeSeg2 = esSeg ? crearSegBadge(ej.reps) : '';
+                            var badgeSeg2 = esSeg ? crearSegBadge(ej.reps, ej.nombre) : '';
                             pLista.innerHTML += crearCard(ej.nombre, ej.link, metaVuelta2, false, '', vFilaHtml2, true, badgeSeg2);
                         } else {
                             var metaStr = ej.reps ? ej.reps + ' ' + ejU : '';
-                            var badgeSeg3 = esSeg ? crearSegBadge(ej.reps) : '';
+                            var badgeSeg3 = esSeg ? crearSegBadge(ej.reps, ej.nombre) : '';
                             pLista.innerHTML += crearCard(ej.nombre, ej.link, metaStr, false, '', '', false, badgeSeg3);
                         }
                     });
@@ -9198,13 +9233,13 @@
                                 var conCargaEj = !!(ej.con_carga || _obtenerConCarga(ej.nombre));
                                 var vFilaHtml = crearFilaVueltas(ej.nombre, ej.reps_por_vuelta, ejU, uid + '-circ-v-' + (b.id || 1) + '-' + (ej.nombre || '').replace(/\s/g, ''), conCargaEj);
                                 var metaVueltaMix = ej.reps_por_vuelta.join('-') + ' ' + ejU;
-                                var badgeSegMix1 = esSegMix ? crearSegBadge(ej.reps_por_vuelta[0]) : '';
+                                var badgeSegMix1 = esSegMix ? crearSegBadge(ej.reps_por_vuelta[0], ej.nombre) : '';
                                 // omitirPesoGenerico=true para evitar peso duplicado (la carga por vuelta ya está en la grilla)
                                 html += crearCard(ej.nombre, ej.link, metaVueltaMix, false, '', vFilaHtml + descExtra, true, badgeSegMix1);
                             } else {
                                 var metaStr = (ej.reps || "") + " " + ejU;
                                 if (ej.descanso && parseInt(ej.descanso) > 0) metaStr += ' | Pausa: ' + ej.descanso + 's';
-                                var badgeSegMix2 = esSegMix ? crearSegBadge(ej.reps) : '';
+                                var badgeSegMix2 = esSegMix ? crearSegBadge(ej.reps, ej.nombre) : '';
                                 html += crearCard(ej.nombre, ej.link, metaStr, ej.con_carga, '', '', false, badgeSegMix2);
                             }
                         });
@@ -10388,7 +10423,7 @@
                         '<img src="' + _s2ThumbUrl + '" alt="" loading="lazy">' +
                         '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div></div>' : '<div class="card-thumb sin-video"><svg class="sinvideo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg><span>Sin video</span></div>';
                     var _s2Vt = crearVideoToggle(_s2ThumbHtml + serieDetalle);
-                    var _s2SegBadge = esSegSerie2 ? crearSegBadge(_segBadgeVal2) : '';
+                    var _s2SegBadge = esSegSerie2 ? crearSegBadge(_segBadgeVal2, nombre) : '';
                     html += '<div class="serie-card">' +
                         '<div class="serie-header">' + _s2SegBadge + '<span class="serie-nombre">' + nombre + '</span>' + _s2Vt.btn + '</div>' +
                         '<div class="serie-body">' +
