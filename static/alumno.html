@@ -2497,6 +2497,76 @@
             white-space: nowrap;
         }
 
+        /* ─── TARJETA GRANDE DE CUENTA REGRESIVA (aparece al tocar "Activar") ───
+               Se inserta debajo del nombre del ejercicio, mismo color que Circuito
+               (var(--azul)). Contiene el reloj grande y, en el medio, los botones
+               de Pausa y Reiniciar. */
+        .seg-expand-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 0 14px 14px 14px;
+            padding: 16px 14px;
+            background: linear-gradient(135deg, var(--azul), #0288d1);
+            border-radius: var(--radius-md);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .seg-expand-time {
+            font-size: 2.4rem;
+            font-weight: 900;
+            font-family: 'Roboto Mono', monospace;
+            color: #000000;
+            line-height: 1;
+            min-height: 1.2em;
+        }
+
+        .seg-expand-actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .seg-expand-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            cursor: pointer;
+            background: rgba(0, 0, 0, 0.22);
+            border: 1.5px solid rgba(0, 0, 0, 0.35);
+            border-radius: var(--radius-sm);
+            padding: 9px 18px;
+            min-width: 92px;
+        }
+
+        .seg-expand-btn:active {
+            transform: scale(0.95);
+        }
+
+        .seg-expand-icon {
+            display: flex;
+            line-height: 1;
+        }
+
+        .seg-expand-icon svg {
+            display: block;
+        }
+
+        .seg-expand-label {
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            color: #000000;
+            white-space: nowrap;
+        }
+
         .card-min-chips {
             display: flex;
             flex-wrap: wrap;
@@ -6275,6 +6345,9 @@
                     }
                     dataGlobal = data;
                     currentCode = cod;
+                    // Avisar al profesor: registrar que el alumno entró hoy a su rutina.
+                    // No bloquea la carga de la rutina si falla (fire-and-forget).
+                    _registrarAsistencia(cod);
                     // Traer del servidor las cargas que el alumno haya guardado desde
                     // otros dispositivos, para que aparezcan también en este.
                     await sincronizarCargasDesdeNube(cod);
@@ -6401,6 +6474,7 @@
             // alumno abre la app en otro dispositivo (casa, gimnasio, celular, etc.)
             // pueda ver y seguir usando los últimos pesos que cargó.
             var FIREBASE_CARGAS_URL = "https://ponetefit-app-default-rtdb.firebaseio.com/cargas/";
+            var FIREBASE_ASISTENCIA_URL = "https://ponetefit-app-default-rtdb.firebaseio.com/asistencia/";
 
             function _cargaNombreNorm(nombreEj) {
                 return (nombreEj || '').toUpperCase().trim().replace(/[.#$\[\]\/]/g, '_');
@@ -6504,6 +6578,34 @@
                     }
                 } catch (e) {
                     // Sin conexión: seguimos usando lo que ya haya en este dispositivo
+                }
+            }
+
+            // ─── REGISTRAR ASISTENCIA (avisar al profesor que el alumno entró) ───
+            // Guarda, por código de rutina, la fecha de hoy (para el calendario del
+            // profesor) y el timestamp del último acceso (para el indicador "Entrenó
+            // hoy" en su lista de alumnos). No bloquea nada si falla: es informativo.
+            function _registrarAsistencia(cod) {
+                if (!cod) return;
+                try {
+                    var ahora = Date.now();
+                    var hoy = new Date(ahora);
+                    var fechaISO = hoy.getFullYear() + '-' +
+                        String(hoy.getMonth() + 1).padStart(2, '0') + '-' +
+                        String(hoy.getDate()).padStart(2, '0');
+                    var base = FIREBASE_ASISTENCIA_URL + encodeURIComponent(cod) + '/';
+                    fetch(base + 'fechas/' + fechaISO + '.json', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(ahora)
+                    }).catch(function() {});
+                    fetch(base + 'ultimo.json', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(ahora)
+                    }).catch(function() {});
+                } catch (e) {
+                    // Si falla, no interrumpe la carga de la rutina del alumno
                 }
             }
 
@@ -7067,6 +7169,55 @@
 
             var _segBadgeIdx = 0;
             var _segBadgeState = {}; // uid → {estado:'prep'|'corriendo'|'pausado', restante, total, intervalId}
+
+            // ─── TARJETA GRANDE DE CUENTA REGRESIVA (debajo del nombre del ejercicio) ───
+            // Se crea recién al tocar "Activar" y vive como hermana del header
+            // (.card-ej-header / .serie-header), no dentro del acordeón, así queda
+            // visible sin depender del "+". Mismo color que Circuito (var(--azul)).
+            function _crearSegExpandCardHtml(uid) {
+                return '<div class="seg-expand-card" id="segcard-' + uid + '">' +
+                    '<div class="seg-expand-time" id="segcard-time-' + uid + '"></div>' +
+                    '<div class="seg-expand-actions">' +
+                    '<button type="button" class="seg-expand-btn" id="segcard-pause-' + uid + '" onclick="event.stopPropagation(); toggleSegBadge(\'' + uid + '\')">' +
+                    '<span class="seg-expand-icon" id="segcard-pause-icon-' + uid + '">' + _ICONO_PAUSA + '</span>' +
+                    '<span class="seg-expand-label" id="segcard-pause-label-' + uid + '">Pausa</span>' +
+                    '</button>' +
+                    '<button type="button" class="seg-expand-btn" onclick="event.stopPropagation(); reiniciarSegBadge(\'' + uid + '\')">' +
+                    '<span class="seg-expand-icon"><svg viewBox="0 0 24 24" width="19" height="19"><path fill="#000000" d="M12,5V1L7,6l5,5V7c3.31,0,6,2.69,6,6s-2.69,6-6,6s-6-2.69-6-6H4c0,4.42,3.58,8,8,8s8-3.58,8-8S16.42,5,12,5z"/></svg></span>' +
+                    '<span class="seg-expand-label">Reiniciar</span>' +
+                    '</button>' +
+                    '</div>' +
+                    '</div>';
+            }
+
+            function _mostrarSegExpandCard(uid, el) {
+                var existente = document.getElementById('segcard-' + uid);
+                if (existente) {
+                    existente.style.display = 'flex';
+                    return existente;
+                }
+                var header = el.closest('.card-ej-header') || el.closest('.serie-header');
+                if (!header) return null;
+                header.insertAdjacentHTML('afterend', _crearSegExpandCardHtml(uid));
+                return document.getElementById('segcard-' + uid);
+            }
+
+            function _ocultarSegExpandCard(uid) {
+                var card = document.getElementById('segcard-' + uid);
+                if (card) card.style.display = 'none';
+            }
+
+            // Actualiza a la vez el reloj chico del header y el reloj grande de la
+            // tarjeta (si está abierta), para que ambos muestren siempre lo mismo.
+            function _setSegTiempo(uid, timeEl, texto, grande) {
+                if (timeEl) {
+                    timeEl.innerText = texto;
+                    timeEl.style.fontSize = grande ? '1.3rem' : '';
+                }
+                var big = document.getElementById('segcard-time-' + uid);
+                if (big) big.innerText = texto;
+            }
+
             function crearSegBadge(segundos, nombre) {
                 var segN = parseInt(segundos) || 0;
                 if (segN <= 0) return '';
@@ -7103,6 +7254,7 @@
                     _segBadgeState[uid] = { fase: 'prep', estado: 'corriendo', restante: 5, total: total, nombre: nombre };
                     el.classList.add('activo');
                     el.classList.remove('pausado');
+                    _mostrarSegExpandCard(uid, el);
                     _correrPrepSegBadge(uid, el, timeEl);
                     return;
                 }
@@ -7116,7 +7268,7 @@
                     if (st.intervalId) bgClearInterval(st.intervalId);
                     st.estado = 'pausado';
                     el.classList.add('pausado');
-                    timeEl.innerText = 'Pausa';
+                    _setSegTiempo(uid, timeEl, 'Pausa', false);
                     _actualizarBotonPausaSegBadge(uid, true);
                     return;
                 }
@@ -7135,11 +7287,16 @@
             // "Reanudar" (triángulo de play) para dejar claro qué va a pasar al tocarlo.
             function _actualizarBotonPausaSegBadge(uid, estaPausado) {
                 var pauseBtn = document.getElementById('pause-' + uid);
-                if (!pauseBtn) return;
-                var iconoEl = pauseBtn.querySelector('.csb-pause-icon');
-                var labelEl = pauseBtn.querySelector('.csb-pause-label');
-                if (iconoEl) iconoEl.innerHTML = estaPausado ? _ICONO_PLAY : _ICONO_PAUSA;
-                if (labelEl) labelEl.innerText = estaPausado ? 'Reanudar' : 'Pausa';
+                if (pauseBtn) {
+                    var iconoEl = pauseBtn.querySelector('.csb-pause-icon');
+                    var labelEl = pauseBtn.querySelector('.csb-pause-label');
+                    if (iconoEl) iconoEl.innerHTML = estaPausado ? _ICONO_PLAY : _ICONO_PAUSA;
+                    if (labelEl) labelEl.innerText = estaPausado ? 'Reanudar' : 'Pausa';
+                }
+                var iconoBig = document.getElementById('segcard-pause-icon-' + uid);
+                var labelBig = document.getElementById('segcard-pause-label-' + uid);
+                if (iconoBig) iconoBig.innerHTML = estaPausado ? _ICONO_PLAY : _ICONO_PAUSA;
+                if (labelBig) labelBig.innerText = estaPausado ? 'Reanudar' : 'Pausa';
             }
 
             // Cuenta regresiva "5-4-3-2-1" inicial del badge, ahora pausable igual que
@@ -7149,16 +7306,16 @@
                 st.fase = 'prep';
                 st.estado = 'corriendo';
                 el.classList.remove('pausado');
-                timeEl.innerText = st.restante;
+                _setSegTiempo(uid, timeEl, st.restante, false);
                 st.intervalId = bgSetInterval(function() {
                     beep(440);
                     st.restante--;
                     if (st.restante > 0) {
-                        timeEl.innerText = st.restante;
+                        _setSegTiempo(uid, timeEl, st.restante, false);
                     } else {
                         bgClearInterval(st.intervalId);
                         st.intervalId = null;
-                        timeEl.innerText = '';
+                        _setSegTiempo(uid, timeEl, '', false);
                         hablarCoach('Vamos, dale!');
                         st.transicion = true;
                         setTimeout(function() {
@@ -7182,15 +7339,14 @@
                     var rem = Math.max(0, Math.round((deadline - Date.now()) / 1000));
                     st.restante = rem;
                     var texto = formatearTiempo(rem);
-                    timeEl.innerText = texto;
-                    timeEl.style.fontSize = String(texto).length >= 4 ? '1.3rem' : '';
+                    _setSegTiempo(uid, timeEl, texto, String(texto).length >= 4);
                     if (rem <= 3 && rem > 0) beep(400);
                     if (rem <= 0) {
                         bgClearInterval(st.intervalId);
                         beep(800);
                         el.classList.remove('activo', 'pausado');
-                        timeEl.style.fontSize = '';
-                        timeEl.innerText = '⏱ ' + total + 's';
+                        _setSegTiempo(uid, timeEl, '⏱ ' + total + 's', false);
+                        _ocultarSegExpandCard(uid);
                         delete _segBadgeState[uid];
                         _actualizarBotonPausaSegBadge(uid, false);
                     }
@@ -7208,10 +7364,8 @@
                 el.classList.remove('activo', 'pausado');
                 var timeEl = el.querySelector('.csb-time');
                 var total = parseInt(el.getAttribute('data-segundos')) || 0;
-                if (timeEl) {
-                    timeEl.style.fontSize = '';
-                    timeEl.innerText = '⏱ ' + total + 's';
-                }
+                _setSegTiempo(uid, timeEl, '⏱ ' + total + 's', false);
+                _ocultarSegExpandCard(uid);
                 _actualizarBotonPausaSegBadge(uid, false);
             }
 
