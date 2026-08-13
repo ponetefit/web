@@ -2515,7 +2515,7 @@
             align-items: center;
             justify-content: center;
             gap: 10px;
-            margin: 0 14px 14px 14px;
+            margin: 0 0 14px 0;
             padding: 16px 14px;
             background: linear-gradient(135deg, var(--azul), #0288d1);
             border-radius: var(--radius-md);
@@ -7182,8 +7182,9 @@
             // Se crea recién al tocar "Activar" y vive como hermana del header
             // (.card-ej-header / .serie-header), no dentro del acordeón, así queda
             // visible sin depender del "+". Mismo color que Circuito (var(--azul)).
-            function _crearSegExpandCardHtml(uid) {
-                return '<div class="seg-expand-card" id="segcard-' + uid + '">' +
+            function _crearSegExpandCardHtml(uid, color) {
+                var col = color || 'var(--verde)';
+                return '<div class="seg-expand-card" id="segcard-' + uid + '" style="background:linear-gradient(135deg,' + col + ',#000);">' +
                     '<div class="seg-expand-time" id="segcard-time-' + uid + '"></div>' +
                     '<div class="seg-expand-actions">' +
                     '<button type="button" class="seg-expand-btn" id="segcard-pause-' + uid + '" onclick="event.stopPropagation(); toggleSegBadge(\'' + uid + '\')">' +
@@ -7206,7 +7207,8 @@
                 }
                 var header = el.closest('.card-ej-header') || el.closest('.serie-header');
                 if (!header) return null;
-                header.insertAdjacentHTML('afterend', _crearSegExpandCardHtml(uid));
+                var color = el.getAttribute('data-color') || 'var(--verde)';
+                header.insertAdjacentHTML('afterend', _crearSegExpandCardHtml(uid, color));
                 return document.getElementById('segcard-' + uid);
             }
 
@@ -7226,13 +7228,14 @@
                 if (big) big.innerText = texto;
             }
 
-            function crearSegBadge(segundos, nombre) {
+            function crearSegBadge(segundos, nombre, color) {
                 var segN = parseInt(segundos) || 0;
                 if (segN <= 0) return '';
                 var uid = 'segb-' + (_segBadgeIdx++);
                 var safeNombre = (nombre || '').replace(/"/g, '&quot;');
+                var col = (color || 'var(--verde)').replace(/"/g, '');
                 return '<span class="csb-wrap">' +
-                    '<span class="card-seg-badge" id="' + uid + '" data-segundos="' + segN + '" data-nombre="' + safeNombre + '" onclick="event.stopPropagation(); toggleSegBadge(\'' + uid + '\')">' +
+                    '<span class="card-seg-badge" id="' + uid + '" data-segundos="' + segN + '" data-nombre="' + safeNombre + '" data-color="' + col + '" style="background:' + col + ';" onclick="event.stopPropagation(); toggleSegBadge(\'' + uid + '\')">' +
                         '<span class="csb-activar">Activar</span>' +
                         '<span class="csb-time">⏱ ' + segN + 's</span>' +
                     '</span>' +
@@ -7614,7 +7617,7 @@
                             var metaExtra = desc && parseInt(desc) > 0 ? '<div style="color:var(--texto-suave);font-size:var(--fs-xs);margin-top:4px;">Pausa: ' + desc + 's</div>' : '';
                             var vFilaHtmlW = crearFilaVueltas(n, ej.reps_por_vuelta, u, wupBaseId, cc);
                             var metaVueltaW = ej.reps_por_vuelta.join('-') + ' ' + u.toUpperCase();
-                            var badgeSegW1 = esSegW ? crearSegBadge(ej.reps_por_vuelta[0], n) : '';
+                            var badgeSegW1 = esSegW ? crearSegBadge(ej.reps_por_vuelta[0], n, 'var(--azul)') : '';
                             // omitirPesoGenerico=true para evitar peso duplicado (la carga por vuelta ya está en la grilla)
                             wLista.innerHTML += crearCard(n, l, metaVueltaW, false, '', vFilaHtmlW + metaExtra, true, badgeSegW1);
 
@@ -7625,7 +7628,7 @@
                             var vFilaHtmlSimple = crearFilaVueltas(n, repsArrW, u, wupBaseId, true);
                             var metaExtraW = desc && parseInt(desc) > 0 ? '<div style="color:var(--texto-suave);font-size:var(--fs-xs);margin-top:4px;">Pausa: ' + desc + 's</div>' : '';
                             var metaVueltaW2 = r ? r + ' ' + u.toUpperCase() + ' c/vuelta' : '';
-                            var badgeSegW2 = esSegW ? crearSegBadge(r, n) : '';
+                            var badgeSegW2 = esSegW ? crearSegBadge(r, n, 'var(--azul)') : '';
                             wLista.innerHTML += crearCard(n, l, metaVueltaW2, false, '', vFilaHtmlSimple + metaExtraW, true, badgeSegW2);
 
                             // Mostrar reps y pausa por serie si existen (Series/Reps)
@@ -7635,12 +7638,12 @@
                             });
                             var vFilaHtmlSerieW = crearFilaDetalleSeries(n, ej.reps_por_serie, pausasArrW, u, wupBaseId);
                             var metaSerieW = ej.reps_por_serie.length + 'x' + ej.reps_por_serie[0] + ' ' + u.toUpperCase();
-                            var badgeSegW3 = esSegW ? crearSegBadge(ej.reps_por_serie[0], n) : '';
+                            var badgeSegW3 = esSegW ? crearSegBadge(ej.reps_por_serie[0], n, 'var(--azul)') : '';
                             wLista.innerHTML += crearCard(n, l, metaSerieW, false, '', vFilaHtmlSerieW, true, badgeSegW3);
                         } else {
                             var metaStr = r ? r + " " + u.toUpperCase() : "";
                             if (desc && parseInt(desc) > 0) metaStr += (metaStr ? ' | ' : '') + 'Pausa: ' + desc + 's';
-                            var badgeSegW4 = esSegW ? crearSegBadge(r, n) : '';
+                            var badgeSegW4 = esSegW ? crearSegBadge(r, n, 'var(--azul)') : '';
                             wLista.innerHTML += crearCard(n, l, metaStr, cc, '', '', false, badgeSegW4);
                         }
                     });
@@ -9122,18 +9125,18 @@
                             var conCargaEj = !!(ej.con_carga || _obtenerConCarga(ej.nombre));
                             var vFilaHtml = crearFilaVueltas(ej.nombre, ej.reps_por_vuelta, ejU, uid, conCargaEj);
                             var metaVuelta = ej.reps_por_vuelta.join('-') + ' ' + ejU;
-                            var badgeSeg1 = esSeg ? crearSegBadge(ej.reps_por_vuelta[0], ej.nombre) : '';
+                            var badgeSeg1 = esSeg ? crearSegBadge(ej.reps_por_vuelta[0], ej.nombre, 'var(--azul)') : '';
                             pLista.innerHTML += crearCard(ej.nombre, ej.link, metaVuelta, false, '', vFilaHtml, true, badgeSeg1);
                         } else if (ej.con_carga || _obtenerConCarga(ej.nombre)) {
                             var repsArr = [];
                             for (var _vi = 0; _vi < vBloque; _vi++) repsArr.push(ej.reps || '');
                             var vFilaHtml2 = crearFilaVueltas(ej.nombre, repsArr, ejU, uid, true);
                             var metaVuelta2 = ej.reps ? ej.reps + ' ' + ejU + ' c/vuelta' : '';
-                            var badgeSeg2 = esSeg ? crearSegBadge(ej.reps, ej.nombre) : '';
+                            var badgeSeg2 = esSeg ? crearSegBadge(ej.reps, ej.nombre, 'var(--azul)') : '';
                             pLista.innerHTML += crearCard(ej.nombre, ej.link, metaVuelta2, false, '', vFilaHtml2, true, badgeSeg2);
                         } else {
                             var metaStr = ej.reps ? ej.reps + ' ' + ejU : '';
-                            var badgeSeg3 = esSeg ? crearSegBadge(ej.reps, ej.nombre) : '';
+                            var badgeSeg3 = esSeg ? crearSegBadge(ej.reps, ej.nombre, 'var(--azul)') : '';
                             pLista.innerHTML += crearCard(ej.nombre, ej.link, metaStr, false, '', '', false, badgeSeg3);
                         }
                     });
@@ -9551,13 +9554,13 @@
                                 var conCargaEj = !!(ej.con_carga || _obtenerConCarga(ej.nombre));
                                 var vFilaHtml = crearFilaVueltas(ej.nombre, ej.reps_por_vuelta, ejU, uid + '-circ-v-' + (b.id || 1) + '-' + (ej.nombre || '').replace(/\s/g, ''), conCargaEj);
                                 var metaVueltaMix = ej.reps_por_vuelta.join('-') + ' ' + ejU;
-                                var badgeSegMix1 = esSegMix ? crearSegBadge(ej.reps_por_vuelta[0], ej.nombre) : '';
+                                var badgeSegMix1 = esSegMix ? crearSegBadge(ej.reps_por_vuelta[0], ej.nombre, color) : '';
                                 // omitirPesoGenerico=true para evitar peso duplicado (la carga por vuelta ya está en la grilla)
                                 html += crearCard(ej.nombre, ej.link, metaVueltaMix, false, '', vFilaHtml + descExtra, true, badgeSegMix1);
                             } else {
                                 var metaStr = (ej.reps || "") + " " + ejU;
                                 if (ej.descanso && parseInt(ej.descanso) > 0) metaStr += ' | Pausa: ' + ej.descanso + 's';
-                                var badgeSegMix2 = esSegMix ? crearSegBadge(ej.reps, ej.nombre) : '';
+                                var badgeSegMix2 = esSegMix ? crearSegBadge(ej.reps, ej.nombre, color) : '';
                                 html += crearCard(ej.nombre, ej.link, metaStr, ej.con_carga, '', '', false, badgeSegMix2);
                             }
                         });
