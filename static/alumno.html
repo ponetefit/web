@@ -404,8 +404,8 @@
            normal porque el badge ya no está visible. */
         .card-ej-header:has(.card-seg-badge):not(:has(.csb-wrap.csb-oculto)),
         .serie-header:has(.card-seg-badge):not(:has(.csb-wrap.csb-oculto)) {
-            padding-left: 76px;
-            padding-right: 76px;
+            padding-left: 84px;
+            padding-right: 84px;
         }
         
         .card-ej-header:active {
@@ -2362,20 +2362,33 @@
             align-items: center;
             justify-content: center;
             gap: 1px;
-            min-width: 46px;
+            min-width: 50px;
             font-weight: 900;
             letter-spacing: 0.3px;
             color: #FFFFFF;
             background: var(--verde);
-            border: 1.5px solid #000;
-            padding: 6px 8px;
-            border-radius:var(--radius-sm);
             white-space: nowrap;
             line-height: 1.15;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
             z-index: 3;
             cursor: pointer;
-            transition: transform 0.12s, background 0.15s;
+            transition: filter 0.15s, background 0.15s;
+        }
+
+        /* En reposo ("Activar") el badge se muestra pegado al borde izquierdo
+           del header, ocupando todo su alto: se ve como una extensión de la
+           propia tarjeta (misma esquina redondeada arriba, sin sombra ni
+           borde propio) en vez de un botón flotando encima. */
+        .card-seg-badge:not(.activo) {
+            height: 100%;
+            padding: 6px 10px;
+            border: none;
+            border-right: 1.5px solid rgba(0, 0, 0, 0.28);
+            border-radius: 0;
+            box-shadow: none;
+        }
+
+        .card-seg-badge:not(.activo):active {
+            filter: brightness(0.9);
         }
 
         /* ─── Ancho y alto compartidos por el reloj en cuenta regresiva, el botón
@@ -2388,11 +2401,17 @@
             box-sizing: border-box;
         }
 
+        .card-seg-badge.activo {
+            border: 1.5px solid #000;
+            border-radius: var(--radius-sm);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+        }
+
         .csb-wrap {
             position: absolute;
-            left: 8px;
-            top: 50%;
-            transform: translateY(-50%);
+            left: 0;
+            top: 0;
+            height: 100%;
             display: inline-flex;
             flex-direction: row;
             align-items: center;
@@ -2407,10 +2426,11 @@
         .csb-wrap.csb-oculto {
             display: none;
         }
-        
-        .card-seg-badge:active {
+
+        .card-seg-badge.activo:active {
             transform: scale(0.94);
         }
+        
         
         .card-seg-badge .csb-activar {
             font-size: 9.5px;
@@ -7305,8 +7325,8 @@
                     header.style.paddingLeft = '';
                     header.style.paddingRight = '';
                 } else {
-                    header.style.paddingLeft = '76px';
-                    header.style.paddingRight = '76px';
+                    header.style.paddingLeft = '84px';
+                    header.style.paddingRight = '84px';
                 }
             }
 
