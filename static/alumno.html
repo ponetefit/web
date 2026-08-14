@@ -6177,6 +6177,23 @@
                 }
             }
 
+            // Repinta los mapas de calor de TODOS los días de la rutina multi-día
+            // actual (dataGlobal). Se usa como respaldo cuando la videoteca tarda
+            // en llegar (ej: al retomar una sesión guardada, donde los 20
+            // reintentos de _mdColorearDia pueden agotarse antes de que la
+            // videoteca termine de cargar): apenas la videoteca está lista, se
+            // vuelve a intentar pintar en vez de dejar los mapas en gris.
+            function _mdRecolorearTodosLosDias() {
+                if (!esMultidia || !dataGlobal) return;
+                var total = dataGlobal.total_dias || 0;
+                for (var di = 1; di <= total; di++) {
+                    var diaData = dataGlobal['dia_' + di];
+                    if (!diaData) continue;
+                    var dd = diaData.datos || diaData || {};
+                    _mdColorearDia('md' + (di - 1), dd);
+                }
+            }
+
             function _bvCalcMuscleCount(data) {
                 var muscleCount = {};
 
@@ -6938,7 +6955,7 @@
             var _videotecaTips = {}; // { "SENTADILLAS": { tip1: "...", tip2: "...", elemento: "Mancuerna" }, ... }
             var _tipTurno = {}; // { "SENTADILLAS": 0/1 } — alterna entre tip1 y tip2
 
-            async function _cargarVideotecaTips() {
+            async function _cargarVideotecaTips(onListo) {
                 try {
                     var res = await fetch("https://ponetefit-app-default-rtdb.firebaseio.com/videoteca.json");
                     var videoteca = await res.json();
@@ -6962,6 +6979,7 @@
                             }
                         });
                     });
+                    if (typeof onListo === 'function') onListo();
                 } catch (e) { /* sin conexión, no pasa nada */ }
             }
 
@@ -9076,6 +9094,12 @@
                     cargarProgresoLocal(currentCode);
                     renderMultidia(dataGlobal, currentCode);
                     mdContainer = document.getElementById('multidia-container');
+                    // Si por algún motivo la videoteca sigue sin llegar (ej: si
+                    // se cae la conexión un rato), reintentar pintar los mapas
+                    // de calor cuando por fin cargue, en vez de dejarlos en gris.
+                    if (Object.keys(_videotecaTips).length === 0) {
+                        _cargarVideotecaTips(_mdRecolorearTodosLosDias);
+                    }
                 } else if (mdContainer) {
                     mdContainer.style.display = 'flex';
                 }
@@ -13570,6 +13594,18 @@
                 if (!estado) return;
 
                 _sesionRetomandose = true;
+
+                // Volver a pedir la videoteca (musculo1/musculo2/sinergista por
+                // ejercicio): normalmente se carga en consultarRutina(), pero al
+                // retomar una sesión guardada (cerrar y reabrir la app) ese paso
+                // nunca se ejecuta, así que _videotecaTips queda vacío para
+                // siempre y los mapas de calor de los días (y el de bienvenida)
+                // se quedan en gris/sin pintar apenas se cierran los 20 reintentos.
+                // Se dispara acá, en paralelo, para que esté lista cuando
+                // renderMultidia() pinte los mapas de cada día más abajo. Si
+                // aun así tarda más de lo que esperan los reintentos internos,
+                // el callback vuelve a pintar todo una vez que llega.
+                _cargarVideotecaTips(_mdRecolorearTodosLosDias);
 
                 // Restaurar estado global
                 currentCode = estado.codigo;
