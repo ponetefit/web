@@ -15144,5 +15144,180 @@ self.addEventListener('fetch', event => {
         });
     }
     </script>
+    <!-- ====================================================================
+         FEEDBACK POST-ENTRENO EN DASHBOARD
+         Lee las respuestas que el alumno guarda por rutina y fecha, y las
+         integra en el detalle del calendario de asistencia.
+         ==================================================================== -->
+    <script>
+        (function _pfFeedbackDashboard() {
+            var FEEDBACK_URL = 'https://ponetefit-app-default-rtdb.firebaseio.com/feedback/';
+            var dashFeedbackPorFecha = {};
+            window.dashFeedbackPorFecha = dashFeedbackPorFecha;
+
+            function _escFeedback(value) {
+                return String(value == null ? '' : value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            function _feedbackColor(score) {
+                var v = Math.max(1, Math.min(10, Number(score) || 1));
+                var hue = Math.round(120 - ((v - 1) / 9) * 120);
+                return 'hsl(' + hue + ', 78%, 48%)';
+            }
+
+            function _feedbackLabel(item) {
+                return item.etapa_nombre || (item.etapa === 'calentamiento' ? 'CALENTAMIENTO' : 'BLOQUE');
+            }
+
+            function _feedbackCard(item, compact) {
+                var score = Number(item.sensacion || item.rpe || 0);
+                var color = _feedbackColor(score);
+                var exercise = item.ejercicio_dificil ? '<div class="text-xs text-texto mt-1"><span class="text-textoSuave">Más costó:</span> ' + _escFeedback(item.ejercicio_dificil) + '</div>' : '';
+                var note = item.comentario ? '<div class="text-xs text-textoSuave mt-1 italic">“' + _escFeedback(item.comentario) + '”</div>' : '';
+                var date = item.fecha ? '<span class="text-[10px] text-textoSuave">' + _escFeedback(item.fecha.split('-').reverse().join('/')) + '</span>' : '';
+                var bloque = item.bloque_completo && item.bloque_completo.ejercicios ? item.bloque_completo.ejercicios : [];
+                var detalleBloque = bloque.length ? '<div class="mt-2 pt-2 border-t border-borde"><div class="text-[10px] text-textoSuave uppercase tracking-wider mb-1">Bloque completo</div>' +
+                    bloque.map(function(ej) {
+                        var datos = [];
+                        if (ej.series) datos.push(ej.series + ' series');
+                        if (ej.repeticiones || ej.reps || ej.repeticiones_por_serie) datos.push((ej.repeticiones || ej.reps || ej.repeticiones_por_serie) + ' reps');
+                        if (ej.tiempo || ej.tiempo_min) datos.push((ej.tiempo || ej.tiempo_min) + (ej.tiempo_min ? ' min' : ''));
+                        return '<div class="text-[11px] text-texto">' + _escFeedback(ej.nombre) + (datos.length ? ' <span class="text-textoSuave">· ' + _escFeedback(datos.join(' · ')) + '</span>' : '') + '</div>';
+                    }).join('') + '</div>' : '';
+                return '<div class="rounded-xl border border-borde bg-fondoAlt p-3 ' + (compact ? 'mb-2' : 'mb-3') + '">' +
+                    '<div class="flex items-center justify-between gap-2">' +
+                    '<div class="min-w-0"><div class="text-xs font-black text-texto truncate">' + _escFeedback(_feedbackLabel(item)) + '</div>' +
+                    (item.tipo ? '<div class="text-[10px] text-textoSuave uppercase tracking-wider">' + _escFeedback(item.tipo) + '</div>' : '') +
+                    '</div>' +
+                    '<div class="flex items-center gap-2 flex-shrink-0">' + date + '<span class="inline-flex items-center justify-center w-8 h-8 rounded-lg font-black text-black" style="background:' + color + '">' + (score || '—') + '</span></div>' +
+                    '</div>' + exercise + note + detalleBloque + '</div>';
+            }
+
+            function _normalizarFeedback(remoto, codigo) {
+                var salida = [];
+                if (!remoto || typeof remoto !== 'object') return salida;
+                Object.keys(remoto).forEach(function(fecha) {
+                    var dia = remoto[fecha];
+                    if (!dia) return;
+                    var lista = [];
+                    if (dia.sensacion !== undefined || dia.rpe !== undefined) {
+                        lista = [dia];
+                    } else if (Array.isArray(dia)) {
+                        lista = dia;
+                    } else if (typeof dia === 'object') {
+                        lista = Object.keys(dia).map(function(key) { return dia[key]; });
+                    }
+                    lista.forEach(function(item) {
+                        if (!item || typeof item !== 'object') return;
+                        var dato = Object.assign({}, item);
+                        dato.fecha = dato.fecha || fecha;
+                        dato.codigo = codigo;
+                        salida.push(dato);
+                    });
+                });
+                return salida;
+            }
+
+            function _feedbackDeFecha(fechaISO) {
+                return dashFeedbackPorFecha[fechaISO] || [];
+            }
+
+            function _renderFeedbackResumen() {
+                var panel = document.getElementById('cal-asistencia-content');
+                if (!panel) return;
+                var box = document.getElementById('dash-feedback-resumen');
+                if (!box) {
+                    box = document.createElement('div');
+                    box.id = 'dash-feedback-resumen';
+                    box.className = 'mt-4 pt-4 border-t border-borde';
+                    panel.appendChild(box);
+                }
+                var entries = Object.keys(dashFeedbackPorFecha).reduce(function(all, fecha) {
+                    return all.concat(dashFeedbackPorFecha[fecha] || []);
+                }, []).sort(function(a, b) { return (b.ts || 0) - (a.ts || 0); });
+                var total = entries.length;
+                var titulo = '<div class="flex items-center justify-between gap-2 mb-2"><span class="text-sm font-bold text-rojo uppercase tracking-wider">Feedback post-entreno</span><span class="text-xs text-textoSuave">' + total + ' respuesta' + (total === 1 ? '' : 's') + '</span></div>';
+                if (!total) {
+                    box.innerHTML = titulo + '<p class="text-xs text-textoSuave">Todavía no hay feedback registrado. Aparecerá después de cada etapa completada.</p>';
+                    return;
+                }
+                box.innerHTML = titulo + '<div>' + entries.slice(0, 5).map(function(item) { return _feedbackCard(item, true); }).join('') + '</div>' +
+                    (total > 5 ? '<p class="text-[11px] text-textoSuave mt-2">Tocá un día del calendario para ver el detalle completo.</p>' : '');
+            }
+
+            function _renderFeedbackDetalle(fechaISO) {
+                var entries = _feedbackDeFecha(fechaISO).sort(function(a, b) { return (a.ts || 0) - (b.ts || 0); });
+                if (!entries.length) return '<div class="mt-3 pt-3 border-t border-borde"><div class="text-xs font-bold text-textoSuave uppercase tracking-wider">Feedback post-entreno</div><p class="text-xs text-textoSuave mt-1">Sin feedback registrado ese día.</p></div>';
+                return '<div class="mt-3 pt-3 border-t border-borde"><div class="text-xs font-bold text-rojo uppercase tracking-wider mb-2">Feedback post-entreno · ' + entries.length + '</div>' +
+                    entries.map(function(item) { return _feedbackCard(item, false); }).join('') + '</div>';
+            }
+
+            function _instalarHooks() {
+                if (typeof cargarDashboard !== 'function') return;
+                var originalCargarDashboard = cargarDashboard;
+                cargarDashboard = async function() {
+                    dashFeedbackPorFecha = {};
+                    window.dashFeedbackPorFecha = dashFeedbackPorFecha;
+                    var result = await originalCargarDashboard.apply(this, arguments);
+                    var codigos = (typeof dashRutinasData !== 'undefined' && dashRutinasData) ? Object.keys(dashRutinasData) : [];
+                    _cargarFeedbackDeCodigos(codigos);
+                    return result;
+                };
+            }
+
+            // La carga se agrega directamente al Promise.all existente mediante un
+            // pequeño observador: cuando el dashboard inicia, buscamos sus códigos
+            // y refrescamos el calendario al terminar de leer el feedback.
+            function _cargarFeedbackDeCodigos(codigos) {
+                if (!codigos || !codigos.length) {
+                    _renderFeedbackResumen();
+                    return;
+                }
+                Promise.all(codigos.map(function(codigo) {
+                    return fetch(FEEDBACK_URL + encodeURIComponent(codigo) + '.json')
+                        .then(function(res) { return res.json(); })
+                        .then(function(data) {
+                            _normalizarFeedback(data, codigo).forEach(function(item) {
+                                var fecha = item.fecha || '';
+                                if (!fecha) return;
+                                if (!dashFeedbackPorFecha[fecha]) dashFeedbackPorFecha[fecha] = [];
+                                dashFeedbackPorFecha[fecha].push(item);
+                            });
+                        })
+                        .catch(function() {});
+                })).then(function() {
+                    if (typeof _pfRenderCalendarioAsistencia === 'function') _pfRenderCalendarioAsistencia();
+                    _renderFeedbackResumen();
+                });
+            }
+
+            var _originalRenderCalendario = typeof _pfRenderCalendarioAsistencia === 'function' ? _pfRenderCalendarioAsistencia : null;
+            if (_originalRenderCalendario) {
+                _pfRenderCalendarioAsistencia = function() {
+                    _originalRenderCalendario();
+                    _renderFeedbackResumen();
+                };
+            }
+
+            var _originalDetalle = typeof _pfMostrarDetalleDiaAsistencia === 'function' ? _pfMostrarDetalleDiaAsistencia : null;
+            if (_originalDetalle) {
+                _pfMostrarDetalleDiaAsistencia = function(fechaISO) {
+                    _originalDetalle(fechaISO);
+                    var detalle = document.getElementById('dash-cal-detalle-dia');
+                    if (detalle) detalle.insertAdjacentHTML('beforeend', _renderFeedbackDetalle(fechaISO));
+                };
+            }
+
+            // Exponer una función pequeña para que el dashboard pueda iniciarla
+            // después de conocer los códigos del alumno seleccionado.
+            window._pfCargarFeedbackDeCodigos = _cargarFeedbackDeCodigos;
+            _instalarHooks();
+        })();
+    </script>
 </body>
 </html>
