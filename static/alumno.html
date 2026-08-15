@@ -9164,9 +9164,9 @@
                             if (ejsPreview.length > 7) chipsHtml += '<span style="font-size:var(--fs-xs);color:var(--texto-suave);padding:3px 4px;">+' + (ejsPreview.length - 7) + ' mas</span>';
                             chipsHtml += '</div>';
                         }
-                        var btnHtml = '<div style="display:flex;gap:8px;">' +
-                            '<button onclick="iniciarDia(' + idx + ')" style="flex:1;min-width:0;background:' + colorAccent + ';color:#000;border:none;border-radius:var(--radius-md);padding:12px;font-weight:900;font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:2px;cursor:pointer;transition:opacity 0.2s;">&#9654; EMPEZAR ' + titulo.toUpperCase() + '</button>' +
-                            '<button onclick="_pfEmpezarLecturaDia(' + idx + ')" title="Modo solo lectura" style="flex-shrink:0;width:48px;background:var(--tarjeta-alt);color:var(--texto);border:2px solid var(--borde);border-radius:var(--radius-md);font-size:18px;cursor:pointer;">&#128065;</button>' +
+                        var btnHtml = '<div style="display:flex;flex-direction:column;gap:8px;">' +
+                            '<button onclick="iniciarDia(' + idx + ')" style="width:100%;background:' + colorAccent + ';color:#000;border:none;border-radius:var(--radius-md);padding:12px;font-weight:900;font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:2px;cursor:pointer;transition:opacity 0.2s;">&#9654; EMPEZAR ' + titulo.toUpperCase() + '</button>' +
+                            '<button onclick="_pfEmpezarLecturaDia(' + idx + ')" style="width:100%;background:var(--tarjeta-alt);color:var(--texto);border:2px solid var(--borde);border-radius:var(--radius-md);padding:11px;font-weight:900;font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:2px;cursor:pointer;">&#128065; MODO LECTURA</button>' +
                             '</div>';
                         var pfxHm = 'md' + idx;
                         var heatmapHtml = '<div style="display:flex;flex-direction:column;align-items:center;margin-bottom:14px;">' + _mdHeatmapHtml(pfxHm) + '</div>';
@@ -13677,6 +13677,28 @@
                 document.getElementById('overlay-descanso').style.display = 'none';
                 document.getElementById('overlay-pausa-ronda').classList.remove('visible');
                 document.getElementById('overlay-pausa-ronda').style.display = 'none';
+                // ── Resetear estado de rutina multi-dia ──────────────────────
+                // Si veníamos de un día abierto (o de la lista de días) y el
+                // alumno elige otra rutina desde "Rutinas", este estado quedaba
+                // pisado: la próxima rutina heredaba secciones visibles/ocultas
+                // de la anterior y solo se veía el calentamiento, sin la lista
+                // de días. Se limpia todo acá para que la próxima rutina (sea
+                // multi-dia o no) arranque de cero.
+                esMultidia = false;
+                diaActivo = 0;
+                var _secWarmupC = document.getElementById('sec-warmup');
+                if (_secWarmupC) _secWarmupC.style.display = '';
+                var _secPrincipalC = document.getElementById('sec-principal');
+                if (_secPrincipalC) _secPrincipalC.style.display = '';
+                var _btnVolverDiasC = document.getElementById('btn-volver-dias-header');
+                if (_btnVolverDiasC) _btnVolverDiasC.style.display = 'none';
+                var _mdContainerC = document.getElementById('multidia-container');
+                if (_mdContainerC) {
+                    _mdContainerC.style.display = 'none';
+                    _mdContainerC.innerHTML = '';
+                }
+                var _progContainerC = document.getElementById('rutina-progress-container');
+                if (_progContainerC) _progContainerC.style.display = 'none';
                 // Cerrar overlay de pausa series
                 var _spOverlay = document.getElementById('overlay-series-pausa');
                 if (_spOverlay) _spOverlay.style.display = 'none';
