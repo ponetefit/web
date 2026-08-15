@@ -14365,9 +14365,9 @@
                 function walk(value) {
                     if (!value) return;
                     if (Array.isArray(value)) {
-                        if (typeof value[0] === 'string') add(value[0]);
+                        if (typeof value[0] === 'string') { add(value[0]); return; }
                         value.forEach(function(item) {
-                            if (item !== value[0]) walk(item);
+                            walk(item);
                         });
                         return;
                     }
@@ -14404,8 +14404,8 @@
                 function walk(value) {
                     if (!value) return;
                     if (Array.isArray(value)) {
-                        if (typeof value[0] === 'string') agregar(value[0], null);
-                        value.forEach(function(item) { if (item !== value[0]) walk(item); });
+                        if (typeof value[0] === 'string') { agregar(value[0], null); return; }
+                        value.forEach(function(item) { walk(item); });
                         return;
                     }
                     if (typeof value !== 'object') return;
@@ -14510,6 +14510,7 @@
                 document.getElementById('pf-feedback-subtitle').textContent = _nombreEtapa(indice) + ' · una respuesta rápida para ajustar tu próximo entrenamiento';
                 var select = document.getElementById('pf-feedback-ejercicio');
                 select.innerHTML = '<option value="">Elegí un ejercicio</option>' +
+                    '<option value="Ninguno me costó">Ninguno me costó</option>' +
                     nombres.map(function(n) { return '<option value="' + _esc(n) + '">' + _esc(n) + '</option>'; }).join('');
                 document.getElementById('pf-feedback-ejercicio-otro').value = '';
                 document.getElementById('pf-feedback-nota').value = '';
@@ -14646,6 +14647,161 @@
                         return;
                     }
                     _feedbackOriginalFinal();
+                };
+            }
+        })();
+    </script>
+    <!-- ====================================================================
+         MODO SOLO LECTURA
+         Permite repasar una rutina (propia o pasada) sin iniciar timers ni
+         marcar series/rondas como hechas. Se activa desde la pantalla de
+         inicio (checkbox) o desde "Mis Rutinas" (ícono de ojo por rutina).
+         ==================================================================== -->
+    <script>
+        (function _pfModoLectura() {
+            var _modoLectura = false;
+            var _modoLecturaPendiente = false;
+
+            var ALLOWED_EXACT = ['iniciarDia'];
+            var BLOCKED_PREFIXES = [
+                'iniciar', 'marcar', 'pausar', 'reiniciar', 'saltar', 'entrarFullscreen',
+                '_ctAbrirFullscreen', '_ctFsTogglePausa', '_ctFsReiniciar',
+                '_ptAbrirFullscreenManual', '_ptFsTogglePausa', '_ptFsMarcar'
+            ];
+
+            function _esAccionBloqueada(code) {
+                var m = /^([A-Za-z_][A-Za-z0-9_]*)\s*\(/.exec(String(code || '').trim());
+                if (!m) return false;
+                var fn = m[1];
+                if (ALLOWED_EXACT.indexOf(fn) !== -1) return false;
+                for (var i = 0; i < BLOCKED_PREFIXES.length; i++) {
+                    if (fn.indexOf(BLOCKED_PREFIXES[i]) === 0) return true;
+                }
+                return false;
+            }
+
+            var style = document.createElement('style');
+            style.textContent = [
+                '#pf-lectura-banner{display:none;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(135deg,#20321f,#12200f);border:1px solid #2f5a2a;border-radius:12px;padding:10px 14px;margin:10px 16px 0;color:#fff}',
+                '#pf-lectura-banner.visible{display:flex}',
+                '#pf-lectura-banner .pf-lectura-txt{font-size:11px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;color:#69f0ae;display:flex;align-items:center;gap:8px}',
+                '#pf-lectura-banner button{border:1px solid #3a3a48;background:#20202a;color:#fff;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;}',
+                '.pf-lectura-chk-wrap{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:var(--fs-xs,12px);color:var(--texto-suave,#aaaab8);justify-content:center;max-width:420px;text-align:left;}',
+                '.pf-lectura-chk-wrap input{flex-shrink:0;}',
+                '.pf-lectura-ojo{background:transparent;border:1px solid #3a3a48;border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;color:#aaaab8;cursor:pointer;flex-shrink:0;margin-left:8px;font-size:15px;}',
+                '.pf-lectura-ojo:hover{color:#69f0ae;border-color:#69f0ae;}',
+                '.mr-item{position:relative;}'
+            ].join('');
+            document.head.appendChild(style);
+
+            function _crearBanner() {
+                if (document.getElementById('pf-lectura-banner')) return;
+                var header = document.querySelector('.header-rutina');
+                if (!header || !header.parentNode) return;
+                var banner = document.createElement('div');
+                banner.id = 'pf-lectura-banner';
+                banner.innerHTML = '<span class="pf-lectura-txt">&#128065; Modo solo lectura &middot; repasando la rutina</span>' +
+                    '<button type="button" id="pf-lectura-salir-btn">Salir del modo lectura</button>';
+                header.parentNode.insertBefore(banner, header.nextSibling);
+                document.getElementById('pf-lectura-salir-btn').addEventListener('click', function() {
+                    _setModoLectura(false);
+                    if (typeof mostrarToast === 'function') mostrarToast('Modo solo lectura desactivado');
+                });
+            }
+
+            function _setModoLectura(activo) {
+                _modoLectura = !!activo;
+                _crearBanner();
+                var banner = document.getElementById('pf-lectura-banner');
+                if (banner) banner.classList.toggle('visible', _modoLectura);
+            }
+
+            function _crearCheckboxHome() {
+                if (document.getElementById('pf-lectura-chk')) return;
+                var btn = document.querySelector('.search-box .btn-principal');
+                if (!btn) return;
+                var wrap = document.createElement('label');
+                wrap.className = 'pf-lectura-chk-wrap';
+                wrap.innerHTML = '<input type="checkbox" id="pf-lectura-chk"> Abrir en modo solo lectura (repasar sin timers ni marcar series)';
+                btn.insertAdjacentElement('afterend', wrap);
+            }
+            _crearCheckboxHome();
+
+            // Bloquear, dentro del contenido de la rutina, cualquier acción que
+            // inicie un timer o marque una serie/ronda/vuelta como hecha.
+            document.addEventListener('click', function(e) {
+                if (!_modoLectura) return;
+                var scrollEl = document.getElementById('modal-scroll');
+                if (!scrollEl || !scrollEl.contains(e.target)) return;
+                var el = e.target.closest ? e.target.closest('[onclick]') : null;
+                if (!el) return;
+                if (_esAccionBloqueada(el.getAttribute('onclick'))) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+                    if (typeof mostrarToast === 'function') {
+                        mostrarToast('Estás en modo solo lectura: no se pueden iniciar timers ni marcar series');
+                    }
+                }
+            }, true);
+
+            if (typeof consultarRutina === 'function') {
+                var _origConsultarRutina = consultarRutina;
+                consultarRutina = function() {
+                    if (_modoLecturaPendiente) {
+                        _setModoLectura(true);
+                        _modoLecturaPendiente = false;
+                    } else {
+                        var chk = document.getElementById('pf-lectura-chk');
+                        _setModoLectura(chk ? chk.checked : false);
+                    }
+                    return _origConsultarRutina.apply(this, arguments);
+                };
+            }
+
+            if (typeof elegirRutinaDeLista === 'function') {
+                var _origElegirRutinaDeLista = elegirRutinaDeLista;
+                elegirRutinaDeLista = function(cod, soloLectura) {
+                    if (!cod || cod === (typeof currentCode !== 'undefined' ? currentCode : null)) {
+                        _modoLecturaPendiente = false;
+                        return _origElegirRutinaDeLista.call(this, cod);
+                    }
+                    _modoLecturaPendiente = !!soloLectura;
+                    return _origElegirRutinaDeLista.call(this, cod);
+                };
+            }
+
+            if (typeof _renderMisRutinas === 'function') {
+                var _origRenderMisRutinas = _renderMisRutinas;
+                _renderMisRutinas = function(data, prefijo) {
+                    var result = _origRenderMisRutinas.call(this, data, prefijo);
+                    var cont = document.getElementById('mis-rutinas-contenido');
+                    if (!cont) return result;
+                    var codigos = data ? Object.keys(data).sort() : [];
+                    var items = cont.querySelectorAll('.mr-item');
+                    items.forEach(function(item, idx) {
+                        var cod = codigos[idx];
+                        if (!cod || item.querySelector('.pf-lectura-ojo')) return;
+                        var ojo = document.createElement('button');
+                        ojo.type = 'button';
+                        ojo.className = 'pf-lectura-ojo';
+                        ojo.title = 'Ver en modo solo lectura';
+                        ojo.innerHTML = '&#128065;';
+                        ojo.addEventListener('click', function(ev) {
+                            ev.stopPropagation();
+                            elegirRutinaDeLista(cod, true);
+                        });
+                        item.appendChild(ojo);
+                    });
+                    return result;
+                };
+            }
+
+            if (typeof cerrar === 'function') {
+                var _origCerrar = cerrar;
+                cerrar = function() {
+                    _setModoLectura(false);
+                    return _origCerrar.apply(this, arguments);
                 };
             }
         })();
