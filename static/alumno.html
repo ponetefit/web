@@ -1609,6 +1609,160 @@
         #overlay-bienvenida.visible {
             display: flex;
         }
+        /* ─── OVERLAY MIS RUTINAS ─── */
+        
+        #overlay-mis-rutinas {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 10, 12, 0.98);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            z-index: 5500;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        #overlay-mis-rutinas.visible {
+            display: flex;
+        }
+        
+        .mr-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 20px 14px;
+            flex-shrink: 0;
+            border-bottom: 1px solid var(--borde-sutil);
+        }
+        
+        .mr-header h3 {
+            margin: 0;
+            font-size: var(--fs-lg);
+            font-weight: 900;
+            letter-spacing: 0.5px;
+        }
+        
+        .mr-close {
+            background: var(--tarjeta-alt);
+            border: 1px solid var(--borde);
+            color: var(--texto-suave);
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-size: var(--fs-lg);
+            line-height: 1;
+            flex-shrink: 0;
+        }
+        
+        .mr-body {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 16px 16px 40px;
+            max-width: 700px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        
+        .mr-estado {
+            text-align: center;
+            color: var(--texto-suave);
+            font-size: var(--fs-sm);
+            padding: 40px 20px;
+        }
+        
+        .mr-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .mr-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: var(--tarjeta);
+            border: 1px solid var(--borde);
+            border-radius: var(--radius-md);
+            padding: 14px 16px;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        
+        .mr-item:active {
+            background: var(--tarjeta-alt);
+        }
+        
+        .mr-item.activa {
+            border-color: var(--borde);
+            background: var(--tarjeta-alt);
+        }
+        
+        .mr-barra {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+        }
+        
+        .mr-num {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: var(--fs-sm);
+            color: #000;
+            flex-shrink: 0;
+        }
+        
+        .mr-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .mr-id {
+            font-weight: 900;
+            font-size: var(--fs-base);
+            letter-spacing: 0.5px;
+            font-family: 'Roboto Mono', monospace;
+            text-transform: uppercase;
+        }
+        
+        .mr-sub {
+            font-size: var(--fs-xs);
+            color: var(--texto-suave);
+            margin-top: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .mr-chevron {
+            width: 18px;
+            height: 18px;
+            color: var(--texto-suave);
+            flex-shrink: 0;
+        }
+        
+        .mr-pill-activa {
+            font-size: 0.62rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: var(--naranja);
+            text-transform: uppercase;
+            background: rgba(255, 94, 26, 0.12);
+            padding: 4px 9px;
+            border-radius: 20px;
+            margin-left: 8px;
+            flex-shrink: 0;
+        }
         
         .bv-inner {
             width: 100%;
@@ -3760,6 +3914,17 @@
         <button class="btn-header" onclick="saltarPausaSeries()" style="border-color:var(--verde);color:var(--verde);">SALTAR PAUSA</button>
     </div>
 
+    <!-- OVERLAY MIS RUTINAS -->
+    <div id="overlay-mis-rutinas">
+        <div class="mr-header">
+            <h3>Mis rutinas</h3>
+            <button class="mr-close" onclick="cerrarMisRutinas()" aria-label="Cerrar">&times;</button>
+        </div>
+        <div class="mr-body">
+            <div id="mis-rutinas-contenido"></div>
+        </div>
+    </div>
+
     <!-- OVERLAY BIENVENIDA -->
     <div id="overlay-bienvenida">
         <div class="bv-inner">
@@ -3929,6 +4094,10 @@
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;">
                     <button id="btn-volver-dias-header" onclick="volverADias()" style="display:none;background:var(--tarjeta-alt);border:1px solid var(--borde);border-radius:var(--radius-md);padding:10px 14px;color:var(--texto-suave);font-size:var(--fs-xs);font-weight:700;cursor:pointer;letter-spacing:1px;white-space:nowrap;">&#8592; Días</button>
+                    <button id="btn-mis-rutinas-header" onclick="abrirMisRutinas()" style="display:none;background:var(--tarjeta-alt);border:1px solid var(--borde);border-radius:var(--radius-md);padding:10px 14px;color:var(--texto-suave);font-size:var(--fs-xs);font-weight:700;cursor:pointer;letter-spacing:1px;white-space:nowrap;align-items:center;gap:6px;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;vertical-align:-2px;"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+                        Rutinas
+                    </button>
                     <button class="btn-header" onclick="cerrar()">Salir</button>
                 </div>
             </div>
@@ -6542,9 +6711,14 @@
                         document.title = 'PONETEFIT | Entrenamiento para ' + nombre;
                         document.getElementById('alumno-nombre-display').innerText = nombre.toUpperCase();
                         document.getElementById('id-display').innerText = 'RUTINA ' + partes.slice(1).join('-').toUpperCase();
+                        // Mostrar botón "Rutinas" para ver todo lo asociado a este alumno
+                        var _btnMisRutinasH = document.getElementById('btn-mis-rutinas-header');
+                        if (_btnMisRutinasH) _btnMisRutinasH.style.display = 'flex';
                     } else {
                         document.getElementById('alumno-nombre-display').innerText = 'ENTRENAMIENTO';
                         document.getElementById('id-display').innerText = cod.toUpperCase();
+                        var _btnMisRutinasH2 = document.getElementById('btn-mis-rutinas-header');
+                        if (_btnMisRutinasH2) _btnMisRutinasH2.style.display = 'none';
                     }
                     // Mostrar métodos de entrenamiento en el header
                     if (data.tipo && data.tipo.toUpperCase() === 'ENTRENAMIENTO' && data.bloques && data.bloques.length > 0) {
@@ -6581,6 +6755,82 @@
                     btn.innerText = 'Entrar a Entrenar';
                     btn.disabled = false;
                 }
+            }
+
+            // ─── MIS RUTINAS: ver todas las rutinas asociadas al mismo alumno ───
+            var FIREBASE_RUTINAS_BASE = "https://ponetefit-app-default-rtdb.firebaseio.com/rutinas";
+            var _coloresMisRutinas = ['var(--naranja)', 'var(--azul)', 'var(--purpura)', 'var(--verde)', 'var(--amarillo)', 'var(--rosa)'];
+
+            async function abrirMisRutinas() {
+                if (!currentCode || !currentCode.includes('-')) return;
+                var prefijo = currentCode.split('-')[0] + '-';
+                var overlay = document.getElementById('overlay-mis-rutinas');
+                var cont = document.getElementById('mis-rutinas-contenido');
+                if (!overlay || !cont) return;
+                cont.innerHTML = '<div class="mr-estado">Buscando rutinas...</div>';
+                overlay.classList.add('visible');
+                try {
+                    var url = FIREBASE_RUTINAS_BASE + '.json?orderBy=' + encodeURIComponent('"$key"') +
+                        '&startAt=' + encodeURIComponent('"' + prefijo + '"') +
+                        '&endAt=' + encodeURIComponent('"' + prefijo + '\uf8ff"');
+                    var res = await fetch(url);
+                    var data = await res.json();
+                    _renderMisRutinas(data, prefijo);
+                } catch (e) {
+                    cont.innerHTML = '<div class="mr-estado">No se pudieron cargar las rutinas.<br>Revisá tu conexión e intentá de nuevo.</div>';
+                }
+            }
+
+            function cerrarMisRutinas() {
+                var overlay = document.getElementById('overlay-mis-rutinas');
+                if (overlay) overlay.classList.remove('visible');
+            }
+
+            function _renderMisRutinas(data, prefijo) {
+                var cont = document.getElementById('mis-rutinas-contenido');
+                if (!cont) return;
+                var codigos = data ? Object.keys(data).sort() : [];
+                if (codigos.length === 0) {
+                    cont.innerHTML = '<div class="mr-estado">No encontramos otras rutinas para este código.</div>';
+                    return;
+                }
+                var html = '<div class="mr-list">';
+                codigos.forEach(function(cod, idx) {
+                    var d = data[cod] || {};
+                    var esActual = cod === currentCode;
+                    var color = _coloresMisRutinas[idx % _coloresMisRutinas.length];
+                    var numero = cod.slice(prefijo.length).toUpperCase() || (idx + 1);
+                    var tipo = (d.tipo || '').toString().toUpperCase();
+                    var esMulti = d.es_multidia === true && (d.total_dias || 1) > 1;
+                    var subPartes = [];
+                    if (tipo) subPartes.push(tipo);
+                    if (esMulti) subPartes.push((d.total_dias || 1) + ' días');
+                    var sub = subPartes.length ? subPartes.join(' · ') : 'Rutina';
+                    html += '<div class="mr-item' + (esActual ? ' activa' : '') + '" onclick="elegirRutinaDeLista(\'' + cod.replace(/'/g, "\\'") + '\')">' +
+                        '<div class="mr-barra" style="background:' + color + ';"></div>' +
+                        '<div class="mr-num" style="background:' + color + ';">' + (idx + 1) + '</div>' +
+                        '<div class="mr-info">' +
+                        '<div class="mr-id">' + cod.toUpperCase() + '</div>' +
+                        '<div class="mr-sub">' + sub + '</div>' +
+                        '</div>';
+                    if (esActual) {
+                        html += '<span class="mr-pill-activa">En uso</span>';
+                    } else {
+                        html += '<svg class="mr-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 18l6-6-6-6"/></svg>';
+                    }
+                    html += '</div>';
+                });
+                html += '</div>';
+                cont.innerHTML = html;
+            }
+
+            function elegirRutinaDeLista(cod) {
+                cerrarMisRutinas();
+                if (!cod || cod === currentCode) return;
+                cerrar();
+                var input = document.getElementById('codigoInput');
+                if (input) input.value = cod;
+                consultarRutina();
             }
 
             // Enter key
