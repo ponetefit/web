@@ -1929,6 +1929,28 @@
             box-shadow: 0 4px 24px rgba(255, 107, 53, 0.35);
         }
         
+        .bv-btn-row {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .bv-btn-row .bv-btn-empezar {
+            flex: 1;
+            width: auto;
+            max-width: none;
+            padding: 18px 10px;
+            font-size: var(--fs-sm);
+        }
+        
+        .bv-btn-lectura {
+            background: var(--tarjeta-alt);
+            color: var(--texto);
+            border: 2px solid var(--borde);
+            box-shadow: none;
+        }
+        
         .bv-btn-empezar:active {
             transform: scale(0.97);
         }
@@ -4053,7 +4075,10 @@
                 </div>
             </div>
 
-            <button class="bv-btn-empezar" onclick="_bvEmpezar()">▶ EMPEZAR ENTRENAMIENTO</button>
+            <div class="bv-btn-row" id="bv-btn-row">
+                <button class="bv-btn-empezar" id="bv-btn-empezar" onclick="_pfEmpezarNormal()">▶ EMPEZAR</button>
+                <button class="bv-btn-empezar bv-btn-lectura" id="bv-btn-lectura" onclick="_pfEmpezarLectura()">&#128065; MODO LECTURA</button>
+            </div>
         </div>
     </div>
 
@@ -14687,8 +14712,6 @@
                 '#pf-lectura-banner.visible{display:flex}',
                 '#pf-lectura-banner .pf-lectura-txt{font-size:11px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;color:#69f0ae;display:flex;align-items:center;gap:8px}',
                 '#pf-lectura-banner button{border:1px solid #3a3a48;background:#20202a;color:#fff;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;}',
-                '#pf-lectura-toggle{background:var(--tarjeta-alt,#131316);border:1px solid var(--borde,#2c2c38);border-radius:var(--radius-md,12px);padding:10px 14px;color:var(--texto-suave,#9494a3);font-size:var(--fs-xs,12px);font-weight:700;cursor:pointer;letter-spacing:1px;white-space:nowrap;display:flex;align-items:center;gap:6px;}',
-                '#pf-lectura-toggle.activo{color:#69f0ae;border-color:#2f5a2a;background:#16241a;}',
                 '.pf-lectura-ojo{background:transparent;border:1px solid #3a3a48;border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;color:#aaaab8;cursor:pointer;flex-shrink:0;margin-left:8px;font-size:15px;}',
                 '.pf-lectura-ojo:hover{color:#69f0ae;border-color:#69f0ae;}',
                 'body.pf-lectura-on #modal-scroll [onclick^="iniciar"]:not([onclick^="iniciarDia"]),' +
@@ -14748,7 +14771,6 @@
                 _crearBanner();
                 var banner = document.getElementById('pf-lectura-banner');
                 if (banner) banner.classList.toggle('visible', _modoLectura);
-                _syncHeaderToggle();
                 _relabelBotonesDia();
             }
 
@@ -14786,37 +14808,23 @@
             }
             _observarBotonesDia();
 
-            function _syncHeaderToggle() {
-                var toggle = document.getElementById('pf-lectura-toggle');
-                if (!toggle) return;
-                toggle.classList.toggle('activo', _modoLectura);
-                toggle.innerHTML = _modoLectura ?
-                    '&#128065; Lectura: ON' :
-                    '&#128065; Solo lectura';
-                toggle.title = _modoLectura ?
-                    'Estás repasando sin timers ni marcar series. Tocá para volver al modo normal.' :
-                    'Repasar esta rutina sin arrancar timers ni marcar series';
+            // ─── Botones de la pantalla de bienvenida (tras entrar con el código) ───
+            // "EMPEZAR" abre la rutina en modo normal. "MODO LECTURA" la abre en
+            // modo lectura directamente, sin pasos intermedios.
+            function _pfEmpezarNormal() {
+                _modoLecturaPendiente = false;
+                _setModoLectura(false);
+                _bvEmpezar();
             }
 
-            function _crearHeaderToggle() {
-                if (document.getElementById('pf-lectura-toggle')) return;
-                var salirBtn = document.querySelector('.header-rutina .btn-header');
-                if (!salirBtn || !salirBtn.parentNode) return;
-                var toggle = document.createElement('button');
-                toggle.type = 'button';
-                toggle.id = 'pf-lectura-toggle';
-                salirBtn.parentNode.insertBefore(toggle, salirBtn);
-                toggle.addEventListener('click', function() {
-                    _setModoLectura(!_modoLectura);
-                    if (typeof mostrarToast === 'function') {
-                        mostrarToast(_modoLectura ?
-                            'Modo solo lectura activado: podés repasar sin timers ni marcar series' :
-                            'Modo solo lectura desactivado');
-                    }
-                });
-                _syncHeaderToggle();
+            function _pfEmpezarLectura() {
+                _modoLecturaPendiente = false;
+                _setModoLectura(true);
+                _bvEmpezar();
+                if (typeof mostrarToast === 'function') {
+                    mostrarToast('Modo solo lectura activado: podés repasar sin timers ni marcar series');
+                }
             }
-            _crearHeaderToggle();
 
             // Bloquear, dentro del contenido de la rutina, cualquier acción que
             // inicie un timer o marque una serie/ronda/vuelta como hecha.
@@ -14839,9 +14847,21 @@
             if (typeof consultarRutina === 'function') {
                 var _origConsultarRutina = consultarRutina;
                 consultarRutina = function() {
-                    _setModoLectura(!!_modoLecturaPendiente);
-                    _modoLecturaPendiente = false;
+                    _setModoLectura(false);
                     return _origConsultarRutina.apply(this, arguments);
+                };
+            }
+
+            // Si se vino desde el ícono de ojo en "Mis Rutinas", saltear la
+            // pantalla de bienvenida y entrar directo en modo lectura.
+            if (typeof _bvMostrar === 'function') {
+                var _origBvMostrar = _bvMostrar;
+                _bvMostrar = function() {
+                    var result = _origBvMostrar.apply(this, arguments);
+                    if (_modoLecturaPendiente) {
+                        _pfEmpezarLectura();
+                    }
+                    return result;
                 };
             }
 
