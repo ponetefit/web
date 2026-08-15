@@ -6617,6 +6617,13 @@
                 var durMin = _bvCalcDuracion(data);
                 var esMultidiaLocal = data.es_multidia === true && (data.total_dias || 1) > 1;
                 var diasNormLocal = esMultidiaLocal ? _bvObtenerDiasNormalizados(data) : [];
+                // En multi-dia el modo lectura se elige por día (ojo al lado de
+                // "EMPEZAR" en cada tarjeta), no acá: el botón global de esta
+                // pantalla mostraba la lista completa de días en modo lectura,
+                // lo que podía tildar la pantalla. Se oculta y el botón
+                // "EMPEZAR" pasa a ocupar todo el ancho.
+                var _btnLecturaBv = document.getElementById('bv-btn-lectura');
+                if (_btnLecturaBv) _btnLecturaBv.style.display = esMultidiaLocal ? 'none' : '';
                 if (esMultidiaLocal && diasNormLocal.length) {
                     // Mostrar duración del primer día como referencia
                     var durDia = _bvCalcDuracion(diasNormLocal[0]);
@@ -9157,7 +9164,10 @@
                             if (ejsPreview.length > 7) chipsHtml += '<span style="font-size:var(--fs-xs);color:var(--texto-suave);padding:3px 4px;">+' + (ejsPreview.length - 7) + ' mas</span>';
                             chipsHtml += '</div>';
                         }
-                        var btnHtml = '<button onclick="iniciarDia(' + idx + ')" style="width:100%;background:' + colorAccent + ';color:#000;border:none;border-radius:var(--radius-md);padding:12px;font-weight:900;font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:2px;cursor:pointer;transition:opacity 0.2s;">&#9654; EMPEZAR ' + titulo.toUpperCase() + '</button>';
+                        var btnHtml = '<div style="display:flex;gap:8px;">' +
+                            '<button onclick="iniciarDia(' + idx + ')" style="flex:1;min-width:0;background:' + colorAccent + ';color:#000;border:none;border-radius:var(--radius-md);padding:12px;font-weight:900;font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:2px;cursor:pointer;transition:opacity 0.2s;">&#9654; EMPEZAR ' + titulo.toUpperCase() + '</button>' +
+                            '<button onclick="_pfEmpezarLecturaDia(' + idx + ')" title="Modo solo lectura" style="flex-shrink:0;width:48px;background:var(--tarjeta-alt);color:var(--texto);border:2px solid var(--borde);border-radius:var(--radius-md);font-size:18px;cursor:pointer;">&#128065;</button>' +
+                            '</div>';
                         var pfxHm = 'md' + idx;
                         var heatmapHtml = '<div style="display:flex;flex-direction:column;align-items:center;margin-bottom:14px;">' + _mdHeatmapHtml(pfxHm) + '</div>';
                         previewDiv.innerHTML = tagHtml + heatmapHtml + chipsHtml + btnHtml;
@@ -14174,7 +14184,7 @@
 
                 // ─── SERVICE WORKER (inline via blob) ───
                 var swCode = `
-            var CACHE_NAME = 'ponetefit-v2';
+            var CACHE_NAME = 'ponetefit-v1';
             var OFFLINE_URL = '/';
 
             self.addEventListener('install', function(event) {
@@ -14784,12 +14794,21 @@
                 if (!scrollEl) return;
                 var btns = scrollEl.querySelectorAll('[onclick^="iniciarDia("]');
                 btns.forEach(function(btn) {
+                    var nuevoHtml;
                     if (_modoLectura) {
                         if (btn.dataset.pfOrig === undefined) btn.dataset.pfOrig = btn.innerHTML;
-                        btn.innerHTML = btn.dataset.pfOrig.replace(/EMPEZAR/i, 'VER');
+                        nuevoHtml = btn.dataset.pfOrig.replace(/EMPEZAR/i, 'VER');
                     } else if (btn.dataset.pfOrig !== undefined) {
-                        btn.innerHTML = btn.dataset.pfOrig;
+                        nuevoHtml = btn.dataset.pfOrig;
+                    } else {
+                        return;
                     }
+                    // OJO: solo tocar innerHTML si realmente cambia algo. Escribir
+                    // innerHTML siempre (aunque el resultado sea igual) dispara el
+                    // MutationObserver de abajo, que vuelve a llamar a esta función,
+                    // que vuelve a escribir innerHTML... un loop infinito que
+                    // tildaba la pantalla en rutinas multi-dia (muchas tarjetas).
+                    if (btn.innerHTML !== nuevoHtml) btn.innerHTML = nuevoHtml;
                 });
             }
 
@@ -14827,6 +14846,21 @@
                 }
             }
             window._pfEmpezarLectura = _pfEmpezarLectura;
+
+            // Botón "👁" de cada tarjeta de día (rutinas multi-dia). Activa el
+            // modo lectura y entra directo a ese día (mismo camino que
+            // iniciarDia normal), en vez de dejar la lista completa de días
+            // en modo lectura — así se comporta igual que una rutina de un
+            // solo día, que ya funciona bien.
+            function _pfEmpezarLecturaDia(diaIdx) {
+                _modoLecturaPendiente = false;
+                _setModoLectura(true);
+                if (typeof iniciarDia === 'function') iniciarDia(diaIdx);
+                if (typeof mostrarToast === 'function') {
+                    mostrarToast('Modo solo lectura activado: podés repasar sin timers ni marcar series');
+                }
+            }
+            window._pfEmpezarLecturaDia = _pfEmpezarLecturaDia;
 
             // Bloquear, dentro del contenido de la rutina, cualquier acción que
             // inicie un timer o marque una serie/ronda/vuelta como hecha.
@@ -14910,6 +14944,18 @@
                 cerrar = function() {
                     _setModoLectura(false);
                     return _origCerrar.apply(this, arguments);
+                };
+            }
+
+            // Al volver a la lista de días (rutina multi-dia) apagamos el modo
+            // lectura: cada tarjeta vuelve a mostrar "EMPEZAR" + el ojo, y el
+            // alumno elige de nuevo para el próximo día que abra.
+            if (typeof volverADias === 'function') {
+                var _origVolverADias = volverADias;
+                volverADias = function() {
+                    var result = _origVolverADias.apply(this, arguments);
+                    _setModoLectura(false);
+                    return result;
                 };
             }
         })();
