@@ -14291,6 +14291,365 @@
                 }
             })();
         </script>
+    <!-- ====================================================================
+         FEEDBACK POST-ENTRENO
+         Se muestra al completar calentamiento y cada bloque de entrenamiento.
+         Guarda una respuesta por etapa en Firebase para el dashboard del profesor.
+         ==================================================================== -->
+    <script>
+        (function _pfFeedbackAlumno() {
+            var _feedbackFirebaseUrl = 'https://ponetefit-app-default-rtdb.firebaseio.com/feedback/';
+            var _feedbackEtapasRespondidas = {};
+            var _feedbackEtapaActual = null;
+            var _feedbackPendienteFinal = false;
+            var _feedbackOriginalIncrementar = null;
+            var _feedbackOriginalFinal = null;
+            var _feedbackOriginalInicializar = null;
+
+            function _esc(value) {
+                return String(value == null ? '' : value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            function _fechaISO() {
+                var d = new Date();
+                return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            }
+
+            function _tipoLegible(tipo) {
+                var t = String(tipo || '').toLowerCase();
+                if (t === 'circuito') return 'CIRCUITO POR VUELTA';
+                if (t === 'por tiempo') return 'POR TIEMPO';
+                if (t === 'sumando ejercicio') return 'SUMANDO EJERCICIOS';
+                if (t === 'series') return 'SERIES Y REPETICIONES';
+                if (t === 'circuito por tiempo') return 'CIRCUITO POR TIEMPO';
+                if (t === 'tabata') return 'TABATA';
+                if (t === 'emom') return 'EMOM';
+                return String(tipo || 'ENTRENAMIENTO').toUpperCase();
+            }
+
+            function _nombreEtapa(indice) {
+                var segmentos = (typeof _progresoSegmentos !== 'undefined' && _progresoSegmentos) || [];
+                var seg = segmentos[indice];
+                if (!seg) return indice === 0 ? 'CALENTAMIENTO' : 'BLOQUE ' + indice;
+                if (indice === 0 || String(seg.nombre).toLowerCase() === 'calentamiento') return 'CALENTAMIENTO';
+                return 'BLOQUE ' + indice + ' · ' + _tipoLegible(seg.nombre);
+            }
+
+            function _fuenteEtapa(indice) {
+                var data = (typeof _dataRenderActual !== 'undefined' && _dataRenderActual) ||
+                    (typeof dataGlobal !== 'undefined' && dataGlobal) || {};
+                if (indice === 0) {
+                    return {
+                        tipo: data.warmup_tipo || 'Calentamiento',
+                        ejercicios: data.warmup_ejercicios || []
+                    };
+                }
+                var bloques = data.tipo === 'ENTRENAMIENTO' ? (data.bloques || []) : [data];
+                return bloques[indice - 1] || data;
+            }
+
+            function _ejerciciosEtapa(indice) {
+                var names = [];
+                var seen = {};
+                function add(value) {
+                    var n = String(value || '').trim();
+                    if (!n || seen[n.toUpperCase()]) return;
+                    seen[n.toUpperCase()] = true;
+                    names.push(n);
+                }
+                function walk(value) {
+                    if (!value) return;
+                    if (Array.isArray(value)) {
+                        if (typeof value[0] === 'string') add(value[0]);
+                        value.forEach(function(item) {
+                            if (item !== value[0]) walk(item);
+                        });
+                        return;
+                    }
+                    if (typeof value !== 'object') return;
+                    if (value.nombre || value.ejercicio) add(value.nombre || value.ejercicio);
+                    ['ejercicios', 'rutina', 'datos', 'warmup_ejercicios', 'minutos_ciclo', 'emom_config_por_minuto'].forEach(function(key) {
+                        if (value[key]) walk(value[key]);
+                    });
+                }
+                walk(_fuenteEtapa(indice));
+                if (!names.length) {
+                    document.querySelectorAll('.card-ejercicio-nombre, .serie-nombre').forEach(function(el) {
+                        add(el.textContent);
+                    });
+                }
+                return names;
+            }
+
+            function _detalleEtapa(indice) {
+                var detalles = [];
+                var seen = {};
+                function agregar(nombre, objeto) {
+                    var n = String(nombre || '').trim();
+                    if (!n || seen[n.toUpperCase()]) return;
+                    seen[n.toUpperCase()] = true;
+                    var dato = { nombre: n };
+                    if (objeto && typeof objeto === 'object' && !Array.isArray(objeto)) {
+                        ['series', 'repeticiones', 'reps', 'repeticiones_por_serie', 'tiempo', 'tiempo_min', 'descanso', 'peso'].forEach(function(key) {
+                            if (objeto[key] !== undefined && objeto[key] !== null && objeto[key] !== '') dato[key] = objeto[key];
+                        });
+                    }
+                    detalles.push(dato);
+                }
+                function walk(value) {
+                    if (!value) return;
+                    if (Array.isArray(value)) {
+                        if (typeof value[0] === 'string') agregar(value[0], null);
+                        value.forEach(function(item) { if (item !== value[0]) walk(item); });
+                        return;
+                    }
+                    if (typeof value !== 'object') return;
+                    if (value.nombre || value.ejercicio) agregar(value.nombre || value.ejercicio, value);
+                    ['ejercicios', 'rutina', 'datos', 'warmup_ejercicios', 'minutos_ciclo', 'emom_config_por_minuto'].forEach(function(key) {
+                        if (value[key]) walk(value[key]);
+                    });
+                }
+                walk(_fuenteEtapa(indice));
+                return detalles;
+            }
+
+            function _colorSensacion(value) {
+                var v = Math.max(1, Math.min(10, Number(value) || 1));
+                var hue = Math.round(120 - ((v - 1) / 9) * 120);
+                return 'hsl(' + hue + ', 78%, 48%)';
+            }
+
+            function _crearOverlay() {
+                if (document.getElementById('pf-feedback-overlay')) return;
+                var style = document.createElement('style');
+                style.id = 'pf-feedback-style';
+                style.textContent = [
+                    '#pf-feedback-overlay{position:fixed;inset:0;z-index:16000;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.82);backdrop-filter:blur(8px)}',
+                    '#pf-feedback-overlay.visible{display:flex}',
+                    '#pf-feedback-card{width:min(100%,480px);max-height:calc(100vh - 36px);overflow:auto;background:linear-gradient(160deg,#17171c,#0a0a0d);border:1px solid #343440;border-radius:24px;padding:24px;box-shadow:0 20px 80px rgba(0,0,0,.6);color:#fff}',
+                    '#pf-feedback-card *{box-sizing:border-box}',
+                    '.pf-feedback-eyebrow{font-size:11px;letter-spacing:2px;font-weight:900;color:#69f0ae;text-transform:uppercase;text-align:center;margin-bottom:8px}',
+                    '.pf-feedback-title{font-size:clamp(1.35rem,6vw,1.8rem);font-weight:900;text-align:center;line-height:1.15;margin:0 0 7px}',
+                    '.pf-feedback-subtitle{font-size:13px;color:#aaaab8;text-align:center;margin:0 0 22px}',
+                    '.pf-feedback-question{font-size:14px;font-weight:900;letter-spacing:.4px;margin:18px 0 10px}',
+                    '.pf-feedback-scale{display:grid;grid-template-columns:repeat(10,1fr);gap:5px}',
+                    '.pf-feedback-scale button{border:1px solid #3a3a48;background:#20202a;color:#fff;border-radius:10px;min-height:44px;font-size:14px;font-weight:900;cursor:pointer;transition:transform .15s,box-shadow .15s,background .15s}',
+                    '.pf-feedback-scale button:hover{transform:translateY(-2px)}',
+                    '.pf-feedback-scale button.selected{color:#050505;transform:translateY(-2px);box-shadow:0 0 0 2px rgba(255,255,255,.85),0 5px 16px rgba(0,0,0,.35)}',
+                    '.pf-feedback-extremos{display:flex;justify-content:space-between;color:#9999aa;font-size:11px;margin-top:7px}',
+                    '.pf-feedback-select,.pf-feedback-note{width:100%;border:1px solid #3a3a48;border-radius:12px;background:#101015;color:#fff;padding:13px 14px;font:inherit;font-size:14px;outline:none}',
+                    '.pf-feedback-select:focus,.pf-feedback-note:focus{border-color:#69f0ae;box-shadow:0 0 0 3px rgba(105,240,174,.12)}',
+                    '.pf-feedback-note{min-height:72px;resize:vertical}',
+                    '.pf-feedback-actions{display:flex;gap:10px;margin-top:22px}',
+                    '.pf-feedback-submit{flex:1;border:0;border-radius:13px;padding:14px;background:linear-gradient(135deg,#69f0ae,#16a765);color:#04140c;font-weight:900;letter-spacing:.5px;cursor:pointer}',
+                    '.pf-feedback-submit:disabled{opacity:.45;cursor:not-allowed}',
+                    '.pf-feedback-required{font-size:11px;color:#ff8a80;text-align:center;margin-top:9px;min-height:15px}'
+                ].join('');
+                document.head.appendChild(style);
+                var overlay = document.createElement('div');
+                overlay.id = 'pf-feedback-overlay';
+                overlay.innerHTML = '<div id="pf-feedback-card" role="dialog" aria-modal="true" aria-labelledby="pf-feedback-title">' +
+                    '<div class="pf-feedback-eyebrow">Feedback guardado por bloque</div>' +
+                    '<h2 id="pf-feedback-title" class="pf-feedback-title">¿Cómo te sentiste?</h2>' +
+                    '<p id="pf-feedback-subtitle" class="pf-feedback-subtitle"></p>' +
+                    '<div class="pf-feedback-question">Sensación de esfuerzo</div>' +
+                    '<div id="pf-feedback-scale" class="pf-feedback-scale" role="radiogroup" aria-label="Sensación de esfuerzo del 1 al 10"></div>' +
+                    '<div class="pf-feedback-extremos"><span>1 · Más liviano</span><span>10 · Más pesado</span></div>' +
+                    '<div class="pf-feedback-question">¿Qué ejercicio costó más?</div>' +
+                    '<select id="pf-feedback-ejercicio" class="pf-feedback-select"><option value="">Elegí un ejercicio</option></select>' +
+                    '<input id="pf-feedback-ejercicio-otro" class="pf-feedback-select" style="margin-top:8px" maxlength="100" placeholder="Si no aparece, escribilo acá" />' +
+                    '<div class="pf-feedback-question">Comentario opcional</div>' +
+                    '<textarea id="pf-feedback-nota" class="pf-feedback-note" maxlength="240" placeholder="Contanos algo que le sirva a tu profesor..."></textarea>' +
+                    '<div id="pf-feedback-required" class="pf-feedback-required"></div>' +
+                    '<div class="pf-feedback-actions"><button id="pf-feedback-submit" class="pf-feedback-submit" type="button">GUARDAR FEEDBACK</button></div>' +
+                    '</div>';
+                document.body.appendChild(overlay);
+                document.getElementById('pf-feedback-submit').addEventListener('click', _guardarFeedback);
+            }
+
+            function _renderEscala(valor) {
+                var scale = document.getElementById('pf-feedback-scale');
+                if (!scale) return;
+                scale.innerHTML = '';
+                for (var i = 1; i <= 10; i++) {
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.textContent = i;
+                    btn.dataset.value = String(i);
+                    btn.setAttribute('role', 'radio');
+                    btn.setAttribute('aria-checked', String(i === valor));
+                    btn.style.background = _colorSensacion(i);
+                    btn.style.color = '#07110b';
+                    btn.style.opacity = i === valor ? '1' : '.72';
+                    if (i === valor) {
+                        btn.classList.add('selected');
+                    }
+                    btn.addEventListener('click', function() {
+                        _feedbackEtapaActual.rpe = Number(this.dataset.value);
+                        _renderEscala(_feedbackEtapaActual.rpe);
+                        document.getElementById('pf-feedback-required').textContent = '';
+                    });
+                    scale.appendChild(btn);
+                }
+            }
+
+            function _abrirFeedback(indice, pendienteFinal) {
+                if (_feedbackEtapasRespondidas[indice] || _feedbackEtapaActual) return;
+                _crearOverlay();
+                var nombres = _ejerciciosEtapa(indice);
+                _feedbackEtapaActual = {
+                    indice: indice,
+                    rpe: null,
+                    pendienteFinal: !!pendienteFinal
+                };
+                document.getElementById('pf-feedback-subtitle').textContent = _nombreEtapa(indice) + ' · una respuesta rápida para ajustar tu próximo entrenamiento';
+                var select = document.getElementById('pf-feedback-ejercicio');
+                select.innerHTML = '<option value="">Elegí un ejercicio</option>' +
+                    nombres.map(function(n) { return '<option value="' + _esc(n) + '">' + _esc(n) + '</option>'; }).join('');
+                document.getElementById('pf-feedback-ejercicio-otro').value = '';
+                document.getElementById('pf-feedback-nota').value = '';
+                document.getElementById('pf-feedback-required').textContent = '';
+                _renderEscala(null);
+                document.getElementById('pf-feedback-overlay').classList.add('visible');
+                setTimeout(function() {
+                    var first = document.querySelector('#pf-feedback-scale button');
+                    if (first) first.focus();
+                }, 50);
+            }
+
+            function _etapaTerminada(indice) {
+                if (_feedbackEtapasRespondidas[indice]) return;
+                var pendiente = indice >= 0 &&
+                    typeof _progresoSegmentos !== 'undefined' &&
+                    indice === _progresoSegmentos.length - 1;
+                setTimeout(function() {
+                    _abrirFeedback(indice, pendiente);
+                }, 160);
+            }
+
+            function _siguienteFeedbackPendiente() {
+                if (typeof _progresoSegmentos === 'undefined') return null;
+                for (var i = 0; i < _progresoSegmentos.length; i++) {
+                    var seg = _progresoSegmentos[i];
+                    if (!_feedbackEtapasRespondidas[i] && seg && seg.totalItems > 0 && seg.completados >= seg.totalItems) return i;
+                }
+                return null;
+            }
+
+            function _guardarFeedback() {
+                if (!_feedbackEtapaActual) return;
+                var rpe = Number(_feedbackEtapaActual.rpe);
+                if (!rpe) {
+                    document.getElementById('pf-feedback-required').textContent = 'Elegí un número del 1 al 10 para continuar.';
+                    return;
+                }
+                var select = document.getElementById('pf-feedback-ejercicio');
+                var otroEjercicio = document.getElementById('pf-feedback-ejercicio-otro').value.trim();
+                var ejercicioDificil = select.value || otroEjercicio;
+                if (!ejercicioDificil) {
+                    document.getElementById('pf-feedback-required').textContent = 'Elegí o escribí el ejercicio que más te costó.';
+                    return;
+                }
+                var nota = document.getElementById('pf-feedback-nota').value.trim();
+                var payload = {
+                    ts: Date.now(),
+                    fecha: _fechaISO(),
+                    rutina: typeof currentCode !== 'undefined' ? currentCode : '',
+                    alumno: typeof nombreUsuario !== 'undefined' ? nombreUsuario : '',
+                    dia: typeof esMultidia !== 'undefined' && esMultidia ? (typeof diaActivo !== 'undefined' ? diaActivo + 1 : null) : null,
+                    etapa: _feedbackEtapaActual.indice === 0 ? 'calentamiento' : 'bloque',
+                    etapa_indice: _feedbackEtapaActual.indice,
+                    etapa_nombre: _nombreEtapa(_feedbackEtapaActual.indice),
+                    tipo: (typeof _progresoSegmentos !== 'undefined' && _progresoSegmentos[_feedbackEtapaActual.indice]) ? _progresoSegmentos[_feedbackEtapaActual.indice].nombre : '',
+                    bloque_completo: {
+                        nombre: _nombreEtapa(_feedbackEtapaActual.indice),
+                        tipo: (typeof _progresoSegmentos !== 'undefined' && _progresoSegmentos[_feedbackEtapaActual.indice]) ? _progresoSegmentos[_feedbackEtapaActual.indice].nombre : '',
+                        ejercicios: _detalleEtapa(_feedbackEtapaActual.indice)
+                    },
+                    sensacion: rpe,
+                    ejercicio_dificil: ejercicioDificil,
+                    comentario: nota
+                };
+                _feedbackEtapasRespondidas[_feedbackEtapaActual.indice] = payload;
+                try {
+                    var code = typeof currentCode !== 'undefined' ? currentCode : '';
+                    if (code) {
+                        fetch(_feedbackFirebaseUrl + encodeURIComponent(code) + '/' + _fechaISO() + '.json', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        }).catch(function() {});
+                    }
+                } catch (e) {}
+                var etapaGuardada = _feedbackEtapaActual.indice;
+                var eraFinal = _feedbackEtapaActual.pendienteFinal;
+                _feedbackEtapaActual = null;
+                document.getElementById('pf-feedback-overlay').classList.remove('visible');
+                mostrarToast('Feedback guardado');
+
+                var siguiente = _siguienteFeedbackPendiente();
+                if (siguiente !== null) {
+                    setTimeout(function() { _abrirFeedback(siguiente, eraFinal); }, 180);
+                    return;
+                }
+                if (eraFinal || (typeof _progresoSegmentos !== 'undefined' && etapaGuardada === _progresoSegmentos.length - 1)) {
+                    _feedbackPendienteFinal = false;
+                    setTimeout(function() {
+                        if (_feedbackOriginalFinal) _feedbackOriginalFinal();
+                    }, 180);
+                } else if (etapaGuardada === 0) {
+                    var principal = document.getElementById('sec-principal');
+                    if (principal) principal.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
+
+            _crearOverlay();
+
+            if (typeof inicializarProgreso === 'function') {
+                _feedbackOriginalInicializar = inicializarProgreso;
+                inicializarProgreso = function(data) {
+                    _feedbackEtapasRespondidas = {};
+                    _feedbackEtapaActual = null;
+                    _feedbackPendienteFinal = false;
+                    return _feedbackOriginalInicializar(data);
+                };
+            }
+
+            if (typeof incrementarProgreso === 'function') {
+                _feedbackOriginalIncrementar = incrementarProgreso;
+                incrementarProgreso = function(cantidad) {
+                    var idxAntes = typeof _progresoSegActual !== 'undefined' ? _progresoSegActual : -1;
+                    var segAntes = typeof _progresoSegmentos !== 'undefined' ? _progresoSegmentos[idxAntes] : null;
+                    var completadosAntes = segAntes ? segAntes.completados : 0;
+                    var totalAntes = segAntes ? segAntes.totalItems : 0;
+                    var n = Number(cantidad) || 1;
+                    var result = _feedbackOriginalIncrementar(cantidad);
+                    if (segAntes && totalAntes > 0 && completadosAntes < totalAntes && completadosAntes + n >= totalAntes) {
+                        _etapaTerminada(idxAntes);
+                    }
+                    return result;
+                };
+            }
+
+            if (typeof mostrarPantallaFin === 'function') {
+                _feedbackOriginalFinal = mostrarPantallaFin;
+                mostrarPantallaFin = function() {
+                    var pendiente = _siguienteFeedbackPendiente();
+                    if (pendiente !== null) {
+                        _feedbackPendienteFinal = true;
+                        _abrirFeedback(pendiente, true);
+                        return;
+                    }
+                    _feedbackOriginalFinal();
+                };
+            }
+        })();
+    </script>
 </body>
 
 </html>
