@@ -1970,7 +1970,8 @@
                         <span id="ficha-alumno-edad" class="text-xs text-textoSuave"></span>
                     </div>
                     <p id="ficha-alumno-lesiones" class="text-xs text-textoSuave hidden mb-1"></p>
-                    <p id="ficha-alumno-prohibidos" class="text-xs text-amarillo hidden"></p>
+                    <p id="ficha-alumno-prohibidos" class="text-xs text-amarillo hidden mb-1"></p>
+                    <p id="ficha-alumno-costosos" class="text-xs text-verde hidden"></p>
                 </div>
             </div>
 
@@ -4132,7 +4133,10 @@
     // el detalle: código de rutina, sistema de entrenamiento (con tiempos/reps) y si fue
     // calentamiento o bloque principal.
     const FEEDBACK_URL_COSTOSO = 'https://ponetefit-app-default-rtdb.firebaseio.com/feedback/';
-    let _pfFeedbackCostosoCache = {}; // EJERCICIO_UPPER -> [{codigo, fecha, ts, sensacion, etapa, sistema_tipo, sistema_detalle, comentario}]
+    // Solo se avisa cuando la sensación de esfuerzo fue alta (9 o 10 sobre 10), para no
+    // alertar por ejercicios que en realidad no costaron tanto.
+    const UMBRAL_SENSACION_COSTOSO = 9;
+    let _pfFeedbackCostosoCache = {}; // EJERCICIO_UPPER -> [{nombre, codigo, fecha, ts, sensacion, etapa, sistema_tipo, sistema_detalle, comentario}]
     let _costosoAdvertenciaCallbackPendiente = null;
     let _costosoAdvertenciasAceptadas = new Set(); // "ALUMNO|EJERCICIO" ya confirmados en esta sesion
 
@@ -4171,13 +4175,16 @@
                         if (!item || typeof item !== 'object') return;
                         const ejercicio = String(item.ejercicio_dificil || '').trim();
                         if (!ejercicio || ejercicio.toLowerCase() === 'ninguno me costó') return;
+                        const sensacionNum = Number(item.sensacion || item.rpe || 0);
+                        if (sensacionNum < UMBRAL_SENSACION_COSTOSO) return; // solo esfuerzo alto (9-10)
                         const clave = ejercicio.toUpperCase();
                         if (!_pfFeedbackCostosoCache[clave]) _pfFeedbackCostosoCache[clave] = [];
                         _pfFeedbackCostosoCache[clave].push({
+                            nombre: ejercicio,
                             codigo: codigo,
                             fecha: item.fecha || fecha,
                             ts: item.ts || 0,
-                            sensacion: item.sensacion || item.rpe || 0,
+                            sensacion: sensacionNum,
                             etapa: item.etapa || '',
                             sistema_tipo: item.sistema_tipo || item.tipo || '',
                             sistema_detalle: item.sistema_detalle || item.tipo || '',
@@ -4187,6 +4194,16 @@
                 });
             } catch (e) {}
         }));
+        // Refrescar la ficha del alumno (badge "💪 Le costó antes: ...") y los buscadores de
+        // ejercicios que ya estén abiertos, ahora que tenemos el cache actualizado.
+        if (typeof _pfChequearFichaAlumno === 'function') _pfChequearFichaAlumno();
+        if (typeof cargarEjsBloque === 'function' && document.getElementById('bloque-ej-select')) cargarEjsBloque();
+    }
+
+    // Devuelve un prefijo visual ("💪 ") si ese ejercicio le costó mucho (esfuerzo alto) al
+    // alumno actualmente cargado, para marcarlo en los selectores/buscadores de ejercicios.
+    function _pfMarcaCostoso(nombre) {
+        return _pfFeedbackCostosoCache[String(nombre || '').toUpperCase()] ? '💪 ' : '';
     }
 
     // Muestra el cartel de "este ejercicio le costó" si corresponde. Devuelve true si bloqueó
@@ -4251,15 +4268,26 @@
         if (!card) return;
         const alumno = (document.getElementById('alumno-nombre')?.value || '').trim();
         const perfil = alumno ? _perfilAlumnosCache[_claveAlumno(alumno)] : null;
-        if (!perfil) { card.classList.add('hidden'); return; }
-        document.getElementById('ficha-alumno-edad').textContent = perfil.edad ? (perfil.edad + ' años') : '';
+        const costososClaves = Object.keys(_pfFeedbackCostosoCache || {});
+        if (!perfil && !costososClaves.length) { card.classList.add('hidden'); return; }
+        document.getElementById('ficha-alumno-edad').textContent = (perfil && perfil.edad) ? (perfil.edad + ' años') : '';
         const lesEl = document.getElementById('ficha-alumno-lesiones');
-        if (perfil.lesiones) { lesEl.textContent = '⚠️ ' + perfil.lesiones; lesEl.classList.remove('hidden'); }
+        if (perfil && perfil.lesiones) { lesEl.textContent = '⚠️ ' + perfil.lesiones; lesEl.classList.remove('hidden'); }
         else { lesEl.classList.add('hidden'); }
         const prohEl = document.getElementById('ficha-alumno-prohibidos');
-        const proh = perfil.ejerciciosProhibidos || [];
+        const proh = (perfil && perfil.ejerciciosProhibidos) || [];
         if (proh.length) { prohEl.textContent = '🚫 No puede hacer: ' + proh.join(', '); prohEl.classList.remove('hidden'); }
         else { prohEl.classList.add('hidden'); }
+        const costEl = document.getElementById('ficha-alumno-costosos');
+        if (costEl) {
+            if (costososClaves.length) {
+                const nombres = costososClaves.map(clave => (_pfFeedbackCostosoCache[clave][0] && _pfFeedbackCostosoCache[clave][0].nombre) || clave);
+                costEl.textContent = '💪 Le costó antes: ' + nombres.join(', ');
+                costEl.classList.remove('hidden');
+            } else {
+                costEl.classList.add('hidden');
+            }
+        }
         card.classList.remove('hidden');
     }
 
@@ -5395,7 +5423,7 @@
             ejs = ejs.filter(e => (e.elemento || '') === elemFiltro);
         }
         ejSel.innerHTML = ejs.length
-            ? ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + (e.nombre||e[0]) + '</option>').join('')
+            ? ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + _pfMarcaCostoso(e.nombre||e[0]) + (e.nombre||e[0]) + '</option>').join('')
             : '<option value="">Sin ejercicios</option>';
         _pfActualizarAvisoDuplicadoWarmup(idx);
     }
@@ -5417,7 +5445,7 @@
             });
         }
         sel.innerHTML = resultados.length
-            ? resultados.map(r => '<option value="' + r.nombre + '" data-cat="' + r.cat + '">' + r.nombre + ' (' + r.cat + ')</option>').join('')
+            ? resultados.map(r => '<option value="' + r.nombre + '" data-cat="' + r.cat + '">' + _pfMarcaCostoso(r.nombre) + r.nombre + ' (' + r.cat + ')</option>').join('')
             : '<option value="">Sin resultados</option>';
         _pfActualizarAvisoDuplicadoWarmup(idx);
     }
@@ -5802,7 +5830,7 @@
         if (!cat) return;
         const sel = document.getElementById('warmup-ej-select');
         const ejs = videotecaCache[cat] || [];
-        sel.innerHTML = ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + (e.nombre||e[0]) + '</option>').join('');
+        sel.innerHTML = ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + _pfMarcaCostoso(e.nombre||e[0]) + (e.nombre||e[0]) + '</option>').join('');
     }
 
     function filtrarEjsWarmup() {
@@ -5820,7 +5848,7 @@
             });
         }
         sel.innerHTML = resultados.length
-            ? resultados.map(r => '<option value="' + r.nombre + '" data-cat="' + r.cat + '">' + r.nombre + ' (' + r.cat + ')</option>').join('')
+            ? resultados.map(r => '<option value="' + r.nombre + '" data-cat="' + r.cat + '">' + _pfMarcaCostoso(r.nombre) + r.nombre + ' (' + r.cat + ')</option>').join('')
             : '<option value="">Sin resultados</option>';
     }
 
@@ -5964,7 +5992,7 @@
             ejs = ejs.filter(e => (e.elemento || '') === elemFiltro);
         }
         sel.innerHTML = ejs.length
-            ? ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + (e.nombre||e[0]) + '</option>').join('')
+            ? ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + _pfMarcaCostoso(e.nombre||e[0]) + (e.nombre||e[0]) + '</option>').join('')
             : '<option value="">Sin ejercicios</option>';
         _pfActualizarAvisoDuplicadoBloque();
     }
@@ -5988,7 +6016,7 @@
             });
         }
         sel.innerHTML = resultados.length
-            ? resultados.map(r => '<option value="' + r.nombre + '" data-cat="' + r.cat + '">' + r.nombre + ' (' + r.cat + ')</option>').join('')
+            ? resultados.map(r => '<option value="' + r.nombre + '" data-cat="' + r.cat + '">' + _pfMarcaCostoso(r.nombre) + r.nombre + ' (' + r.cat + ')</option>').join('')
             : '<option value="">Sin resultados</option>';
         _pfActualizarAvisoDuplicadoBloque();
     }
@@ -6104,7 +6132,7 @@
         let ejs = Object.values(videotecaCache || {}).flat();
         if (query) ejs = ejs.filter(e => (e.nombre || e[0] || '').toLowerCase().includes(query));
         ejs = ejs.map(e => e.nombre || e[0] || '').filter(Boolean).sort();
-        sel.innerHTML = '<option value="">-- Ejercicio --</option>' + ejs.map(n => '<option value="' + n + '">' + n + '</option>').join('');
+        sel.innerHTML = '<option value="">-- Ejercicio --</option>' + ejs.map(n => '<option value="' + n + '">' + _pfMarcaCostoso(n) + n + '</option>').join('');
     }
 
     // Variable global para copiar/pegar minutos EMOM
