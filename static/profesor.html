@@ -3028,7 +3028,8 @@
             </div>
             <p class="text-sm text-texto mb-3">A <span id="costoso-alumno-nombre" class="font-bold"></span> le costó antes <span id="costoso-ejercicio-nombre" class="font-bold text-amarillo"></span>:</p>
             <div id="costoso-lista" class="mb-2"></div>
-            <div class="flex gap-3 mt-4">
+            <button onclick="marcarCostosoSuperado()" class="w-full py-2.5 rounded-xl border border-verde text-verde text-sm font-bold hover:bg-verde/10 transition mb-3">✓ Ya no le cuesta más (marcar como superado)</button>
+            <div class="flex gap-3 mt-1">
                 <button onclick="cancelarAdvertenciaCostoso()" class="flex-1 py-2.5 rounded-xl border border-borde text-textoSuave text-sm font-bold hover:text-texto transition">Cancelar</button>
                 <button onclick="confirmarAdvertenciaCostoso()" class="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold text-sm">Agregar igual</button>
             </div>
@@ -4133,12 +4134,17 @@
     // el detalle: código de rutina, sistema de entrenamiento (con tiempos/reps) y si fue
     // calentamiento o bloque principal.
     const FEEDBACK_URL_COSTOSO = 'https://ponetefit-app-default-rtdb.firebaseio.com/feedback/';
+    // Path donde se guardan las resoluciones: cuando el alumno (desde su app) o el
+    // profesor (con el botón "Marcar como superado") avisan que un ejercicio ya no
+    // cuesta más. resueltos/{codigo}/{EJERCICIO_UPPER} = {ts, fecha, quien}
+    const RESUELTOS_URL_COSTOSO = 'https://ponetefit-app-default-rtdb.firebaseio.com/resueltos/';
     // Solo se avisa cuando la sensación de esfuerzo fue alta (9 o 10 sobre 10), para no
     // alertar por ejercicios que en realidad no costaron tanto.
     const UMBRAL_SENSACION_COSTOSO = 9;
     let _pfFeedbackCostosoCache = {}; // EJERCICIO_UPPER -> [{nombre, codigo, fecha, ts, sensacion, etapa, sistema_tipo, sistema_detalle, comentario}]
     let _costosoAdvertenciaCallbackPendiente = null;
     let _costosoAdvertenciasAceptadas = new Set(); // "ALUMNO|EJERCICIO" ya confirmados en esta sesion
+    let _costosoEjercicioActual = ''; // para el botón "Ya no le cuesta más"
 
     function _pfEscCostoso(value) {
         return String(value == null ? '' : value)
@@ -4160,6 +4166,13 @@
             .map(r => r.codigo).filter(Boolean);
         if (!codigos.length) return;
         await Promise.all(codigos.map(async (codigo) => {
+            // Resoluciones para este código: {EJERCICIO_UPPER: {ts, fecha, quien}}
+            let resueltos = {};
+            try {
+                const resR = await fetch(RESUELTOS_URL_COSTOSO + encodeURIComponent(codigo) + '.json');
+                const dataR = await resR.json();
+                if (dataR && typeof dataR === 'object') resueltos = dataR;
+            } catch (e) {}
             try {
                 const res = await fetch(FEEDBACK_URL_COSTOSO + encodeURIComponent(codigo) + '.json');
                 const data = await res.json();
@@ -4178,12 +4191,17 @@
                         const sensacionNum = Number(item.sensacion || item.rpe || 0);
                         if (sensacionNum < UMBRAL_SENSACION_COSTOSO) return; // solo esfuerzo alto (9-10)
                         const clave = ejercicio.toUpperCase();
+                        const tsItem = item.ts || 0;
+                        // Si el alumno (o el profesor) marcó este ejercicio como "ya no me
+                        // cuesta" DESPUÉS de este reporte, no lo tomamos en cuenta: ya está superado.
+                        const resuelto = resueltos[clave];
+                        if (resuelto && (resuelto.ts || 0) >= tsItem) return;
                         if (!_pfFeedbackCostosoCache[clave]) _pfFeedbackCostosoCache[clave] = [];
                         _pfFeedbackCostosoCache[clave].push({
                             nombre: ejercicio,
                             codigo: codigo,
                             fecha: item.fecha || fecha,
-                            ts: item.ts || 0,
+                            ts: tsItem,
                             sensacion: sensacionNum,
                             etapa: item.etapa || '',
                             sistema_tipo: item.sistema_tipo || item.tipo || '',
@@ -4218,6 +4236,7 @@
         const claveAceptada = _claveAlumno(alumno) + '|' + nombreEjercicio.toUpperCase();
         if (_costosoAdvertenciasAceptadas.has(claveAceptada)) return false;
 
+        _costosoEjercicioActual = nombreEjercicio;
         document.getElementById('costoso-alumno-nombre').textContent = alumno.toUpperCase();
         document.getElementById('costoso-ejercicio-nombre').textContent = nombreEjercicio;
         const ordenadas = entradas.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 6);
@@ -4260,6 +4279,34 @@
     function cancelarAdvertenciaCostoso() {
         document.getElementById('modal-advertencia-costoso').classList.add('hidden');
         _costosoAdvertenciaCallbackPendiente = null;
+    }
+
+    // El profesor confirma manualmente (por charla con el alumno, whatsapp, etc.) que un
+    // ejercicio ya no le cuesta más. Escribe la resolución en todas las rutinas históricas
+    // del alumno para que el aviso deje de aparecer, sin esperar a un feedback nuevo.
+    async function marcarCostosoSuperado() {
+        const ejercicio = _costosoEjercicioActual;
+        if (!ejercicio) return;
+        const clave = ejercicio.toUpperCase();
+        const codigos = (typeof _pfHistorialAlumnoCache !== 'undefined' ? _pfHistorialAlumnoCache : [])
+            .map(r => r.codigo).filter(Boolean);
+        const payload = { ejercicio: ejercicio, ts: Date.now(), fecha: new Date().toISOString().slice(0, 10), quien: 'profesor' };
+        try {
+            await Promise.all(codigos.map(codigo =>
+                fetch(RESUELTOS_URL_COSTOSO + encodeURIComponent(codigo) + '/' + encodeURIComponent(clave) + '.json', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).catch(() => {})
+            ));
+        } catch (e) {}
+        delete _pfFeedbackCostosoCache[clave];
+        document.getElementById('modal-advertencia-costoso').classList.add('hidden');
+        const cb = _costosoAdvertenciaCallbackPendiente;
+        _costosoAdvertenciaCallbackPendiente = null;
+        if (cb) cb();
+        if (typeof toast === 'function') toast('Marcado como superado ✓');
+        if (typeof cargarEjsBloque === 'function' && document.getElementById('bloque-ej-select')) cargarEjsBloque();
     }
 
     // Muestra/oculta la tarjeta "Ficha del alumno" en Crear Rutina cuando se carga un nombre de alumno
@@ -15347,6 +15394,9 @@ self.addEventListener('fetch', event => {
                 var score = Number(item.sensacion || item.rpe || 0);
                 var color = _feedbackColor(score);
                 var exercise = item.ejercicio_dificil ? '<div class="text-xs text-texto mt-1"><span class="text-textoSuave">Más costó:</span> ' + _escFeedback(item.ejercicio_dificil) + '</div>' : '';
+                var seguimiento = Array.isArray(item.seguimiento_costosos) ? item.seguimiento_costosos.map(function(s) {
+                    return '<div class="text-[11px] mt-1">' + (s.sigue_costando ? '🔴 Sigue costándole ' : '✅ Ya no le cuesta ') + '<b>' + _escFeedback(s.nombre) + '</b></div>';
+                }).join('') : '';
                 var note = item.comentario ? '<div class="text-xs text-textoSuave mt-1 italic">“' + _escFeedback(item.comentario) + '”</div>' : '';
                 var date = item.fecha ? '<span class="text-[10px] text-textoSuave">' + _escFeedback(item.fecha.split('-').reverse().join('/')) + '</span>' : '';
                 var bloque = item.bloque_completo && item.bloque_completo.ejercicios ? item.bloque_completo.ejercicios : [];
@@ -15364,7 +15414,7 @@ self.addEventListener('fetch', event => {
                     (item.tipo ? '<div class="text-[10px] text-textoSuave uppercase tracking-wider">' + _escFeedback(item.tipo) + '</div>' : '') +
                     '</div>' +
                     '<div class="flex items-center gap-2 flex-shrink-0">' + date + '<span class="inline-flex items-center justify-center w-8 h-8 rounded-lg font-black text-black" style="background:' + color + '">' + (score || '—') + '</span></div>' +
-                    '</div>' + exercise + note + detalleBloque + '</div>';
+                    '</div>' + exercise + seguimiento + note + detalleBloque + '</div>';
             }
 
             function _normalizarFeedback(remoto, codigo) {
