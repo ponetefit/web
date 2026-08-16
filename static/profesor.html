@@ -4187,9 +4187,12 @@
                     lista.forEach(item => {
                         if (!item || typeof item !== 'object') return;
                         const ejercicio = String(item.ejercicio_dificil || '').trim();
-                        if (!ejercicio || ejercicio.toLowerCase() === 'ninguno me costó') return;
+                        if (!ejercicio || /^ninguno\b/i.test(ejercicio)) return;
                         const sensacionNum = Number(item.sensacion || item.rpe || 0);
-                        if (sensacionNum < UMBRAL_SENSACION_COSTOSO) return; // solo esfuerzo alto (9-10)
+                        // Nota: "sensacion" es el esfuerzo percibido de TODO el bloque, no del
+                        // ejercicio puntual, así que ya no la usamos como filtro: que el alumno
+                        // haya elegido explícitamente este ejercicio (en vez de "Ninguno me
+                        // costó") ya alcanza como señal. La guardamos solo como dato de contexto.
                         const clave = _pfNormNombreEj(ejercicio);
                         const tsItem = item.ts || 0;
                         // Si el alumno (o el profesor) marcó este ejercicio como "ya no me
@@ -4253,7 +4256,7 @@
                     '</div>' +
                     '<div class="flex items-center gap-2 flex-shrink-0">' +
                         (fechaFmt ? '<span class="text-[10px] text-textoSuave">' + _pfEscCostoso(fechaFmt) + '</span>' : '') +
-                        '<span class="inline-flex items-center justify-center w-8 h-8 rounded-lg font-black text-black" style="background:' + color + '">' + (item.sensacion || '—') + '</span>' +
+                        '<span class="inline-flex items-center justify-center w-8 h-8 rounded-lg font-black text-black" style="background:' + color + '" title="Esfuerzo percibido de todo el bloque, no del ejercicio puntual">' + (item.sensacion || '—') + '</span>' +
                     '</div>' +
                 '</div>' +
                 (item.comentario ? '<div class="text-[11px] text-textoSuave mt-1 italic">“' + _pfEscCostoso(item.comentario) + '”</div>' : '') +
