@@ -14692,7 +14692,6 @@
                     '<h2 id="pf-feedback-title" class="pf-feedback-title">¿Cómo te sentiste?</h2>' +
                     '<p id="pf-feedback-subtitle" class="pf-feedback-subtitle"></p>' +
                     '<div id="pf-feedback-seguimiento"></div>' +
-                    '<div id="pf-feedback-debug" style="font-size:10px;color:#666;line-height:1.5;margin:0 0 14px;padding:8px 10px;background:#0d0d10;border:1px solid #26262f;border-radius:8px;display:none;white-space:pre-wrap"></div>' +
                     '<div class="pf-feedback-question">Sensación de esfuerzo</div>' +
                     '<div id="pf-feedback-scale" class="pf-feedback-scale" role="radiogroup" aria-label="Sensación de esfuerzo del 1 al 10"></div>' +
                     '<div class="pf-feedback-extremos"><span>1 · Más liviano</span><span>10 · Más pesado</span></div>' +
@@ -14765,41 +14764,6 @@
                 });
             }
 
-            // ─── PANEL TEMPORAL DE DIAGNÓSTICO (sacar cuando esté resuelto) ───
-            // Muestra en pantalla, sin consola ni DevTools, qué ejercicios detectó
-            // el sistema en este bloque y qué historial de "costosos previos" cargó
-            // de Firebase, para poder mandarlo por captura de pantalla.
-            function _renderDebugTemporal(nombresBloque) {
-                var el = document.getElementById('pf-feedback-debug');
-                if (!el) return;
-                var dbg = window._pfDebugRaw || {};
-                var lineas = [];
-                lineas.push('[DEBUG TEMPORAL] rutina: ' + (typeof currentCode !== 'undefined' ? currentCode : '?'));
-                lineas.push('Ejercicios de este bloque: ' + (nombresBloque.length ? nombresBloque.join(' | ') : '(ninguno detectado)'));
-                lineas.push('Prefijo buscado: "' + (dbg.prefijo || '?') + '"' + (dbg.errorRutinas ? ' (ERROR al consultar rutinas hermanas)' : ''));
-                lineas.push('Rutinas encontradas con ese prefijo (' + (dbg.codigos ? dbg.codigos.length : 0) + '): ' + (dbg.codigos ? dbg.codigos.join(', ') : '?'));
-                if (dbg.reportesRaw && dbg.reportesRaw.length) {
-                    lineas.push('TODOS los reportes de feedback encontrados (' + dbg.reportesRaw.length + '), aunque no lleguen al umbral de 9/10:');
-                    dbg.reportesRaw.forEach(function(r) {
-                        lineas.push('  · [' + r.codigo + ' / ' + r.fecha + '] "' + r.ejercicio + '" — sensación ' + r.sensacion + '/10');
-                    });
-                } else {
-                    lineas.push('TODOS los reportes de feedback encontrados: NINGUNO (no hay ni un solo feedback guardado en esas rutinas).');
-                }
-                var claves = Object.keys(_costososPrevios);
-                if (!claves.length) {
-                    lineas.push('Historial "costosos previos" (sensación ≥9, sin resolver): VACÍO.');
-                } else {
-                    lineas.push('Historial "costosos previos" (sensación ≥9, sin resolver) (' + claves.length + '):');
-                    claves.forEach(function(c) {
-                        var e = _costososPrevios[c];
-                        lineas.push('  · "' + e.nombre + '" (sensación ' + e.sensacion + '/10, rutinas: ' + e.codigos.join(', ') + ')');
-                    });
-                }
-                el.textContent = lineas.join('\n');
-                el.style.display = 'block';
-            }
-
             function _abrirFeedback(indice, pendienteFinal) {
                 if (_feedbackEtapasRespondidas[indice] || _feedbackEtapaActual) return;
                 // Si todavía no llegó la respuesta de Firebase con los ejercicios que
@@ -14825,7 +14789,6 @@
                 };
                 document.getElementById('pf-feedback-subtitle').textContent = _nombreEtapa(indice) + ' · una respuesta rápida para ajustar tu próximo entrenamiento';
                 _renderSeguimiento(nombres);
-                _renderDebugTemporal(nombres);
                 var select = document.getElementById('pf-feedback-ejercicio');
                 select.innerHTML = '<option value="">Elegí un ejercicio</option>' +
                     '<option value="Ninguno me costó">Ninguno me costó</option>' +
