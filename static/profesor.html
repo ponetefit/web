@@ -4152,6 +4152,25 @@
             .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     }
 
+    // Arma un texto tipo "3 series x 10 reps · 15 kg" a partir del detalle de un
+    // ejercicio dentro de bloque_completo.ejercicios (guardado por alumno.html al
+    // mandar el feedback). Solo muestra lo que efectivamente esté cargado: si el
+    // ejercicio no lleva peso, no aparece "kg"; si es por tiempo, muestra el tiempo.
+    function _pfFormatoDetalleCarga(item) {
+        if (!item || typeof item !== 'object') return '';
+        var partes = [];
+        var series = item.series;
+        var reps = item.repeticiones || item.reps || item.repeticiones_por_serie;
+        var peso = item.peso;
+        var tiempo = item.tiempo || item.tiempo_min;
+        if (series && reps) partes.push(series + ' series x ' + reps + ' reps');
+        else if (reps) partes.push(reps + ' reps');
+        else if (series) partes.push(series + ' series');
+        else if (tiempo) partes.push(tiempo + (String(tiempo).indexOf('min') !== -1 || String(tiempo).indexOf('seg') !== -1 ? '' : ' min'));
+        if (peso !== undefined && peso !== null && peso !== '' && Number(peso) > 0) partes.push(peso + ' kg');
+        return partes.join(' · ');
+    }
+
     function _pfColorCostoso(score) {
         const v = Math.max(1, Math.min(10, Number(score) || 1));
         const hue = Math.round(120 - ((v - 1) / 9) * 120);
@@ -4199,6 +4218,17 @@
                         // cuesta" DESPUÉS de este reporte, no lo tomamos en cuenta: ya está superado.
                         const resuelto = resueltos[clave];
                         if (resuelto && (resuelto.ts || 0) >= tsItem) return;
+                        // Buscamos el detalle (series, reps, peso) de ESTE ejercicio puntual dentro
+                        // de los ejercicios del bloque, para poder mostrar la carga si la lleva
+                        // (ej. "10 reps · 15 kg"), no solo el sistema de entrenamiento general.
+                        let detalleCarga = '';
+                        try {
+                            const listaEj = item.bloque_completo && item.bloque_completo.ejercicios;
+                            if (Array.isArray(listaEj)) {
+                                const match = listaEj.find(e => e && _pfNormNombreEj(e.nombre) === clave);
+                                if (match) detalleCarga = _pfFormatoDetalleCarga(match);
+                            }
+                        } catch (e) {}
                         if (!_pfFeedbackCostosoCache[clave]) _pfFeedbackCostosoCache[clave] = [];
                         _pfFeedbackCostosoCache[clave].push({
                             nombre: ejercicio,
@@ -4209,6 +4239,7 @@
                             etapa: item.etapa || '',
                             sistema_tipo: item.sistema_tipo || item.tipo || '',
                             sistema_detalle: item.sistema_detalle || item.tipo || '',
+                            detalle_carga: detalleCarga,
                             comentario: item.comentario || ''
                         });
                     });
@@ -4247,12 +4278,13 @@
             const color = _pfColorCostoso(item.sensacion);
             const etapaLabel = item.etapa === 'calentamiento' ? 'Calentamiento' : 'Bloque principal';
             const sistema = item.sistema_detalle || item.sistema_tipo || '';
+            const detalleCarga = item.detalle_carga || '';
             const fechaFmt = item.fecha ? item.fecha.split('-').reverse().join('/') : '';
             return '<div class="rounded-xl border border-borde bg-fondoAlt p-3 mb-2">' +
                 '<div class="flex items-center justify-between gap-2">' +
                     '<div class="min-w-0">' +
                         '<div class="text-xs font-mono font-bold text-amarillo">' + _pfEscCostoso(item.codigo.toUpperCase()) + '</div>' +
-                        '<div class="text-[11px] text-textoSuave">' + _pfEscCostoso(etapaLabel) + (sistema ? ' · ' + _pfEscCostoso(sistema) : '') + '</div>' +
+                        '<div class="text-[11px] text-textoSuave">' + _pfEscCostoso(etapaLabel) + (sistema ? ' · ' + _pfEscCostoso(sistema) : '') + (detalleCarga ? ' · ' + _pfEscCostoso(detalleCarga) : '') + '</div>' +
                     '</div>' +
                     '<div class="flex items-center gap-2 flex-shrink-0">' +
                         (fechaFmt ? '<span class="text-[10px] text-textoSuave">' + _pfEscCostoso(fechaFmt) + '</span>' : '') +
