@@ -14574,21 +14574,37 @@
                         var data = await res.json();
                         if (!data || typeof data !== 'object') return;
                         Object.keys(data).forEach(function(fecha) {
-                            var item = data[fecha];
-                            if (!item) return;
-                            var ejercicio = String(item.ejercicio_dificil || '').trim();
-                            var sens = Number(item.sensacion || item.rpe || 0);
-                            _dbg.reportesRaw.push({ codigo: codigo, fecha: fecha, ejercicio: ejercicio, sensacion: sens });
-                            if (!ejercicio || ejercicio.toLowerCase() === 'ninguno me costó' || sens < UMBRAL_COSTOSO_PREV) return;
-                            var clave = _normNombre(ejercicio);
-                            var ts = item.ts || 0;
-                            if (!porEjercicio[clave]) porEjercicio[clave] = { nombre: ejercicio, sensacion: sens, ts: ts, codigos: [] };
-                            if (porEjercicio[clave].codigos.indexOf(codigo) === -1) porEjercicio[clave].codigos.push(codigo);
-                            if (ts > porEjercicio[clave].ts) {
-                                porEjercicio[clave].nombre = ejercicio;
-                                porEjercicio[clave].sensacion = sens;
-                                porEjercicio[clave].ts = ts;
-                            }
+                            var entradasFecha = data[fecha];
+                            if (!entradasFecha || typeof entradasFecha !== 'object') return;
+                            // Cada feedback se guarda con POST, así que Firebase mete un ID
+                            // automático como hijo entre la fecha y el payload real:
+                            // feedback/{codigo}/{fecha}/{idAutomatico}/{ejercicio_dificil,...}.
+                            // Si "entradasFecha" ya tiene ejercicio_dificil, es el payload directo
+                            // (compatibilidad por si algún dato viejo se guardó plano); si no,
+                            // hay que bajar un nivel más e iterar cada hijo.
+                            var items = ('ejercicio_dificil' in entradasFecha) ?
+                                [entradasFecha] : Object.keys(entradasFecha).map(function(k) { return entradasFecha[k]; });
+                            items.forEach(function(item) {
+                                if (!item) return;
+                                var ejercicio = String(item.ejercicio_dificil || '').trim();
+                                var sens = Number(item.sensacion || item.rpe || 0);
+                                _dbg.reportesRaw.push({ codigo: codigo, fecha: fecha, ejercicio: ejercicio, sensacion: sens });
+                                if (!ejercicio || /^ninguno\b/i.test(ejercicio)) return;
+                                // Nota: "sensacion" es el esfuerzo percibido de TODO el bloque,
+                                // no del ejercicio puntual — no la usamos como filtro para decidir
+                                // si el ejercicio elegido es "costoso". Que el alumno haya elegido
+                                // explícitamente un ejercicio (en vez de "Ninguno me costó") ya es
+                                // señal suficiente. La guardamos igual solo como dato de contexto.
+                                var clave = _normNombre(ejercicio);
+                                var ts = item.ts || 0;
+                                if (!porEjercicio[clave]) porEjercicio[clave] = { nombre: ejercicio, sensacion: sens, ts: ts, codigos: [] };
+                                if (porEjercicio[clave].codigos.indexOf(codigo) === -1) porEjercicio[clave].codigos.push(codigo);
+                                if (ts > porEjercicio[clave].ts) {
+                                    porEjercicio[clave].nombre = ejercicio;
+                                    porEjercicio[clave].sensacion = sens;
+                                    porEjercicio[clave].ts = ts;
+                                }
+                            });
                         });
                     } catch (e) {}
                 }));
@@ -14730,7 +14746,7 @@
                     var clave = _normNombre(nombre);
                     var prev = _costososPrevios[clave];
                     return '<div class="pf-feedback-seg-item" data-clave="' + _esc(clave) + '">' +
-                        '<div class="pf-feedback-seg-txt">Antes te costaba <b>' + _esc(prev.nombre) + '</b> (lo sentiste ' + prev.sensacion + '/10). ¿Te sigue costando?</div>' +
+                        '<div class="pf-feedback-seg-txt">Antes marcaste que te costó más <b>' + _esc(prev.nombre) + '</b>. ¿Te sigue costando?</div>' +
                         '<div class="pf-feedback-seg-btns">' +
                             '<button type="button" class="si" data-val="1">Sí, me sigue costando</button>' +
                             '<button type="button" class="no" data-val="0">No, ya no me cuesta</button>' +
