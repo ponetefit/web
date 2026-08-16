@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>PONETE FIT | Panel del Profesor</title>
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#FF6B35">
@@ -17,6 +17,9 @@
                 var saved = parseInt(localStorage.getItem('pf_font_scale'));
                 if (saved && saved >= 100 && saved <= 175) {
                     document.documentElement.style.fontSize = saved + '%';
+                }
+                if (localStorage.getItem('pf_high_contrast') === '1') {
+                    document.documentElement.classList.add('pf-high-contrast');
                 }
             } catch (e) {}
         })();
@@ -480,9 +483,9 @@
                 filter: grayscale(1) brightness(10);
             }
             .mob-bn-label {
-                font-size: 9px;
+                font-size: 8px;
                 font-weight: 800;
-                letter-spacing: .03em;
+                letter-spacing: .01em;
                 text-transform: uppercase;
                 color: rgba(255,255,255,0.75);
                 white-space: nowrap;
@@ -492,9 +495,95 @@
             }
             .mob-bn-btn.mob-bn-active .mob-bn-pill { background: rgba(255,255,255,0.28); }
             .mob-bn-btn.mob-bn-active .mob-bn-label { color: #fff; }
+            .mob-bn-btn:focus-visible,
+            #pf-mobile-routine-actions button:focus-visible {
+                outline: 3px solid rgba(255,255,255,0.9);
+                outline-offset: -2px;
+            }
+            /* Contraste base mejorado: se aplica solo a mobile. */
+            .text-textoSuave {
+                color: #b5b5c2 !important;
+            }
+            .pf-mobile-contrast-toggle {
+                min-width: 44px;
+                min-height: 32px;
+                padding: 4px 7px;
+                border: 1px solid #626270;
+                border-radius: 999px;
+                background: #0f0f13;
+                color: #f0f0f5;
+                font-size: 0.68rem;
+                font-weight: 900;
+                letter-spacing: 0.03em;
+                touch-action: manipulation;
+            }
+            .pf-mobile-contrast-toggle.is-active {
+                background: #fff;
+                border-color: #fff;
+                color: #000;
+            }
+            html.pf-high-contrast body {
+                background: #000 !important;
+                color: #fff !important;
+            }
+            html.pf-high-contrast .bg-tarjeta,
+            html.pf-high-contrast .bg-tarjetaAlt,
+            html.pf-high-contrast .bg-fondoAlt {
+                background: #000 !important;
+            }
+            html.pf-high-contrast .text-textoSuave,
+            html.pf-high-contrast .placeholder-textoSuave {
+                color: #fff !important;
+                opacity: 1 !important;
+            }
+            html.pf-high-contrast .border-borde,
+            html.pf-high-contrast input,
+            html.pf-high-contrast select,
+            html.pf-high-contrast textarea {
+                border-color: #fff !important;
+            }
+            html.pf-high-contrast input,
+            html.pf-high-contrast select,
+            html.pf-high-contrast textarea {
+                background: #000 !important;
+                color: #fff !important;
+            }
+            html.pf-high-contrast .tab-active {
+                outline: 2px solid #fff;
+                outline-offset: -2px;
+            }
+            html.pf-high-contrast .mob-bn-btn.mob-bn-active .mob-bn-pill {
+                box-shadow: 0 0 0 2px #fff inset;
+            }
+            html.pf-high-contrast #mob-bottom-nav {
+                background: #000;
+                border-top: 2px solid #fff;
+            }
+            html.pf-high-contrast #pf-main-header,
+            html.pf-high-contrast nav {
+                border-color: #fff !important;
+            }
             /* Espacio para que la barra inferior no tape el contenido del resto de secciones */
             @media (max-width: 639px) {
                 main { padding-bottom: calc(var(--pf-bottomnav-h) + 12px) !important; }
+                body {
+                    min-height: 100dvh;
+                    overscroll-behavior-y: none;
+                    -webkit-tap-highlight-color: transparent;
+                }
+                main {
+                    width: 100%;
+                    max-width: 100%;
+                    min-height: calc(100dvh - 120px);
+                }
+                /* Transición breve entre pantallas, solo en la experiencia mobile. */
+                main > section:not(.hidden) {
+                    animation: pfMobilePageIn 0.18s ease-out;
+                }
+                @keyframes pfMobilePageIn {
+                    from { opacity: 0; transform: translateY(5px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
             }
 
             /* ── Selector de Tipo de Entrenamiento en tarjetas (Calentamiento y Bloque) ──
@@ -643,6 +732,158 @@
                 border-radius: 12px !important;
             }
             #ca-lista-alumnos .pf-alumno-card-extra { align-items: center !important; }
+
+            /* ── Pulido mobile adicional ─────────────────────────────────────
+               Acciones principales siempre al alcance, modales consistentes,
+               tablas legibles como tarjetas y controles cómodos para el pulgar. */
+            #pf-main-header {
+                position: sticky;
+                top: 0;
+                z-index: 45;
+            }
+            #pf-mobile-routine-actions {
+                display: none;
+            }
+            #pf-mobile-routine-actions.is-visible {
+                display: grid;
+                grid-template-columns: 0.8fr 1fr 1.35fr;
+                gap: 8px;
+                position: fixed;
+                left: 10px;
+                right: 10px;
+                bottom: calc(var(--pf-bottomnav-h) + env(safe-area-inset-bottom, 0px) + 8px);
+                z-index: 35;
+                padding: 8px;
+                border: 1px solid rgba(255,255,255,0.1);
+                border-radius: 18px;
+                background: rgba(20,20,24,0.94);
+                box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+                backdrop-filter: blur(14px);
+                -webkit-backdrop-filter: blur(14px);
+            }
+            #pf-mobile-routine-actions button {
+                min-height: 44px;
+                border: 0;
+                border-radius: 12px;
+                padding: 8px 6px;
+                color: #f0f0f5;
+                font-size: 0.7rem;
+                font-weight: 900;
+                line-height: 1.1;
+                text-transform: uppercase;
+                letter-spacing: 0.02em;
+                touch-action: manipulation;
+            }
+            #pf-mobile-routine-actions .pf-mobile-action-ai {
+                background: rgba(124,58,237,0.26);
+                color: #d8b4fe;
+            }
+            #pf-mobile-routine-actions .pf-mobile-action-save {
+                background: rgba(255,107,53,0.16);
+                color: #FF9a75;
+            }
+            #pf-mobile-routine-actions .pf-mobile-action-share {
+                background: linear-gradient(135deg, #FF6B35, #e85500);
+                color: #fff;
+                box-shadow: 0 5px 16px rgba(255,107,53,0.28);
+            }
+            #sec-rutina {
+                padding-bottom: 124px !important;
+            }
+            #sec-rutina input,
+            #sec-rutina select,
+            #sec-rutina textarea {
+                min-height: 44px;
+            }
+            #sec-rutina button {
+                min-height: 44px;
+            }
+
+            /* Dashboard: la tabla se convierte en tarjetas de lectura rápida. */
+            #sec-dashboard .dash-table {
+                border-collapse: separate;
+                border-spacing: 0 10px;
+            }
+            #sec-dashboard .dash-table thead {
+                display: none;
+            }
+            #sec-dashboard .dash-table tbody,
+            #sec-dashboard .dash-table tr,
+            #sec-dashboard .dash-table td {
+                display: block;
+                width: 100%;
+            }
+            #sec-dashboard .dash-table tbody tr {
+                padding: 9px 10px;
+                border: 1px solid #2a2a35;
+                border-radius: 14px;
+                background: #1a1a20;
+            }
+            #sec-dashboard .dash-table tbody tr:first-child {
+                margin-top: 2px;
+            }
+            #sec-dashboard .dash-table tbody td {
+                display: flex;
+                align-items: baseline;
+                justify-content: space-between;
+                gap: 12px;
+                padding: 5px 2px !important;
+                border: 0;
+                font-size: 0.78rem;
+                text-align: right;
+            }
+            #sec-dashboard .dash-table tbody td::before {
+                flex: 0 0 auto;
+                color: #8a8a9a;
+                font-size: 0.62rem;
+                font-weight: 800;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                text-align: left;
+            }
+            #sec-dashboard .dash-table tbody td:nth-child(1)::before { content: "Fecha"; }
+            #sec-dashboard .dash-table tbody td:nth-child(2)::before { content: "Código"; }
+            #sec-dashboard .dash-table tbody td:nth-child(3)::before { content: "Método"; }
+            #sec-dashboard .dash-table tbody td:nth-child(4)::before { content: "Ejercicios"; }
+
+            /* Videoteca: el buscador permanece disponible mientras se navega. */
+            #sec-videoteca > .mb-4 {
+                position: sticky;
+                top: 0;
+                z-index: 20;
+                margin: -8px -4px 12px;
+                padding: 8px 4px;
+                background: rgba(10,10,12,0.94);
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+            }
+            #sec-videoteca .lg\:col-span-2 > .bg-tarjeta {
+                padding: 1rem;
+            }
+            #sec-videoteca .lg\:col-span-2 > .bg-tarjeta > .flex.items-center.justify-between {
+                align-items: flex-start;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+
+            /* En mobile, todos los modales convertidos a hoja inferior comparten
+               el mismo gesto visual y dejan libre el botón de cerrar. */
+            #modal-codigo > div,
+            #modal-ver-rutina > div,
+            #modal-dash-rutina > div {
+                max-height: 88vh;
+                overflow-y: auto;
+            }
+
+            /* Respeta la preferencia del sistema y evita animaciones molestas. */
+            @media (prefers-reduced-motion: reduce) {
+                *, *::before, *::after {
+                    animation-duration: 0.01ms !important;
+                    animation-iteration-count: 1 !important;
+                    scroll-behavior: auto !important;
+                    transition-duration: 0.01ms !important;
+                }
+            }
 
             /* Botones "Digitalizar Pizarra" / "Crear Entrenamiento": mismas
                tarjetas grandes apiladas que el resto de botones de accion en
@@ -1399,7 +1640,7 @@
 <body class="bg-fondo text-texto min-h-screen">
 
     <!-- HEADER -->
-    <header class="bg-tarjeta border-b border-borde px-6 py-4">
+    <header id="pf-main-header" class="bg-tarjeta border-b border-borde px-6 py-4">
         <div class="max-w-6xl mx-auto flex items-center justify-between">
             <div>
                 <h1 class="text-3xl font-black text-naranja glow-orange tracking-tight">PONETE FIT</h1>
@@ -1423,16 +1664,17 @@
 
         <!-- MOBILE: botón hamburguesa + nombre sección activa (visible solo en mobile) -->
         <div class="sm:hidden flex items-center justify-between px-4 py-3 gap-2">
-            <span id="mob-tab-label" class="text-sm font-bold text-naranja uppercase tracking-widest truncate">Dashboard</span>
+            <span id="mob-tab-label" class="text-sm font-bold text-naranja uppercase tracking-widest truncate" aria-live="polite">Dashboard</span>
             <div class="flex items-center gap-1.5 flex-shrink-0">
                 <!-- Control de tamaño de letra (A-/A+): para ver mejor en el gym con poca luz -->
                 <div class="flex items-center rounded-full overflow-hidden" style="border:1px solid #2a2a35;background:#0f0f13;">
-                    <button onclick="_pfCambiarFontScale(-1)" aria-label="Achicar letra"
+                    <button onclick="_pfCambiarFontScale(-1)" aria-label="Achicar letra de esta sección"
                         style="background:none;border:none;cursor:pointer;color:#f0f0f5;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;">A<span style="font-size:8px;vertical-align:sub;">−</span></button>
-                    <span id="mob-font-scale-pct" onmousedown="_pfFontLongPressStart()" onmouseup="_pfFontLongPressEnd()" onmouseleave="_pfFontLongPressEnd()" ontouchstart="_pfFontLongPressStart()" ontouchend="_pfFontLongPressEnd()" style="color:#8a8a9a;font-size:9px;min-width:26px;text-align:center;font-weight:700;user-select:none;">100%</span>
-                    <button onclick="_pfCambiarFontScale(1)" aria-label="Agrandar letra"
+                    <span id="mob-font-scale-pct" aria-live="polite" title="Tamaño de letra de esta sección" onmousedown="_pfFontLongPressStart()" onmouseup="_pfFontLongPressEnd()" onmouseleave="_pfFontLongPressEnd()" ontouchstart="_pfFontLongPressStart()" ontouchend="_pfFontLongPressEnd()" style="color:#8a8a9a;font-size:9px;min-width:26px;text-align:center;font-weight:700;user-select:none;">100%</span>
+                    <button onclick="_pfCambiarFontScale(1)" aria-label="Agrandar letra de esta sección"
                         style="background:none;border:none;cursor:pointer;color:#f0f0f5;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;">A<span style="font-size:10px;vertical-align:super;">+</span></button>
                 </div>
+                <button id="mob-contrast-toggle" class="pf-mobile-contrast-toggle" type="button" onclick="_pfToggleContrast()" aria-pressed="false" aria-label="Activar modo alto contraste" title="Modo alto contraste">HC</button>
             </div>
         </div>
     </nav>
@@ -1448,8 +1690,12 @@
             <span class="mob-bn-pill"><span class="mob-bn-ico">🏋️</span></span>
             <span class="mob-bn-label">Rutina</span>
         </button>
+        <button onclick="showTab('videoteca')" id="bn-tab-videoteca" class="mob-bn-btn" aria-label="Videoteca">
+            <span class="mob-bn-pill"><span class="mob-bn-ico">▶</span></span>
+            <span class="mob-bn-label">Videos</span>
+        </button>
         <button onclick="showTab('repositorio')" id="bn-tab-repositorio" class="mob-bn-btn" aria-label="Repositorio">
-            <span class="mob-bn-pill"><span class="mob-bn-ico">🎥</span></span>
+            <span class="mob-bn-pill"><span class="mob-bn-ico">📁</span></span>
             <span class="mob-bn-label">Repositorio</span>
         </button>
         <button onclick="showTab('crear-alumno')" id="bn-tab-crear-alumno" class="mob-bn-btn" aria-label="Crear Alumno">
@@ -1461,6 +1707,13 @@
             <span class="mob-bn-label">Historial</span>
         </button>
     </nav>
+
+    <!-- MOBILE: acciones principales de Crear Rutina, siempre al alcance del pulgar -->
+    <div id="pf-mobile-routine-actions" class="hidden" role="toolbar" aria-label="Acciones de la rutina">
+        <button type="button" class="pf-mobile-action-ai" onclick="generarRutinaIA()" aria-label="Armar rutina con IA">IA</button>
+        <button type="button" class="pf-mobile-action-save" onclick="_pfMobileSaveRoutine()" aria-label="Guardar rutina">Guardar</button>
+        <button type="button" class="pf-mobile-action-share" onclick="_pfMobileShareRoutine()" aria-label="Compartir rutina">Compartir</button>
+    </div>
 
     <main class="max-w-6xl mx-auto p-6">
 
@@ -1803,7 +2056,7 @@
         </section>
 
         <!-- Modal Dashboard Ver Rutina -->
-        <div id="modal-dash-rutina" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div id="modal-dash-rutina" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 modal-bottom-sheet-mobile">
             <div class="modal-glass rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 <div class="p-6">
                     <div class="flex items-center justify-between mb-4">
@@ -2057,7 +2310,7 @@
             </div>
 
             <!-- Modal de resultado -->
-            <div id="modal-codigo" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+            <div id="modal-codigo" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6 modal-bottom-sheet-mobile">
                 <div class="bg-tarjeta rounded-3xl border border-borde p-8 max-w-md w-full text-center">
                     <div class="text-5xl mb-4">&#127942;</div>
                     <h3 class="text-xl font-black text-verde mb-2">ENTRENAMIENTO GENERADO</h3>
@@ -2441,7 +2694,7 @@
         </section>
 
         <!-- Modal Ver Rutina -->
-        <div id="modal-ver-rutina" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+        <div id="modal-ver-rutina" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4 modal-bottom-sheet-mobile">
             <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 <div class="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-2 flex justify-center">
                     <button onclick="_pfToggleVistaModal()" id="btn-toggle-vista-modal" class="text-xs font-bold px-4 py-1.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition">📄 Vista completa</button>
@@ -2873,7 +3126,7 @@
     </div>
 
     <!-- TOAST -->
-    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 translate-y-20 bg-verde text-black px-7 py-3.5 rounded-full font-black text-sm tracking-wider z-[9999] transition-transform duration-400" style="transition-timing-function: cubic-bezier(0.34,1.56,0.64,1);">Guardado</div>
+    <div id="toast" role="status" aria-live="polite" aria-atomic="true" class="fixed bottom-8 left-1/2 -translate-x-1/2 translate-y-20 bg-verde text-black px-7 py-3.5 rounded-full font-black text-sm tracking-wider z-[9999] transition-transform duration-400" style="transition-timing-function: cubic-bezier(0.34,1.56,0.64,1);">Guardado</div>
 
     <!-- Modal Nueva Categoria -->
     <div id="modal-nueva-cat" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-6">
@@ -4376,7 +4629,13 @@
     // ====================================================================
     // TABS
     // ====================================================================
+    let _pfActiveTab = 'dashboard';
+
     function showTab(tab) {
+        _pfActiveTab = tab;
+        if (window.innerWidth < 640 && typeof _pfAplicarFontScale === 'function' && typeof _pfLeerFontScale === 'function') {
+            _pfAplicarFontScale(_pfLeerFontScale(tab), tab, false);
+        }
         ['dashboard', 'videoteca', 'rutina', 'historial', 'repositorio', 'crear-alumno'].forEach(t => {
             document.getElementById('sec-' + t).classList.toggle('hidden', t !== tab);
             document.getElementById('tab-' + t).className = t === tab
@@ -4387,10 +4646,13 @@
         const LABELS = { dashboard:'Dashboard', rutina:'Crear Rutina', repositorio:'Repositorio', videoteca:'Videoteca', historial:'Historial', 'crear-alumno':'Crear Alumno' };
         const labelEl = document.getElementById('mob-tab-label');
         if (labelEl) labelEl.textContent = LABELS[tab] || tab;
-        ['dashboard','rutina','repositorio','crear-alumno','historial'].forEach(t => {
+        const mobileRoutineActions = document.getElementById('pf-mobile-routine-actions');
+        if (mobileRoutineActions) mobileRoutineActions.classList.toggle('is-visible', tab === 'rutina');
+        ['dashboard','rutina','videoteca','repositorio','crear-alumno','historial'].forEach(t => {
             const btn = document.getElementById('bn-tab-' + t);
             if (!btn) return;
             btn.classList.toggle('mob-bn-active', t === tab);
+            btn.setAttribute('aria-current', t === tab ? 'page' : 'false');
         });
         if (tab === 'rutina') {
             inicializarRutina();
@@ -4409,17 +4671,54 @@
         }
     }
 
+    // Las acciones fijas de mobile reutilizan exactamente la lógica de los
+    // botones originales para no duplicar validaciones ni persistencia.
+    function _pfMobileSaveRoutine() {
+        const modoRepo = document.getElementById('btn-guardar-repo-modo');
+        const guardar = document.getElementById('btn-guardar-repo-normal');
+        if (modoRepo && !modoRepo.classList.contains('hidden')) {
+            modoRepo.click();
+        } else if (guardar && !guardar.classList.contains('hidden')) {
+            guardar.click();
+        }
+    }
+
+    function _pfMobileShareRoutine() {
+        const compartir = document.getElementById('btn-compartir-rutina');
+        if (compartir && !compartir.classList.contains('hidden')) compartir.click();
+    }
+
     // ── Control de tamaño de letra (A-/A+) para mobile: pensado para usar el celu en el gym
     // con poca luz o a distancia. Escala TODA la interfaz (Tailwind usa unidades rem, asi que
     // cambiar el font-size del <html> reescala texto, paddings y espaciados de forma proporcional).
     const PF_FONT_SCALE_KEY = 'pf_font_scale';
     const PF_FONT_STEPS = [100, 112, 125, 137, 150, 162, 175]; // %
 
-    function _pfAplicarFontScale(pct) {
-        document.documentElement.style.fontSize = pct + '%';
-        try { localStorage.setItem(PF_FONT_SCALE_KEY, String(pct)); } catch (e) {}
+    function _pfFontScaleKey(tab) {
+        return PF_FONT_SCALE_KEY + ':' + (tab || 'dashboard');
+    }
+
+    function _pfLeerFontScale(tab) {
+        let saved = 100;
+        try {
+            saved = parseInt(localStorage.getItem(_pfFontScaleKey(tab))) ||
+                parseInt(localStorage.getItem(PF_FONT_SCALE_KEY)) || 100;
+        } catch (e) {}
+        return PF_FONT_STEPS.includes(saved) ? saved : 100;
+    }
+
+    function _pfAplicarFontScale(pct, tab, persist = true) {
+        const safePct = PF_FONT_STEPS.includes(pct) ? pct : 100;
+        document.documentElement.style.fontSize = safePct + '%';
+        if (persist) {
+            try {
+                localStorage.setItem(_pfFontScaleKey(tab || _pfActiveTab), String(safePct));
+                // Compatibilidad con la preferencia anterior de tamaño global.
+                localStorage.setItem(PF_FONT_SCALE_KEY, String(safePct));
+            } catch (e) {}
+        }
         const lbl = document.getElementById('mob-font-scale-pct');
-        if (lbl) lbl.textContent = pct + '%';
+        if (lbl) lbl.textContent = safePct + '%';
     }
 
     function _pfCambiarFontScale(delta) {
@@ -4427,14 +4726,14 @@
         let idx = PF_FONT_STEPS.indexOf(actual);
         if (idx === -1) idx = 0;
         idx = Math.min(PF_FONT_STEPS.length - 1, Math.max(0, idx + delta));
-        _pfAplicarFontScale(PF_FONT_STEPS[idx]);
+        _pfAplicarFontScale(PF_FONT_STEPS[idx], _pfActiveTab, true);
         if (idx === 0) toast('Tamaño de letra: normal');
         else if (idx === PF_FONT_STEPS.length - 1) toast('Tamaño de letra máximo');
     }
 
     // Mantener presionado el indicador "%" para volver al tamaño normal (100%)
     function _pfResetFontScale() {
-        _pfAplicarFontScale(100);
+        _pfAplicarFontScale(100, _pfActiveTab, true);
         toast('Tamaño de letra: normal');
     }
 
@@ -4447,9 +4746,59 @@
     }
 
     function _pfInicializarFontScale() {
-        let saved = 100;
-        try { saved = parseInt(localStorage.getItem(PF_FONT_SCALE_KEY)) || 100; } catch (e) {}
-        _pfAplicarFontScale(saved);
+        _pfActiveTab = 'dashboard';
+        _pfAplicarFontScale(_pfLeerFontScale('dashboard'), 'dashboard', false);
+    }
+
+    function _pfAplicarContrastButton(active) {
+        const btn = document.getElementById('mob-contrast-toggle');
+        if (!btn) return;
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        btn.setAttribute('aria-label', active ? 'Desactivar modo alto contraste' : 'Activar modo alto contraste');
+        btn.textContent = active ? 'HC ON' : 'HC';
+    }
+
+    function _pfAplicarHighContrast(active, persist = true) {
+        document.documentElement.classList.toggle('pf-high-contrast', active);
+        _pfAplicarContrastButton(active);
+        if (persist) {
+            try { localStorage.setItem('pf_high_contrast', active ? '1' : '0'); } catch (e) {}
+        }
+    }
+
+    function _pfToggleContrast() {
+        const active = !document.documentElement.classList.contains('pf-high-contrast');
+        _pfAplicarHighContrast(active, true);
+        toast(active ? 'Alto contraste activado' : 'Alto contraste desactivado');
+    }
+
+    function _pfInicializarHighContrast() {
+        let active = false;
+        try { active = localStorage.getItem('pf_high_contrast') === '1'; } catch (e) {}
+        _pfAplicarHighContrast(active, false);
+    }
+
+    // Agrega nombres accesibles a controles que antes dependían solamente del
+    // placeholder, del icono o del title. No cambia su aspecto visual.
+    function _pfMejorarEtiquetasAccesibles() {
+        document.querySelectorAll('input, select, textarea').forEach(el => {
+            if (el.getAttribute('aria-label') || el.getAttribute('aria-labelledby')) return;
+            const label = el.labels && el.labels[0];
+            if (label && label.textContent.trim()) {
+                el.setAttribute('aria-label', label.textContent.trim());
+            } else if (el.getAttribute('placeholder')) {
+                el.setAttribute('aria-label', el.getAttribute('placeholder'));
+            }
+        });
+        document.querySelectorAll('button').forEach(btn => {
+            if (btn.getAttribute('aria-label')) return;
+            const title = btn.getAttribute('title');
+            if (title) btn.setAttribute('aria-label', title);
+            else if (btn.textContent.trim() === '×' || btn.textContent.trim() === '✕') {
+                btn.setAttribute('aria-label', 'Cerrar');
+            }
+        });
     }
 
     // Cuando el usuario hace click en el tab "Crear Rutina" directamente, salir del modo repositorio
@@ -15377,6 +15726,8 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
     // ====================================================================
     document.addEventListener('DOMContentLoaded', () => {
         _pfInicializarFontScale();
+        _pfInicializarHighContrast();
+        _pfMejorarEtiquetasAccesibles();
         poblarSelectsMusculos();
         cargarVideoteca();
         cargarListaAlumnos();
