@@ -4901,12 +4901,56 @@
     // ====================================================================
     let _editandoRutina = false; // flag para evitar que inicializarRutina resetee al editar
 
+    // Código de la rutina que se está editando desde el Historial (null = rutina nueva).
+    // Se usa para preguntar, al guardar, si se sobreescribe esa misma rutina o se crea una nueva.
+    let _pfCodigoEditando = null;
+
+    // Muestra un mini-modal con 3 opciones (sobrescribir / nueva / cancelar) y devuelve
+    // una Promise que resuelve a 'sobrescribir', 'nueva' o null (cancelado).
+    function _pfPreguntarModoGuardado(codigoOriginal) {
+        return new Promise(resolve => {
+            let modal = document.getElementById('modal-pf-modo-guardado');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'modal-pf-modo-guardado';
+                modal.className = 'fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4';
+                modal.innerHTML =
+                    '<div class="bg-fondo2 rounded-2xl p-6 max-w-sm w-full space-y-4 border border-borde">' +
+                        '<div class="text-center">' +
+                            '<div class="text-3xl mb-2">💾</div>' +
+                            '<p id="pf-modo-guardado-msg" class="text-texto font-bold text-sm"></p>' +
+                        '</div>' +
+                        '<div class="space-y-2">' +
+                            '<button id="pf-modo-guardado-btn-sobrescribir" class="w-full py-2.5 rounded-xl btn-primary text-white font-bold text-sm"></button>' +
+                            '<button id="pf-modo-guardado-btn-nueva" class="w-full py-2.5 rounded-xl border-2 border-azul/50 text-azul font-bold text-sm">Guardar como rutina nueva</button>' +
+                            '<button id="pf-modo-guardado-btn-cancelar" class="w-full py-2 rounded-xl text-textoSuave font-bold text-sm">Cancelar</button>' +
+                        '</div>' +
+                    '</div>';
+                document.body.appendChild(modal);
+            }
+            document.getElementById('pf-modo-guardado-msg').textContent =
+                'Estás editando la rutina ' + codigoOriginal.toUpperCase() + '. ¿Qué querés hacer con los cambios?';
+            document.getElementById('pf-modo-guardado-btn-sobrescribir').textContent =
+                'Guardar cambios en ' + codigoOriginal.toUpperCase();
+            modal.classList.remove('hidden');
+
+            function cerrar(valor) {
+                modal.classList.add('hidden');
+                resolve(valor);
+            }
+            document.getElementById('pf-modo-guardado-btn-sobrescribir').onclick = () => cerrar('sobrescribir');
+            document.getElementById('pf-modo-guardado-btn-nueva').onclick = () => cerrar('nueva');
+            document.getElementById('pf-modo-guardado-btn-cancelar').onclick = () => cerrar(null);
+        });
+    }
+
     // Modo repositorio: cuando se entra desde "Crear Entrenamiento" del Repositorio
     let modoRepositorio = false;
 
     function abrirCrearEntrenamiento() {
         modoRepositorio = true;
         window._repoEditandoIdx = null; // no estamos editando un ítem existente
+        _pfCodigoEditando = null; // no estamos editando una rutina existente del historial
         // Resetear el formulario para empezar desde cero
         diasData = [];
         initMultiDia();
@@ -7476,6 +7520,14 @@
             if (!continuar) return;
         }
 
+        // Si venimos de "Editar" una rutina desde el Historial, preguntar si los cambios
+        // van a esa misma rutina (sobrescribir) o se guardan como una rutina nueva.
+        let _pfModoGuardadoActual = null;
+        if (_pfCodigoEditando) {
+            _pfModoGuardadoActual = await _pfPreguntarModoGuardado(_pfCodigoEditando);
+            if (_pfModoGuardadoActual === null) return; // el usuario canceló
+        }
+
         const btn = document.getElementById('btn-compartir-rutina');
         pfBtnLoadingOn(btn, 'SUBIENDO...');
 
@@ -7670,6 +7722,25 @@
             });
             const data = await res.json();
             if (data.ok) {
+                // Si el usuario eligió sobrescribir la rutina original: borrar la vieja y
+                // renombrar la nueva para que quede con el mismo código de siempre.
+                if (_pfModoGuardadoActual === 'sobrescribir' && _pfCodigoEditando && data.codigo &&
+                    _pfCodigoEditando.toUpperCase() !== data.codigo.toUpperCase()) {
+                    try {
+                        await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(_pfCodigoEditando), { method: 'DELETE' });
+                        await fetch(API_BASE + '/api/rutina/renombrar', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ codigo_viejo: data.codigo, codigo_nuevo: _pfCodigoEditando })
+                        });
+                        delete historialRutinasCache[data.codigo];
+                        data.codigo = _pfCodigoEditando; // mostrar el código original en el modal de éxito
+                    } catch (eSobre) {
+                        console.warn('No se pudo mantener el código original al sobrescribir:', eSobre);
+                        toast('Los cambios se guardaron, pero como rutina nueva (' + (data.codigo||'').toUpperCase() + ')');
+                    }
+                }
+                _pfCodigoEditando = null;
                 document.getElementById('modal-codigo-text').innerText = (data.codigo || '').toUpperCase();
                 document.getElementById('modal-info').innerText = 'Rutina asignada a ' + (data.alumno || alumno);
 
@@ -8222,6 +8293,7 @@
             if (!data.ok) { toast('Error: ' + (data.error || 'No encontrada')); return; }
             const r = data.rutina;
             historialRutinasCache[codigo] = r;
+            _pfCodigoEditando = codigo; // recordar qué rutina se está editando, para preguntar al guardar
 
             const datos = resolverDatos(r);
             const alumno = r.alumno || datos.alumno || '';
@@ -10031,6 +10103,7 @@
     // Ir a "Crear Rutina" con el nombre de este alumno precargado
     function dashCrearRutinaParaAlumno() {
         if (!dashAlumnoActual) return;
+        _pfCodigoEditando = null; // esto es crear una rutina nueva, no editar una existente
         showTab('rutina');
         setTimeout(() => {
             const inp = document.getElementById('alumno-nombre');
@@ -12135,6 +12208,7 @@
         }
 
         // Cargar la plantilla en el editor (Crear Rutina) en modo repositorio
+        _pfCodigoEditando = null; // es una plantilla del repositorio, no una rutina existente del historial
         await cargarPlantillaEnEstado(r, null);
 
         // Activar modo "guardar en repo" para que al guardar se actualice el índice correcto
@@ -14041,6 +14115,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         const bloquesOrdenados = [...new Set(principales.map(e=>e.bloque||'Bloque 1'))];
         const bloquesFinales = bloquesOrdenados.map(bNombre => armarBloque(bNombre, bloquePorNombre[bNombre]||[]));
 
+        _pfCodigoEditando = null; // rutina armada desde la pizarra, no es edición de una existente
         showTab('rutina'); inicializarRutina();
         setTimeout(()=>{
             if(!diasData||diasData.length===0) agregarDia();
