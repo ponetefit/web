@@ -3555,8 +3555,18 @@
     // archivo (junto a Videoteca) y esta funcion se ejecuta recien cuando el profe toca un
     // chip de zona, momento en que ZONA_MUSCULOS ya esta inicializada.
     function _pfZonaDeEjercicio(ej, categoriaNombre) {
-        const catLower = (categoriaNombre || '').toLowerCase();
+        const catLower = (categoriaNombre || '').toLowerCase().trim();
         if (catLower.indexOf('aerob') !== -1 || catLower.indexOf('cardio') !== -1) return 'aerobico';
+        // Prioridad 1: la categoria REAL del ejercicio (misma regla que usa el generador
+        // de rutinas y el armado manual de escritorio). Esto evita que un ejercicio bien
+        // categorizado como zona_media/piernas/brazos caiga en "Todo el cuerpo" en el
+        // buscador mobile solo por no tener musculos cargados o tener mas de uno.
+        if (catLower === 'piernas') return 'piernas';
+        if (catLower === 'brazos') return 'brazos';
+        if (catLower === 'zona_media' || catLower === 'zona media' || catLower === 'core') return 'zona_media';
+        if (catLower === '' || catLower === 'todo_cuerpo' || catLower === 'todo el cuerpo' || catLower === 'full body' || catLower === 'funcional' || catLower === 'completo') return 'todo_cuerpo';
+        // Prioridad 2: categorias personalizadas (creadas por el profe) -> usar musculos
+        // cargados como respaldo, igual que antes.
         const musculos = [ej.musculo1, ej.musculo2, ej.sinergista].filter(Boolean).map(m => String(m).toLowerCase());
         const zonasMatch = [];
         Object.keys(ZONA_MUSCULOS).forEach(zona => {
@@ -3565,7 +3575,7 @@
         });
         if (zonasMatch.length >= 2) return 'todo_cuerpo';
         if (zonasMatch.length === 1) return zonasMatch[0];
-        return 'todo_cuerpo'; // sin musculo cargado -> catch-all
+        return 'todo_cuerpo'; // sin musculo cargado ni categoria conocida -> catch-all
     }
 
     // Config temporal capturada en el panel desplegable de "tocar ejercicio ->
