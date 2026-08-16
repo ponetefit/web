@@ -14670,6 +14670,7 @@
                     '<h2 id="pf-feedback-title" class="pf-feedback-title">¿Cómo te sentiste?</h2>' +
                     '<p id="pf-feedback-subtitle" class="pf-feedback-subtitle"></p>' +
                     '<div id="pf-feedback-seguimiento"></div>' +
+                    '<div id="pf-feedback-debug" style="font-size:10px;color:#666;line-height:1.5;margin:0 0 14px;padding:8px 10px;background:#0d0d10;border:1px solid #26262f;border-radius:8px;display:none;white-space:pre-wrap"></div>' +
                     '<div class="pf-feedback-question">Sensación de esfuerzo</div>' +
                     '<div id="pf-feedback-scale" class="pf-feedback-scale" role="radiogroup" aria-label="Sensación de esfuerzo del 1 al 10"></div>' +
                     '<div class="pf-feedback-extremos"><span>1 · Más liviano</span><span>10 · Más pesado</span></div>' +
@@ -14742,6 +14743,30 @@
                 });
             }
 
+            // ─── PANEL TEMPORAL DE DIAGNÓSTICO (sacar cuando esté resuelto) ───
+            // Muestra en pantalla, sin consola ni DevTools, qué ejercicios detectó
+            // el sistema en este bloque y qué historial de "costosos previos" cargó
+            // de Firebase, para poder mandarlo por captura de pantalla.
+            function _renderDebugTemporal(nombresBloque) {
+                var el = document.getElementById('pf-feedback-debug');
+                if (!el) return;
+                var lineas = [];
+                lineas.push('[DEBUG TEMPORAL] rutina: ' + (typeof currentCode !== 'undefined' ? currentCode : '?'));
+                lineas.push('Ejercicios de este bloque: ' + (nombresBloque.length ? nombresBloque.join(' | ') : '(ninguno detectado)'));
+                var claves = Object.keys(_costososPrevios);
+                if (!claves.length) {
+                    lineas.push('Historial "costosos previos" cargado: VACÍO (no hay ejercicios ≥9/10 pendientes de confirmar en ninguna rutina de este alumno, o todavía no llegó la respuesta de Firebase).');
+                } else {
+                    lineas.push('Historial "costosos previos" cargado (' + claves.length + '):');
+                    claves.forEach(function(c) {
+                        var e = _costososPrevios[c];
+                        lineas.push('  · "' + e.nombre + '" (sensación ' + e.sensacion + '/10, rutinas: ' + e.codigos.join(', ') + ')');
+                    });
+                }
+                el.textContent = lineas.join('\n');
+                el.style.display = 'block';
+            }
+
             function _abrirFeedback(indice, pendienteFinal) {
                 if (_feedbackEtapasRespondidas[indice] || _feedbackEtapaActual) return;
                 // Si todavía no llegó la respuesta de Firebase con los ejercicios que
@@ -14767,6 +14792,7 @@
                 };
                 document.getElementById('pf-feedback-subtitle').textContent = _nombreEtapa(indice) + ' · una respuesta rápida para ajustar tu próximo entrenamiento';
                 _renderSeguimiento(nombres);
+                _renderDebugTemporal(nombres);
                 var select = document.getElementById('pf-feedback-ejercicio');
                 select.innerHTML = '<option value="">Elegí un ejercicio</option>' +
                     '<option value="Ninguno me costó">Ninguno me costó</option>' +
