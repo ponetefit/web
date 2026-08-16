@@ -14376,6 +14376,8 @@
             // costosos (sensación 9-10), pendientes de confirmar si le siguen costando.
             // EJERCICIO_UPPER -> { nombre, sensacion }
             var _costososPrevios = {};
+            var _costososPreviosPromise = null;
+            var _costososPreviosListo = false;
 
             function _esc(value) {
                 return String(value == null ? '' : value)
@@ -14384,6 +14386,17 @@
                     .replace(/>/g, '&gt;')
                     .replace(/"/g, '&quot;')
                     .replace(/'/g, '&#039;');
+            }
+
+            // Normaliza nombres de ejercicio para comparar (mayúsculas, sin tildes,
+            // sin espacios repetidos/extremos). Evita que "Sentadilla " != "Sentadilla"
+            // o "Sentadillas" != "SENTADILLA" rompan la coincidencia con lo cargado
+            // desde otra rutina.
+            function _normNombre(value) {
+                return String(value == null ? '' : value)
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                    .trim().replace(/\s+/g, ' ')
+                    .toUpperCase();
             }
 
             function _fechaISO() {
@@ -14532,6 +14545,7 @@
             // costando. Si ya había avisado "no me cuesta más" (resueltos) después del
             // último reporte, no se incluye.
             async function _cargarCostososPrevios() {
+                _costososPreviosListo = false;
                 _costososPrevios = {};
                 var cod = typeof currentCode !== 'undefined' ? currentCode : '';
                 if (!cod || !cod.includes('-')) return;
@@ -14561,7 +14575,7 @@
                             var ejercicio = String(item.ejercicio_dificil || '').trim();
                             var sens = Number(item.sensacion || item.rpe || 0);
                             if (!ejercicio || ejercicio.toLowerCase() === 'ninguno me costó' || sens < UMBRAL_COSTOSO_PREV) return;
-                            var clave = ejercicio.toUpperCase();
+                            var clave = _normNombre(ejercicio);
                             var ts = item.ts || 0;
                             if (!porEjercicio[clave]) porEjercicio[clave] = { nombre: ejercicio, sensacion: sens, ts: ts, codigos: [] };
                             if (porEjercicio[clave].codigos.indexOf(codigo) === -1) porEjercicio[clave].codigos.push(codigo);
@@ -14588,13 +14602,18 @@
                     }));
                     if (!resueltoEnTodos) _costososPrevios[clave] = entry;
                 }));
+                // Expuesto para poder inspeccionar en la consola del navegador
+                // (DevTools) si los datos llegaron y qué claves tiene:
+                // window._pfDebugCostososPrevios
+                window._pfDebugCostososPrevios = _costososPrevios;
+                _costososPreviosListo = true;
             }
 
             // Avisa a Firebase que un ejercicio ya no le cuesta más al alumno. Se escribe
             // en TODOS los códigos de rutina (mismo prefijo) donde apareció como costoso,
             // para que el profesor deje de verlo marcado sin importar qué rutina mire.
             function _marcarYaNoCuesta(nombreEjercicio) {
-                var clave = String(nombreEjercicio || '').toUpperCase();
+                var clave = _normNombre(nombreEjercicio);
                 var entry = _costososPrevios[clave];
                 var codigos = (entry && entry.codigos && entry.codigos.length) ? entry.codigos :
                     (typeof currentCode !== 'undefined' && currentCode ? [currentCode] : []);
@@ -14696,12 +14715,12 @@
                 var cont = document.getElementById('pf-feedback-seguimiento');
                 if (!cont) return;
                 var matches = nombres.filter(function(n) {
-                    return _costososPrevios[String(n || '').toUpperCase()];
+                    return _costososPrevios[_normNombre(n)];
                 });
                 _feedbackEtapaActual.seguimiento = {}; // EJ_UPPER -> true(sigue)/false(no)/undefined(sin responder)
                 if (!matches.length) { cont.innerHTML = ''; return; }
                 cont.innerHTML = matches.map(function(nombre) {
-                    var clave = nombre.toUpperCase();
+                    var clave = _normNombre(nombre);
                     var prev = _costososPrevios[clave];
                     return '<div class="pf-feedback-seg-item" data-clave="' + _esc(clave) + '">' +
                         '<div class="pf-feedback-seg-txt">Antes te costaba <b>' + _esc(prev.nombre) + '</b> (lo sentiste ' + prev.sensacion + '/10). ¿Te sigue costando?</div>' +
@@ -14725,6 +14744,20 @@
 
             function _abrirFeedback(indice, pendienteFinal) {
                 if (_feedbackEtapasRespondidas[indice] || _feedbackEtapaActual) return;
+                // Si todavía no llegó la respuesta de Firebase con los ejercicios que
+                // le costaron en rutinas anteriores, esperamos un toque (máx. 2.5s) en
+                // vez de abrir la ventana con "_costososPrevios" vacío: si abrimos antes,
+                // la sección "¿Te sigue costando?" nunca se arma para esta etapa aunque
+                // el ejercicio SÍ tenga historial.
+                if (_costososPreviosPromise && !_costososPreviosListo) {
+                    Promise.race([
+                        _costososPreviosPromise,
+                        new Promise(function(res) { setTimeout(res, 2500); })
+                    ]).then(function() {
+                        _abrirFeedback(indice, pendienteFinal);
+                    });
+                    return;
+                }
                 _crearOverlay();
                 var nombres = _ejerciciosEtapa(indice);
                 _feedbackEtapaActual = {
@@ -14879,11 +14912,15 @@
                     _feedbackPendienteFinal = false;
                     // currentCode ya debería estar seteado a esta altura (se define al
                     // cargar la rutina, antes de inicializarProgreso); si no, reintentamos.
-                    setTimeout(_cargarCostososPrevios, 300);
+                    _costososPreviosPromise = new Promise(function(resolve) {
+                        setTimeout(function() { _cargarCostososPrevios().then(resolve).catch(resolve); }, 300);
+                    });
                     return _feedbackOriginalInicializar(data);
                 };
             } else {
-                setTimeout(_cargarCostososPrevios, 1200);
+                _costososPreviosPromise = new Promise(function(resolve) {
+                    setTimeout(function() { _cargarCostososPrevios().then(resolve).catch(resolve); }, 1200);
+                });
             }
 
             if (typeof incrementarProgreso === 'function') {
