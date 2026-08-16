@@ -14409,13 +14409,44 @@
                 var data = (typeof _dataRenderActual !== 'undefined' && _dataRenderActual) ||
                     (typeof dataGlobal !== 'undefined' && dataGlobal) || {};
                 if (indice === 0) {
-                    return {
-                        tipo: data.warmup_tipo || 'Calentamiento',
-                        ejercicios: data.warmup_ejercicios || []
-                    };
+                    var wd = data.warmup_config_detalle || {};
+                    var fuenteWarmup = { ejercicios: data.warmup_ejercicios || [] };
+                    for (var k in wd) { if (wd.hasOwnProperty(k)) fuenteWarmup[k] = wd[k]; }
+                    fuenteWarmup.tipo = wd.tipo || data.warmup_tipo || 'Calentamiento';
+                    return fuenteWarmup;
                 }
                 var bloques = data.tipo === 'ENTRENAMIENTO' ? (data.bloques || []) : [data];
                 return bloques[indice - 1] || data;
+            }
+
+            // Arma un texto legible del "sistema de entrenamiento" a partir del bloque/calentamiento
+            // fuente (ej: "Tabata 20/10 · 4 ejercicios · 2 rondas"), usando los mismos nombres de
+            // campo que profesor.html guarda al construir cada tipo de bloque.
+            function _formatoSistemaEntrenamiento(fuente) {
+                if (!fuente) return '';
+                var tipo = String(fuente.tipo || '').trim();
+                var tNorm = tipo.toLowerCase();
+                var partes = [];
+                if (tNorm.indexOf('tabata') !== -1) {
+                    if (fuente.trabajo && fuente.pausa) partes.push(fuente.trabajo + '/' + fuente.pausa);
+                    if (fuente.cantidad) partes.push(fuente.cantidad + ' ejercicios');
+                    if (fuente.rondas && Number(fuente.rondas) > 1) partes.push(fuente.rondas + ' rondas');
+                } else if (tNorm.indexOf('emom') !== -1) {
+                    var mins = fuente.minutos_totales || fuente.minutos;
+                    if (mins) partes.push(mins + ' min');
+                } else if (tNorm.indexOf('circuito por tiempo') !== -1) {
+                    var dur = fuente.duracion_min || fuente.duracion_bloque;
+                    if (dur) partes.push(dur + ' min');
+                } else if (tNorm.indexOf('circuito') !== -1) {
+                    if (fuente.vueltas) partes.push(fuente.vueltas + ' vueltas');
+                    if (fuente.pausa_vuelta) partes.push('descanso ' + fuente.pausa_vuelta + 's');
+                } else if (tNorm.indexOf('por tiempo') !== -1) {
+                    if (fuente.vueltas) partes.push(fuente.vueltas + ' vueltas');
+                } else if (tNorm.indexOf('sumando') !== -1) {
+                    if (fuente.pausa_ronda) partes.push('pausa ' + fuente.pausa_ronda + 's');
+                }
+                var base = tipo || 'Entrenamiento';
+                return partes.length ? (base + ' ' + partes.join(' · ')) : base;
             }
 
             function _ejerciciosEtapa(indice) {
@@ -14622,6 +14653,7 @@
                     return;
                 }
                 var nota = document.getElementById('pf-feedback-nota').value.trim();
+                var fuenteEtapaActual = _fuenteEtapa(_feedbackEtapaActual.indice);
                 var payload = {
                     ts: Date.now(),
                     fecha: _fechaISO(),
@@ -14632,6 +14664,10 @@
                     etapa_indice: _feedbackEtapaActual.indice,
                     etapa_nombre: _nombreEtapa(_feedbackEtapaActual.indice),
                     tipo: (typeof _progresoSegmentos !== 'undefined' && _progresoSegmentos[_feedbackEtapaActual.indice]) ? _progresoSegmentos[_feedbackEtapaActual.indice].nombre : '',
+                    // Sistema de entrenamiento con detalle (ej: "Tabata 20/10 · 4 ejercicios · 2 rondas"),
+                    // para que el profesor sepa exactamente en qué contexto le costó el ejercicio.
+                    sistema_tipo: fuenteEtapaActual.tipo || '',
+                    sistema_detalle: _formatoSistemaEntrenamiento(fuenteEtapaActual),
                     bloque_completo: {
                         nombre: _nombreEtapa(_feedbackEtapaActual.indice),
                         tipo: (typeof _progresoSegmentos !== 'undefined' && _progresoSegmentos[_feedbackEtapaActual.indice]) ? _progresoSegmentos[_feedbackEtapaActual.indice].nombre : '',
