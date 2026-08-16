@@ -3018,6 +3018,22 @@
         </div>
     </div>
 
+    <!-- Modal: advertencia al agregar en Crear Rutina un ejercicio que le costó mucho al alumno en una rutina anterior (según su feedback post-entreno) -->
+    <div id="modal-advertencia-costoso" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+        <div class="bg-tarjeta rounded-3xl border border-amarillo p-6 max-w-md w-full max-h-[85vh] overflow-y-auto">
+            <div class="flex items-center gap-3 mb-3">
+                <span class="text-3xl">💪</span>
+                <h3 class="text-base font-bold text-amarillo uppercase tracking-wider">Ojo con este ejercicio</h3>
+            </div>
+            <p class="text-sm text-texto mb-3">A <span id="costoso-alumno-nombre" class="font-bold"></span> le costó antes <span id="costoso-ejercicio-nombre" class="font-bold text-amarillo"></span>:</p>
+            <div id="costoso-lista" class="mb-2"></div>
+            <div class="flex gap-3 mt-4">
+                <button onclick="cancelarAdvertenciaCostoso()" class="flex-1 py-2.5 rounded-xl border border-borde text-textoSuave text-sm font-bold hover:text-texto transition">Cancelar</button>
+                <button onclick="confirmarAdvertenciaCostoso()" class="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold text-sm">Agregar igual</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: detalle de ejercicios por musculo (dashboard, mapa de calor) -->
     <div id="modal-musculo-detalle" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
         <div class="bg-tarjeta rounded-2xl border border-borde p-5 max-w-sm w-full max-h-[80vh] overflow-y-auto">
@@ -4107,6 +4123,126 @@
     function cancelarAdvertenciaEjercicio() {
         document.getElementById('modal-advertencia-ejercicio').classList.add('hidden');
         _advertenciaCallbackPendiente = null;
+    }
+
+    // ── Advertencia al agregar en Crear Rutina un ejercicio que le costó mucho al alumno ──
+    // Lee el feedback post-entreno (guardado por alumno.html en Firebase, por rutina y fecha)
+    // de todas las rutinas previas del alumno cargado en "Nombre del Alumno", y si el ejercicio
+    // que se está por agregar aparece como "ejercicio_dificil" en alguna, muestra un cartel con
+    // el detalle: código de rutina, sistema de entrenamiento (con tiempos/reps) y si fue
+    // calentamiento o bloque principal.
+    const FEEDBACK_URL_COSTOSO = 'https://ponetefit-app-default-rtdb.firebaseio.com/feedback/';
+    let _pfFeedbackCostosoCache = {}; // EJERCICIO_UPPER -> [{codigo, fecha, ts, sensacion, etapa, sistema_tipo, sistema_detalle, comentario}]
+    let _costosoAdvertenciaCallbackPendiente = null;
+    let _costosoAdvertenciasAceptadas = new Set(); // "ALUMNO|EJERCICIO" ya confirmados en esta sesion
+
+    function _pfEscCostoso(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+
+    function _pfColorCostoso(score) {
+        const v = Math.max(1, Math.min(10, Number(score) || 1));
+        const hue = Math.round(120 - ((v - 1) / 9) * 120);
+        return 'hsl(' + hue + ', 78%, 48%)';
+    }
+
+    // Recorre las rutinas del alumno activo (_pfHistorialAlumnoCache, ya cargado por
+    // _pfChequearHistorialAlumno) y arma el cache de "qué ejercicio le costó en qué rutina".
+    async function _pfCargarFeedbackCostosoAlumno() {
+        _pfFeedbackCostosoCache = {};
+        const codigos = (typeof _pfHistorialAlumnoCache !== 'undefined' ? _pfHistorialAlumnoCache : [])
+            .map(r => r.codigo).filter(Boolean);
+        if (!codigos.length) return;
+        await Promise.all(codigos.map(async (codigo) => {
+            try {
+                const res = await fetch(FEEDBACK_URL_COSTOSO + encodeURIComponent(codigo) + '.json');
+                const data = await res.json();
+                if (!data || typeof data !== 'object') return;
+                Object.keys(data).forEach(fecha => {
+                    const dia = data[fecha];
+                    if (!dia) return;
+                    let lista = [];
+                    if (dia.sensacion !== undefined || dia.rpe !== undefined) lista = [dia];
+                    else if (Array.isArray(dia)) lista = dia;
+                    else if (typeof dia === 'object') lista = Object.keys(dia).map(k => dia[k]);
+                    lista.forEach(item => {
+                        if (!item || typeof item !== 'object') return;
+                        const ejercicio = String(item.ejercicio_dificil || '').trim();
+                        if (!ejercicio || ejercicio.toLowerCase() === 'ninguno me costó') return;
+                        const clave = ejercicio.toUpperCase();
+                        if (!_pfFeedbackCostosoCache[clave]) _pfFeedbackCostosoCache[clave] = [];
+                        _pfFeedbackCostosoCache[clave].push({
+                            codigo: codigo,
+                            fecha: item.fecha || fecha,
+                            ts: item.ts || 0,
+                            sensacion: item.sensacion || item.rpe || 0,
+                            etapa: item.etapa || '',
+                            sistema_tipo: item.sistema_tipo || item.tipo || '',
+                            sistema_detalle: item.sistema_detalle || item.tipo || '',
+                            comentario: item.comentario || ''
+                        });
+                    });
+                });
+            } catch (e) {}
+        }));
+    }
+
+    // Muestra el cartel de "este ejercicio le costó" si corresponde. Devuelve true si bloqueó
+    // el agregado (modal abierto), igual que mostrarAdvertenciaSiProhibido.
+    function mostrarAdvertenciaSiCostoso(nombreEjercicio, onConfirmar) {
+        const alumnoInput = document.getElementById('alumno-nombre');
+        const alumno = alumnoInput ? alumnoInput.value.trim() : '';
+        if (!alumno || !nombreEjercicio) return false;
+        const entradas = _pfFeedbackCostosoCache[nombreEjercicio.toUpperCase()];
+        if (!entradas || !entradas.length) return false;
+
+        const claveAceptada = _claveAlumno(alumno) + '|' + nombreEjercicio.toUpperCase();
+        if (_costosoAdvertenciasAceptadas.has(claveAceptada)) return false;
+
+        document.getElementById('costoso-alumno-nombre').textContent = alumno.toUpperCase();
+        document.getElementById('costoso-ejercicio-nombre').textContent = nombreEjercicio;
+        const ordenadas = entradas.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 6);
+        document.getElementById('costoso-lista').innerHTML = ordenadas.map(item => {
+            const color = _pfColorCostoso(item.sensacion);
+            const etapaLabel = item.etapa === 'calentamiento' ? 'Calentamiento' : 'Bloque principal';
+            const sistema = item.sistema_detalle || item.sistema_tipo || '';
+            const fechaFmt = item.fecha ? item.fecha.split('-').reverse().join('/') : '';
+            return '<div class="rounded-xl border border-borde bg-fondoAlt p-3 mb-2">' +
+                '<div class="flex items-center justify-between gap-2">' +
+                    '<div class="min-w-0">' +
+                        '<div class="text-xs font-mono font-bold text-amarillo">' + _pfEscCostoso(item.codigo.toUpperCase()) + '</div>' +
+                        '<div class="text-[11px] text-textoSuave">' + _pfEscCostoso(etapaLabel) + (sistema ? ' · ' + _pfEscCostoso(sistema) : '') + '</div>' +
+                    '</div>' +
+                    '<div class="flex items-center gap-2 flex-shrink-0">' +
+                        (fechaFmt ? '<span class="text-[10px] text-textoSuave">' + _pfEscCostoso(fechaFmt) + '</span>' : '') +
+                        '<span class="inline-flex items-center justify-center w-8 h-8 rounded-lg font-black text-black" style="background:' + color + '">' + (item.sensacion || '—') + '</span>' +
+                    '</div>' +
+                '</div>' +
+                (item.comentario ? '<div class="text-[11px] text-textoSuave mt-1 italic">“' + _pfEscCostoso(item.comentario) + '”</div>' : '') +
+            '</div>';
+        }).join('');
+
+        document.getElementById('modal-advertencia-costoso').classList.remove('hidden');
+        _costosoAdvertenciaCallbackPendiente = function() {
+            _costosoAdvertenciasAceptadas.add(claveAceptada);
+            if (onConfirmar) onConfirmar();
+            setTimeout(() => _costosoAdvertenciasAceptadas.delete(claveAceptada), 500);
+        };
+        return true;
+    }
+
+    function confirmarAdvertenciaCostoso() {
+        document.getElementById('modal-advertencia-costoso').classList.add('hidden');
+        const cb = _costosoAdvertenciaCallbackPendiente;
+        _costosoAdvertenciaCallbackPendiente = null;
+        if (cb) cb();
+    }
+
+    function cancelarAdvertenciaCostoso() {
+        document.getElementById('modal-advertencia-costoso').classList.add('hidden');
+        _costosoAdvertenciaCallbackPendiente = null;
     }
 
     // Muestra/oculta la tarjeta "Ficha del alumno" en Crear Rutina cuando se carga un nombre de alumno
@@ -5311,6 +5447,7 @@
         const nota_tecnica = (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.nota_tecnica) || '';
         if (!nombre || nombre === 'Sin ejercicios' || nombre === 'Sin resultados') return;
         if (mostrarAdvertenciaSiProhibido(nombre, () => agregarEjWarmupDia(idx))) return;
+        if (mostrarAdvertenciaSiCostoso(nombre, () => agregarEjWarmupDia(idx))) return;
         const selectedOption = selEj.options[selEj.selectedIndex];
         const catHint = (selectedOption && selectedOption.dataset.cat) || document.getElementById('warmup-cat-select-' + idx)?.value;
         // Buscar globalmente si no esta en la categoria detectada
@@ -5738,6 +5875,7 @@
         const unit = document.getElementById('warmup-ej-unit').value;
         if (!nombre || nombre === 'Sin ejercicios' || nombre === 'Sin resultados') return;
         if (mostrarAdvertenciaSiProhibido(nombre, () => agregarEjWarmup())) return;
+        if (mostrarAdvertenciaSiCostoso(nombre, () => agregarEjWarmup())) return;
         const selectedOption = selEj.options[selEj.selectedIndex];
         const catHint = (selectedOption && selectedOption.dataset.cat) || document.getElementById('warmup-cat-select').value;
         let ejData = catHint && videotecaCache[catHint] ? (videotecaCache[catHint] || []).find(e => (e.nombre||e[0]) === nombre) : null;
@@ -6332,6 +6470,7 @@
         const nombre = selEj.value;
         if (!nombre || nombre === 'Sin ejercicios' || nombre === 'Sin resultados') return;
         if (mostrarAdvertenciaSiProhibido(nombre, () => agregarEjBloque())) return;
+        if (mostrarAdvertenciaSiCostoso(nombre, () => agregarEjBloque())) return;
         // Tabata: no se pueden agregar más ejercicios que la "cantidad" configurada
         const tipoBlq = document.getElementById('bloque-tipo')?.value || '';
         if (tipoBlq === 'Tabata') {
@@ -9785,7 +9924,7 @@
             const inp = document.getElementById('alumno-nombre');
             if (inp) {
                 inp.value = dashAlumnoActual;
-                _pfChequearHistorialAlumno();
+                _pfChequearHistorialAlumno().then(function() { _pfCargarFeedbackCostosoAlumno(); });
                 _pfChequearFichaAlumno();
             }
         }, 50);
@@ -13894,7 +14033,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
     const MODAL_IDS = ['modal-pf-confirm', 'modal-dash-rutina', 'modal-codigo', 'modal-repo-guardar', 'modal-repo-editar',
         'modal-repo-copiar', 'modal-ver-rutina', 'modal-piz-vt', 'modal-ia-config', 'modal-ia-preview',
         'modal-nueva-cat', 'modal-bloque', 'modal-copiar-destino', 'modal-historial-alumno', 'modal-vista-compacta-rutina',
-        'modal-advertencia-ejercicio', 'modal-musculo-detalle'];
+        'modal-advertencia-ejercicio', 'modal-advertencia-costoso', 'modal-musculo-detalle'];
 
     // Devuelve tambien los modales de calentamiento (uno por dia, id dinamico modal-calentamiento-N)
     function _pfTodosLosModalesVisibles() {
@@ -15056,8 +15195,8 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         cargarListaAlumnos();
         cargarAlumnosDash();
         // Autocompletado de alumno en "Crear Rutina" (texto libre, sugiere alumnos existentes)
-        _obtenerAlumnosCache().then(() => _initAutocompleteAlumno('alumno-nombre', function(n) { _pfChequearHistorialAlumno(n); _pfChequearFichaAlumno(); }, null));
-        document.getElementById('alumno-nombre')?.addEventListener('blur', function() { _pfChequearHistorialAlumno(); _pfChequearFichaAlumno(); });
+        _obtenerAlumnosCache().then(() => _initAutocompleteAlumno('alumno-nombre', function(n) { _pfChequearHistorialAlumno(n).then(function() { _pfCargarFeedbackCostosoAlumno(); }); _pfChequearFichaAlumno(); }, null));
+        document.getElementById('alumno-nombre')?.addEventListener('blur', function() { _pfChequearHistorialAlumno().then(function() { _pfCargarFeedbackCostosoAlumno(); }); _pfChequearFichaAlumno(); });
         cargarPerfilesAlumnos();
         cargarRepositorioDesdeNube();
         // Buscador de ejercicios mobile (bloque): reusa el select de desktop y agregarEjBloque()
