@@ -14547,9 +14547,12 @@
             async function _cargarCostososPrevios() {
                 _costososPreviosListo = false;
                 _costososPrevios = {};
+                var _dbg = { cod: '', prefijo: '', codigos: [], errorRutinas: false, reportesRaw: [] };
                 var cod = typeof currentCode !== 'undefined' ? currentCode : '';
-                if (!cod || !cod.includes('-')) return;
+                _dbg.cod = cod;
+                if (!cod || !cod.includes('-')) { window._pfDebugRaw = _dbg; _costososPreviosListo = true; return; }
                 var prefijo = cod.split('-')[0] + '-';
+                _dbg.prefijo = prefijo;
                 var codigos = [cod];
                 try {
                     var urlRutinas = 'https://ponetefit-app-default-rtdb.firebaseio.com/rutinas.json?orderBy=' +
@@ -14558,8 +14561,9 @@
                     var resR = await fetch(urlRutinas);
                     var dataR = await resR.json();
                     if (dataR && typeof dataR === 'object') codigos = Object.keys(dataR);
-                } catch (e) {}
+                } catch (e) { _dbg.errorRutinas = true; }
                 if (!codigos.length) codigos = [cod];
+                _dbg.codigos = codigos;
 
                 // porEjercicio: EJ_UPPER -> { nombre, sensacion, ts, codigos: [codigo,...] }
                 // (guardamos en qué códigos apareció para poder resolverlo en todos a la vez)
@@ -14574,6 +14578,7 @@
                             if (!item) return;
                             var ejercicio = String(item.ejercicio_dificil || '').trim();
                             var sens = Number(item.sensacion || item.rpe || 0);
+                            _dbg.reportesRaw.push({ codigo: codigo, fecha: fecha, ejercicio: ejercicio, sensacion: sens });
                             if (!ejercicio || ejercicio.toLowerCase() === 'ninguno me costó' || sens < UMBRAL_COSTOSO_PREV) return;
                             var clave = _normNombre(ejercicio);
                             var ts = item.ts || 0;
@@ -14604,8 +14609,9 @@
                 }));
                 // Expuesto para poder inspeccionar en la consola del navegador
                 // (DevTools) si los datos llegaron y qué claves tiene:
-                // window._pfDebugCostososPrevios
+                // window._pfDebugCostososPrevios / window._pfDebugRaw
                 window._pfDebugCostososPrevios = _costososPrevios;
+                window._pfDebugRaw = _dbg;
                 _costososPreviosListo = true;
             }
 
@@ -14750,14 +14756,25 @@
             function _renderDebugTemporal(nombresBloque) {
                 var el = document.getElementById('pf-feedback-debug');
                 if (!el) return;
+                var dbg = window._pfDebugRaw || {};
                 var lineas = [];
                 lineas.push('[DEBUG TEMPORAL] rutina: ' + (typeof currentCode !== 'undefined' ? currentCode : '?'));
                 lineas.push('Ejercicios de este bloque: ' + (nombresBloque.length ? nombresBloque.join(' | ') : '(ninguno detectado)'));
+                lineas.push('Prefijo buscado: "' + (dbg.prefijo || '?') + '"' + (dbg.errorRutinas ? ' (ERROR al consultar rutinas hermanas)' : ''));
+                lineas.push('Rutinas encontradas con ese prefijo (' + (dbg.codigos ? dbg.codigos.length : 0) + '): ' + (dbg.codigos ? dbg.codigos.join(', ') : '?'));
+                if (dbg.reportesRaw && dbg.reportesRaw.length) {
+                    lineas.push('TODOS los reportes de feedback encontrados (' + dbg.reportesRaw.length + '), aunque no lleguen al umbral de 9/10:');
+                    dbg.reportesRaw.forEach(function(r) {
+                        lineas.push('  · [' + r.codigo + ' / ' + r.fecha + '] "' + r.ejercicio + '" — sensación ' + r.sensacion + '/10');
+                    });
+                } else {
+                    lineas.push('TODOS los reportes de feedback encontrados: NINGUNO (no hay ni un solo feedback guardado en esas rutinas).');
+                }
                 var claves = Object.keys(_costososPrevios);
                 if (!claves.length) {
-                    lineas.push('Historial "costosos previos" cargado: VACÍO (no hay ejercicios ≥9/10 pendientes de confirmar en ninguna rutina de este alumno, o todavía no llegó la respuesta de Firebase).');
+                    lineas.push('Historial "costosos previos" (sensación ≥9, sin resolver): VACÍO.');
                 } else {
-                    lineas.push('Historial "costosos previos" cargado (' + claves.length + '):');
+                    lineas.push('Historial "costosos previos" (sensación ≥9, sin resolver) (' + claves.length + '):');
                     claves.forEach(function(c) {
                         var e = _costososPrevios[c];
                         lineas.push('  · "' + e.nombre + '" (sensación ' + e.sensacion + '/10, rutinas: ' + e.codigos.join(', ') + ')');
