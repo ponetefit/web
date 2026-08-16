@@ -14526,19 +14526,35 @@
                 return 'hsl(' + hue + ', 78%, 48%)';
             }
 
-            // Trae, para la rutina actual (currentCode), los ejercicios que este alumno
-            // marcó antes como muy costosos (sensación 9-10) y que todavía no confirmó
-            // que le sigan costando (o que ya confirmó que sí). Si ya había avisado que
-            // "no le cuesta más" (resueltos) después del último reporte, no se incluye.
+            // Trae, para TODAS las rutinas de este alumno (mismo prefijo de código, ej.
+            // "RAFA-"), igual que hace "Mis Rutinas", los ejercicios que marcó antes como
+            // muy costosos (sensación 9-10) y que todavía no confirmó que le sigan
+            // costando. Si ya había avisado "no me cuesta más" (resueltos) después del
+            // último reporte, no se incluye.
             async function _cargarCostososPrevios() {
                 _costososPrevios = {};
                 var cod = typeof currentCode !== 'undefined' ? currentCode : '';
-                if (!cod) return;
-                var porEjercicio = {};
+                if (!cod || !cod.includes('-')) return;
+                var prefijo = cod.split('-')[0] + '-';
+                var codigos = [cod];
                 try {
-                    var res = await fetch(_feedbackFirebaseUrl + encodeURIComponent(cod) + '.json');
-                    var data = await res.json();
-                    if (data && typeof data === 'object') {
+                    var urlRutinas = 'https://ponetefit-app-default-rtdb.firebaseio.com/rutinas.json?orderBy=' +
+                        encodeURIComponent('"$key"') + '&startAt=' + encodeURIComponent('"' + prefijo + '"') +
+                        '&endAt=' + encodeURIComponent('"' + prefijo + '\uf8ff"');
+                    var resR = await fetch(urlRutinas);
+                    var dataR = await resR.json();
+                    if (dataR && typeof dataR === 'object') codigos = Object.keys(dataR);
+                } catch (e) {}
+                if (!codigos.length) codigos = [cod];
+
+                // porEjercicio: EJ_UPPER -> { nombre, sensacion, ts, codigos: [codigo,...] }
+                // (guardamos en qué códigos apareció para poder resolverlo en todos a la vez)
+                var porEjercicio = {};
+                await Promise.all(codigos.map(async function(codigo) {
+                    try {
+                        var res = await fetch(_feedbackFirebaseUrl + encodeURIComponent(codigo) + '.json');
+                        var data = await res.json();
+                        if (!data || typeof data !== 'object') return;
                         Object.keys(data).forEach(function(fecha) {
                             var item = data[fecha];
                             if (!item) return;
@@ -14547,39 +14563,52 @@
                             if (!ejercicio || ejercicio.toLowerCase() === 'ninguno me costó' || sens < UMBRAL_COSTOSO_PREV) return;
                             var clave = ejercicio.toUpperCase();
                             var ts = item.ts || 0;
-                            if (!porEjercicio[clave] || ts > porEjercicio[clave].ts) {
-                                porEjercicio[clave] = { nombre: ejercicio, sensacion: sens, ts: ts };
+                            if (!porEjercicio[clave]) porEjercicio[clave] = { nombre: ejercicio, sensacion: sens, ts: ts, codigos: [] };
+                            if (porEjercicio[clave].codigos.indexOf(codigo) === -1) porEjercicio[clave].codigos.push(codigo);
+                            if (ts > porEjercicio[clave].ts) {
+                                porEjercicio[clave].nombre = ejercicio;
+                                porEjercicio[clave].sensacion = sens;
+                                porEjercicio[clave].ts = ts;
                             }
                         });
-                    }
-                } catch (e) {}
-                var resueltos = {};
-                try {
-                    var res2 = await fetch(_resueltosFirebaseUrl + encodeURIComponent(cod) + '.json');
-                    var data2 = await res2.json();
-                    if (data2 && typeof data2 === 'object') resueltos = data2;
-                } catch (e) {}
-                Object.keys(porEjercicio).forEach(function(clave) {
-                    var r = resueltos[clave];
-                    if (r && (r.ts || 0) >= porEjercicio[clave].ts) return; // ya confirmado que no cuesta más
-                    _costososPrevios[clave] = porEjercicio[clave];
+                    } catch (e) {}
+                }));
+
+                // Resoluciones de cada código: si para TODOS los códigos donde apareció el
+                // ejercicio hay una resolución más nueva que el último reporte, ya está saldado.
+                await Promise.all(Object.keys(porEjercicio).map(async function(clave) {
+                    var entry = porEjercicio[clave];
+                    var resueltoEnTodos = true;
+                    await Promise.all(entry.codigos.map(async function(codigo) {
+                        try {
+                            var res2 = await fetch(_resueltosFirebaseUrl + encodeURIComponent(codigo) + '/' + encodeURIComponent(clave) + '.json');
+                            var data2 = await res2.json();
+                            if (!data2 || (data2.ts || 0) < entry.ts) resueltoEnTodos = false;
+                        } catch (e) { resueltoEnTodos = false; }
+                    }));
+                    if (!resueltoEnTodos) _costososPrevios[clave] = entry;
+                }));
+            }
+
+            // Avisa a Firebase que un ejercicio ya no le cuesta más al alumno. Se escribe
+            // en TODOS los códigos de rutina (mismo prefijo) donde apareció como costoso,
+            // para que el profesor deje de verlo marcado sin importar qué rutina mire.
+            function _marcarYaNoCuesta(nombreEjercicio) {
+                var clave = String(nombreEjercicio || '').toUpperCase();
+                var entry = _costososPrevios[clave];
+                var codigos = (entry && entry.codigos && entry.codigos.length) ? entry.codigos :
+                    (typeof currentCode !== 'undefined' && currentCode ? [currentCode] : []);
+                if (!clave || !codigos.length) return;
+                var payload = { ejercicio: nombreEjercicio, ts: Date.now(), fecha: _fechaISO(), quien: 'alumno' };
+                codigos.forEach(function(codigo) {
+                    fetch(_resueltosFirebaseUrl + encodeURIComponent(codigo) + '/' + encodeURIComponent(clave) + '.json', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    }).catch(function() {});
                 });
             }
 
-            // Avisa a Firebase que un ejercicio ya no le cuesta más al alumno (o que, si
-            // sigue costando, no hace falta avisar nada porque el reporte de esfuerzo de
-            // esta sesión ya lo va a dejar en evidencia con sensación alta).
-            function _marcarYaNoCuesta(nombreEjercicio) {
-                var cod = typeof currentCode !== 'undefined' ? currentCode : '';
-                var clave = String(nombreEjercicio || '').toUpperCase();
-                if (!cod || !clave) return;
-                var payload = { ejercicio: nombreEjercicio, ts: Date.now(), fecha: _fechaISO(), quien: 'alumno' };
-                fetch(_resueltosFirebaseUrl + encodeURIComponent(cod) + '/' + encodeURIComponent(clave) + '.json', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                }).catch(function() {});
-            }
 
             function _crearOverlay() {
                 if (document.getElementById('pf-feedback-overlay')) return;
