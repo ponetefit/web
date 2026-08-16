@@ -14364,12 +14364,18 @@
     <script>
         (function _pfFeedbackAlumno() {
             var _feedbackFirebaseUrl = 'https://ponetefit-app-default-rtdb.firebaseio.com/feedback/';
+            var _resueltosFirebaseUrl = 'https://ponetefit-app-default-rtdb.firebaseio.com/resueltos/';
+            var UMBRAL_COSTOSO_PREV = 9;
             var _feedbackEtapasRespondidas = {};
             var _feedbackEtapaActual = null;
             var _feedbackPendienteFinal = false;
             var _feedbackOriginalIncrementar = null;
             var _feedbackOriginalFinal = null;
             var _feedbackOriginalInicializar = null;
+            // Ejercicios que en rutinas/sesiones anteriores este alumno reportó como muy
+            // costosos (sensación 9-10), pendientes de confirmar si le siguen costando.
+            // EJERCICIO_UPPER -> { nombre, sensacion }
+            var _costososPrevios = {};
 
             function _esc(value) {
                 return String(value == null ? '' : value)
@@ -14520,6 +14526,61 @@
                 return 'hsl(' + hue + ', 78%, 48%)';
             }
 
+            // Trae, para la rutina actual (currentCode), los ejercicios que este alumno
+            // marcó antes como muy costosos (sensación 9-10) y que todavía no confirmó
+            // que le sigan costando (o que ya confirmó que sí). Si ya había avisado que
+            // "no le cuesta más" (resueltos) después del último reporte, no se incluye.
+            async function _cargarCostososPrevios() {
+                _costososPrevios = {};
+                var cod = typeof currentCode !== 'undefined' ? currentCode : '';
+                if (!cod) return;
+                var porEjercicio = {};
+                try {
+                    var res = await fetch(_feedbackFirebaseUrl + encodeURIComponent(cod) + '.json');
+                    var data = await res.json();
+                    if (data && typeof data === 'object') {
+                        Object.keys(data).forEach(function(fecha) {
+                            var item = data[fecha];
+                            if (!item) return;
+                            var ejercicio = String(item.ejercicio_dificil || '').trim();
+                            var sens = Number(item.sensacion || item.rpe || 0);
+                            if (!ejercicio || ejercicio.toLowerCase() === 'ninguno me costó' || sens < UMBRAL_COSTOSO_PREV) return;
+                            var clave = ejercicio.toUpperCase();
+                            var ts = item.ts || 0;
+                            if (!porEjercicio[clave] || ts > porEjercicio[clave].ts) {
+                                porEjercicio[clave] = { nombre: ejercicio, sensacion: sens, ts: ts };
+                            }
+                        });
+                    }
+                } catch (e) {}
+                var resueltos = {};
+                try {
+                    var res2 = await fetch(_resueltosFirebaseUrl + encodeURIComponent(cod) + '.json');
+                    var data2 = await res2.json();
+                    if (data2 && typeof data2 === 'object') resueltos = data2;
+                } catch (e) {}
+                Object.keys(porEjercicio).forEach(function(clave) {
+                    var r = resueltos[clave];
+                    if (r && (r.ts || 0) >= porEjercicio[clave].ts) return; // ya confirmado que no cuesta más
+                    _costososPrevios[clave] = porEjercicio[clave];
+                });
+            }
+
+            // Avisa a Firebase que un ejercicio ya no le cuesta más al alumno (o que, si
+            // sigue costando, no hace falta avisar nada porque el reporte de esfuerzo de
+            // esta sesión ya lo va a dejar en evidencia con sensación alta).
+            function _marcarYaNoCuesta(nombreEjercicio) {
+                var cod = typeof currentCode !== 'undefined' ? currentCode : '';
+                var clave = String(nombreEjercicio || '').toUpperCase();
+                if (!cod || !clave) return;
+                var payload = { ejercicio: nombreEjercicio, ts: Date.now(), fecha: _fechaISO(), quien: 'alumno' };
+                fetch(_resueltosFirebaseUrl + encodeURIComponent(cod) + '/' + encodeURIComponent(clave) + '.json', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).catch(function() {});
+            }
+
             function _crearOverlay() {
                 if (document.getElementById('pf-feedback-overlay')) return;
                 var style = document.createElement('style');
@@ -14544,7 +14605,14 @@
                     '.pf-feedback-actions{display:flex;gap:10px;margin-top:22px}',
                     '.pf-feedback-submit{flex:1;border:0;border-radius:13px;padding:14px;background:linear-gradient(135deg,#69f0ae,#16a765);color:#04140c;font-weight:900;letter-spacing:.5px;cursor:pointer}',
                     '.pf-feedback-submit:disabled{opacity:.45;cursor:not-allowed}',
-                    '.pf-feedback-required{font-size:11px;color:#ff8a80;text-align:center;margin-top:9px;min-height:15px}'
+                    '.pf-feedback-required{font-size:11px;color:#ff8a80;text-align:center;margin-top:9px;min-height:15px}',
+                    '.pf-feedback-seg-item{border:1px solid #3a3a48;border-radius:14px;padding:12px;margin-bottom:10px;background:#151519}',
+                    '.pf-feedback-seg-txt{font-size:13px;font-weight:700;margin-bottom:10px;line-height:1.35}',
+                    '.pf-feedback-seg-txt b{color:#ffb74d}',
+                    '.pf-feedback-seg-btns{display:flex;gap:8px}',
+                    '.pf-feedback-seg-btns button{flex:1;border:1px solid #3a3a48;background:#20202a;color:#fff;border-radius:10px;padding:11px;font-weight:900;font-size:13px;cursor:pointer}',
+                    '.pf-feedback-seg-btns button.si.selected{background:#c62828;border-color:#c62828;color:#fff}',
+                    '.pf-feedback-seg-btns button.no.selected{background:linear-gradient(135deg,#69f0ae,#16a765);border-color:#16a765;color:#04140c}'
                 ].join('');
                 document.head.appendChild(style);
                 var overlay = document.createElement('div');
@@ -14553,6 +14621,7 @@
                     '<div class="pf-feedback-eyebrow">Feedback guardado por bloque</div>' +
                     '<h2 id="pf-feedback-title" class="pf-feedback-title">¿Cómo te sentiste?</h2>' +
                     '<p id="pf-feedback-subtitle" class="pf-feedback-subtitle"></p>' +
+                    '<div id="pf-feedback-seguimiento"></div>' +
                     '<div class="pf-feedback-question">Sensación de esfuerzo</div>' +
                     '<div id="pf-feedback-scale" class="pf-feedback-scale" role="radiogroup" aria-label="Sensación de esfuerzo del 1 al 10"></div>' +
                     '<div class="pf-feedback-extremos"><span>1 · Más liviano</span><span>10 · Más pesado</span></div>' +
@@ -14594,6 +14663,37 @@
                 }
             }
 
+            function _renderSeguimiento(nombres) {
+                var cont = document.getElementById('pf-feedback-seguimiento');
+                if (!cont) return;
+                var matches = nombres.filter(function(n) {
+                    return _costososPrevios[String(n || '').toUpperCase()];
+                });
+                _feedbackEtapaActual.seguimiento = {}; // EJ_UPPER -> true(sigue)/false(no)/undefined(sin responder)
+                if (!matches.length) { cont.innerHTML = ''; return; }
+                cont.innerHTML = matches.map(function(nombre) {
+                    var clave = nombre.toUpperCase();
+                    var prev = _costososPrevios[clave];
+                    return '<div class="pf-feedback-seg-item" data-clave="' + _esc(clave) + '">' +
+                        '<div class="pf-feedback-seg-txt">Antes te costaba <b>' + _esc(prev.nombre) + '</b> (lo sentiste ' + prev.sensacion + '/10). ¿Te sigue costando?</div>' +
+                        '<div class="pf-feedback-seg-btns">' +
+                            '<button type="button" class="si" data-val="1">Sí, me sigue costando</button>' +
+                            '<button type="button" class="no" data-val="0">No, ya no me cuesta</button>' +
+                        '</div></div>';
+                }).join('');
+                Array.prototype.forEach.call(cont.querySelectorAll('.pf-feedback-seg-item'), function(item) {
+                    var clave = item.getAttribute('data-clave');
+                    Array.prototype.forEach.call(item.querySelectorAll('button'), function(btn) {
+                        btn.addEventListener('click', function() {
+                            _feedbackEtapaActual.seguimiento[clave] = btn.dataset.val === '1';
+                            Array.prototype.forEach.call(item.querySelectorAll('button'), function(b) { b.classList.remove('selected'); });
+                            btn.classList.add('selected');
+                            document.getElementById('pf-feedback-required').textContent = '';
+                        });
+                    });
+                });
+            }
+
             function _abrirFeedback(indice, pendienteFinal) {
                 if (_feedbackEtapasRespondidas[indice] || _feedbackEtapaActual) return;
                 _crearOverlay();
@@ -14604,6 +14704,7 @@
                     pendienteFinal: !!pendienteFinal
                 };
                 document.getElementById('pf-feedback-subtitle').textContent = _nombreEtapa(indice) + ' · una respuesta rápida para ajustar tu próximo entrenamiento';
+                _renderSeguimiento(nombres);
                 var select = document.getElementById('pf-feedback-ejercicio');
                 select.innerHTML = '<option value="">Elegí un ejercicio</option>' +
                     '<option value="Ninguno me costó">Ninguno me costó</option>' +
@@ -14645,6 +14746,15 @@
                     document.getElementById('pf-feedback-required').textContent = 'Elegí un número del 1 al 10 para continuar.';
                     return;
                 }
+                var seguimiento = _feedbackEtapaActual.seguimiento || {};
+                var itemsSeguimientoPendientes = document.querySelectorAll('#pf-feedback-seguimiento .pf-feedback-seg-item');
+                for (var si = 0; si < itemsSeguimientoPendientes.length; si++) {
+                    var claveSi = itemsSeguimientoPendientes[si].getAttribute('data-clave');
+                    if (seguimiento[claveSi] === undefined) {
+                        document.getElementById('pf-feedback-required').textContent = 'Contanos si te sigue costando el ejercicio marcado arriba.';
+                        return;
+                    }
+                }
                 var select = document.getElementById('pf-feedback-ejercicio');
                 var otroEjercicio = document.getElementById('pf-feedback-ejercicio-otro').value.trim();
                 var ejercicioDificil = select.value || otroEjercicio;
@@ -14654,6 +14764,17 @@
                 }
                 var nota = document.getElementById('pf-feedback-nota').value.trim();
                 var fuenteEtapaActual = _fuenteEtapa(_feedbackEtapaActual.indice);
+                // Convertimos el mapa de seguimiento (EJ_UPPER -> true/false) en una lista
+                // legible para el profesor, con el nombre "lindo" del ejercicio y el dato
+                // de si sigue costando o no.
+                var seguimientoCostosos = Object.keys(seguimiento).map(function(clave) {
+                    var prev = _costososPrevios[clave] || { nombre: clave, sensacion: null };
+                    return {
+                        nombre: prev.nombre,
+                        sensacion_previa: prev.sensacion,
+                        sigue_costando: !!seguimiento[clave]
+                    };
+                });
                 var payload = {
                     ts: Date.now(),
                     fecha: _fechaISO(),
@@ -14675,9 +14796,18 @@
                     },
                     sensacion: rpe,
                     ejercicio_dificil: ejercicioDificil,
-                    comentario: nota
+                    comentario: nota,
+                    // "¿Te sigue costando?" para ejercicios que ya estaban marcados como
+                    // costosos en rutinas/sesiones anteriores. El profesor usa esto para
+                    // dejar de advertir sobre los que el alumno confirmó que ya no le cuestan.
+                    seguimiento_costosos: seguimientoCostosos
                 };
                 _feedbackEtapasRespondidas[_feedbackEtapaActual.indice] = payload;
+                // Si confirmó que algún ejercicio ya NO le cuesta más, avisamos ya mismo
+                // (no hace falta esperar a que el profesor procese el feedback).
+                seguimientoCostosos.forEach(function(item) {
+                    if (item.sigue_costando === false) _marcarYaNoCuesta(item.nombre);
+                });
                 try {
                     var code = typeof currentCode !== 'undefined' ? currentCode : '';
                     if (code) {
@@ -14718,8 +14848,13 @@
                     _feedbackEtapasRespondidas = {};
                     _feedbackEtapaActual = null;
                     _feedbackPendienteFinal = false;
+                    // currentCode ya debería estar seteado a esta altura (se define al
+                    // cargar la rutina, antes de inicializarProgreso); si no, reintentamos.
+                    setTimeout(_cargarCostososPrevios, 300);
                     return _feedbackOriginalInicializar(data);
                 };
+            } else {
+                setTimeout(_cargarCostososPrevios, 1200);
             }
 
             if (typeof incrementarProgreso === 'function') {
