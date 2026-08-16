@@ -566,15 +566,46 @@
             /* Espacio para que la barra inferior no tape el contenido del resto de secciones */
             @media (max-width: 639px) {
                 main { padding-bottom: calc(var(--pf-bottomnav-h) + 12px) !important; }
+                /*
+                 * El scroll principal debe pertenecer al documento, no quedar
+                 * implícitamente delegado a un contenedor que algunos
+                 * navegadores móviles bloquean en orientación vertical.
+                 */
+                html,
+                body {
+                    width: 100%;
+                    min-height: 100%;
+                    height: auto !important;
+                    overflow-x: hidden !important;
+                    overflow-y: auto !important;
+                    -webkit-overflow-scrolling: touch;
+                    overscroll-behavior-y: auto;
+                }
                 body {
                     min-height: 100dvh;
-                    overscroll-behavior-y: none;
+                    position: relative;
+                    touch-action: auto !important;
                     -webkit-tap-highlight-color: transparent;
                 }
                 main {
                     width: 100%;
                     max-width: 100%;
                     min-height: calc(100dvh - 120px);
+                    height: auto !important;
+                    overflow: visible !important;
+                    scroll-padding-top: 76px;
+                    scroll-padding-bottom: calc(var(--pf-bottomnav-h) + env(safe-area-inset-bottom, 0px) + 16px);
+                }
+                main > section:not(.hidden) {
+                    min-height: 0;
+                    overflow: visible !important;
+                }
+                /* Los modales y pantallas internas también pueden desplazarse
+                   aunque su contenido supere la altura del teléfono. */
+                .fixed.inset-0 {
+                    overflow-y: auto;
+                    -webkit-overflow-scrolling: touch;
+                    overscroll-behavior-y: contain;
                 }
                 /* Transición breve entre pantallas, solo en la experiencia mobile. */
                 main > section:not(.hidden) {
@@ -849,7 +880,7 @@
             /* Videoteca: el buscador permanece disponible mientras se navega. */
             #sec-videoteca > .mb-4 {
                 position: sticky;
-                top: 0;
+                top: 1px;
                 z-index: 20;
                 margin: -8px -4px 12px;
                 padding: 8px 4px;
