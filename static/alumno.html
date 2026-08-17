@@ -3803,6 +3803,160 @@
             }
         }
     </style>
+    <!-- Layout landscape para la pantalla de ejercicio: pensado para apoyar el teléfono en un soporte. -->
+    <style id="training-landscape-layout">
+        @media (orientation: landscape) and (max-height: 820px) {
+            /*
+             * El overlay existente pasa a ser una pantalla de dos columnas:
+             * el thumbnail conserva protagonismo y el bloque de sesión queda
+             * a la vista junto con el timer, sin scroll vertical.
+             */
+            #overlay-fullscreen.visible {
+                display: grid;
+                grid-template-columns: minmax(0, 1.18fr) minmax(300px, 0.82fr);
+                grid-template-rows: auto auto auto auto minmax(0, 1fr) auto auto;
+                grid-template-areas:
+                    "media status"
+                    "media exercise"
+                    "media info"
+                    "media weight"
+                    "media clock"
+                    "media progress"
+                    "media exit";
+                align-items: center;
+                justify-items: stretch;
+                column-gap: clamp(16px, 3vw, 42px);
+                row-gap: clamp(3px, 0.7vh, 8px);
+                padding: clamp(12px, 2.4vh, 24px) clamp(18px, 3.2vw, 48px);
+                text-align: left;
+                overflow: hidden;
+            }
+
+            #overlay-fullscreen.visible #fs-thumbnail-wrap {
+                grid-area: media;
+                width: 100% !important;
+                max-width: none !important;
+                margin: 0 !important;
+                align-self: center;
+            }
+
+            #overlay-fullscreen.visible #fs-thumbnail-img {
+                width: 100% !important;
+                height: min(72vh, calc(100dvh - 92px)) !important;
+                max-height: 520px;
+                object-fit: cover;
+                border-radius: var(--radius-lg);
+            }
+
+            #overlay-fullscreen.visible .fs-status {
+                grid-area: status;
+                align-self: end;
+                margin: 0;
+                font-size: clamp(0.65rem, 1.6vw, 0.9rem);
+                letter-spacing: 2px;
+            }
+
+            #overlay-fullscreen.visible .fs-ejercicio {
+                grid-area: exercise;
+                align-self: start;
+                max-width: 100%;
+                margin: 0;
+                font-size: clamp(1.35rem, 3.4vw, 2.7rem);
+                line-height: 1.05;
+                text-align: left;
+            }
+
+            #overlay-fullscreen.visible .fs-info {
+                grid-area: info;
+                align-self: start;
+                max-width: 100%;
+                margin: 0;
+                font-size: clamp(0.85rem, 2vw, 1.25rem);
+                line-height: 1.2;
+                text-align: left;
+            }
+
+            #overlay-fullscreen.visible #fs-peso-wrap {
+                grid-area: weight;
+                margin: 0 !important;
+            }
+
+            #overlay-fullscreen.visible .fs-clock,
+            #overlay-fullscreen.visible.con-ejercicios .fs-clock {
+                grid-area: clock;
+                justify-self: center;
+                align-self: center;
+                width: clamp(148px, 27vh, 230px);
+                height: clamp(148px, 27vh, 230px);
+                aspect-ratio: 1;
+                display: grid;
+                place-items: center;
+                margin: 0;
+                border: clamp(4px, 0.55vh, 7px) solid currentColor;
+                border-radius: 50%;
+                font-size: clamp(3.2rem, 10vh, 6rem);
+                line-height: 1;
+                font-family: 'Roboto Mono', monospace;
+                box-shadow: 0 0 32px currentColor;
+            }
+
+            #overlay-fullscreen.visible #fs-ejercicios-lista {
+                grid-area: clock;
+                align-self: end;
+                justify-self: stretch;
+                width: 100% !important;
+                max-width: none !important;
+                max-height: 13vh;
+                margin: 0 0 4px !important;
+                overflow-y: auto;
+            }
+
+            #overlay-fullscreen.visible .fs-progress-bar {
+                grid-area: progress;
+                width: 100%;
+                max-width: none;
+                height: 5px;
+                margin: 0;
+            }
+
+            #overlay-fullscreen.visible .fs-btn-salir {
+                grid-area: exit;
+                justify-self: start;
+                min-height: 34px;
+                padding: 7px 14px;
+                font-size: 0.7rem;
+            }
+        }
+
+        @media (orientation: landscape) and (max-height: 620px) {
+            #overlay-fullscreen.visible {
+                grid-template-columns: minmax(0, 1.25fr) minmax(260px, 0.75fr);
+                column-gap: 18px;
+                row-gap: 2px;
+                padding: 10px 18px;
+            }
+
+            #overlay-fullscreen.visible #fs-thumbnail-img {
+                height: calc(100dvh - 58px) !important;
+                max-height: none;
+            }
+
+            #overlay-fullscreen.visible .fs-ejercicio {
+                font-size: clamp(1.15rem, 4.2vw, 2rem);
+            }
+
+            #overlay-fullscreen.visible .fs-info {
+                font-size: clamp(0.75rem, 2.1vw, 1rem);
+            }
+
+            #overlay-fullscreen.visible .fs-clock,
+            #overlay-fullscreen.visible.con-ejercicios .fs-clock {
+                width: clamp(126px, 25vh, 170px);
+                height: clamp(126px, 25vh, 170px);
+                font-size: clamp(2.7rem, 10vh, 4.8rem);
+            }
+        }
+    </style>
 </head>
 
 <body>
