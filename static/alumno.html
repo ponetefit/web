@@ -4320,38 +4320,48 @@
         }
 
         /* ─────────────────────────────────────────────────────────────
-         * CIRCUITO POR VUELTA (calentamiento y bloque principal) en horizontal:
-         * cada ejercicio queda con el video + nombre a la izquierda y las
-         * repeticiones/carga a la derecha, uno debajo del otro, terminando
-         * con el contador de vueltas (redondo) y el botón "Marcar vuelta".
+         * CIRCUITO POR VUELTA y CIRCUITO POR TIEMPO (calentamiento y bloque
+         * principal) en horizontal: cada ejercicio queda con el video +
+         * nombre a la izquierda y las repeticiones/carga a la derecha, uno
+         * debajo del otro, terminando con el contador/timer correspondiente.
          * ───────────────────────────────────────────────────────────── */
         @media (orientation: landscape) and (max-height: 820px) {
             #sec-warmup.modo-circuito-vueltas #warmup-lista .card-toggle-btn,
-            #sec-principal.modo-circuito-vueltas #principal-lista .card-toggle-btn {
+            #sec-warmup.modo-circuito-tiempo #warmup-lista .card-toggle-btn,
+            #sec-principal.modo-circuito-vueltas #principal-lista .card-toggle-btn,
+            #sec-principal.modo-circuito-tiempo #principal-lista .card-toggle-btn {
                 display: none;
             }
 
             #sec-warmup.modo-circuito-vueltas #warmup-lista .card-ej-header,
-            #sec-principal.modo-circuito-vueltas #principal-lista .card-ej-header {
+            #sec-warmup.modo-circuito-tiempo #warmup-lista .card-ej-header,
+            #sec-principal.modo-circuito-vueltas #principal-lista .card-ej-header,
+            #sec-principal.modo-circuito-tiempo #principal-lista .card-ej-header {
                 cursor: default;
             }
 
             #sec-warmup.modo-circuito-vueltas #warmup-lista .card-ejercicio,
-            #sec-principal.modo-circuito-vueltas #principal-lista .card-ejercicio {
+            #sec-warmup.modo-circuito-tiempo #warmup-lista .card-ejercicio,
+            #sec-principal.modo-circuito-vueltas #principal-lista .card-ejercicio,
+            #sec-principal.modo-circuito-tiempo #principal-lista .card-ejercicio {
                 padding-bottom: 8px;
                 margin-bottom: 8px;
                 border-bottom: 1px solid var(--borde-sutil);
             }
 
             #sec-warmup.modo-circuito-vueltas #warmup-lista .card-ejercicio-nombre,
-            #sec-principal.modo-circuito-vueltas #principal-lista .card-ejercicio-nombre {
+            #sec-warmup.modo-circuito-tiempo #warmup-lista .card-ejercicio-nombre,
+            #sec-principal.modo-circuito-vueltas #principal-lista .card-ejercicio-nombre,
+            #sec-principal.modo-circuito-tiempo #principal-lista .card-ejercicio-nombre {
                 font-size: clamp(0.78rem, 1.7vw, 0.95rem);
             }
 
             /* El video queda siempre visible (sin acordeón) y se arma la fila
              * "video+nombre a la izquierda | reps/carga a la derecha" */
             #sec-warmup.modo-circuito-vueltas #warmup-lista .card-video-wrap,
-            #sec-principal.modo-circuito-vueltas #principal-lista .card-video-wrap {
+            #sec-warmup.modo-circuito-tiempo #warmup-lista .card-video-wrap,
+            #sec-principal.modo-circuito-vueltas #principal-lista .card-video-wrap,
+            #sec-principal.modo-circuito-tiempo #principal-lista .card-video-wrap {
                 display: flex !important;
                 max-height: none !important;
                 align-items: center;
@@ -4362,7 +4372,9 @@
             }
 
             #sec-warmup.modo-circuito-vueltas #warmup-lista .card-video-wrap .card-thumb,
-            #sec-principal.modo-circuito-vueltas #principal-lista .card-video-wrap .card-thumb {
+            #sec-warmup.modo-circuito-tiempo #warmup-lista .card-video-wrap .card-thumb,
+            #sec-principal.modo-circuito-vueltas #principal-lista .card-video-wrap .card-thumb,
+            #sec-principal.modo-circuito-tiempo #principal-lista .card-video-wrap .card-thumb {
                 flex: 0 0 clamp(88px, 15vw, 148px);
                 width: clamp(88px, 15vw, 148px);
                 height: clamp(58px, 10vw, 96px);
@@ -4371,8 +4383,12 @@
 
             #sec-warmup.modo-circuito-vueltas #warmup-lista .card-video-wrap .vueltas-grid,
             #sec-warmup.modo-circuito-vueltas #warmup-lista .card-video-wrap .peso-row,
+            #sec-warmup.modo-circuito-tiempo #warmup-lista .card-video-wrap .vueltas-grid,
+            #sec-warmup.modo-circuito-tiempo #warmup-lista .card-video-wrap .peso-row,
             #sec-principal.modo-circuito-vueltas #principal-lista .card-video-wrap .vueltas-grid,
-            #sec-principal.modo-circuito-vueltas #principal-lista .card-video-wrap .peso-row {
+            #sec-principal.modo-circuito-vueltas #principal-lista .card-video-wrap .peso-row,
+            #sec-principal.modo-circuito-tiempo #principal-lista .card-video-wrap .vueltas-grid,
+            #sec-principal.modo-circuito-tiempo #principal-lista .card-video-wrap .peso-row {
                 flex: 1 1 auto;
                 min-width: 0;
                 margin: 0;
@@ -4380,7 +4396,8 @@
 
             /* Calentamiento: la lista ya queda en su propia columna (grid
              * "list timer" heredado), solo achicamos el alto disponible */
-            #sec-warmup.modo-circuito-vueltas #warmup-lista {
+            #sec-warmup.modo-circuito-vueltas #warmup-lista,
+            #sec-warmup.modo-circuito-tiempo #warmup-lista {
                 max-height: calc(100dvh - 190px);
                 overflow-y: auto;
             }
@@ -4407,6 +4424,15 @@
                 max-width: 220px;
                 margin-left: auto !important;
                 margin-right: auto !important;
+            }
+
+            /* Bloque principal Circuito por Tiempo: cada bloque trae su
+             * propio timer y botones (Iniciar/Pausar/Reiniciar/Pantalla
+             * completa) dentro de la lista; solo necesita poder scrollear
+             * sin que nada quede cortado */
+            #sec-principal.modo-circuito-tiempo #principal-lista {
+                max-height: calc(100dvh - 150px);
+                overflow-y: auto;
             }
 
             /* Bloque principal: no hay columna de timer aparte, así que la
@@ -4439,13 +4465,16 @@
         /* En pantallas muy bajas el círculo/sticky del contador de vueltas
          * terminaba quedando cortado o fuera de la vista. Ahí lo simplificamos:
          * vuelve a ser una caja normal, dentro del flujo de la lista (con scroll),
-         * sin quedar pegado ni flotando fuera de pantalla. */
+         * sin quedar pegado ni flotando fuera de pantalla. Mismo criterio para
+         * Circuito por Tiempo: solo se asegura más alto para poder scrollear. */
         @media (orientation: landscape) and (max-height: 620px) {
-            #sec-warmup.modo-circuito-vueltas #warmup-lista {
+            #sec-warmup.modo-circuito-vueltas #warmup-lista,
+            #sec-warmup.modo-circuito-tiempo #warmup-lista {
                 max-height: calc(100dvh - 130px);
             }
 
-            #sec-principal.modo-circuito-vueltas #principal-lista {
+            #sec-principal.modo-circuito-vueltas #principal-lista,
+            #sec-principal.modo-circuito-tiempo #principal-lista {
                 max-height: calc(100dvh - 100px);
             }
 
@@ -8600,6 +8629,7 @@
                 const secWarmupBox = document.getElementById('sec-warmup');
                 secWarmupBox.style.borderColor = color;
                 secWarmupBox.classList.toggle('modo-circuito-vueltas', tipo === "Circuito (Vueltas)");
+                secWarmupBox.classList.toggle('modo-circuito-tiempo', tipo === "Circuito por Tiempo");
                 const warmupTituloEl = document.getElementById('warmup-titulo');
                 if (warmupTituloEl) warmupTituloEl.style.color = color;
 
@@ -10114,6 +10144,7 @@
                 const textColorPrincipal = textColorMapPrincipal[data.tipo] || "#fff";
                 if (pSeccion) pSeccion.style.borderColor = colorPrincipal;
                 if (pSeccion) pSeccion.classList.toggle('modo-circuito-vueltas', data.tipo === "Circuito");
+                if (pSeccion) pSeccion.classList.toggle('modo-circuito-tiempo', data.tipo === "Circuito por Tiempo");
                 if (pTitulo) pTitulo.style.color = tituloColorPrincipal;
                 if (pLista) pLista.style.setProperty('--card-color', colorPrincipal);
                 if (pLista) pLista.style.setProperty('--card-text-color', textColorPrincipal);
