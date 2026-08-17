@@ -3957,6 +3957,368 @@
             }
         }
     </style>
+    <style id="training-landscape-modes">
+        /*
+         * El mismo patrón se aplica a todos los modos que pueden ocupar la
+         * pantalla durante un entrenamiento: contenido a la izquierda,
+         * información y reloj a la derecha, sin scroll vertical.
+         */
+        @media (orientation: landscape) and (max-height: 820px) {
+            /* Calentamiento dentro de la rutina */
+            #sec-warmup:has(#warmup-timer-box[style*="display: block"]) {
+                display: grid;
+                grid-template-columns: minmax(0, 1.12fr) minmax(280px, 0.88fr);
+                grid-template-areas:
+                    "title title"
+                    "meta meta"
+                    "list timer";
+                gap: 8px 18px;
+                align-items: start;
+            }
+
+            #sec-warmup:has(#warmup-timer-box[style*="display: block"]) #warmup-titulo {
+                grid-area: title;
+                margin-bottom: 0;
+            }
+
+            #sec-warmup:has(#warmup-timer-box[style*="display: block"]) #warmup-meta {
+                grid-area: meta;
+                margin-bottom: 4px !important;
+            }
+
+            #sec-warmup:has(#warmup-timer-box[style*="display: block"]) #warmup-lista {
+                grid-area: list;
+                min-width: 0;
+                max-height: calc(100dvh - 180px);
+                overflow-y: auto;
+            }
+
+            #sec-warmup:has(#warmup-timer-box[style*="display: block"]) #warmup-timer-box {
+                grid-area: timer;
+                min-width: 0;
+                margin: 0;
+                padding: 12px;
+                align-self: center;
+            }
+
+            #sec-warmup:has(#warmup-timer-box[style*="display: block"]) #warmup-status,
+            #sec-warmup:has(#warmup-timer-box[style*="display: block"]) #warmup-ej {
+                font-size: clamp(0.8rem, 2vw, 1.2rem);
+                margin-bottom: 3px;
+            }
+
+            #sec-warmup:has(#warmup-timer-box[style*="display: block"]) #warmup-clock {
+                width: clamp(130px, 25vh, 190px);
+                height: clamp(130px, 25vh, 190px);
+                aspect-ratio: 1;
+                display: grid;
+                place-items: center;
+                margin: 6px auto 10px;
+                border: 5px solid var(--azul);
+                border-radius: 50%;
+                font-size: clamp(2.5rem, 9vh, 4.8rem);
+                box-shadow: 0 0 28px var(--azul-glow);
+            }
+
+            #sec-warmup:has(#warmup-timer-box[style*="display: block"]) #warmup-btn,
+            #sec-warmup:has(#warmup-timer-box[style*="display: block"]) #warmup-fs-btn {
+                min-height: 38px;
+                margin-top: 6px !important;
+                padding: 8px 12px;
+                font-size: var(--fs-xs);
+            }
+
+            /* Tabata / circuito por tiempo en la vista no fullscreen */
+            #timer-box,
+            #emom-box {
+                padding: 16px 14px;
+                margin-top: 8px;
+            }
+
+            #timer-box .clock-ring-wrap,
+            #emom-box .clock-ring-wrap {
+                width: clamp(130px, 23vh, 185px);
+                height: clamp(130px, 23vh, 185px);
+                margin: 6px auto 10px;
+            }
+
+            #timer-box #t-ejercicio-nombre,
+            #emom-box #emom-ejercicio-nombre {
+                font-size: clamp(1rem, 2.5vw, 1.6rem);
+            }
+
+            #timer-box > button,
+            #emom-box > button {
+                min-height: 38px;
+                padding: 8px 12px;
+                margin-top: 6px;
+                margin-bottom: 4px !important;
+                font-size: var(--fs-xs);
+            }
+
+            /* Circuito por tiempo fullscreen */
+            #overlay-ct-fs.visible {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) minmax(290px, 0.85fr);
+                grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+                grid-template-areas:
+                    "list prep"
+                    "list title"
+                    "list clock"
+                    "list controls"
+                    "list exit";
+                column-gap: clamp(18px, 3vw, 44px);
+                row-gap: 5px;
+                padding: 16px clamp(18px, 3vw, 44px);
+                text-align: left;
+            }
+
+            #overlay-ct-fs.visible #ct-fs-lista {
+                grid-area: list;
+                width: 100%;
+                max-width: none;
+                max-height: calc(100dvh - 36px);
+                margin: 0;
+                overflow-y: auto;
+                text-align: left;
+            }
+
+            #overlay-ct-fs.visible #ct-fs-prep-label {
+                grid-area: prep;
+                margin: 0;
+                align-self: end;
+                font-size: var(--fs-xs);
+            }
+
+            #overlay-ct-fs.visible #ct-fs-titulo {
+                grid-area: title;
+                max-width: 100%;
+                margin: 0;
+                font-size: clamp(0.75rem, 1.8vw, 1.1rem);
+            }
+
+            #overlay-ct-fs.visible #ct-fs-countdown,
+            #overlay-ct-fs.visible #ct-fs-clock {
+                grid-area: clock;
+                justify-self: center;
+                align-self: center;
+                width: clamp(150px, 28vh, 220px);
+                height: clamp(150px, 28vh, 220px);
+                aspect-ratio: 1;
+                display: grid;
+                place-items: center;
+                margin: 0;
+                border: 6px solid currentColor;
+                border-radius: 50%;
+                font-size: clamp(3.2rem, 11vh, 6rem);
+                line-height: 1;
+                box-shadow: 0 0 32px currentColor;
+            }
+
+            #overlay-ct-fs.visible .ct-fs-btns-row {
+                grid-area: controls;
+                width: 100%;
+                max-width: none;
+                margin: 0;
+            }
+
+            #overlay-ct-fs.visible #ct-fs-btn-salir {
+                grid-area: exit;
+                justify-self: start;
+                min-height: 34px;
+                padding: 7px 14px;
+                font-size: var(--fs-xs);
+            }
+
+            /* Por tiempo fullscreen */
+            #overlay-pt-fs.visible {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) minmax(290px, 0.85fr);
+                grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+                grid-template-areas:
+                    "list title"
+                    "list clock"
+                    "list count"
+                    "list log"
+                    "list actions";
+                column-gap: clamp(18px, 3vw, 44px);
+                row-gap: 7px;
+                padding: 16px clamp(18px, 3vw, 44px);
+                text-align: left;
+            }
+
+            #overlay-pt-fs.visible #pt-fs-lista {
+                grid-area: list;
+                width: 100%;
+                max-width: none;
+                max-height: calc(100dvh - 32px);
+                margin: 0;
+                overflow-y: auto;
+            }
+
+            #overlay-pt-fs.visible #pt-fs-titulo {
+                grid-area: title;
+                margin: 0;
+                align-self: end;
+                text-align: left;
+            }
+
+            #overlay-pt-fs.visible #pt-fs-clock {
+                grid-area: clock;
+                align-self: center;
+                justify-self: center;
+                width: clamp(150px, 28vh, 220px);
+                height: clamp(150px, 28vh, 220px);
+                aspect-ratio: 1;
+                display: grid;
+                place-items: center;
+                margin: 0;
+                border: 6px solid currentColor;
+                border-radius: 50%;
+                font-size: clamp(2.8rem, 9vh, 5rem);
+                box-shadow: 0 0 32px currentColor;
+            }
+
+            #overlay-pt-fs.visible #pt-fs-vcount {
+                grid-area: count;
+                margin: 0;
+            }
+
+            #overlay-pt-fs.visible #pt-fs-log {
+                grid-area: log;
+                width: 100%;
+                max-width: none;
+                min-height: 22px;
+                margin: 0;
+                justify-content: flex-start;
+            }
+
+            #overlay-pt-fs.visible #pt-fs-btn-marcar,
+            #overlay-pt-fs.visible .pt-fs-btns-row {
+                grid-area: actions;
+                width: 100%;
+                max-width: none;
+                margin: 0;
+            }
+
+            /* Descansos de vuelta, pausas de ronda y descansos entre series */
+            #overlay-descanso.visible,
+            #overlay-pausa-ronda.visible {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: auto auto auto;
+                align-items: center;
+                justify-items: center;
+                column-gap: 24px;
+                row-gap: 8px;
+                padding: 16px 24px;
+            }
+
+            #overlay-descanso.visible .overlay-titulo,
+            #overlay-pausa-ronda.visible .overlay-titulo {
+                grid-column: 1;
+                grid-row: 1;
+                margin: 0;
+            }
+
+            #overlay-descanso.visible .overlay-clock,
+            #overlay-pausa-ronda.visible .overlay-clock {
+                grid-column: 2;
+                grid-row: 1 / span 2;
+                width: clamp(150px, 27vh, 215px);
+                height: clamp(150px, 27vh, 215px);
+                display: grid;
+                place-items: center;
+                margin: 0;
+                border: 6px solid currentColor;
+                border-radius: 50%;
+                font-size: clamp(3.6rem, 11vh, 6rem);
+                box-shadow: 0 0 30px currentColor;
+            }
+
+            #overlay-descanso.visible > .timer-progress-bar,
+            #overlay-pausa-ronda.visible > .timer-progress-bar {
+                grid-column: 1;
+                grid-row: 2;
+                width: 100%;
+                max-width: 340px !important;
+                margin: 0;
+            }
+
+            #overlay-descanso.visible > div:last-of-type,
+            #overlay-pausa-ronda.visible > #pausa-ronda-info {
+                grid-column: 1 / -1;
+                grid-row: 3;
+                margin: 0 !important;
+            }
+
+            #overlay-series-pausa[style*="display: flex"],
+            #overlay-series-pausa[style*="display:flex"] {
+                display: grid !important;
+                grid-template-columns: minmax(0, 1fr) minmax(260px, .8fr);
+                grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+                grid-template-areas:
+                    "label label"
+                    "exercise clock"
+                    "series clock"
+                    "load clock"
+                    "progress button";
+                align-items: center;
+                column-gap: 20px;
+                row-gap: 4px;
+                padding: 18px 24px !important;
+                text-align: left;
+            }
+
+            #overlay-series-pausa[style*="display: flex"] > div:nth-child(1),
+            #overlay-series-pausa[style*="display:flex"] > div:nth-child(1) { grid-area: label; margin: 0 !important; }
+            #overlay-series-pausa[style*="display: flex"] #sp-ejercicio,
+            #overlay-series-pausa[style*="display:flex"] #sp-ejercicio { grid-area: exercise; margin: 0 !important; max-width: 100%; }
+            #overlay-series-pausa[style*="display: flex"] #sp-series-info,
+            #overlay-series-pausa[style*="display:flex"] #sp-series-info { grid-area: series; margin: 0 !important; }
+            #overlay-series-pausa[style*="display: flex"] #sp-carga-info,
+            #overlay-series-pausa[style*="display:flex"] #sp-carga-info { grid-area: load; margin: 0 !important; }
+            #overlay-series-pausa[style*="display: flex"] #sp-clock,
+            #overlay-series-pausa[style*="display:flex"] #sp-clock {
+                grid-area: clock;
+                justify-self: center;
+                width: clamp(150px, 27vh, 215px);
+                height: clamp(150px, 27vh, 215px);
+                display: grid;
+                place-items: center;
+                margin: 0 !important;
+                border: 6px solid var(--verde);
+                border-radius: 50%;
+                font-size: clamp(3.5rem, 10vh, 5.5rem) !important;
+                box-shadow: 0 0 30px var(--verde-glow);
+            }
+            #overlay-series-pausa[style*="display: flex"] > div:nth-child(6),
+            #overlay-series-pausa[style*="display:flex"] > div:nth-child(6) { grid-area: progress; width: 100% !important; margin: 0 !important; }
+            #overlay-series-pausa[style*="display: flex"] > button,
+            #overlay-series-pausa[style*="display:flex"] > button { grid-area: button; margin: 0 !important; min-height: 36px; }
+        }
+
+        @media (orientation: landscape) and (max-height: 620px) {
+            #sec-warmup:has(#warmup-timer-box[style*="display: block"]) {
+                grid-template-columns: minmax(0, 1.2fr) minmax(240px, .8fr);
+                gap: 5px 12px;
+            }
+
+            #sec-warmup:has(#warmup-timer-box[style*="display: block"]) #warmup-lista {
+                max-height: calc(100dvh - 150px);
+            }
+
+            #sec-warmup:has(#warmup-timer-box[style*="display: block"]) #warmup-clock,
+            #overlay-descanso.visible .overlay-clock,
+            #overlay-pausa-ronda.visible .overlay-clock,
+            #overlay-series-pausa[style*="display: flex"] #sp-clock,
+            #overlay-series-pausa[style*="display:flex"] #sp-clock {
+                width: clamp(120px, 23vh, 170px);
+                height: clamp(120px, 23vh, 170px);
+                font-size: clamp(2.6rem, 9vh, 4.5rem) !important;
+            }
+        }
+    </style>
 </head>
 
 <body>
