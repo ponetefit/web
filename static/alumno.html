@@ -6393,7 +6393,7 @@
 
                 function _contarEj(ej) {
                     if (!ej) return;
-                    var nombre = (Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || '')).toUpperCase();
+                    var nombre = _normalizarNombreEj(Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || ''));
                     if (!nombre) return;
                     var vtData = _videotecaTips[nombre];
                     if (!vtData) return;
@@ -7237,6 +7237,18 @@
             var _videotecaTips = {}; // { "SENTADILLAS": { tip1: "...", tip2: "...", elemento: "Mancuerna" }, ... }
             var _tipTurno = {}; // { "SENTADILLAS": 0/1 } — alterna entre tip1 y tip2
 
+            // Normaliza un nombre de ejercicio para poder compararlo/buscarlo sin que
+            // rompan diferencias de mayúsculas, espacios extra o tildes (ej: "Bíceps  Africano"
+            // vs "biceps africano" vs "BICEPS AFRICANO " deben matchear igual).
+            function _normalizarNombreEj(s) {
+                return (s || '')
+                    .toString()
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita acentos
+                    .toUpperCase()
+                    .trim()
+                    .replace(/\s+/g, ' ');
+            }
+
             async function _cargarVideotecaTips(onListo) {
                 try {
                     var res = await fetch("https://ponetefit-app-default-rtdb.firebaseio.com/videoteca.json");
@@ -7246,7 +7258,7 @@
                     Object.values(videoteca).forEach(function(lista) {
                         if (!Array.isArray(lista)) return;
                         lista.forEach(function(ej) {
-                            var nombre = (ej.nombre || '').toUpperCase();
+                            var nombre = _normalizarNombreEj(ej.nombre || '');
                             if (nombre) {
                                 _videotecaTips[nombre] = {
                                     tip1: ej.tip1 || '',
@@ -7270,28 +7282,28 @@
             // aparece acá — no se queda pegado al link (o falta de link) del momento en
             // que se guardó la rutina.
             function _obtenerLinkVideo(nombreEj) {
-                var key = (nombreEj || '').toUpperCase();
+                var key = _normalizarNombreEj(nombreEj);
                 var data = _videotecaTips[key];
                 return data ? (data.link || '') : '';
             }
 
             // Devuelve el elemento de un ejercicio desde la videoteca cache
             function _obtenerElemento(nombreEj) {
-                var key = (nombreEj || '').toUpperCase();
+                var key = _normalizarNombreEj(nombreEj);
                 var data = _videotecaTips[key];
                 return data ? (data.elemento || '') : '';
             }
 
             // Devuelve si el ejercicio tiene carga según videoteca cache
             function _obtenerConCarga(nombreEj) {
-                var key = (nombreEj || '').toUpperCase();
+                var key = _normalizarNombreEj(nombreEj);
                 var data = _videotecaTips[key];
                 return data ? (data.con_carga || false) : false;
             }
 
             // Devuelve el tip que corresponde (alternando), o '' si no hay
             function _obtenerTip(nombreEj) {
-                var key = (nombreEj || '').toUpperCase();
+                var key = _normalizarNombreEj(nombreEj);
                 var tips = _videotecaTips[key];
                 if (!tips) return '';
                 var turno = _tipTurno[key] || 0;
