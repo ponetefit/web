@@ -2163,7 +2163,7 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Link de video <span class="text-textoSuave/60">(YouTube, Facebook o Instagram · opcional · si no tiene, va a figurar "Sin video")</span></label>
+                                <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Link de video <span class="text-textoSuave/60">(YouTube, Facebook, Instagram o TikTok · opcional · si no tiene, va a figurar "Sin video")</span></label>
                                 <input id="ej-link" type="url" placeholder="https://www.youtube.com/watch?v=..." class="w-full rounded-lg px-3 py-2.5 text-sm">
                             </div>
                             <div>
@@ -2758,7 +2758,7 @@
                     <select id="mpv-categoria" class="w-full rounded-lg px-3 py-2.5 text-sm"></select>
                 </div>
                 <div>
-                    <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Link de video <span class="text-textoSuave/60">(YouTube, Facebook o Instagram · obligatorio)</span></label>
+                    <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Link de video <span class="text-textoSuave/60">(YouTube, Facebook, Instagram o TikTok · obligatorio)</span></label>
                     <input id="mpv-link" type="url" placeholder="https://www.youtube.com/watch?v=..." class="w-full rounded-lg px-3 py-2.5 text-sm">
                 </div>
                 <div class="grid grid-cols-2 gap-3">
@@ -12023,6 +12023,12 @@
         const matchIg = url.match(/instagram\.com\/(reel|p|tv)\/([\w-]+)/i);
         if (matchIg && matchIg[2]) {
             return 'https://www.instagram.com/' + (matchIg[1].toLowerCase() === 'reel' ? 'reel' : 'p') + '/' + matchIg[2] + '/embed';
+        }
+        // TikTok (solo si el link tiene el ID numérico del video; los links cortos
+        // tipo vm.tiktok.com no se pueden embeber sin conocer ese ID)
+        const matchTk = url.match(/tiktok\.com\/@[^/?#]+\/video\/(\d+)/i);
+        if (matchTk && matchTk[1]) {
+            return 'https://www.tiktok.com/embed/v2/' + matchTk[1];
         }
         return null;
     }
