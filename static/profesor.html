@@ -2163,7 +2163,7 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Link de YouTube <span class="text-textoSuave/60">(opcional · si no tiene, va a figurar "Sin video")</span></label>
+                                <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Link de video <span class="text-textoSuave/60">(YouTube, Facebook o Instagram · opcional · si no tiene, va a figurar "Sin video")</span></label>
                                 <input id="ej-link" type="url" placeholder="https://www.youtube.com/watch?v=..." class="w-full rounded-lg px-3 py-2.5 text-sm">
                             </div>
                             <div>
@@ -2758,7 +2758,7 @@
                     <select id="mpv-categoria" class="w-full rounded-lg px-3 py-2.5 text-sm"></select>
                 </div>
                 <div>
-                    <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Link YouTube <span class="text-textoSuave/60">(obligatorio)</span></label>
+                    <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Link de video <span class="text-textoSuave/60">(YouTube, Facebook o Instagram · obligatorio)</span></label>
                     <input id="mpv-link" type="url" placeholder="https://www.youtube.com/watch?v=..." class="w-full rounded-lg px-3 py-2.5 text-sm">
                 </div>
                 <div class="grid grid-cols-2 gap-3">
@@ -12015,6 +12015,15 @@
         if (videoId) {
             return 'https://www.youtube.com/embed/' + videoId + '?autoplay=1&mute=1&loop=1&playlist=' + videoId + '&controls=0&modestbranding=1&rel=0';
         }
+        // Facebook
+        if (/(facebook\.com|fb\.watch)/i.test(url)) {
+            return 'https://www.facebook.com/plugins/video.php?href=' + encodeURIComponent(url) + '&show_text=0&autoplay=1&mute=1';
+        }
+        // Instagram (reel, post o tv)
+        const matchIg = url.match(/instagram\.com\/(reel|p|tv)\/([\w-]+)/i);
+        if (matchIg && matchIg[2]) {
+            return 'https://www.instagram.com/' + (matchIg[1].toLowerCase() === 'reel' ? 'reel' : 'p') + '/' + matchIg[2] + '/embed';
+        }
         return null;
     }
 
@@ -14543,7 +14552,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         const elemento=document.getElementById('mpv-elemento').value;
         const sEl=document.getElementById('mpv-status');
         if(!nombre){sEl.textContent='⚠️ Falta el nombre';sEl.className='text-xs text-rojo text-center min-h-[1rem]';return;}
-        if(!link){sEl.textContent='⚠️ Link YouTube obligatorio';sEl.className='text-xs text-rojo text-center min-h-[1rem]';return;}
+        if(!link){sEl.textContent='⚠️ Link de video obligatorio';sEl.className='text-xs text-rojo text-center min-h-[1rem]';return;}
         if(!categoria){sEl.textContent='⚠️ Seleccioná categoría';sEl.className='text-xs text-rojo text-center min-h-[1rem]';return;}
         sEl.textContent='Guardando...';sEl.className='text-xs text-textoSuave text-center min-h-[1rem]';
         const ids={'ej-nombre':nombre,'ej-link':link,'ej-musculo1':musculo1,'ej-musculo2':'','ej-sinergista':'','ej-elemento':elemento,'ej-tip1':'','ej-tip2':''};
