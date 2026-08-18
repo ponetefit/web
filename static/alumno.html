@@ -5343,7 +5343,7 @@
                             var nombre = ej.nombre || ej[0] || '';
                             var reps = ej.reps || ej[2] || '';
                             var unit = (ej.unit || 'Reps').toUpperCase();
-                            var link = ej.link || ej[1] || '';
+                            var link = ej.link || ej[1] || _obtenerLinkVideo(nombre) || '';
                             _registrarLink(nombre, link);
                             var thumbUrl = extraerYoutubeThumbnail(link);
                             var thumbHtmlInline = thumbUrl ? '<img src="' + thumbUrl + '" alt="' + nombre.replace(/"/g, '&quot;') + '" loading="lazy" style="width:100%;height:clamp(150px,42vw,260px);object-fit:cover;border-radius:var(--radius-md);align-self:center;cursor:pointer;border:2px solid rgba(255,255,255,0.1);" onclick="abrirVideo(\'' + link.replace(/'/g, "\'") + '\',\'' + nombre.replace(/'/g, "\'") + '\')" />' : '<div class="thumb-sinvideo-full"><svg class="sinvideo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg><span>Sin video</span></div>';
@@ -7533,11 +7533,24 @@
                 return '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg>';
             }
 
+            // Ícono genérico (data-URI, no requiere red) usado como "miniatura" para
+            // videos de Facebook/Instagram, que no tienen una API pública de thumbnail
+            // como YouTube. Así el ejercicio se ve como "con video" (clickeable) en vez
+            // de caer en el cartel de "Sin video" solo por no ser de YouTube.
+            function _thumbGenericoVideo() {
+                return 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 225"><rect width="400" height="225" fill="#1c1c2e"/><circle cx="200" cy="112" r="42" fill="rgba(255,255,255,0.18)"/><path d="M186 90 L186 135 L228 112 Z" fill="#ffffff"/></svg>');
+            }
+
             function extraerYoutubeThumbnail(url) {
                 if (!url) return '';
                 var match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{11})/);
                 if (match && match[1]) {
                     return 'https://img.youtube.com/vi/' + match[1] + '/mqdefault.jpg';
+                }
+                // Facebook o Instagram: no hay miniatura pública sin API, mostramos
+                // un ícono genérico de video para que quede claro que SÍ hay video.
+                if (/(facebook\.com|fb\.watch)/i.test(url) || /instagram\.com/i.test(url)) {
+                    return _thumbGenericoVideo();
                 }
                 return '';
             }
@@ -7547,6 +7560,13 @@
                 var match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{11})/);
                 if (match && match[1]) {
                     return 'https://www.youtube.com/embed/' + match[1] + '?autoplay=1&rel=0';
+                }
+                if (/(facebook\.com|fb\.watch)/i.test(url)) {
+                    return 'https://www.facebook.com/plugins/video.php?href=' + encodeURIComponent(url) + '&show_text=0&autoplay=1';
+                }
+                var matchIg = url.match(/instagram\.com\/(reel|p|tv)\/([\w-]+)/i);
+                if (matchIg && matchIg[2]) {
+                    return 'https://www.instagram.com/' + (matchIg[1].toLowerCase() === 'reel' ? 'reel' : 'p') + '/' + matchIg[2] + '/embed';
                 }
                 return url;
             }
@@ -9539,9 +9559,10 @@
                     _esSegData[i] = esSegSerie1;
                     var _segBadgeVal1 = haPerSerie ? (parseInt(ej.reps_por_serie[0]) || repsN) : repsN;
 
-                    var _s1ThumbUrl = extraerYoutubeThumbnail(ej.link || '');
-                    _registrarLink(ej.nombre, ej.link || '');
-                    var _s1ThumbHtml = _s1ThumbUrl ? '<div class="card-thumb" onclick="abrirVideo(\'' + (ej.link || '').replace(/'/g, "\\'") + '\', \'' + (ej.nombre || '').replace(/'/g, "\\'") + '\')">' +
+                    var _s1LinkActual = ej.link || _obtenerLinkVideo(ej.nombre) || '';
+                    var _s1ThumbUrl = extraerYoutubeThumbnail(_s1LinkActual);
+                    _registrarLink(ej.nombre, _s1LinkActual);
+                    var _s1ThumbHtml = _s1ThumbUrl ? '<div class="card-thumb" onclick="abrirVideo(\'' + _s1LinkActual.replace(/'/g, "\\'") + '\', \'' + (ej.nombre || '').replace(/'/g, "\\'") + '\')">' +
                         '<img src="' + _s1ThumbUrl + '" alt="" loading="lazy">' +
                         '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div></div>' : '<div class="card-thumb sin-video"><svg class="sinvideo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg><span>Sin video</span></div>';
                     var _s1Vt = crearVideoToggle(_s1ThumbHtml + serieDetalle);
@@ -9671,7 +9692,7 @@
                             '<div style="color:var(--azul); font-size:clamp(1.5rem,6.5vw,2.1rem); font-weight:900; letter-spacing:0.5px; margin-bottom:12px; line-height:1.2;">' + tituloBloque + '</div>';
                         ejsBloque.forEach(function(ej) {
                             const nombre = ej.nombre || ej[0] || "";
-                            const link = ej.link || ej[1] || "";
+                            const link = ej.link || ej[1] || _obtenerLinkVideo(nombre) || "";
                             const reps = ej.reps || ej[2] || "";
                             const ejU = (ej.unit || "Reps").toUpperCase();
                             var metaStr = reps ? reps + " " + ejU : "";
@@ -10576,7 +10597,7 @@
                         var nombre = ej.nombre || ej[0] || '';
                         var reps = ej.reps || ej[2] || '';
                         var unit = (ej.unit || 'Reps').toUpperCase();
-                        var link = ej.link || ej[1] || '';
+                        var link = ej.link || ej[1] || _obtenerLinkVideo(nombre) || '';
                         _registrarLink(nombre, link);
                         var thumbUrl = extraerYoutubeThumbnail(link);
                         var thumbHtmlPt = thumbUrl ? '<img src="' + thumbUrl + '" alt="' + nombre.replace(/"/g, '&quot;') + '" loading="lazy" style="width:100px;height:100px;object-fit:cover;border-radius:var(--radius-md);flex-shrink:0;cursor:pointer;border:2px solid rgba(255,255,255,0.1);" onclick="abrirVideo(\'' + link.replace(/'/g, "\'") + '\',\'' + nombre.replace(/'/g, "\'") + '\')" />' : '<div class="thumb-sinvideo-square"><svg class="sinvideo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg><span>Sin video</span></div>';
@@ -11140,7 +11161,7 @@
                 }
                 rutina.forEach(function(ej, i) {
                     const nombre = ej.nombre || ej[0] || "";
-                    const link = ej.link || ej[1] || "";
+                    const link = ej.link || ej[1] || _obtenerLinkVideo(nombre) || "";
                     const seriesN = ej.series || 3;
                     const repsN = ej.reps || 10;
                     // Usar descanso personalizado del profesor si existe
@@ -12061,7 +12082,7 @@
                                 var nombre = ej.nombre || ej[0] || '';
                                 var reps = ej.reps || ej[2] || '';
                                 var unit = (ej.unit || 'Reps').toUpperCase();
-                                var link = ej.link || ej[1] || '';
+                                var link = ej.link || ej[1] || _obtenerLinkVideo(nombre) || '';
                                 _registrarLink(nombre, link);
                                 var thumbUrl = extraerYoutubeThumbnail(link);
                                 var thumbHtmlCt = thumbUrl ? '<img src="' + thumbUrl + '" alt="' + nombre.replace(/"/g, '&quot;') + '" loading="lazy" style="width:100%;height:clamp(150px,42vw,260px);object-fit:cover;border-radius:var(--radius-md);align-self:center;cursor:pointer;border:2px solid rgba(255,255,255,0.1);" onclick="abrirVideo(\'' + link.replace(/'/g, "\'") + '\',\'' + nombre.replace(/'/g, "\'") + '\')" />' : '<div class="thumb-sinvideo-full"><svg class="sinvideo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg><span>Sin video</span></div>';
@@ -12571,7 +12592,7 @@
                         if (_emMinData && _emMinData.ejercicios && _emMinData.ejercicios.length > 0) {
                             ejNomEl.innerHTML = _emMinData.ejercicios.map(function(ej, idxEm) {
                                 var n = ej.nombre || '';
-                                var l = ej.link || '';
+                                var l = ej.link || _obtenerLinkVideo(n) || '';
                                 var r = ej.reps || '';
                                 var u = (ej.unit || 'reps').toLowerCase();
                                 var tUrl = extraerYoutubeThumbnail(l);
@@ -13324,7 +13345,7 @@
                         if (minData && minData.ejercicios && minData.ejercicios.length > 0) {
                             ejEl.innerHTML = minData.ejercicios.map(function(ej, idxEmc) {
                                 var n = ej.nombre || '';
-                                var l = ej.link || '';
+                                var l = ej.link || _obtenerLinkVideo(n) || '';
                                 var r = ej.reps || '';
                                 var u = (ej.unit || 'reps').toLowerCase();
                                 var tUrl = extraerYoutubeThumbnail(l);
