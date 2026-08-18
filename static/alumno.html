@@ -7559,9 +7559,9 @@
                 if (match && match[1]) {
                     return 'https://img.youtube.com/vi/' + match[1] + '/mqdefault.jpg';
                 }
-                // Facebook o Instagram: no hay miniatura pública sin API, mostramos
+                // Facebook, Instagram o TikTok: no hay miniatura pública sin API, mostramos
                 // un ícono genérico de video para que quede claro que SÍ hay video.
-                if (/(facebook\.com|fb\.watch)/i.test(url) || /instagram\.com/i.test(url)) {
+                if (/(facebook\.com|fb\.watch)/i.test(url) || /instagram\.com/i.test(url) || /tiktok\.com/i.test(url)) {
                     return _thumbGenericoVideo();
                 }
                 return '';
@@ -7579,6 +7579,16 @@
                 var matchIg = url.match(/instagram\.com\/(reel|p|tv)\/([\w-]+)/i);
                 if (matchIg && matchIg[2]) {
                     return 'https://www.instagram.com/' + (matchIg[1].toLowerCase() === 'reel' ? 'reel' : 'p') + '/' + matchIg[2] + '/embed';
+                }
+                if (/tiktok\.com/i.test(url)) {
+                    // Link "largo" (con ID de video) -> se puede embeber en el modal
+                    var matchTk = url.match(/tiktok\.com\/@[^/?#]+\/video\/(\d+)/i);
+                    if (matchTk && matchTk[1]) {
+                        return 'https://www.tiktok.com/embed/v2/' + matchTk[1];
+                    }
+                    // Link corto (vm.tiktok.com, vt.tiktok.com, /t/...) -> TikTok no permite
+                    // embeberlo sin conocer el ID real, así que se abre en pestaña aparte
+                    return null;
                 }
                 return url;
             }
@@ -7603,6 +7613,12 @@
 
             function abrirVideo(url, nombre) {
                 var embedUrl = extraerYoutubeEmbedUrl(url);
+                if (!embedUrl) {
+                    // No se puede embeber en el modal (ej: link corto de TikTok) -> se abre
+                    // directamente en una pestaña nueva para que igual se pueda ver.
+                    window.open(url, '_blank');
+                    return;
+                }
                 document.getElementById('video-iframe').src = embedUrl;
                 document.getElementById('video-ej-nombre').textContent = nombre || '';
                 document.getElementById('overlay-video').classList.add('visible');
