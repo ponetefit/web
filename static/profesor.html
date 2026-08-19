@@ -6447,6 +6447,15 @@
         renderWarmupEjs();
     }
 
+    // Duplica el ejercicio en la posicion idx y lo agrega AL FINAL de la lista.
+    function repetirEjWarmup(idx) {
+        const original = warmupEjercicios[idx];
+        if (!original) return;
+        const copia = JSON.parse(JSON.stringify(original));
+        warmupEjercicios.push(copia);
+        renderWarmupEjs();
+    }
+
     function renderWarmupEjs() {
         const lista = document.getElementById('warmup-ejercicios-lista');
         if (!lista) return;
@@ -6472,6 +6481,7 @@
                     <span class="text-sm font-bold ej-hover-preview" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">${ej.nombre}</span>
                     ${repsBadge}${cargaBadge}
                 </div>
+                <button onclick="repetirEjWarmup(${i})" class="text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Repetir este ejercicio">Repetir</button>
                 <button onclick="quitarEjWarmup(${i})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none">&times;</button>
             </div>`;
         }).join('');
@@ -7069,6 +7079,26 @@
         renderBloqueEjsTemp();
     }
 
+    // Duplica el ejercicio en la posicion idx y lo agrega AL FINAL de la lista
+    // (no justo despues de el), asi queda como el ultimo ejercicio del bloque
+    // sin importar desde donde se lo repita.
+    function repetirEjBloque(idx) {
+        const original = bloqueEjsTemp[idx];
+        if (!original) return;
+        // Tabata: respetar el limite de "cantidad" configurado, igual que al agregar.
+        const tipoBlq = document.getElementById('bloque-tipo')?.value || '';
+        if (tipoBlq === 'Tabata') {
+            const cantMax = parseInt(document.getElementById('bp-cantidad')?.value) || 4;
+            if (bloqueEjsTemp.length >= cantMax) {
+                toast('Tabata tiene ' + cantMax + ' ejercicio(s) configurado(s). Aumentá la cantidad para repetir otro.');
+                return;
+            }
+        }
+        const copia = JSON.parse(JSON.stringify(original));
+        bloqueEjsTemp.push(copia);
+        renderBloqueEjsTemp();
+    }
+
     // ── Duración estimada en vivo del bloque que se está armando ──────────────
     function _pfEstimarDuracionBloqueActual() {
         const tipo = document.getElementById('bloque-tipo')?.value || '';
@@ -7347,6 +7377,7 @@
                     </div>
                     <div class="flex items-center gap-1 flex-shrink-0">
                         ${chevron}
+                        <button onclick="repetirEjBloque(${i})" class="text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Repetir este ejercicio">Repetir</button>
                         <button onclick="quitarEjBloque(${i})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none px-1">&times;</button>
                     </div>
                 </div>
