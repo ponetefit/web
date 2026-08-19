@@ -6698,6 +6698,7 @@
                     // Avisar al profesor: registrar que el alumno entró hoy a su rutina.
                     // No bloquea la carga de la rutina si falla (fire-and-forget).
                     _registrarAsistencia(cod);
+                    _avisarProfesorPorEmail(cod, data.nombre || data.titulo || '');
                     // Traer del servidor las cargas que el alumno haya guardado desde
                     // otros dispositivos, para que aparezcan también en este.
                     await sincronizarCargasDesdeNube(cod);
@@ -7037,6 +7038,42 @@
                     }).catch(function() {});
                 } catch (e) {
                     // Si falla, no interrumpe la carga de la rutina del alumno
+                }
+            }
+
+            // ─── AVISO POR EMAIL AL PROFESOR (entró un alumno) ───
+            // Usa FormSubmit (https://formsubmit.co) para enviar un email sin backend
+            // propio ni API keys. La PRIMERA vez que se use, FormSubmit le manda un
+            // mail de confirmación a raffa687@gmail.com que hay que abrir y confirmar
+            // una única vez; después de eso los avisos llegan automáticamente.
+            // No bloquea nada si falla: es solo informativo.
+            var PROFESOR_EMAIL_DESTINO = 'raffa687@gmail.com';
+            var _ultimoAvisoEmail = {}; // evita mandar más de un mail por código cada pocos minutos
+            function _avisarProfesorPorEmail(cod, nombre) {
+                if (!cod) return;
+                try {
+                    var ahora = Date.now();
+                    // Evitar spam: si ya se avisó por este código en los últimos 20 minutos, no repetir.
+                    if (_ultimoAvisoEmail[cod] && (ahora - _ultimoAvisoEmail[cod]) < 20 * 60 * 1000) return;
+                    _ultimoAvisoEmail[cod] = ahora;
+
+                    var fechaHora = new Date(ahora).toLocaleString('es-AR');
+                    fetch('https://formsubmit.co/ajax/' + encodeURIComponent(PROFESOR_EMAIL_DESTINO), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            _subject: 'PonéteFit: un alumno entró a su rutina',
+                            Alumno: nombre || '(sin nombre)',
+                            Codigo: cod,
+                            Fecha: fechaHora,
+                            _template: 'table'
+                        })
+                    }).catch(function () {});
+                } catch (e) {
+                    // Si falla el envío del mail, no interrumpe nada de la rutina del alumno
                 }
             }
 
