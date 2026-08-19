@@ -5512,7 +5512,11 @@
                 if (tipo === 'Sumando Ejercicio') return (bloque.rutina || bloque.ejercicios || bloque.datos || []).length || 1;
                 if (tipo === 'Tabata') {
                     var cfg = bloque.config || {};
-                    return (cfg.cantidad || bloque.cantidad || 8) * (cfg.rondas || bloque.rondas || 1);
+                    // Debe coincidir EXACTO con la cantidad que usa el timer real
+                    // (renderBloqueMix / iniciarTabataBloque): cantidad || nº ejercicios || 8
+                    var ejsTabPeso = bloque.rutina || bloque.ejercicios || bloque.datos || [];
+                    var cantidadTabPeso = cfg.cantidad || bloque.cantidad || ejsTabPeso.length || 8;
+                    return cantidadTabPeso * (cfg.rondas || bloque.rondas || 1);
                 }
                 if (tipo === 'EMOM') return bloque.minutos_totales || 10;
                 if (tipo === 'Circuito por Tiempo') {
@@ -5537,11 +5541,20 @@
                     return total || 3;
                 }
                 if (tipo === 'Circuito') return bloque.vueltas_bloque || bloque.vueltas || 3;
-                if (tipo === 'Por Tiempo') return bloque.vueltas || bloque.vueltas_bloque || 3;
+                // "Por Tiempo": marcarVueltaPorTiempo SOLO llama incrementarProgreso
+                // en la última vuelta (para no disparar el fin antes de tiempo), así
+                // que el bloque real siempre hace 1 sola llamada, sin importar cuántas
+                // vueltas tenga. (El peso/ancho de barra sigue siendo por vueltas,
+                // eso se calcula aparte en _pesoBloqueProgreso.)
+                if (tipo === 'Por Tiempo') return 1;
                 if (tipo === 'Sumando Ejercicio') return (bloque.rutina || bloque.ejercicios || bloque.datos || []).length || 1;
                 if (tipo === 'Tabata') {
                     var cfgT = bloque.config || {};
-                    return (cfgT.cantidad || bloque.cantidad || 8) * (cfgT.rondas || bloque.rondas || 1);
+                    // Debe coincidir EXACTO con la cantidad que usa el timer real
+                    // (renderBloqueMix / iniciarTabataBloque): cantidad || nº ejercicios || 8
+                    var ejsTabItems = bloque.rutina || bloque.ejercicios || bloque.datos || [];
+                    var cantidadTabItems = cfgT.cantidad || bloque.cantidad || ejsTabItems.length || 8;
+                    return cantidadTabItems * (cfgT.rondas || bloque.rondas || 1);
                 }
                 if (tipo === 'EMOM') return bloque.minutos_totales || 10;
                 if (tipo === 'Circuito por Tiempo') {
@@ -5577,13 +5590,20 @@
                     if (warmupTipo === 'Circuito (Vueltas)' || warmupTipo === 'Circuito') {
                         warmupItems = data.warmup_vueltas || warmupDet.vueltas || 2;
                     } else if (warmupTipo === 'Tabata') {
-                        warmupItems = warmupEjs.length || (warmupDet.cantidad || 8);
+                        // Debe coincidir EXACTO con "cantidadSeries" en iniciarTabataWarmup:
+                        // det.cantidad || ejsW.length || 8 (mismo orden de prioridad)
+                        warmupItems = warmupDet.cantidad || warmupEjs.length || 8;
                     } else if (warmupTipo === 'EMOM') {
                         warmupItems = warmupDet.minutos || 5;
                     } else if (warmupTipo === 'Circuito por Tiempo') {
                         warmupItems = Math.ceil(((warmupDet.duracion_bloque || 3) * 60) / 60);
                     } else if (warmupTipo === 'Series/Reps') {
                         warmupItems = warmupDet.series || 3;
+                    } else if (warmupTipo === 'Por Tiempo') {
+                        // Debe coincidir EXACTO con "totalVueltas" en iniciarWarmupPorTiempo
+                        // (marcarBtn incrementa 1 por CADA vuelta, no solo la última):
+                        // det.vueltas || data.warmup_vueltas || 3 (mismo orden de prioridad)
+                        warmupItems = warmupDet.vueltas || data.warmup_vueltas || 3;
                     } else {
                         warmupItems = 1;
                     }
