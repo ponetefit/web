@@ -1613,33 +1613,6 @@
             padding: 3px 10px;
             white-space: nowrap;
         }
-        .pf-vr-emom-min {
-            font-family: 'Roboto', sans-serif;
-            font-size: 0.72rem;
-            font-weight: 800;
-            color: #FFD54F;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            background: rgba(255,213,79,0.12);
-            border-left: 3px solid #FFD54F;
-            border-radius: 6px;
-            padding: 3px 10px;
-            margin: 8px 0 6px;
-        }
-        .pf-vr-emom-min:first-child { margin-top: 0; }
-        .pf-vr-emom-vacio {
-            font-size: 0.75rem;
-            color: #9a9aa5;
-            font-style: italic;
-            text-align: center;
-            margin: 0 0 8px;
-        }
-        .pf-vr-emom-nota {
-            font-size: 0.72rem;
-            font-weight: 700;
-            color: #FFD54F;
-            margin: 6px 0 0;
-        }
         .pf-flash-agregado { animation: pfFlashVerde 0.9s ease; }
         @keyframes pfFlashVerde {
             0% { background-color: rgba(76, 217, 100, 0.35); }
@@ -5400,45 +5373,6 @@
     // Modo repositorio: cuando se entra desde "Crear Entrenamiento" del Repositorio
     let modoRepositorio = false;
 
-    // Igual que _pfPreguntarModoGuardado, pero con textos propios para cuando se
-    // está editando una plantilla del Repositorio (via "Editar Rutina Completa").
-    function _pfPreguntarModoGuardadoRepo(nombreActual) {
-        return new Promise(resolve => {
-            let modal = document.getElementById('modal-pf-modo-guardado-repo');
-            if (!modal) {
-                modal = document.createElement('div');
-                modal.id = 'modal-pf-modo-guardado-repo';
-                modal.className = 'fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4';
-                modal.innerHTML =
-                    '<div class="bg-fondo2 rounded-2xl p-6 max-w-sm w-full space-y-4 border border-borde">' +
-                        '<div class="text-center">' +
-                            '<div class="text-3xl mb-2">💾</div>' +
-                            '<p id="pf-modo-guardado-repo-msg" class="text-texto font-bold text-sm"></p>' +
-                        '</div>' +
-                        '<div class="space-y-2">' +
-                            '<button id="pf-modo-guardado-repo-btn-sobrescribir" class="w-full py-2.5 rounded-xl btn-primary text-white font-bold text-sm"></button>' +
-                            '<button id="pf-modo-guardado-repo-btn-nueva" class="w-full py-2.5 rounded-xl border-2 border-azul/50 text-azul font-bold text-sm">Guardar como plantilla nueva</button>' +
-                            '<button id="pf-modo-guardado-repo-btn-cancelar" class="w-full py-2 rounded-xl text-textoSuave font-bold text-sm">Cancelar</button>' +
-                        '</div>' +
-                    '</div>';
-                document.body.appendChild(modal);
-            }
-            document.getElementById('pf-modo-guardado-repo-msg').textContent =
-                'Estás editando la plantilla "' + (nombreActual || '') + '". ¿Qué querés hacer con los cambios?';
-            document.getElementById('pf-modo-guardado-repo-btn-sobrescribir').textContent =
-                'Guardar cambios en esta misma';
-            modal.classList.remove('hidden');
-
-            function cerrar(valor) {
-                modal.classList.add('hidden');
-                resolve(valor);
-            }
-            document.getElementById('pf-modo-guardado-repo-btn-sobrescribir').onclick = () => cerrar('sobrescribir');
-            document.getElementById('pf-modo-guardado-repo-btn-nueva').onclick = () => cerrar('nueva');
-            document.getElementById('pf-modo-guardado-repo-btn-cancelar').onclick = () => cerrar(null);
-        });
-    }
-
     function abrirCrearEntrenamiento() {
         modoRepositorio = true;
         window._repoEditandoIdx = null; // no estamos editando un ítem existente
@@ -5469,22 +5403,13 @@
     }
 
     // Guarda directamente con un prompt de nombre (modo repositorio)
-    async function guardarEnRepositorioDirecto() {
+    function guardarEnRepositorioDirecto() {
         document.getElementById('repo-status').textContent = '';
         // Si venimos de "editar rutina completa", pre-rellenar el nombre del ítem original
-        // y preguntar si los cambios van a esa misma plantilla o a una nueva.
-        window._pfRepoGuardarModo = null;
         if (window._repoEditandoIdx !== undefined && window._repoEditandoIdx !== null) {
             const repo = getRepositorio();
             const r = repo[window._repoEditandoIdx];
             document.getElementById('repo-nombre-input').value = r ? (r.nombre || '') : '';
-            const modo = await _pfPreguntarModoGuardadoRepo(r ? (r.nombre || 'esta plantilla') : 'esta plantilla');
-            if (!modo) return; // canceló el modo de guardado
-            window._pfRepoGuardarModo = modo;
-            // Si eligió guardar como nueva, sugerir un nombre distinto para no confundirla con la original
-            if (modo === 'nueva' && r) {
-                document.getElementById('repo-nombre-input').value = (r.nombre || '') + ' (copia)';
-            }
         } else {
             document.getElementById('repo-nombre-input').value = '';
         }
@@ -6162,29 +6087,6 @@
         toastConDeshacer('Ejercicio quitado');
     }
 
-    // Duplica el ejercicio del calentamiento (por dia) en la posicion ejIdx y lo
-    // agrega AL FINAL de la lista, igual que repetirEjBloque/repetirEjWarmup.
-    // Disponible en todos los sistemas de entrenamiento del calentamiento
-    // (Tabata, EMOM, Circuito por Vuelta, Circuito por Tiempo, Series/Repeticiones,
-    // Por Tiempo Sumando Ejercicios).
-    function repetirEjWarmupDia(idx, ejIdx) {
-        if (!diasData[idx]) return;
-        const original = diasData[idx].warmupEjercicios[ejIdx];
-        if (!original) return;
-        const warmupTipo = document.getElementById('warmup-tipo-' + idx)?.value || diasData[idx].warmupTipo || '';
-        if (warmupTipo === 'Tabata') {
-            const cantMax = parseInt(document.getElementById('warmup-cantidad-' + idx)?.value) || 4;
-            if (diasData[idx].warmupEjercicios.length >= cantMax) {
-                toast('Tabata tiene ' + cantMax + ' ejercicio(s) configurado(s). Aumentá la cantidad para repetir otro.');
-                return;
-            }
-        }
-        const copia = JSON.parse(JSON.stringify(original));
-        diasData[idx].warmupEjercicios.push(copia);
-        renderWarmupEjsDia(idx);
-        actualizarBadgeDia(idx);
-    }
-
     function renderWarmupEjsDia(idx) {
         const lista = document.getElementById('warmup-ejercicios-lista-' + idx);
         if (!lista || !diasData[idx]) return;
@@ -6308,7 +6210,6 @@
                 '<span class="text-sm font-bold ej-hover-preview truncate" data-video-url="' + linkEsc + '" data-ej-nombre="' + nombreEsc + '" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">' + ej.nombre + '</span>' + cargaBadgeW +
                 '</div>' +
                 '<button onclick="reemplazarEjWarmupDia(' + idx + ',' + i + ')" class="text-textoSuave hover:text-azul text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50 flex-shrink-0 ml-2" title="Reemplazar este ejercicio">Reemplazar</button>' +
-                '<button onclick="repetirEjWarmupDia(' + idx + ',' + i + ')" class="text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50 flex-shrink-0 ml-1" title="Repetir este ejercicio">Repetir</button>' +
                 '<button onclick="quitarEjWarmupDia(' + idx + ',' + i + ')" class="text-rojo hover:text-red-400 text-lg font-bold leading-none flex-shrink-0 ml-1">&times;</button>' +
                 '</div>' +
                 controlsHtml +
@@ -6774,9 +6675,6 @@
         const reemplazar = tipo === 'bloque'
             ? 'emomBloqueReemplazarEj(' + minIdx + ',' + ei + ')'
             : "emomWarmupReemplazarEj('" + idxOrKey + "'," + minIdx + ',' + ei + ')';
-        const repetir = tipo === 'bloque'
-            ? 'emomBloqueRepetirEj(' + minIdx + ',' + ei + ')'
-            : "emomWarmupRepetirEj('" + idxOrKey + "'," + minIdx + ',' + ei + ')';
         return '<div class="flex items-center gap-1.5 bg-fondoAlt rounded-lg px-2 py-1 mt-1">' +
             '<span class="text-xs font-bold text-amarillo w-5 flex-shrink-0">E' + (ei+1) + '</span>' +
             '<span class="text-xs flex-1 truncate ej-hover-preview cursor-pointer" style="min-width:0"' +
@@ -6789,7 +6687,6 @@
             '<option ' + ((ej.unit || 'Reps') === 'Segs' ? 'selected' : '') + '>Segs</option>' +
             '</select>' +
             '<button onclick="' + reemplazar + '" class="text-textoSuave hover:text-azul font-bold text-[10px] leading-none flex-shrink-0 px-1.5 py-1 rounded-md border border-borde/50 whitespace-nowrap" title="Reemplazar este ejercicio">Reemplazar</button>' +
-            '<button onclick="' + repetir + '" class="text-textoSuave hover:text-naranja font-bold text-[10px] leading-none flex-shrink-0 px-1.5 py-1 rounded-md border border-borde/50 whitespace-nowrap" title="Repetir este ejercicio">Repetir</button>' +
             '<button onclick="' + quitar + '" class="text-rojo font-bold text-sm leading-none flex-shrink-0">&times;</button>' +
             '</div>';
     }
@@ -6924,22 +6821,6 @@
         let ejs = [];
         try { ejs = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { ejs = []; }
         ejs.splice(ejIdx, 1);
-        listEl.dataset.ejs = JSON.stringify(ejs);
-        listEl.innerHTML = ejs.map((ej, ei) => emomChipHtml(ej, ei, minIdx, 'bloque', null)).join('');
-        const cntEl = document.getElementById('emom-min-' + minIdx + '-cnt');
-        if (cntEl) cntEl.textContent = ejs.length + ' ejercicio' + (ejs.length !== 1 ? 's' : '');
-    }
-
-    // Duplica el ejercicio de este minuto EMOM (Bloque Principal) y lo agrega
-    // al final de ese mismo minuto. Mismo patron que repetirEjBloque/repetirEjWarmup.
-    function emomBloqueRepetirEj(minIdx, ejIdx) {
-        const listEl = document.getElementById('emom-min-' + minIdx + '-lista');
-        if (!listEl) return;
-        let ejs = [];
-        try { ejs = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { ejs = []; }
-        const original = ejs[ejIdx];
-        if (!original) return;
-        ejs.push(JSON.parse(JSON.stringify(original)));
         listEl.dataset.ejs = JSON.stringify(ejs);
         listEl.innerHTML = ejs.map((ej, ei) => emomChipHtml(ej, ei, minIdx, 'bloque', null)).join('');
         const cntEl = document.getElementById('emom-min-' + minIdx + '-cnt');
@@ -7135,23 +7016,6 @@
         let ejs = [];
         try { ejs = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { ejs = []; }
         ejs.splice(ejIdx, 1);
-        listEl.dataset.ejs = JSON.stringify(ejs);
-        listEl.innerHTML = ejs.map((ej, ei) => emomChipHtml(ej, ei, minIdx, 'warmup', idxOrKey)).join('');
-        const cntEl = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-cnt');
-        if (cntEl) cntEl.textContent = ejs.length + ' ejercicio' + (ejs.length !== 1 ? 's' : '');
-        guardarWarmupEmom(idxOrKey);
-    }
-
-    // Duplica el ejercicio de este minuto EMOM (Calentamiento) y lo agrega
-    // al final de ese mismo minuto. Mismo patron que repetirEjWarmupDia/repetirEjBloque.
-    function emomWarmupRepetirEj(idxOrKey, minIdx, ejIdx) {
-        const listEl = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-lista');
-        if (!listEl) return;
-        let ejs = [];
-        try { ejs = JSON.parse(listEl.dataset.ejs || '[]'); } catch(e) { ejs = []; }
-        const original = ejs[ejIdx];
-        if (!original) return;
-        ejs.push(JSON.parse(JSON.stringify(original)));
         listEl.dataset.ejs = JSON.stringify(ejs);
         listEl.innerHTML = ejs.map((ej, ei) => emomChipHtml(ej, ei, minIdx, 'warmup', idxOrKey)).join('');
         const cntEl = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-cnt');
@@ -9337,55 +9201,28 @@
                 (reps ? '<span class="pf-vr-ej-reps">' + escapeHtml(reps) + '</span>' : '') +
             '</div>';
         }).join('');
-        // EMOM guarda las reps/segs reales por minuto (un mismo ejercicio puede
-        // repetirse en distintos minutos con distinta cantidad). La lista plana
-        // de ejercicios del bloque/calentamiento es solo un resumen sin duplicados
-        // y por eso no alcanza para mostrar bien la cantidad — hay que recorrer
-        // el detalle minuto a minuto, igual que hace la Vista completa.
-        const itemsHtmlEmom = (emomConfig) => {
-            if (!emomConfig || !emomConfig.length) return '';
-            const ciclo = _pfDetectarCicloEMOM(emomConfig);
-            const mostrar = ciclo < emomConfig.length ? emomConfig.slice(0, ciclo) : emomConfig;
-            let out = mostrar.map((minCfg, mi) => {
-                const ejsMin = (minCfg && minCfg.ejercicios) || [];
-                const minLabel = '<div class="pf-vr-emom-min">Minuto ' + (mi + 1) + '</div>';
-                if (ejsMin.length === 0) {
-                    return minLabel + '<p class="pf-vr-emom-vacio">Sin ejercicios</p>';
-                }
-                return minLabel + itemsHtml(ejsMin);
-            }).join('');
-            if (ciclo < emomConfig.length) {
-                const veces = Math.ceil(emomConfig.length / ciclo);
-                out += '<p class="pf-vr-emom-nota">↻ Repetir este ciclo ' + veces + ' veces (' + emomConfig.length + ' min totales)</p>';
-            }
-            return out;
-        };
         return dias.map((d, di) => {
             const calEjs = d.warmupEjercicios || [];
             const calTipo = d._wTipo || d._warmupCfg?.tipo || '';
-            const calEmomCfg = d.warmupEmomConfig || [];
-            const calEsEmom = calTipo === 'EMOM' && calEmomCfg.length > 0;
             const calDetalle = _pfDetalleCalentamiento(d);
             const calSub = [calTipo, calDetalle].filter(Boolean).join(' · ');
-            const calCard = (calEsEmom || calEjs.length) ? (
+            const calCard = calEjs.length ? (
                 '<div class="pf-vr-card pf-vr-card-cal">' +
                     '<div class="pf-vr-card-head">' +
                         '<span class="pf-vr-card-title">🔥 Calentamiento</span>' +
                         (calSub ? '<span class="pf-vr-card-sub">' + escapeHtml(calSub) + '</span>' : '') +
                     '</div>' +
-                    '<div class="pf-vr-ej-list">' + (calEsEmom ? itemsHtmlEmom(calEmomCfg) : itemsHtml(calEjs)) + '</div>' +
+                    '<div class="pf-vr-ej-list">' + itemsHtml(calEjs) + '</div>' +
                 '</div>'
             ) : '';
             const bloquesCards = (d.bloquesRutina || []).map((b, bi) => {
                 const detalle = _pfDetalleBloque(b);
-                const bEmomCfg = b.emom_config_por_minuto || [];
-                const bEsEmom = b.tipo === 'EMOM' && bEmomCfg.length > 0;
                 return '<div class="pf-vr-card pf-vr-card-bloque">' +
                     '<div class="pf-vr-card-head">' +
                         '<span class="pf-vr-card-title">💪 ' + (bi + 1) + '. ' + escapeHtml(b.tipo || 'Bloque') + '</span>' +
                         (detalle ? '<span class="pf-vr-card-sub">' + escapeHtml(detalle) + '</span>' : '') +
                     '</div>' +
-                    '<div class="pf-vr-ej-list">' + (bEsEmom ? itemsHtmlEmom(bEmomCfg) : itemsHtml(b.ejercicios)) + '</div>' +
+                    '<div class="pf-vr-ej-list">' + itemsHtml(b.ejercicios) + '</div>' +
                 '</div>';
             }).join('');
             return '<div class="mb-4">' +
@@ -12674,16 +12511,10 @@
         };
 
         const repo = getRepositorio();
-        // Si venimos de "editar rutina completa" y el profe eligió sobrescribir,
-        // reemplazar el ítem existente; si eligió "nueva" (o no estábamos editando
-        // nada), se agrega como una plantilla nueva al principio del repositorio.
-        let savedIdx;
-        const sobrescribir = window._repoEditandoIdx !== undefined && window._repoEditandoIdx !== null
-            && repo[window._repoEditandoIdx] && window._pfRepoGuardarModo !== 'nueva';
-        if (sobrescribir) {
+        // Si venimos de "editar rutina completa", reemplazar el ítem existente en vez de agregar uno nuevo
+        if (window._repoEditandoIdx !== undefined && window._repoEditandoIdx !== null && repo[window._repoEditandoIdx]) {
             repo[window._repoEditandoIdx] = snapshot;
             _pfRepoOrigenIdx = window._repoEditandoIdx;
-            savedIdx = window._repoEditandoIdx;
         } else {
             repo.unshift(snapshot);
             // La rutina recién guardada queda en el índice 0. La marcamos como
@@ -12691,27 +12522,19 @@
             // "Crear Rutina" (sin recargar), el uso quede registrado en este
             // mismo ítem del repositorio (ver /api/rutina/compartir más abajo).
             _pfRepoOrigenIdx = 0;
-            savedIdx = 0;
         }
         setRepositorio(repo);
         _pfLimpiarBorrador();
-        window._pfRepoGuardarModo = null;
 
         document.getElementById('repo-status').textContent = '✓ Guardado correctamente';
         document.getElementById('repo-status').className = 'text-xs text-verde text-center min-h-[1.2rem]';
-        setTimeout(async () => {
+        setTimeout(() => {
             pfBtnLoadingOff(btnGuardar);
             document.getElementById('modal-repo-guardar').classList.add('hidden');
             if (typeof window._repoGuardarCallback === 'function') {
                 window._repoGuardarCallback();
                 window._repoGuardarCallback = null;
             }
-            // Ofrecer compartir la rutina recién guardada con un alumno
-            const quiereCompartir = await pfConfirm(
-                '¿Querés compartir esta rutina con un alumno ahora?',
-                { destructivo: false, icono: '📤', textoConfirmar: 'Compartir', textoCancelar: 'Ahora no' }
-            );
-            if (quiereCompartir) copiarAAlumnoDesdeRepo(savedIdx);
         }, 1200);
         toast('Rutina guardada en el repositorio');
     }
@@ -12830,32 +12653,18 @@
                 : '';
 
             // Alumnos con los que se usó esta plantilla (guardado en r.usos al usar "Copiar a Alumno"),
-            // con el código de rutina que generó cada uso (ej: RAFA → RAFA-0003).
-            // Cada uno es clickeable: abre las mismas opciones que el Historial
-            // (Ver Rutina / Editar Rutina) para esa rutina puntual del alumno.
+            // con el código de rutina que generó cada uso (ej: RAFA → RAFA-0003)
             const usos = Array.isArray(r.usos) ? r.usos : [];
             let usoInfo = '';
             if (usos.length) {
                 const ultimo = usos[usos.length - 1];
                 const fechaUltimo = ultimo && ultimo.fecha ? new Date(ultimo.fecha).toLocaleDateString('es-AR') : '';
-                const vistos = new Set();
-                const unicos = [];
-                usos.forEach(u => {
-                    const key = (u.alumno || '') + '|' + (u.codigo || '');
-                    if (!vistos.has(key)) { vistos.add(key); unicos.push(u); }
-                });
-                const restantes = unicos.length > 3 ? unicos.length - 3 : 0;
-                const mostrar = restantes > 0 ? unicos.slice(0, 3) : unicos;
-                const jsEsc = (s) => String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                const pills = mostrar.map(u => {
-                    const label = u.codigo ? (u.alumno + ' (' + u.codigo + ')') : u.alumno;
-                    if (!u.codigo) return `<span>${escapeHtml(label)}</span>`;
-                    const codJs = jsEsc(u.codigo);
-                    const alumnoJs = jsEsc(u.alumno || '');
-                    return `<button type="button" onclick="_pfAbrirOpcionesUso('${codJs}','${alumnoJs}')" class="underline decoration-dotted hover:opacity-80 transition" style="color:inherit;">${escapeHtml(label)}</button>`;
-                }).join(', ');
-                usoInfo = `<p class="text-xs mt-1" style="color:#69F0AE">👥 Usado con: ${pills}` +
-                    (restantes > 0 ? ` <span class="text-textoSuave">+${restantes} más</span>` : '') +
+                const detalles = usos.map(u => u.codigo ? `${u.alumno} (${u.codigo})` : u.alumno);
+                const detallesUnicos = [...new Set(detalles)];
+                const listaDetalle = detallesUnicos.length > 3
+                    ? detallesUnicos.slice(0, 3).join(', ') + ' +' + (detallesUnicos.length - 3) + ' más'
+                    : detallesUnicos.join(', ');
+                usoInfo = `<p class="text-xs mt-1" style="color:#69F0AE">👥 Usado con: ${escapeHtml(listaDetalle)}` +
                     ` <span class="text-textoSuave">· ${usos.length} vez${usos.length !== 1 ? 'es' : ''}${fechaUltimo ? ' · último: ' + fechaUltimo : ''}</span></p>`;
             }
 
@@ -12884,43 +12693,6 @@
                 </div>
             </div>`;
         }).join('');
-    }
-
-    // Al tocar un alumno/código dentro de "Usado con: ..." en el Repositorio,
-    // ofrece las mismas dos opciones que tiene el Historial: ver la rutina real
-    // que se generó para ese alumno (Ver Rutina) o editarla (Editar Rutina).
-    function _pfAbrirOpcionesUso(codigo, alumno) {
-        let modal = document.getElementById('modal-pf-opciones-uso');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'modal-pf-opciones-uso';
-            modal.className = 'hidden fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4';
-            modal.innerHTML =
-                '<div class="bg-fondo2 rounded-2xl p-6 max-w-sm w-full space-y-4 border border-borde">' +
-                    '<div class="text-center">' +
-                        '<div class="text-3xl mb-2">📋</div>' +
-                        '<p id="pf-opciones-uso-msg" class="text-texto font-bold text-sm"></p>' +
-                    '</div>' +
-                    '<div class="space-y-2">' +
-                        '<button id="pf-opciones-uso-btn-ver" class="w-full py-2.5 rounded-xl bg-azul/20 text-azul font-bold text-sm hover:bg-azul/30 transition">Ver Rutina</button>' +
-                        '<button id="pf-opciones-uso-btn-editar" class="w-full py-2.5 rounded-xl bg-verde/20 text-verde font-bold text-sm hover:bg-verde/30 transition">Editar Rutina</button>' +
-                        '<button id="pf-opciones-uso-btn-cancelar" class="w-full py-2 rounded-xl text-textoSuave font-bold text-sm">Cancelar</button>' +
-                    '</div>' +
-                '</div>';
-            document.body.appendChild(modal);
-        }
-        document.getElementById('pf-opciones-uso-msg').textContent =
-            'Rutina ' + codigo.toUpperCase() + (alumno ? ' de ' + alumno : '') + '. ¿Qué querés hacer?';
-        modal.classList.remove('hidden');
-        document.getElementById('pf-opciones-uso-btn-ver').onclick = () => {
-            modal.classList.add('hidden');
-            verRutina(codigo);
-        };
-        document.getElementById('pf-opciones-uso-btn-editar').onclick = () => {
-            modal.classList.add('hidden');
-            editarRutinaDesdeHistorial(codigo);
-        };
-        document.getElementById('pf-opciones-uso-btn-cancelar').onclick = () => modal.classList.add('hidden');
     }
 
     function escapeHtml(str) {
@@ -15117,7 +14889,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
     const MODAL_IDS = ['modal-pf-confirm', 'modal-dash-rutina', 'modal-codigo', 'modal-repo-guardar', 'modal-repo-editar',
         'modal-repo-copiar', 'modal-ver-rutina', 'modal-piz-vt', 'modal-ia-config', 'modal-ia-preview',
         'modal-nueva-cat', 'modal-bloque', 'modal-copiar-destino', 'modal-historial-alumno', 'modal-vista-compacta-rutina',
-        'modal-advertencia-ejercicio', 'modal-advertencia-costoso', 'modal-musculo-detalle', 'modal-pf-opciones-uso'];
+        'modal-advertencia-ejercicio', 'modal-advertencia-costoso', 'modal-musculo-detalle'];
 
     // Devuelve tambien los modales de calentamiento (uno por dia, id dinamico modal-calentamiento-N)
     function _pfTodosLosModalesVisibles() {
