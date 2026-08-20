@@ -3303,6 +3303,37 @@
         </div>
     </div>
 
+    <!-- Modal: reemplazar ejercicio (calentamiento y bloque principal, todos los sistemas) -->
+    <div id="modal-reemplazar-ejercicio" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-start sm:items-center justify-center p-2 sm:p-4 overflow-y-auto modal-bottom-sheet-mobile">
+        <div class="bg-tarjeta rounded-2xl border border-borde p-4 sm:p-6 max-w-lg w-full max-h-[85vh] overflow-y-auto my-2 sm:my-0">
+            <div class="flex items-center justify-between mb-1">
+                <h3 class="text-sm font-bold text-naranja uppercase tracking-wider">Reemplazar ejercicio</h3>
+                <button onclick="cerrarModalReemplazarEjercicio()" class="text-textoSuave hover:text-texto text-xl leading-none px-2">&times;</button>
+            </div>
+            <p id="reemplazar-ej-actual" class="text-xs text-textoSuave mb-3"></p>
+
+            <!-- Busqueda DESKTOP/TABLET: input + categoria + elemento + select (igual que al agregar) -->
+            <div class="hidden sm:block mb-2">
+                <input id="reemplazar-buscar-ej" type="text" placeholder="Buscar ejercicio..." onkeyup="filtrarEjsReemplazo()" class="w-full rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-naranja focus:ring-2 focus:ring-naranja/30 transition">
+            </div>
+            <div class="hidden sm:flex gap-2 mb-3 flex-wrap">
+                <select id="reemplazar-cat-select" onchange="cargarEjsReemplazo()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
+                </select>
+                <select id="reemplazar-elemento-select" onchange="cargarEjsReemplazo()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
+                    <option value="">Todo elemento</option>
+                </select>
+                <select id="reemplazar-ej-select" class="rounded-lg px-3 py-2 text-sm flex-1">
+                </select>
+                <button onclick="confirmarReemplazoEjercicio()" class="bg-naranja/20 text-naranja px-3 py-2 rounded-lg text-sm font-bold hover:bg-naranja/30 transition whitespace-nowrap">Reemplazar</button>
+            </div>
+
+            <!-- Busqueda MOBILE: un solo buscador con sugerencias tocables + categorias (igual que al agregar) -->
+            <div class="sm:hidden mb-3">
+                <input id="reemplazar-buscar-ej-mobile" type="text" autocomplete="off" placeholder="Buscar ejercicio..." class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-naranja focus:ring-2 focus:ring-naranja/30 transition">
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: advertencia al agregar en Crear Rutina un ejercicio que le costó mucho al alumno en una rutina anterior (según su feedback post-entreno) -->
     <div id="modal-advertencia-costoso" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
         <div class="bg-tarjeta rounded-3xl border border-amarillo p-6 max-w-md w-full max-h-[85vh] overflow-y-auto">
@@ -4924,7 +4955,7 @@
     function poblarCategorias() {
         const cats = Object.keys(VIDEOTECA_DATA);
         // Poblar selects de bloque modal
-        ['bloque-cat-select'].forEach(id => {
+        ['bloque-cat-select', 'reemplazar-cat-select'].forEach(id => {
             const sel = document.getElementById(id);
             if (!sel) return;
             sel.innerHTML = '<option value="">Todas las categorías</option>' +
@@ -4958,6 +4989,7 @@
 
         // Poblar select de elemento en el bloque modal
         poblarElementoSelect('bloque-elemento-select');
+        poblarElementoSelect('reemplazar-elemento-select');
         cargarEjsBloque();
         // Poblar los selects de cada dia ya renderizado
         diasData.forEach((_, idx) => poblarCategoriasDia(idx));
@@ -6051,6 +6083,164 @@
         toastConDeshacer('Ejercicio quitado');
     }
 
+    // Duplica el ejercicio en la posicion ejIdx y lo agrega AL FONDO de la lista
+    // de calentamiento del dia (mismo criterio que repetirEjWarmup/repetirEjBloque).
+    function repetirEjWarmupDia(idx, ejIdx) {
+        if (!diasData[idx]) return;
+        const original = diasData[idx].warmupEjercicios[ejIdx];
+        if (!original) return;
+        const copia = JSON.parse(JSON.stringify(original));
+        diasData[idx].warmupEjercicios.push(copia);
+        renderWarmupEjsDia(idx);
+        actualizarBadgeDia(idx);
+    }
+
+    // ── Reemplazar ejercicio ────────────────────────────────────────────────
+    // Funciona para los 3 contextos donde se arman listas de ejercicios en
+    // Crear Rutina: calentamiento standalone, calentamiento por dia y bloque
+    // principal (todos los sistemas: Tabata, EMOM, Circuito por vuelta,
+    // Circuito por tiempo, Series y repeticiones, Por tiempo, Sumando Ejercicio).
+    // Reutiliza EXACTAMENTE el mismo buscador (desktop: categoria+elemento+select;
+    // mobile: buscador con panel de categorias tactiles) que se usa al agregar.
+    let _pfReemplazoCtx = null; // { tipo: 'bloque' | 'warmup' | 'warmup-dia', idx, diaIdx }
+
+    function abrirReemplazarEjercicio(tipo, idx, diaIdx) {
+        _pfReemplazoCtx = { tipo, idx, diaIdx };
+
+        // Nombre del ejercicio actual, para contexto arriba del buscador
+        let actual = null;
+        if (tipo === 'bloque') actual = bloqueEjsTemp[idx];
+        else if (tipo === 'warmup') actual = warmupEjercicios[idx];
+        else if (tipo === 'warmup-dia') actual = diasData[diaIdx] ? diasData[diaIdx].warmupEjercicios[idx] : null;
+        const actualEl = document.getElementById('reemplazar-ej-actual');
+        if (actualEl) actualEl.textContent = actual ? ('Reemplazando: ' + actual.nombre) : '';
+
+        const modal = document.getElementById('modal-reemplazar-ejercicio');
+        if (!modal) return;
+
+        // Reset buscador desktop
+        const catSel = document.getElementById('reemplazar-cat-select');
+        const elemSel = document.getElementById('reemplazar-elemento-select');
+        const buscar = document.getElementById('reemplazar-buscar-ej');
+        if (catSel) catSel.value = '';
+        if (elemSel) elemSel.value = '';
+        if (buscar) buscar.value = '';
+        cargarEjsReemplazo();
+
+        // Reset buscador mobile + inicializar (con panel de categorias) una sola vez
+        const buscarMobile = document.getElementById('reemplazar-buscar-ej-mobile');
+        if (buscarMobile) buscarMobile.value = '';
+        _initBusquedaEjercicioMobile('reemplazar-buscar-ej-mobile', 'reemplazar-ej-select', confirmarReemplazoEjercicio, null);
+
+        modal.classList.remove('hidden');
+        setTimeout(() => { if (window.innerWidth >= 640 && buscar) buscar.focus(); }, 50);
+    }
+
+    function cerrarModalReemplazarEjercicio() {
+        const modal = document.getElementById('modal-reemplazar-ejercicio');
+        if (modal) modal.classList.add('hidden');
+        _pfReemplazoCtx = null;
+    }
+
+    // Pobla el select de ejercicio segun categoria + elemento elegidos (desktop)
+    function cargarEjsReemplazo() {
+        const cat = document.getElementById('reemplazar-cat-select')?.value;
+        const sel = document.getElementById('reemplazar-ej-select');
+        const elemSel = document.getElementById('reemplazar-elemento-select');
+        if (!sel) return;
+        const elemFiltro = elemSel ? elemSel.value : '';
+        let ejs = cat ? (videotecaCache[cat] || []) : Object.values(videotecaCache).flat();
+        if (elemFiltro) ejs = ejs.filter(e => (e.elemento || '') === elemFiltro);
+        sel.innerHTML = ejs.length
+            ? ejs.map(e => '<option value="' + (e.nombre || e[0]) + '" data-cat="' + (cat || '') + '">' + _pfMarcaCostoso(e.nombre || e[0]) + (e.nombre || e[0]) + '</option>').join('')
+            : '<option value="">Sin ejercicios</option>';
+    }
+
+    // Filtra por texto en TODAS las categorias (desktop)
+    function filtrarEjsReemplazo() {
+        const query = (document.getElementById('reemplazar-buscar-ej')?.value || '').trim().toLowerCase();
+        const sel = document.getElementById('reemplazar-ej-select');
+        const elemSel = document.getElementById('reemplazar-elemento-select');
+        if (!sel) return;
+        const elemFiltro = elemSel ? elemSel.value : '';
+        if (!query) { cargarEjsReemplazo(); return; }
+        let resultados = [];
+        for (const [cat, ejercicios] of Object.entries(videotecaCache)) {
+            (ejercicios || []).forEach(e => {
+                const nombre = (e.nombre || e[0] || '').toLowerCase();
+                if (nombre.includes(query)) {
+                    if (elemFiltro && (e.elemento || '') !== elemFiltro) return;
+                    resultados.push({ nombre: e.nombre || e[0], cat });
+                }
+            });
+        }
+        sel.innerHTML = resultados.length
+            ? resultados.map(r => '<option value="' + r.nombre + '" data-cat="' + r.cat + '">' + _pfMarcaCostoso(r.nombre) + r.nombre + ' (' + r.cat + ')</option>').join('')
+            : '<option value="">Sin resultados</option>';
+    }
+
+    // Confirma el reemplazo tomando el ejercicio elegido en #reemplazar-ej-select
+    // (usado tanto por el boton "Reemplazar" de desktop como por el buscador mobile).
+    function confirmarReemplazoEjercicio() {
+        const sel = document.getElementById('reemplazar-ej-select');
+        if (!sel) return;
+        const nombre = sel.value;
+        if (!nombre || nombre === 'Sin ejercicios' || nombre === 'Sin resultados') return;
+        const selectedOption = sel.options[sel.selectedIndex];
+        const cat = (selectedOption && selectedOption.dataset.cat) || document.getElementById('reemplazar-cat-select')?.value || '';
+        _pfSeleccionarReemplazo(nombre, cat);
+    }
+
+    function _pfSeleccionarReemplazo(nombre, cat) {
+        if (!_pfReemplazoCtx) return;
+        if (typeof mostrarAdvertenciaSiProhibido === 'function' && mostrarAdvertenciaSiProhibido(nombre, () => _pfSeleccionarReemplazo(nombre, cat))) return;
+
+        let ejData = cat && videotecaCache[cat] ? (videotecaCache[cat] || []).find(e => (e.nombre || e[0]) === nombre) : null;
+        if (!ejData) {
+            for (const c of Object.keys(videotecaCache)) {
+                const found = (videotecaCache[c] || []).find(e => (e.nombre || e[0]) === nombre);
+                if (found) { ejData = found; break; }
+            }
+        }
+        const link = ejData ? (ejData.link || ejData[1] || '') : '';
+        const con_carga = ejData ? (ejData.con_carga === true || ejData.con_carga === 'true') : false;
+        const tip1 = ejData ? (ejData.tip1 || '') : '';
+        const tip2 = ejData ? (ejData.tip2 || '') : '';
+        const elemento = ejData ? (ejData.elemento || '') : '';
+
+        const ctx = _pfReemplazoCtx;
+        let objetivo = null;
+        if (ctx.tipo === 'bloque') {
+            objetivo = bloqueEjsTemp[ctx.idx];
+        } else if (ctx.tipo === 'warmup') {
+            objetivo = warmupEjercicios[ctx.idx];
+        } else if (ctx.tipo === 'warmup-dia') {
+            objetivo = diasData[ctx.diaIdx] ? diasData[ctx.diaIdx].warmupEjercicios[ctx.idx] : null;
+        }
+        if (!objetivo) { cerrarModalReemplazarEjercicio(); return; }
+
+        // Se mantienen reps/series/pausa/vueltas y demas configuracion ya cargada;
+        // solo cambia la identidad del ejercicio (nombre, video, carga, tips, elemento).
+        objetivo.nombre = nombre;
+        objetivo.link = link;
+        objetivo.con_carga = con_carga;
+        objetivo.tip1 = tip1;
+        objetivo.tip2 = tip2;
+        objetivo.elemento = elemento;
+
+        if (ctx.tipo === 'bloque') {
+            renderBloqueEjsTemp();
+        } else if (ctx.tipo === 'warmup') {
+            renderWarmupEjs();
+        } else if (ctx.tipo === 'warmup-dia') {
+            renderWarmupEjsDia(ctx.diaIdx);
+            actualizarBadgeDia(ctx.diaIdx);
+        }
+
+        cerrarModalReemplazarEjercicio();
+        if (typeof toast === 'function') toast('Ejercicio reemplazado');
+    }
+
     function renderWarmupEjsDia(idx) {
         const lista = document.getElementById('warmup-ejercicios-lista-' + idx);
         if (!lista || !diasData[idx]) return;
@@ -6173,7 +6363,11 @@
                 '<span class="text-xs text-textoSuave font-mono flex-shrink-0">' + (i+1) + '</span>' +
                 '<span class="text-sm font-bold ej-hover-preview truncate" data-video-url="' + linkEsc + '" data-ej-nombre="' + nombreEsc + '" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">' + ej.nombre + '</span>' + cargaBadgeW +
                 '</div>' +
-                '<button onclick="quitarEjWarmupDia(' + idx + ',' + i + ')" class="text-rojo hover:text-red-400 text-lg font-bold leading-none flex-shrink-0 ml-2">&times;</button>' +
+                '<div class="flex items-center gap-1 flex-shrink-0 ml-2">' +
+                '<button onclick="abrirReemplazarEjercicio(\'warmup-dia\',' + i + ',' + idx + ')" class="text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Reemplazar este ejercicio">Reemplazar</button>' +
+                '<button onclick="repetirEjWarmupDia(' + idx + ',' + i + ')" class="text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Repetir este ejercicio">Repetir</button>' +
+                '<button onclick="quitarEjWarmupDia(' + idx + ',' + i + ')" class="text-rojo hover:text-red-400 text-lg font-bold leading-none">&times;</button>' +
+                '</div>' +
                 '</div>' +
                 controlsHtml +
                 '</div>';
@@ -6229,13 +6423,7 @@
             const ejItems = ejs.map(e => {
                 const n = typeof e === 'object' ? (e.nombre || '') : (Array.isArray(e) ? e[0] : '');
                 if (!n) return '';
-                const reps = typeof e === 'object' ? _pfRepsEjercicio(e) : '';
-                return '<div class="pf-vr-ej-item">' +
-                    '<span class="pf-vr-ej-nombre">' + n + '</span>' +
-                    (reps ? '<span class="pf-vr-ej-reps">' + reps + '</span>' : '') +
-                '</div>';
-            }).filter(Boolean).join('');
-            // Detalle auto-generado del bloque (vueltas/pausa, trabajo/pausa de tabata, etc.)
+                const reps = typeof e === 'object' ? _pfRepsEjercicio(e, b.tipo) : '';
             const detalleBloque = _pfDetalleBloque(b);
             const pillsId = 'bloque-pills-' + idx + '-' + i;
             return '<div class="exercise-chip pf-card-resumen pf-cr-bloque rounded-2xl p-3" style="background:' + colorTipo.bg + '2E;"' +
@@ -6481,6 +6669,7 @@
                     <span class="text-sm font-bold ej-hover-preview" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">${ej.nombre}</span>
                     ${repsBadge}${cargaBadge}
                 </div>
+                <button onclick="abrirReemplazarEjercicio('warmup', ${i})" class="text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Reemplazar este ejercicio">Reemplazar</button>
                 <button onclick="repetirEjWarmup(${i})" class="text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Repetir este ejercicio">Repetir</button>
                 <button onclick="quitarEjWarmup(${i})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none">&times;</button>
             </div>`;
@@ -7377,6 +7566,7 @@
                     </div>
                     <div class="flex items-center gap-1 flex-shrink-0">
                         ${chevron}
+                        <button onclick="abrirReemplazarEjercicio('bloque', ${i})" class="text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Reemplazar este ejercicio">Reemplazar</button>
                         <button onclick="repetirEjBloque(${i})" class="text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Repetir este ejercicio">Repetir</button>
                         <button onclick="quitarEjBloque(${i})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none px-1">&times;</button>
                     </div>
@@ -8961,8 +9151,8 @@
     // series/reps o segundos bien grande, en vez de pills chicas en línea.
     function _pfGenerarHTMLCompactoGrande(dias) {
         if (!dias || dias.length === 0) return '<p class="text-textoSuave text-sm text-center py-6">Sin días para mostrar</p>';
-        const itemsHtml = (ejercicios) => (ejercicios || []).map(e => {
-            const reps = _pfRepsEjercicio(e);
+        const itemsHtml = (ejercicios, tipo) => (ejercicios || []).map(e => {
+            const reps = _pfRepsEjercicio(e, tipo);
             return '<div class="pf-vr-ej-item">' +
                 '<span class="pf-vr-ej-nombre">' + escapeHtml(e.nombre || '') + '</span>' +
                 (reps ? '<span class="pf-vr-ej-reps">' + escapeHtml(reps) + '</span>' : '') +
@@ -8979,7 +9169,7 @@
                         '<span class="pf-vr-card-title">🔥 Calentamiento</span>' +
                         (calSub ? '<span class="pf-vr-card-sub">' + escapeHtml(calSub) + '</span>' : '') +
                     '</div>' +
-                    '<div class="pf-vr-ej-list">' + itemsHtml(calEjs) + '</div>' +
+                    '<div class="pf-vr-ej-list">' + itemsHtml(calEjs, calTipo) + '</div>' +
                 '</div>'
             ) : '';
             const bloquesCards = (d.bloquesRutina || []).map((b, bi) => {
@@ -8989,7 +9179,7 @@
                         '<span class="pf-vr-card-title">💪 ' + (bi + 1) + '. ' + escapeHtml(b.tipo || 'Bloque') + '</span>' +
                         (detalle ? '<span class="pf-vr-card-sub">' + escapeHtml(detalle) + '</span>' : '') +
                     '</div>' +
-                    '<div class="pf-vr-ej-list">' + itemsHtml(b.ejercicios) + '</div>' +
+                    '<div class="pf-vr-ej-list">' + itemsHtml(b.ejercicios, b.tipo) + '</div>' +
                 '</div>';
             }).join('');
             return '<div class="mb-4">' +
@@ -14979,18 +15169,51 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
 
     // Texto de reps/seg de un ejercicio para mostrar junto al nombre en la pill.
     // Soporta los 3 formatos posibles: reps_por_vuelta (Circuito), reps_por_serie (Series), reps plano (resto).
-    function _pfRepsEjercicio(e) {
+    // IMPORTANTE: recibe el tipo de bloque/calentamiento (tipo) para decidir CUAL de los
+    // 3 formatos es el vigente. Sin esto, un ejercicio que en algun momento tuvo
+    // reps_por_vuelta o reps_por_serie cargados (por ej. porque el bloque tuvo mas de
+    // una vuelta/serie en algun momento, o cambio de tipo) podia mostrar ese dato viejo
+    // en vez del "reps" plano actual, aunque el tipo de bloque actual ya no use vueltas/series
+    // (Tabata, EMOM, Circuito por Tiempo, Por Tiempo, Sumando Ejercicio). Esto es lo mismo
+    // que ya hacia bien "vista completa" (ejBox), que primero mira el tipo de bloque.
+    function _pfRepsEjercicio(e, tipo) {
         if (!e) return '';
+        const unidadSuf = (e.unit && e.unit !== 'Reps') ? ' ' + e.unit.toLowerCase() : '';
+        const esCircuito = tipo === 'Circuito' || tipo === 'Circuito (Vueltas)';
+        const esSeries = tipo === 'Series' || tipo === 'Series/Reps';
+
+        if (esCircuito) {
+            if (e.reps_por_vuelta && e.reps_por_vuelta.length) {
+                const vals = e.reps_por_vuelta.filter(v => v);
+                if (vals.length) return vals.join('/') + unidadSuf;
+            }
+            return e.reps ? (e.reps + unidadSuf) : '';
+        }
+        if (esSeries) {
+            if (e.reps_por_serie && e.reps_por_serie.length) {
+                const vals = e.reps_por_serie.filter(v => v);
+                if (vals.length) return vals.join('/') + unidadSuf;
+            }
+            return e.reps ? (e.reps + unidadSuf) : '';
+        }
+        if (tipo) {
+            // Tipo de bloque conocido y no es Circuito ni Series (Tabata, EMOM, Circuito
+            // por Tiempo, Por Tiempo, Sumando Ejercicio): usar SIEMPRE el reps plano,
+            // ignorando reps_por_vuelta/reps_por_serie que pudieran haber quedado
+            // guardados de una configuracion anterior.
+            return e.reps ? (e.reps + unidadSuf) : '';
+        }
+        // Tipo desconocido (llamadas sin ese dato): mantener el comportamiento anterior
+        // como ultimo respaldo, priorizando los arrays si existen.
         if (e.reps_por_vuelta && e.reps_por_vuelta.length) {
             const vals = e.reps_por_vuelta.filter(v => v);
-            return vals.length ? vals.join('/') : '';
+            if (vals.length) return vals.join('/') + unidadSuf;
         }
         if (e.reps_por_serie && e.reps_por_serie.length) {
             const vals = e.reps_por_serie.filter(v => v);
-            return vals.length ? vals.join('/') : '';
+            if (vals.length) return vals.join('/') + unidadSuf;
         }
-        if (e.reps) return e.reps + (e.unit && e.unit !== 'Reps' ? ' ' + e.unit.toLowerCase() : '');
-        return '';
+        return e.reps ? (e.reps + unidadSuf) : '';
     }
 
     function _pfGenerarHTMLCompacto(dias, conCopiar) {
@@ -14998,11 +15221,11 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         if (!dias || dias.length === 0) return '<p class="text-textoSuave text-sm text-center py-6">Sin días para mostrar</p>';
         return dias.map((d, di) => {
             const calEjs = d.warmupEjercicios || [];
+            const calTipo = d._wTipo || d._warmupCfg?.tipo || '';
             const calPills = calEjs.map(e => {
-                const reps = _pfRepsEjercicio(e);
+                const reps = _pfRepsEjercicio(e, calTipo);
                 return '<span class="hist-pill">' + (e.nombre || '') + (reps ? ' <b class="text-texto">· ' + reps + '</b>' : '') + '</span>';
             }).join('');
-            const calTipo = d._wTipo || d._warmupCfg?.tipo || '';
             const calDetalle = _pfDetalleCalentamiento(d);
             const calCard = calEjs.length ? (
                 '<div class="bg-fondoAlt rounded-xl border border-azul/30 p-3 mb-2">' +
@@ -15020,7 +15243,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             const bloquesCards = (d.bloquesRutina || []).map((b, bi) => {
                 const color = colores[b.tipo] || 'purpura';
                 const pills = (b.ejercicios || []).map(e => {
-                    const reps = _pfRepsEjercicio(e);
+                    const reps = _pfRepsEjercicio(e, b.tipo);
                     return '<span class="hist-pill">' + (e.nombre || '') + (reps ? ' <b class="text-texto">· ' + reps + '</b>' : '') + '</span>';
                 }).join('');
                 const detalle = _pfDetalleBloque(b);
@@ -15474,7 +15697,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
                 pillsEl.innerHTML = ejs.map(e => {
                     const n = typeof e === 'object' ? (e.nombre || '') : (Array.isArray(e) ? e[0] : '');
                     if (!n) return '';
-                    const reps = typeof e === 'object' ? _pfRepsEjercicio(e) : '';
+                    const reps = typeof e === 'object' ? _pfRepsEjercicio(e, tipo) : '';
                     return '<div class="pf-vr-ej-item">' +
                         '<span class="pf-vr-ej-nombre">' + n + '</span>' +
                         (reps ? '<span class="pf-vr-ej-reps">' + reps + '</span>' : '') +
