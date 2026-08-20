@@ -340,6 +340,10 @@
             #warmup-ejercicios-lista .exercise-chip { flex-wrap: wrap; }
             #warmup-ejercicios-lista .exercise-chip .flex.items-center.gap-3 { flex-wrap: wrap; min-width: 0; flex: 1; overflow: hidden; }
             #warmup-ejercicios-lista .exercise-chip .flex.items-center.gap-3 .text-sm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+            /* Warmup por dia (calendario) - acciones (Reemplazar/Repetir/x): permitir que
+               pasen a una segunda linea si no entran, igual que en el resto de la app mobile. */
+            [id^="warmup-ejercicios-lista-"] .exercise-chip > .flex.items-center.justify-between { flex-wrap: wrap; row-gap: 6px; }
+            [id^="warmup-ejercicios-lista-"] .warmup-dia-acciones { margin-left: auto; }
             /* Bloque exercise chips - prevent overflow */
             #bloque-ejercicios-lista .exercise-chip .flex.gap-2.items-center { flex-wrap: wrap; }
             /* Video preview tooltip - mobile friendly */
@@ -6087,6 +6091,19 @@
         toastConDeshacer('Ejercicio quitado');
     }
 
+    // Duplica el ejercicio en la posicion ejIdx y lo agrega AL FINAL de la lista
+    // de calentamiento de ese dia (igual que repetirEjWarmup / repetirEjBloque).
+    function repetirEjWarmupDia(idx, ejIdx) {
+        if (!diasData[idx]) return;
+        const original = diasData[idx].warmupEjercicios[ejIdx];
+        if (!original) return;
+        _pfGuardarUndoSnapshot('repetir ejercicio de calentamiento');
+        const copia = JSON.parse(JSON.stringify(original));
+        diasData[idx].warmupEjercicios.push(copia);
+        renderWarmupEjsDia(idx);
+        actualizarBadgeDia(idx);
+    }
+
     function renderWarmupEjsDia(idx) {
         const lista = document.getElementById('warmup-ejercicios-lista-' + idx);
         if (!lista || !diasData[idx]) return;
@@ -6209,8 +6226,11 @@
                 '<span class="text-xs text-textoSuave font-mono flex-shrink-0">' + (i+1) + '</span>' +
                 '<span class="text-sm font-bold ej-hover-preview truncate" data-video-url="' + linkEsc + '" data-ej-nombre="' + nombreEsc + '" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">' + ej.nombre + '</span>' + cargaBadgeW +
                 '</div>' +
-                '<button onclick="reemplazarEjWarmupDia(' + idx + ',' + i + ')" class="text-textoSuave hover:text-azul text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50 flex-shrink-0 ml-2" title="Reemplazar este ejercicio">Reemplazar</button>' +
+                '<div class="warmup-dia-acciones flex items-center gap-1 flex-shrink-0 ml-2">' +
+                '<button onclick="reemplazarEjWarmupDia(' + idx + ',' + i + ')" class="text-textoSuave hover:text-azul text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50 flex-shrink-0" title="Reemplazar este ejercicio">Reemplazar</button>' +
+                '<button onclick="repetirEjWarmupDia(' + idx + ',' + i + ')" class="text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50 flex-shrink-0" title="Repetir este ejercicio">Repetir</button>' +
                 '<button onclick="quitarEjWarmupDia(' + idx + ',' + i + ')" class="text-rojo hover:text-red-400 text-lg font-bold leading-none flex-shrink-0 ml-1">&times;</button>' +
+                '</div>' +
                 '</div>' +
                 controlsHtml +
                 '</div>';
