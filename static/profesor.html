@@ -94,6 +94,17 @@
         .exercise-chip .text-\[9px\] {
             font-size: 0.7rem !important;
         }
+        /* Acciones del ejercicio: visibles y sin comprimirse en desktop y mobile. */
+        .pf-ej-action-btn {
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto !important;
+            min-height: 32px;
+            white-space: nowrap !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
         .ac-item-ej {
             font-size: 1.1rem !important;
         }
@@ -6133,7 +6144,7 @@
         const esEmom = r.tipo === 'emom-bloque' || r.tipo === 'emom-warmup';
         let objetivo = r.tipo === 'warmup-dia'
             ? diasData[r.diaIdx]?.warmupEjercicios?.[r.indice]
-            : bloqueEjsTemp[r.indice];
+            : r.tipo === 'warmup-standalone' ? warmupEjercicios[r.indice] : bloqueEjsTemp[r.indice];
         let emomLista = null;
         if (esEmom) {
             const prefijo = r.tipo === 'emom-bloque' ? 'emom-min-' : 'emow-min-' + r.idxOrKey + '-';
@@ -6157,6 +6168,7 @@
             lista.innerHTML = emomLista.map((ej, ei) => emomChipHtml(ej, ei, r.minIdx, r.tipo === 'emom-bloque' ? 'bloque' : 'warmup', r.idxOrKey)).join('');
             if (r.tipo === 'emom-warmup') guardarWarmupEmom(r.idxOrKey);
         } else if (r.tipo === 'warmup-dia') renderWarmupEjsDia(r.diaIdx);
+        else if (r.tipo === 'warmup-standalone') renderWarmupEjs();
         else renderBloqueEjsTemp();
         toast('Ejercicio reemplazado');
     }
@@ -6290,8 +6302,8 @@
                 '<span class="text-xs text-textoSuave font-mono flex-shrink-0">' + (i+1) + '</span>' +
                 '<span class="text-sm font-bold ej-hover-preview truncate" data-video-url="' + linkEsc + '" data-ej-nombre="' + nombreEsc + '" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">' + ej.nombre + '</span>' + cargaBadgeW +
                 '</div>' +
-                 '<button onclick="event.stopPropagation();abrirModalReemplazarEjercicio(\'warmup-dia\',' + i + ',' + idx + ')" class="text-textoSuave hover:text-verde text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50 whitespace-nowrap" title="Reemplazar este ejercicio">Reemplazar</button>' +
-                 '<button onclick="event.stopPropagation();repetirEjWarmupDia(' + idx + ',' + i + ')" class="text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50 whitespace-nowrap" title="Repetir este ejercicio">Repetir</button>' +
+                 '<button onclick="event.stopPropagation();abrirModalReemplazarEjercicio(\'warmup-dia\',' + i + ',' + idx + ')" class="pf-ej-action-btn text-textoSuave hover:text-verde text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Reemplazar este ejercicio">Reemplazar</button>' +
+                 '<button onclick="event.stopPropagation();repetirEjWarmupDia(' + idx + ',' + i + ')" class="pf-ej-action-btn text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Repetir este ejercicio">Repetir</button>' +
                 '<button onclick="quitarEjWarmupDia(' + idx + ',' + i + ')" class="text-rojo hover:text-red-400 text-lg font-bold leading-none flex-shrink-0 ml-2">&times;</button>' +
                 '</div>' +
                 controlsHtml +
@@ -6600,7 +6612,8 @@
                     <span class="text-sm font-bold ej-hover-preview" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">${ej.nombre}</span>
                     ${repsBadge}${cargaBadge}
                 </div>
-                <button onclick="repetirEjWarmup(${i})" class="text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Repetir este ejercicio">Repetir</button>
+                <button onclick="abrirModalReemplazarEjercicio('warmup-standalone',${i})" class="pf-ej-action-btn text-textoSuave hover:text-verde text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Reemplazar este ejercicio">Reemplazar</button>
+                <button onclick="repetirEjWarmup(${i})" class="pf-ej-action-btn text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Repetir este ejercicio">Repetir</button>
                 <button onclick="quitarEjWarmup(${i})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none">&times;</button>
             </div>`;
         }).join('');
@@ -6771,8 +6784,8 @@
             '<option ' + ((ej.unit || 'Reps') === 'Reps' ? 'selected' : '') + '>Reps</option>' +
             '<option ' + ((ej.unit || 'Reps') === 'Segs' ? 'selected' : '') + '>Segs</option>' +
             '</select>' +
-            '<button onclick="event.stopPropagation();' + reemplazar + '" class="text-textoSuave hover:text-verde font-bold text-[10px] leading-none px-1.5 py-1 rounded border border-borde/50 flex-shrink-0" title="Reemplazar este ejercicio">Reemplazar</button>' +
-            '<button onclick="event.stopPropagation();' + repetir + '" class="text-textoSuave hover:text-naranja font-bold text-[10px] leading-none px-1.5 py-1 rounded border border-borde/50 flex-shrink-0" title="Repetir este ejercicio">Repetir</button>' +
+            '<button onclick="event.stopPropagation();' + reemplazar + '" class="pf-ej-action-btn text-textoSuave hover:text-verde font-bold text-[10px] leading-none px-1.5 py-1 rounded border border-borde/50" title="Reemplazar este ejercicio">Reemplazar</button>' +
+            '<button onclick="event.stopPropagation();' + repetir + '" class="pf-ej-action-btn text-textoSuave hover:text-naranja font-bold text-[10px] leading-none px-1.5 py-1 rounded border border-borde/50" title="Repetir este ejercicio">Repetir</button>' +
             '<button onclick="' + quitar + '" class="text-rojo font-bold text-sm leading-none flex-shrink-0">&times;</button>' +
             '</div>';
     }
@@ -7546,8 +7559,8 @@
                     </div>
                     <div class="flex items-center gap-1 flex-shrink-0">
                         ${chevron}
-                        <button onclick="event.stopPropagation();abrirModalReemplazarEjercicio('bloque',${i})" class="text-textoSuave hover:text-verde text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50 whitespace-nowrap" title="Reemplazar este ejercicio">Reemplazar</button>
-                        <button onclick="repetirEjBloque(${i})" class="text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Repetir este ejercicio">Repetir</button>
+                        <button onclick="event.stopPropagation();abrirModalReemplazarEjercicio('bloque',${i})" class="pf-ej-action-btn text-textoSuave hover:text-verde text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Reemplazar este ejercicio">Reemplazar</button>
+                        <button onclick="repetirEjBloque(${i})" class="pf-ej-action-btn text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Repetir este ejercicio">Repetir</button>
                         <button onclick="quitarEjBloque(${i})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none px-1">&times;</button>
                     </div>
                 </div>
