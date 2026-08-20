@@ -6130,9 +6130,18 @@
         const nuevo = _pfCatalogoEjercicios().filter(e => !query || e.nombre.toLowerCase().includes(query))[opcionIdx];
         if (!nuevo) return;
         const r = _pfReemplazoEjercicio;
-        const objetivo = r.tipo === 'warmup-dia'
+        const esEmom = r.tipo === 'emom-bloque' || r.tipo === 'emom-warmup';
+        let objetivo = r.tipo === 'warmup-dia'
             ? diasData[r.diaIdx]?.warmupEjercicios?.[r.indice]
             : bloqueEjsTemp[r.indice];
+        let emomLista = null;
+        if (esEmom) {
+            const prefijo = r.tipo === 'emom-bloque' ? 'emom-min-' : 'emow-min-' + r.idxOrKey + '-';
+            const lista = document.getElementById(prefijo + r.minIdx + '-lista');
+            if (!lista) return;
+            try { emomLista = JSON.parse(lista.dataset.ejs || '[]'); } catch (e) { emomLista = []; }
+            objetivo = emomLista[r.indice];
+        }
         if (!objetivo) return;
         objetivo.nombre = nuevo.nombre;
         objetivo.link = nuevo.link;
@@ -6141,7 +6150,13 @@
         objetivo.tip2 = nuevo.tip2;
         objetivo.elemento = nuevo.elemento;
         cerrarModalReemplazarEjercicio();
-        if (r.tipo === 'warmup-dia') renderWarmupEjsDia(r.diaIdx);
+        if (esEmom) {
+            const prefijo = r.tipo === 'emom-bloque' ? 'emom-min-' : 'emow-min-' + r.idxOrKey + '-';
+            const lista = document.getElementById(prefijo + r.minIdx + '-lista');
+            lista.dataset.ejs = JSON.stringify(emomLista);
+            lista.innerHTML = emomLista.map((ej, ei) => emomChipHtml(ej, ei, r.minIdx, r.tipo === 'emom-bloque' ? 'bloque' : 'warmup', r.idxOrKey)).join('');
+            if (r.tipo === 'emom-warmup') guardarWarmupEmom(r.idxOrKey);
+        } else if (r.tipo === 'warmup-dia') renderWarmupEjsDia(r.diaIdx);
         else renderBloqueEjsTemp();
         toast('Ejercicio reemplazado');
     }
@@ -6739,6 +6754,12 @@
         const quitar = tipo === 'bloque'
             ? 'emomBloqueQuitarEj(' + minIdx + ',' + ei + ')'
             : "emomWarmupQuitarEj('" + idxOrKey + "'," + minIdx + ',' + ei + ')';
+        const reemplazar = tipo === 'bloque'
+            ? "abrirModalReemplazarEmom('emom-bloque'," + minIdx + ',' + ei + ')'
+            : "abrirModalReemplazarEmom('emom-warmup'," + minIdx + ',' + ei + ",'" + idxOrKey + "')";
+        const repetir = tipo === 'bloque'
+            ? 'emomBloqueRepetirEj(' + minIdx + ',' + ei + ')'
+            : "emomWarmupRepetirEj('" + idxOrKey + "'," + minIdx + ',' + ei + ')';
         return '<div class="flex items-center gap-1.5 bg-fondoAlt rounded-lg px-2 py-1 mt-1">' +
             '<span class="text-xs font-bold text-amarillo w-5 flex-shrink-0">E' + (ei+1) + '</span>' +
             '<span class="text-xs flex-1 truncate ej-hover-preview cursor-pointer" style="min-width:0"' +
@@ -6750,8 +6771,52 @@
             '<option ' + ((ej.unit || 'Reps') === 'Reps' ? 'selected' : '') + '>Reps</option>' +
             '<option ' + ((ej.unit || 'Reps') === 'Segs' ? 'selected' : '') + '>Segs</option>' +
             '</select>' +
+            '<button onclick="event.stopPropagation();' + reemplazar + '" class="text-textoSuave hover:text-verde font-bold text-[10px] leading-none px-1.5 py-1 rounded border border-borde/50 flex-shrink-0" title="Reemplazar este ejercicio">Reemplazar</button>' +
+            '<button onclick="event.stopPropagation();' + repetir + '" class="text-textoSuave hover:text-naranja font-bold text-[10px] leading-none px-1.5 py-1 rounded border border-borde/50 flex-shrink-0" title="Repetir este ejercicio">Repetir</button>' +
             '<button onclick="' + quitar + '" class="text-rojo font-bold text-sm leading-none flex-shrink-0">&times;</button>' +
             '</div>';
+    }
+
+    function abrirModalReemplazarEmom(tipo, minIdx, ejIdx, idxOrKey) {
+        const prefijo = tipo === 'emom-bloque' ? 'emom-min-' : 'emow-min-' + idxOrKey + '-';
+        const lista = document.getElementById(prefijo + minIdx + '-lista');
+        if (!lista) return;
+        let ejs = [];
+        try { ejs = JSON.parse(lista.dataset.ejs || '[]'); } catch (e) {}
+        if (!ejs[ejIdx]) return;
+        _pfReemplazoEjercicio = { tipo, minIdx, indice: ejIdx, idxOrKey };
+        document.getElementById('reemplazar-ejercicio-actual').textContent = 'Actual: ' + ejs[ejIdx].nombre;
+        const input = document.getElementById('reemplazar-ejercicio-buscar');
+        input.value = '';
+        document.getElementById('modal-reemplazar-ejercicio').classList.remove('hidden');
+        _pfRenderOpcionesReemplazo();
+        setTimeout(() => input.focus(), 50);
+    }
+    function _pfActualizarListaEmom(tipo, minIdx, idxOrKey, ejs) {
+        const prefijo = tipo === 'emom-bloque' ? 'emom-min-' : 'emow-min-' + idxOrKey + '-';
+        const lista = document.getElementById(prefijo + minIdx + '-lista');
+        if (!lista) return;
+        lista.dataset.ejs = JSON.stringify(ejs);
+        lista.innerHTML = ejs.map((ej, ei) => emomChipHtml(ej, ei, minIdx, tipo === 'emom-bloque' ? 'bloque' : 'warmup', idxOrKey)).join('');
+        const cntEl = document.getElementById(prefijo + minIdx + '-cnt');
+        if (cntEl) cntEl.textContent = ejs.length + ' ejercicio' + (ejs.length !== 1 ? 's' : '');
+    }
+    function emomBloqueRepetirEj(minIdx, ejIdx) {
+        const lista = document.getElementById('emom-min-' + minIdx + '-lista');
+        if (!lista) return;
+        let ejs = []; try { ejs = JSON.parse(lista.dataset.ejs || '[]'); } catch (e) {}
+        if (!ejs[ejIdx]) return;
+        ejs.push(JSON.parse(JSON.stringify(ejs[ejIdx])));
+        _pfActualizarListaEmom('emom-bloque', minIdx, null, ejs);
+    }
+    function emomWarmupRepetirEj(idxOrKey, minIdx, ejIdx) {
+        const lista = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-lista');
+        if (!lista) return;
+        let ejs = []; try { ejs = JSON.parse(lista.dataset.ejs || '[]'); } catch (e) {}
+        if (!ejs[ejIdx]) return;
+        ejs.push(JSON.parse(JSON.stringify(ejs[ejIdx])));
+        _pfActualizarListaEmom('emom-warmup', minIdx, idxOrKey, ejs);
+        guardarWarmupEmom(idxOrKey);
     }
 
     // Cargar ejercicios en un selector EMOM (bloque o warmup) filtrando por búsqueda
