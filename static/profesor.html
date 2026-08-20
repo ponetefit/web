@@ -94,6 +94,17 @@
         .exercise-chip .text-\[9px\] {
             font-size: 0.7rem !important;
         }
+        /* Acciones del ejercicio: visibles y sin comprimirse en desktop y mobile. */
+        .pf-ej-action-btn {
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto !important;
+            min-height: 32px;
+            white-space: nowrap !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
         .ac-item-ej {
             font-size: 1.1rem !important;
         }
@@ -3276,6 +3287,22 @@
         </div>
     </div>
 
+    <!-- Modal: reemplazar un ejercicio ya agregado -->
+    <div id="modal-reemplazar-ejercicio" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+        <div class="bg-tarjeta rounded-2xl border border-borde p-5 max-w-lg w-full max-h-[85vh] flex flex-col">
+            <div class="flex items-center justify-between gap-3 mb-3">
+                <div>
+                    <h3 class="text-sm font-bold text-verde uppercase tracking-wider">Reemplazar ejercicio</h3>
+                    <p id="reemplazar-ejercicio-actual" class="text-xs text-textoSuave mt-1"></p>
+                </div>
+                <button type="button" onclick="cerrarModalReemplazarEjercicio()" class="text-textoSuave hover:text-texto text-xl leading-none px-2">&times;</button>
+            </div>
+            <input id="reemplazar-ejercicio-buscar" type="text" autocomplete="off" placeholder="Buscar ejercicio..." class="w-full rounded-lg px-3 py-2.5 text-sm mb-3">
+            <div id="reemplazar-ejercicio-lista" class="space-y-2 overflow-y-auto min-h-0"></div>
+            <button type="button" onclick="cerrarModalReemplazarEjercicio()" class="w-full py-2.5 mt-3 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
+        </div>
+    </div>
+
     <!-- Modal: historial de las ultimas rutinas del alumno que se esta cargando en Crear Rutina -->
     <div id="modal-historial-alumno" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start sm:items-center justify-center p-2 sm:p-6 overflow-y-auto modal-bottom-sheet-mobile">
         <div class="bg-tarjeta rounded-2xl border border-borde p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto my-2 sm:my-0">
@@ -6051,6 +6078,108 @@
         toastConDeshacer('Ejercicio quitado');
     }
 
+    // Duplica el ejercicio del calentamiento y lo agrega al final de la lista.
+    function repetirEjWarmupDia(idx, ejIdx) {
+        if (!diasData[idx]?.warmupEjercicios?.[ejIdx]) return;
+        _pfGuardarUndoSnapshot('repetir ejercicio de calentamiento');
+        const copia = JSON.parse(JSON.stringify(diasData[idx].warmupEjercicios[ejIdx]));
+        diasData[idx].warmupEjercicios.push(copia);
+        renderWarmupEjsDia(idx);
+        actualizarBadgeDia(idx);
+        toast('Ejercicio repetido');
+    }
+
+    // Abre un selector común para cambiar solo la identidad del ejercicio.
+    // Todos los parámetros que el profesor ya cargó se mantienen intactos.
+    let _pfReemplazoEjercicio = null;
+    function _pfEscaparHtml(txt) {
+        return String(txt || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    function _pfCatalogoEjercicios() {
+        const vistos = new Set();
+        const salida = [];
+        Object.entries(videotecaCache || {}).forEach(([cat, ejercicios]) => {
+            (ejercicios || []).forEach(e => {
+                const nombre = e.nombre || e[0] || '';
+                if (!nombre || vistos.has(nombre)) return;
+                vistos.add(nombre);
+                salida.push({ nombre, cat, link: e.link || e[1] || '', con_carga: e.con_carga === true || e.con_carga === 'true',
+                    tip1: e.tip1 || '', tip2: e.tip2 || '', elemento: e.elemento || '' });
+            });
+        });
+        return salida.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    }
+    function abrirModalReemplazarEjercicio(tipo, indice, diaIdx) {
+        _pfReemplazoEjercicio = { tipo, indice, diaIdx };
+        const actual = tipo === 'warmup-dia'
+            ? diasData[diaIdx]?.warmupEjercicios?.[indice]
+            : bloqueEjsTemp[indice];
+        if (!actual) return;
+        document.getElementById('reemplazar-ejercicio-actual').textContent = 'Actual: ' + actual.nombre;
+        const input = document.getElementById('reemplazar-ejercicio-buscar');
+        input.value = '';
+        document.getElementById('modal-reemplazar-ejercicio').classList.remove('hidden');
+        _pfRenderOpcionesReemplazo();
+        setTimeout(() => input.focus(), 50);
+    }
+    function _pfRenderOpcionesReemplazo() {
+        const lista = document.getElementById('reemplazar-ejercicio-lista');
+        const query = (document.getElementById('reemplazar-ejercicio-buscar')?.value || '').trim().toLowerCase();
+        if (!lista) return;
+        const opciones = _pfCatalogoEjercicios().filter(e => !query || e.nombre.toLowerCase().includes(query));
+        lista.innerHTML = opciones.length ? opciones.map((e, opcionIdx) =>
+            '<button type="button" class="w-full text-left flex items-center justify-between gap-3 px-3 py-3 rounded-xl bg-fondoAlt border border-borde/60 hover:border-verde hover:bg-verde/10 transition" onclick="_pfAplicarReemplazoEjercicio(' +
+            opcionIdx + ')">' +
+            '<span class="font-bold text-sm text-texto">' + _pfEscaparHtml(e.nombre) + '</span>' +
+            '<span class="text-xs text-textoSuave flex-shrink-0">' + _pfEscaparHtml(e.cat) + '</span></button>'
+        ).join('') : '<p class="text-sm text-textoSuave text-center py-6">No se encontraron ejercicios.</p>';
+    }
+    function _pfAplicarReemplazoEjercicio(opcionIdx) {
+        if (!_pfReemplazoEjercicio) return;
+        const query = (document.getElementById('reemplazar-ejercicio-buscar')?.value || '').trim().toLowerCase();
+        const nuevo = _pfCatalogoEjercicios().filter(e => !query || e.nombre.toLowerCase().includes(query))[opcionIdx];
+        if (!nuevo) return;
+        const r = _pfReemplazoEjercicio;
+        const esEmom = r.tipo === 'emom-bloque' || r.tipo === 'emom-warmup';
+        let objetivo = r.tipo === 'warmup-dia'
+            ? diasData[r.diaIdx]?.warmupEjercicios?.[r.indice]
+            : r.tipo === 'warmup-standalone' ? warmupEjercicios[r.indice] : bloqueEjsTemp[r.indice];
+        let emomLista = null;
+        if (esEmom) {
+            const prefijo = r.tipo === 'emom-bloque' ? 'emom-min-' : 'emow-min-' + r.idxOrKey + '-';
+            const lista = document.getElementById(prefijo + r.minIdx + '-lista');
+            if (!lista) return;
+            try { emomLista = JSON.parse(lista.dataset.ejs || '[]'); } catch (e) { emomLista = []; }
+            objetivo = emomLista[r.indice];
+        }
+        if (!objetivo) return;
+        objetivo.nombre = nuevo.nombre;
+        objetivo.link = nuevo.link;
+        objetivo.con_carga = nuevo.con_carga;
+        objetivo.tip1 = nuevo.tip1;
+        objetivo.tip2 = nuevo.tip2;
+        objetivo.elemento = nuevo.elemento;
+        cerrarModalReemplazarEjercicio();
+        if (esEmom) {
+            const prefijo = r.tipo === 'emom-bloque' ? 'emom-min-' : 'emow-min-' + r.idxOrKey + '-';
+            const lista = document.getElementById(prefijo + r.minIdx + '-lista');
+            lista.dataset.ejs = JSON.stringify(emomLista);
+            lista.innerHTML = emomLista.map((ej, ei) => emomChipHtml(ej, ei, r.minIdx, r.tipo === 'emom-bloque' ? 'bloque' : 'warmup', r.idxOrKey)).join('');
+            if (r.tipo === 'emom-warmup') guardarWarmupEmom(r.idxOrKey);
+        } else if (r.tipo === 'warmup-dia') renderWarmupEjsDia(r.diaIdx);
+        else if (r.tipo === 'warmup-standalone') renderWarmupEjs();
+        else renderBloqueEjsTemp();
+        toast('Ejercicio reemplazado');
+    }
+    function cerrarModalReemplazarEjercicio() {
+        document.getElementById('modal-reemplazar-ejercicio')?.classList.add('hidden');
+        _pfReemplazoEjercicio = null;
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('reemplazar-ejercicio-buscar')?.addEventListener('input', _pfRenderOpcionesReemplazo);
+    });
+
     function renderWarmupEjsDia(idx) {
         const lista = document.getElementById('warmup-ejercicios-lista-' + idx);
         if (!lista || !diasData[idx]) return;
@@ -6173,6 +6302,8 @@
                 '<span class="text-xs text-textoSuave font-mono flex-shrink-0">' + (i+1) + '</span>' +
                 '<span class="text-sm font-bold ej-hover-preview truncate" data-video-url="' + linkEsc + '" data-ej-nombre="' + nombreEsc + '" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">' + ej.nombre + '</span>' + cargaBadgeW +
                 '</div>' +
+                 '<button onclick="event.stopPropagation();abrirModalReemplazarEjercicio(\'warmup-dia\',' + i + ',' + idx + ')" class="pf-ej-action-btn text-textoSuave hover:text-verde text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Reemplazar este ejercicio">Reemplazar</button>' +
+                 '<button onclick="event.stopPropagation();repetirEjWarmupDia(' + idx + ',' + i + ')" class="pf-ej-action-btn text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Repetir este ejercicio">Repetir</button>' +
                 '<button onclick="quitarEjWarmupDia(' + idx + ',' + i + ')" class="text-rojo hover:text-red-400 text-lg font-bold leading-none flex-shrink-0 ml-2">&times;</button>' +
                 '</div>' +
                 controlsHtml +
@@ -6481,7 +6612,8 @@
                     <span class="text-sm font-bold ej-hover-preview" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">${ej.nombre}</span>
                     ${repsBadge}${cargaBadge}
                 </div>
-                <button onclick="repetirEjWarmup(${i})" class="text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Repetir este ejercicio">Repetir</button>
+                <button onclick="abrirModalReemplazarEjercicio('warmup-standalone',${i})" class="pf-ej-action-btn text-textoSuave hover:text-verde text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Reemplazar este ejercicio">Reemplazar</button>
+                <button onclick="repetirEjWarmup(${i})" class="pf-ej-action-btn text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Repetir este ejercicio">Repetir</button>
                 <button onclick="quitarEjWarmup(${i})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none">&times;</button>
             </div>`;
         }).join('');
@@ -6635,6 +6767,12 @@
         const quitar = tipo === 'bloque'
             ? 'emomBloqueQuitarEj(' + minIdx + ',' + ei + ')'
             : "emomWarmupQuitarEj('" + idxOrKey + "'," + minIdx + ',' + ei + ')';
+        const reemplazar = tipo === 'bloque'
+            ? "abrirModalReemplazarEmom('emom-bloque'," + minIdx + ',' + ei + ')'
+            : "abrirModalReemplazarEmom('emom-warmup'," + minIdx + ',' + ei + ",'" + idxOrKey + "')";
+        const repetir = tipo === 'bloque'
+            ? 'emomBloqueRepetirEj(' + minIdx + ',' + ei + ')'
+            : "emomWarmupRepetirEj('" + idxOrKey + "'," + minIdx + ',' + ei + ')';
         return '<div class="flex items-center gap-1.5 bg-fondoAlt rounded-lg px-2 py-1 mt-1">' +
             '<span class="text-xs font-bold text-amarillo w-5 flex-shrink-0">E' + (ei+1) + '</span>' +
             '<span class="text-xs flex-1 truncate ej-hover-preview cursor-pointer" style="min-width:0"' +
@@ -6646,8 +6784,52 @@
             '<option ' + ((ej.unit || 'Reps') === 'Reps' ? 'selected' : '') + '>Reps</option>' +
             '<option ' + ((ej.unit || 'Reps') === 'Segs' ? 'selected' : '') + '>Segs</option>' +
             '</select>' +
+            '<button onclick="event.stopPropagation();' + reemplazar + '" class="pf-ej-action-btn text-textoSuave hover:text-verde font-bold text-[10px] leading-none px-1.5 py-1 rounded border border-borde/50" title="Reemplazar este ejercicio">Reemplazar</button>' +
+            '<button onclick="event.stopPropagation();' + repetir + '" class="pf-ej-action-btn text-textoSuave hover:text-naranja font-bold text-[10px] leading-none px-1.5 py-1 rounded border border-borde/50" title="Repetir este ejercicio">Repetir</button>' +
             '<button onclick="' + quitar + '" class="text-rojo font-bold text-sm leading-none flex-shrink-0">&times;</button>' +
             '</div>';
+    }
+
+    function abrirModalReemplazarEmom(tipo, minIdx, ejIdx, idxOrKey) {
+        const prefijo = tipo === 'emom-bloque' ? 'emom-min-' : 'emow-min-' + idxOrKey + '-';
+        const lista = document.getElementById(prefijo + minIdx + '-lista');
+        if (!lista) return;
+        let ejs = [];
+        try { ejs = JSON.parse(lista.dataset.ejs || '[]'); } catch (e) {}
+        if (!ejs[ejIdx]) return;
+        _pfReemplazoEjercicio = { tipo, minIdx, indice: ejIdx, idxOrKey };
+        document.getElementById('reemplazar-ejercicio-actual').textContent = 'Actual: ' + ejs[ejIdx].nombre;
+        const input = document.getElementById('reemplazar-ejercicio-buscar');
+        input.value = '';
+        document.getElementById('modal-reemplazar-ejercicio').classList.remove('hidden');
+        _pfRenderOpcionesReemplazo();
+        setTimeout(() => input.focus(), 50);
+    }
+    function _pfActualizarListaEmom(tipo, minIdx, idxOrKey, ejs) {
+        const prefijo = tipo === 'emom-bloque' ? 'emom-min-' : 'emow-min-' + idxOrKey + '-';
+        const lista = document.getElementById(prefijo + minIdx + '-lista');
+        if (!lista) return;
+        lista.dataset.ejs = JSON.stringify(ejs);
+        lista.innerHTML = ejs.map((ej, ei) => emomChipHtml(ej, ei, minIdx, tipo === 'emom-bloque' ? 'bloque' : 'warmup', idxOrKey)).join('');
+        const cntEl = document.getElementById(prefijo + minIdx + '-cnt');
+        if (cntEl) cntEl.textContent = ejs.length + ' ejercicio' + (ejs.length !== 1 ? 's' : '');
+    }
+    function emomBloqueRepetirEj(minIdx, ejIdx) {
+        const lista = document.getElementById('emom-min-' + minIdx + '-lista');
+        if (!lista) return;
+        let ejs = []; try { ejs = JSON.parse(lista.dataset.ejs || '[]'); } catch (e) {}
+        if (!ejs[ejIdx]) return;
+        ejs.push(JSON.parse(JSON.stringify(ejs[ejIdx])));
+        _pfActualizarListaEmom('emom-bloque', minIdx, null, ejs);
+    }
+    function emomWarmupRepetirEj(idxOrKey, minIdx, ejIdx) {
+        const lista = document.getElementById('emow-min-' + idxOrKey + '-' + minIdx + '-lista');
+        if (!lista) return;
+        let ejs = []; try { ejs = JSON.parse(lista.dataset.ejs || '[]'); } catch (e) {}
+        if (!ejs[ejIdx]) return;
+        ejs.push(JSON.parse(JSON.stringify(ejs[ejIdx])));
+        _pfActualizarListaEmom('emom-warmup', minIdx, idxOrKey, ejs);
+        guardarWarmupEmom(idxOrKey);
     }
 
     // Cargar ejercicios en un selector EMOM (bloque o warmup) filtrando por búsqueda
@@ -7377,7 +7559,8 @@
                     </div>
                     <div class="flex items-center gap-1 flex-shrink-0">
                         ${chevron}
-                        <button onclick="repetirEjBloque(${i})" class="text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Repetir este ejercicio">Repetir</button>
+                        <button onclick="event.stopPropagation();abrirModalReemplazarEjercicio('bloque',${i})" class="pf-ej-action-btn text-textoSuave hover:text-verde text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Reemplazar este ejercicio">Reemplazar</button>
+                        <button onclick="repetirEjBloque(${i})" class="pf-ej-action-btn text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Repetir este ejercicio">Repetir</button>
                         <button onclick="quitarEjBloque(${i})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none px-1">&times;</button>
                     </div>
                 </div>
