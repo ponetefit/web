@@ -1613,6 +1613,33 @@
             padding: 3px 10px;
             white-space: nowrap;
         }
+        .pf-vr-emom-min {
+            font-family: 'Roboto', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: #FFD54F;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            background: rgba(255,213,79,0.12);
+            border-left: 3px solid #FFD54F;
+            border-radius: 6px;
+            padding: 3px 10px;
+            margin: 8px 0 6px;
+        }
+        .pf-vr-emom-min:first-child { margin-top: 0; }
+        .pf-vr-emom-vacio {
+            font-size: 0.75rem;
+            color: #9a9aa5;
+            font-style: italic;
+            text-align: center;
+            margin: 0 0 8px;
+        }
+        .pf-vr-emom-nota {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #FFD54F;
+            margin: 6px 0 0;
+        }
         .pf-flash-agregado { animation: pfFlashVerde 0.9s ease; }
         @keyframes pfFlashVerde {
             0% { background-color: rgba(76, 217, 100, 0.35); }
@@ -9262,28 +9289,55 @@
                 (reps ? '<span class="pf-vr-ej-reps">' + escapeHtml(reps) + '</span>' : '') +
             '</div>';
         }).join('');
+        // EMOM guarda las reps/segs reales por minuto (un mismo ejercicio puede
+        // repetirse en distintos minutos con distinta cantidad). La lista plana
+        // de ejercicios del bloque/calentamiento es solo un resumen sin duplicados
+        // y por eso no alcanza para mostrar bien la cantidad — hay que recorrer
+        // el detalle minuto a minuto, igual que hace la Vista completa.
+        const itemsHtmlEmom = (emomConfig) => {
+            if (!emomConfig || !emomConfig.length) return '';
+            const ciclo = _pfDetectarCicloEMOM(emomConfig);
+            const mostrar = ciclo < emomConfig.length ? emomConfig.slice(0, ciclo) : emomConfig;
+            let out = mostrar.map((minCfg, mi) => {
+                const ejsMin = (minCfg && minCfg.ejercicios) || [];
+                const minLabel = '<div class="pf-vr-emom-min">Minuto ' + (mi + 1) + '</div>';
+                if (ejsMin.length === 0) {
+                    return minLabel + '<p class="pf-vr-emom-vacio">Sin ejercicios</p>';
+                }
+                return minLabel + itemsHtml(ejsMin);
+            }).join('');
+            if (ciclo < emomConfig.length) {
+                const veces = Math.ceil(emomConfig.length / ciclo);
+                out += '<p class="pf-vr-emom-nota">↻ Repetir este ciclo ' + veces + ' veces (' + emomConfig.length + ' min totales)</p>';
+            }
+            return out;
+        };
         return dias.map((d, di) => {
             const calEjs = d.warmupEjercicios || [];
             const calTipo = d._wTipo || d._warmupCfg?.tipo || '';
+            const calEmomCfg = d.warmupEmomConfig || [];
+            const calEsEmom = calTipo === 'EMOM' && calEmomCfg.length > 0;
             const calDetalle = _pfDetalleCalentamiento(d);
             const calSub = [calTipo, calDetalle].filter(Boolean).join(' · ');
-            const calCard = calEjs.length ? (
+            const calCard = (calEsEmom || calEjs.length) ? (
                 '<div class="pf-vr-card pf-vr-card-cal">' +
                     '<div class="pf-vr-card-head">' +
                         '<span class="pf-vr-card-title">🔥 Calentamiento</span>' +
                         (calSub ? '<span class="pf-vr-card-sub">' + escapeHtml(calSub) + '</span>' : '') +
                     '</div>' +
-                    '<div class="pf-vr-ej-list">' + itemsHtml(calEjs) + '</div>' +
+                    '<div class="pf-vr-ej-list">' + (calEsEmom ? itemsHtmlEmom(calEmomCfg) : itemsHtml(calEjs)) + '</div>' +
                 '</div>'
             ) : '';
             const bloquesCards = (d.bloquesRutina || []).map((b, bi) => {
                 const detalle = _pfDetalleBloque(b);
+                const bEmomCfg = b.emom_config_por_minuto || [];
+                const bEsEmom = b.tipo === 'EMOM' && bEmomCfg.length > 0;
                 return '<div class="pf-vr-card pf-vr-card-bloque">' +
                     '<div class="pf-vr-card-head">' +
                         '<span class="pf-vr-card-title">💪 ' + (bi + 1) + '. ' + escapeHtml(b.tipo || 'Bloque') + '</span>' +
                         (detalle ? '<span class="pf-vr-card-sub">' + escapeHtml(detalle) + '</span>' : '') +
                     '</div>' +
-                    '<div class="pf-vr-ej-list">' + itemsHtml(b.ejercicios) + '</div>' +
+                    '<div class="pf-vr-ej-list">' + (bEsEmom ? itemsHtmlEmom(bEmomCfg) : itemsHtml(b.ejercicios)) + '</div>' +
                 '</div>';
             }).join('');
             return '<div class="mb-4">' +
