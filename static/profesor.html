@@ -6423,13 +6423,7 @@
             const ejItems = ejs.map(e => {
                 const n = typeof e === 'object' ? (e.nombre || '') : (Array.isArray(e) ? e[0] : '');
                 if (!n) return '';
-                const reps = typeof e === 'object' ? _pfRepsEjercicio(e) : '';
-                return '<div class="pf-vr-ej-item">' +
-                    '<span class="pf-vr-ej-nombre">' + n + '</span>' +
-                    (reps ? '<span class="pf-vr-ej-reps">' + reps + '</span>' : '') +
-                '</div>';
-            }).filter(Boolean).join('');
-            // Detalle auto-generado del bloque (vueltas/pausa, trabajo/pausa de tabata, etc.)
+                const reps = typeof e === 'object' ? _pfRepsEjercicio(e, b.tipo) : '';
             const detalleBloque = _pfDetalleBloque(b);
             const pillsId = 'bloque-pills-' + idx + '-' + i;
             return '<div class="exercise-chip pf-card-resumen pf-cr-bloque rounded-2xl p-3" style="background:' + colorTipo.bg + '2E;"' +
@@ -9157,8 +9151,8 @@
     // series/reps o segundos bien grande, en vez de pills chicas en línea.
     function _pfGenerarHTMLCompactoGrande(dias) {
         if (!dias || dias.length === 0) return '<p class="text-textoSuave text-sm text-center py-6">Sin días para mostrar</p>';
-        const itemsHtml = (ejercicios) => (ejercicios || []).map(e => {
-            const reps = _pfRepsEjercicio(e);
+        const itemsHtml = (ejercicios, tipo) => (ejercicios || []).map(e => {
+            const reps = _pfRepsEjercicio(e, tipo);
             return '<div class="pf-vr-ej-item">' +
                 '<span class="pf-vr-ej-nombre">' + escapeHtml(e.nombre || '') + '</span>' +
                 (reps ? '<span class="pf-vr-ej-reps">' + escapeHtml(reps) + '</span>' : '') +
@@ -9175,7 +9169,7 @@
                         '<span class="pf-vr-card-title">🔥 Calentamiento</span>' +
                         (calSub ? '<span class="pf-vr-card-sub">' + escapeHtml(calSub) + '</span>' : '') +
                     '</div>' +
-                    '<div class="pf-vr-ej-list">' + itemsHtml(calEjs) + '</div>' +
+                    '<div class="pf-vr-ej-list">' + itemsHtml(calEjs, calTipo) + '</div>' +
                 '</div>'
             ) : '';
             const bloquesCards = (d.bloquesRutina || []).map((b, bi) => {
@@ -9185,7 +9179,7 @@
                         '<span class="pf-vr-card-title">💪 ' + (bi + 1) + '. ' + escapeHtml(b.tipo || 'Bloque') + '</span>' +
                         (detalle ? '<span class="pf-vr-card-sub">' + escapeHtml(detalle) + '</span>' : '') +
                     '</div>' +
-                    '<div class="pf-vr-ej-list">' + itemsHtml(b.ejercicios) + '</div>' +
+                    '<div class="pf-vr-ej-list">' + itemsHtml(b.ejercicios, b.tipo) + '</div>' +
                 '</div>';
             }).join('');
             return '<div class="mb-4">' +
@@ -15175,18 +15169,51 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
 
     // Texto de reps/seg de un ejercicio para mostrar junto al nombre en la pill.
     // Soporta los 3 formatos posibles: reps_por_vuelta (Circuito), reps_por_serie (Series), reps plano (resto).
-    function _pfRepsEjercicio(e) {
+    // IMPORTANTE: recibe el tipo de bloque/calentamiento (tipo) para decidir CUAL de los
+    // 3 formatos es el vigente. Sin esto, un ejercicio que en algun momento tuvo
+    // reps_por_vuelta o reps_por_serie cargados (por ej. porque el bloque tuvo mas de
+    // una vuelta/serie en algun momento, o cambio de tipo) podia mostrar ese dato viejo
+    // en vez del "reps" plano actual, aunque el tipo de bloque actual ya no use vueltas/series
+    // (Tabata, EMOM, Circuito por Tiempo, Por Tiempo, Sumando Ejercicio). Esto es lo mismo
+    // que ya hacia bien "vista completa" (ejBox), que primero mira el tipo de bloque.
+    function _pfRepsEjercicio(e, tipo) {
         if (!e) return '';
+        const unidadSuf = (e.unit && e.unit !== 'Reps') ? ' ' + e.unit.toLowerCase() : '';
+        const esCircuito = tipo === 'Circuito' || tipo === 'Circuito (Vueltas)';
+        const esSeries = tipo === 'Series' || tipo === 'Series/Reps';
+
+        if (esCircuito) {
+            if (e.reps_por_vuelta && e.reps_por_vuelta.length) {
+                const vals = e.reps_por_vuelta.filter(v => v);
+                if (vals.length) return vals.join('/') + unidadSuf;
+            }
+            return e.reps ? (e.reps + unidadSuf) : '';
+        }
+        if (esSeries) {
+            if (e.reps_por_serie && e.reps_por_serie.length) {
+                const vals = e.reps_por_serie.filter(v => v);
+                if (vals.length) return vals.join('/') + unidadSuf;
+            }
+            return e.reps ? (e.reps + unidadSuf) : '';
+        }
+        if (tipo) {
+            // Tipo de bloque conocido y no es Circuito ni Series (Tabata, EMOM, Circuito
+            // por Tiempo, Por Tiempo, Sumando Ejercicio): usar SIEMPRE el reps plano,
+            // ignorando reps_por_vuelta/reps_por_serie que pudieran haber quedado
+            // guardados de una configuracion anterior.
+            return e.reps ? (e.reps + unidadSuf) : '';
+        }
+        // Tipo desconocido (llamadas sin ese dato): mantener el comportamiento anterior
+        // como ultimo respaldo, priorizando los arrays si existen.
         if (e.reps_por_vuelta && e.reps_por_vuelta.length) {
             const vals = e.reps_por_vuelta.filter(v => v);
-            return vals.length ? vals.join('/') : '';
+            if (vals.length) return vals.join('/') + unidadSuf;
         }
         if (e.reps_por_serie && e.reps_por_serie.length) {
             const vals = e.reps_por_serie.filter(v => v);
-            return vals.length ? vals.join('/') : '';
+            if (vals.length) return vals.join('/') + unidadSuf;
         }
-        if (e.reps) return e.reps + (e.unit && e.unit !== 'Reps' ? ' ' + e.unit.toLowerCase() : '');
-        return '';
+        return e.reps ? (e.reps + unidadSuf) : '';
     }
 
     function _pfGenerarHTMLCompacto(dias, conCopiar) {
@@ -15194,11 +15221,11 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         if (!dias || dias.length === 0) return '<p class="text-textoSuave text-sm text-center py-6">Sin días para mostrar</p>';
         return dias.map((d, di) => {
             const calEjs = d.warmupEjercicios || [];
+            const calTipo = d._wTipo || d._warmupCfg?.tipo || '';
             const calPills = calEjs.map(e => {
-                const reps = _pfRepsEjercicio(e);
+                const reps = _pfRepsEjercicio(e, calTipo);
                 return '<span class="hist-pill">' + (e.nombre || '') + (reps ? ' <b class="text-texto">· ' + reps + '</b>' : '') + '</span>';
             }).join('');
-            const calTipo = d._wTipo || d._warmupCfg?.tipo || '';
             const calDetalle = _pfDetalleCalentamiento(d);
             const calCard = calEjs.length ? (
                 '<div class="bg-fondoAlt rounded-xl border border-azul/30 p-3 mb-2">' +
@@ -15216,7 +15243,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             const bloquesCards = (d.bloquesRutina || []).map((b, bi) => {
                 const color = colores[b.tipo] || 'purpura';
                 const pills = (b.ejercicios || []).map(e => {
-                    const reps = _pfRepsEjercicio(e);
+                    const reps = _pfRepsEjercicio(e, b.tipo);
                     return '<span class="hist-pill">' + (e.nombre || '') + (reps ? ' <b class="text-texto">· ' + reps + '</b>' : '') + '</span>';
                 }).join('');
                 const detalle = _pfDetalleBloque(b);
@@ -15670,7 +15697,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
                 pillsEl.innerHTML = ejs.map(e => {
                     const n = typeof e === 'object' ? (e.nombre || '') : (Array.isArray(e) ? e[0] : '');
                     if (!n) return '';
-                    const reps = typeof e === 'object' ? _pfRepsEjercicio(e) : '';
+                    const reps = typeof e === 'object' ? _pfRepsEjercicio(e, tipo) : '';
                     return '<div class="pf-vr-ej-item">' +
                         '<span class="pf-vr-ej-nombre">' + n + '</span>' +
                         (reps ? '<span class="pf-vr-ej-reps">' + reps + '</span>' : '') +
