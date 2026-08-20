@@ -5400,6 +5400,45 @@
     // Modo repositorio: cuando se entra desde "Crear Entrenamiento" del Repositorio
     let modoRepositorio = false;
 
+    // Igual que _pfPreguntarModoGuardado, pero con textos propios para cuando se
+    // está editando una plantilla del Repositorio (via "Editar Rutina Completa").
+    function _pfPreguntarModoGuardadoRepo(nombreActual) {
+        return new Promise(resolve => {
+            let modal = document.getElementById('modal-pf-modo-guardado-repo');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'modal-pf-modo-guardado-repo';
+                modal.className = 'fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4';
+                modal.innerHTML =
+                    '<div class="bg-fondo2 rounded-2xl p-6 max-w-sm w-full space-y-4 border border-borde">' +
+                        '<div class="text-center">' +
+                            '<div class="text-3xl mb-2">💾</div>' +
+                            '<p id="pf-modo-guardado-repo-msg" class="text-texto font-bold text-sm"></p>' +
+                        '</div>' +
+                        '<div class="space-y-2">' +
+                            '<button id="pf-modo-guardado-repo-btn-sobrescribir" class="w-full py-2.5 rounded-xl btn-primary text-white font-bold text-sm"></button>' +
+                            '<button id="pf-modo-guardado-repo-btn-nueva" class="w-full py-2.5 rounded-xl border-2 border-azul/50 text-azul font-bold text-sm">Guardar como plantilla nueva</button>' +
+                            '<button id="pf-modo-guardado-repo-btn-cancelar" class="w-full py-2 rounded-xl text-textoSuave font-bold text-sm">Cancelar</button>' +
+                        '</div>' +
+                    '</div>';
+                document.body.appendChild(modal);
+            }
+            document.getElementById('pf-modo-guardado-repo-msg').textContent =
+                'Estás editando la plantilla "' + (nombreActual || '') + '". ¿Qué querés hacer con los cambios?';
+            document.getElementById('pf-modo-guardado-repo-btn-sobrescribir').textContent =
+                'Guardar cambios en esta misma';
+            modal.classList.remove('hidden');
+
+            function cerrar(valor) {
+                modal.classList.add('hidden');
+                resolve(valor);
+            }
+            document.getElementById('pf-modo-guardado-repo-btn-sobrescribir').onclick = () => cerrar('sobrescribir');
+            document.getElementById('pf-modo-guardado-repo-btn-nueva').onclick = () => cerrar('nueva');
+            document.getElementById('pf-modo-guardado-repo-btn-cancelar').onclick = () => cerrar(null);
+        });
+    }
+
     function abrirCrearEntrenamiento() {
         modoRepositorio = true;
         window._repoEditandoIdx = null; // no estamos editando un ítem existente
@@ -5430,13 +5469,22 @@
     }
 
     // Guarda directamente con un prompt de nombre (modo repositorio)
-    function guardarEnRepositorioDirecto() {
+    async function guardarEnRepositorioDirecto() {
         document.getElementById('repo-status').textContent = '';
         // Si venimos de "editar rutina completa", pre-rellenar el nombre del ítem original
+        // y preguntar si los cambios van a esa misma plantilla o a una nueva.
+        window._pfRepoGuardarModo = null;
         if (window._repoEditandoIdx !== undefined && window._repoEditandoIdx !== null) {
             const repo = getRepositorio();
             const r = repo[window._repoEditandoIdx];
             document.getElementById('repo-nombre-input').value = r ? (r.nombre || '') : '';
+            const modo = await _pfPreguntarModoGuardadoRepo(r ? (r.nombre || 'esta plantilla') : 'esta plantilla');
+            if (!modo) return; // canceló el modo de guardado
+            window._pfRepoGuardarModo = modo;
+            // Si eligió guardar como nueva, sugerir un nombre distinto para no confundirla con la original
+            if (modo === 'nueva' && r) {
+                document.getElementById('repo-nombre-input').value = (r.nombre || '') + ' (copia)';
+            }
         } else {
             document.getElementById('repo-nombre-input').value = '';
         }
@@ -12626,10 +12674,16 @@
         };
 
         const repo = getRepositorio();
-        // Si venimos de "editar rutina completa", reemplazar el ítem existente en vez de agregar uno nuevo
-        if (window._repoEditandoIdx !== undefined && window._repoEditandoIdx !== null && repo[window._repoEditandoIdx]) {
+        // Si venimos de "editar rutina completa" y el profe eligió sobrescribir,
+        // reemplazar el ítem existente; si eligió "nueva" (o no estábamos editando
+        // nada), se agrega como una plantilla nueva al principio del repositorio.
+        let savedIdx;
+        const sobrescribir = window._repoEditandoIdx !== undefined && window._repoEditandoIdx !== null
+            && repo[window._repoEditandoIdx] && window._pfRepoGuardarModo !== 'nueva';
+        if (sobrescribir) {
             repo[window._repoEditandoIdx] = snapshot;
             _pfRepoOrigenIdx = window._repoEditandoIdx;
+            savedIdx = window._repoEditandoIdx;
         } else {
             repo.unshift(snapshot);
             // La rutina recién guardada queda en el índice 0. La marcamos como
@@ -12637,19 +12691,27 @@
             // "Crear Rutina" (sin recargar), el uso quede registrado en este
             // mismo ítem del repositorio (ver /api/rutina/compartir más abajo).
             _pfRepoOrigenIdx = 0;
+            savedIdx = 0;
         }
         setRepositorio(repo);
         _pfLimpiarBorrador();
+        window._pfRepoGuardarModo = null;
 
         document.getElementById('repo-status').textContent = '✓ Guardado correctamente';
         document.getElementById('repo-status').className = 'text-xs text-verde text-center min-h-[1.2rem]';
-        setTimeout(() => {
+        setTimeout(async () => {
             pfBtnLoadingOff(btnGuardar);
             document.getElementById('modal-repo-guardar').classList.add('hidden');
             if (typeof window._repoGuardarCallback === 'function') {
                 window._repoGuardarCallback();
                 window._repoGuardarCallback = null;
             }
+            // Ofrecer compartir la rutina recién guardada con un alumno
+            const quiereCompartir = await pfConfirm(
+                '¿Querés compartir esta rutina con un alumno ahora?',
+                { destructivo: false, icono: '📤', textoConfirmar: 'Compartir', textoCancelar: 'Ahora no' }
+            );
+            if (quiereCompartir) copiarAAlumnoDesdeRepo(savedIdx);
         }, 1200);
         toast('Rutina guardada en el repositorio');
     }
