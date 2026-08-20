@@ -3303,6 +3303,18 @@
         </div>
     </div>
 
+    <!-- Modal: reemplazar ejercicio (calentamiento y bloque principal, todos los sistemas) -->
+    <div id="modal-reemplazar-ejercicio" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-start sm:items-center justify-center p-2 sm:p-4 overflow-y-auto modal-bottom-sheet-mobile">
+        <div class="bg-tarjeta rounded-2xl border border-borde p-4 sm:p-6 max-w-md w-full max-h-[85vh] flex flex-col my-2 sm:my-0">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-bold text-naranja uppercase tracking-wider">Reemplazar ejercicio</h3>
+                <button onclick="cerrarModalReemplazarEjercicio()" class="text-textoSuave hover:text-texto text-xl leading-none px-2">&times;</button>
+            </div>
+            <input id="reemplazar-ej-buscar" type="text" oninput="filtrarReemplazarEjercicio()" placeholder="Buscar ejercicio..." class="w-full rounded-xl px-3 py-2.5 text-sm mb-3 flex-shrink-0" autocomplete="off">
+            <div id="reemplazar-ej-resultados" class="space-y-1 overflow-y-auto flex-1"></div>
+        </div>
+    </div>
+
     <!-- Modal: advertencia al agregar en Crear Rutina un ejercicio que le costó mucho al alumno en una rutina anterior (según su feedback post-entreno) -->
     <div id="modal-advertencia-costoso" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
         <div class="bg-tarjeta rounded-3xl border border-amarillo p-6 max-w-md w-full max-h-[85vh] overflow-y-auto">
@@ -6051,6 +6063,124 @@
         toastConDeshacer('Ejercicio quitado');
     }
 
+    // Duplica el ejercicio en la posicion ejIdx y lo agrega AL FONDO de la lista
+    // de calentamiento del dia (mismo criterio que repetirEjWarmup/repetirEjBloque).
+    function repetirEjWarmupDia(idx, ejIdx) {
+        if (!diasData[idx]) return;
+        const original = diasData[idx].warmupEjercicios[ejIdx];
+        if (!original) return;
+        const copia = JSON.parse(JSON.stringify(original));
+        diasData[idx].warmupEjercicios.push(copia);
+        renderWarmupEjsDia(idx);
+        actualizarBadgeDia(idx);
+    }
+
+    // ── Reemplazar ejercicio ────────────────────────────────────────────────
+    // Funciona para los 3 contextos donde se arman listas de ejercicios en
+    // Crear Rutina: calentamiento standalone, calentamiento por dia y bloque
+    // principal (todos los sistemas: Tabata, EMOM, Circuito por vuelta,
+    // Circuito por tiempo, Series y repeticiones, Por tiempo, Sumando Ejercicio).
+    let _pfReemplazoCtx = null; // { tipo: 'bloque' | 'warmup' | 'warmup-dia', idx, diaIdx }
+
+    function abrirReemplazarEjercicio(tipo, idx, diaIdx) {
+        _pfReemplazoCtx = { tipo, idx, diaIdx };
+        const modal = document.getElementById('modal-reemplazar-ejercicio');
+        if (!modal) return;
+        const input = document.getElementById('reemplazar-ej-buscar');
+        if (input) input.value = '';
+        _pfRenderResultadosReemplazo('');
+        modal.classList.remove('hidden');
+        setTimeout(() => { if (input) input.focus(); }, 50);
+    }
+
+    function cerrarModalReemplazarEjercicio() {
+        const modal = document.getElementById('modal-reemplazar-ejercicio');
+        if (modal) modal.classList.add('hidden');
+        _pfReemplazoCtx = null;
+    }
+
+    function filtrarReemplazarEjercicio() {
+        const input = document.getElementById('reemplazar-ej-buscar');
+        _pfRenderResultadosReemplazo(input ? input.value : '');
+    }
+
+    function _pfRenderResultadosReemplazo(filtro) {
+        const cont = document.getElementById('reemplazar-ej-resultados');
+        if (!cont) return;
+        const q = (filtro || '').toLowerCase().trim();
+        let items = [];
+        Object.keys(videotecaCache || {}).forEach(cat => {
+            (videotecaCache[cat] || []).forEach(e => {
+                const nombre = e.nombre || e[0];
+                if (!nombre) return;
+                if (!q || nombre.toLowerCase().indexOf(q) !== -1) items.push({ nombre, cat });
+            });
+        });
+        items.sort((a, b) => a.nombre.localeCompare(b.nombre));
+        items = items.slice(0, 60);
+        if (items.length === 0) {
+            cont.innerHTML = '<p class="text-textoSuave text-xs text-center py-4">Sin resultados</p>';
+            return;
+        }
+        cont.innerHTML = items.map(it => {
+            const nombreEsc = it.nombre.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+            const catEsc = (it.cat || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+            return '<button type="button" onclick="_pfSeleccionarReemplazo(\'' + nombreEsc + '\',\'' + catEsc + '\')" ' +
+                'class="w-full text-left px-3 py-2.5 rounded-xl hover:bg-fondoAlt border border-transparent hover:border-borde/50 text-sm text-texto transition">' +
+                it.nombre + '</button>';
+        }).join('');
+    }
+
+    function _pfSeleccionarReemplazo(nombre, cat) {
+        if (!_pfReemplazoCtx) return;
+        if (typeof mostrarAdvertenciaSiProhibido === 'function' && mostrarAdvertenciaSiProhibido(nombre, () => _pfSeleccionarReemplazo(nombre, cat))) return;
+
+        let ejData = cat && videotecaCache[cat] ? (videotecaCache[cat] || []).find(e => (e.nombre || e[0]) === nombre) : null;
+        if (!ejData) {
+            for (const c of Object.keys(videotecaCache)) {
+                const found = (videotecaCache[c] || []).find(e => (e.nombre || e[0]) === nombre);
+                if (found) { ejData = found; break; }
+            }
+        }
+        const link = ejData ? (ejData.link || ejData[1] || '') : '';
+        const con_carga = ejData ? (ejData.con_carga === true || ejData.con_carga === 'true') : false;
+        const tip1 = ejData ? (ejData.tip1 || '') : '';
+        const tip2 = ejData ? (ejData.tip2 || '') : '';
+        const elemento = ejData ? (ejData.elemento || '') : '';
+
+        const ctx = _pfReemplazoCtx;
+        let objetivo = null;
+        if (ctx.tipo === 'bloque') {
+            objetivo = bloqueEjsTemp[ctx.idx];
+        } else if (ctx.tipo === 'warmup') {
+            objetivo = warmupEjercicios[ctx.idx];
+        } else if (ctx.tipo === 'warmup-dia') {
+            objetivo = diasData[ctx.diaIdx] ? diasData[ctx.diaIdx].warmupEjercicios[ctx.idx] : null;
+        }
+        if (!objetivo) { cerrarModalReemplazarEjercicio(); return; }
+
+        // Se mantienen reps/series/pausa/vueltas y demas configuracion ya cargada;
+        // solo cambia la identidad del ejercicio (nombre, video, carga, tips, elemento).
+        objetivo.nombre = nombre;
+        objetivo.link = link;
+        objetivo.con_carga = con_carga;
+        objetivo.tip1 = tip1;
+        objetivo.tip2 = tip2;
+        objetivo.elemento = elemento;
+
+        if (ctx.tipo === 'bloque') {
+            renderBloqueEjsTemp();
+        } else if (ctx.tipo === 'warmup') {
+            renderWarmupEjs();
+        } else if (ctx.tipo === 'warmup-dia') {
+            renderWarmupEjsDia(ctx.diaIdx);
+            actualizarBadgeDia(ctx.diaIdx);
+        }
+
+        cerrarModalReemplazarEjercicio();
+        if (typeof toast === 'function') toast('Ejercicio reemplazado');
+    }
+
     function renderWarmupEjsDia(idx) {
         const lista = document.getElementById('warmup-ejercicios-lista-' + idx);
         if (!lista || !diasData[idx]) return;
@@ -6173,7 +6303,11 @@
                 '<span class="text-xs text-textoSuave font-mono flex-shrink-0">' + (i+1) + '</span>' +
                 '<span class="text-sm font-bold ej-hover-preview truncate" data-video-url="' + linkEsc + '" data-ej-nombre="' + nombreEsc + '" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">' + ej.nombre + '</span>' + cargaBadgeW +
                 '</div>' +
-                '<button onclick="quitarEjWarmupDia(' + idx + ',' + i + ')" class="text-rojo hover:text-red-400 text-lg font-bold leading-none flex-shrink-0 ml-2">&times;</button>' +
+                '<div class="flex items-center gap-1 flex-shrink-0 ml-2">' +
+                '<button onclick="abrirReemplazarEjercicio(\'warmup-dia\',' + i + ',' + idx + ')" class="text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Reemplazar este ejercicio">Reemplazar</button>' +
+                '<button onclick="repetirEjWarmupDia(' + idx + ',' + i + ')" class="text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Repetir este ejercicio">Repetir</button>' +
+                '<button onclick="quitarEjWarmupDia(' + idx + ',' + i + ')" class="text-rojo hover:text-red-400 text-lg font-bold leading-none">&times;</button>' +
+                '</div>' +
                 '</div>' +
                 controlsHtml +
                 '</div>';
@@ -6481,6 +6615,7 @@
                     <span class="text-sm font-bold ej-hover-preview" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">${ej.nombre}</span>
                     ${repsBadge}${cargaBadge}
                 </div>
+                <button onclick="abrirReemplazarEjercicio('warmup', ${i})" class="text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Reemplazar este ejercicio">Reemplazar</button>
                 <button onclick="repetirEjWarmup(${i})" class="text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Repetir este ejercicio">Repetir</button>
                 <button onclick="quitarEjWarmup(${i})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none">&times;</button>
             </div>`;
@@ -7377,6 +7512,7 @@
                     </div>
                     <div class="flex items-center gap-1 flex-shrink-0">
                         ${chevron}
+                        <button onclick="abrirReemplazarEjercicio('bloque', ${i})" class="text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Reemplazar este ejercicio">Reemplazar</button>
                         <button onclick="repetirEjBloque(${i})" class="text-textoSuave hover:text-naranja text-[11px] font-bold leading-none px-2 py-1 rounded-lg border border-borde/50" title="Repetir este ejercicio">Repetir</button>
                         <button onclick="quitarEjBloque(${i})" class="text-rojo hover:text-red-400 text-lg font-bold leading-none px-1">&times;</button>
                     </div>
