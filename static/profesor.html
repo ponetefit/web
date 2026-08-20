@@ -12830,18 +12830,32 @@
                 : '';
 
             // Alumnos con los que se usó esta plantilla (guardado en r.usos al usar "Copiar a Alumno"),
-            // con el código de rutina que generó cada uso (ej: RAFA → RAFA-0003)
+            // con el código de rutina que generó cada uso (ej: RAFA → RAFA-0003).
+            // Cada uno es clickeable: abre las mismas opciones que el Historial
+            // (Ver Rutina / Editar Rutina) para esa rutina puntual del alumno.
             const usos = Array.isArray(r.usos) ? r.usos : [];
             let usoInfo = '';
             if (usos.length) {
                 const ultimo = usos[usos.length - 1];
                 const fechaUltimo = ultimo && ultimo.fecha ? new Date(ultimo.fecha).toLocaleDateString('es-AR') : '';
-                const detalles = usos.map(u => u.codigo ? `${u.alumno} (${u.codigo})` : u.alumno);
-                const detallesUnicos = [...new Set(detalles)];
-                const listaDetalle = detallesUnicos.length > 3
-                    ? detallesUnicos.slice(0, 3).join(', ') + ' +' + (detallesUnicos.length - 3) + ' más'
-                    : detallesUnicos.join(', ');
-                usoInfo = `<p class="text-xs mt-1" style="color:#69F0AE">👥 Usado con: ${escapeHtml(listaDetalle)}` +
+                const vistos = new Set();
+                const unicos = [];
+                usos.forEach(u => {
+                    const key = (u.alumno || '') + '|' + (u.codigo || '');
+                    if (!vistos.has(key)) { vistos.add(key); unicos.push(u); }
+                });
+                const restantes = unicos.length > 3 ? unicos.length - 3 : 0;
+                const mostrar = restantes > 0 ? unicos.slice(0, 3) : unicos;
+                const jsEsc = (s) => String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const pills = mostrar.map(u => {
+                    const label = u.codigo ? (u.alumno + ' (' + u.codigo + ')') : u.alumno;
+                    if (!u.codigo) return `<span>${escapeHtml(label)}</span>`;
+                    const codJs = jsEsc(u.codigo);
+                    const alumnoJs = jsEsc(u.alumno || '');
+                    return `<button type="button" onclick="_pfAbrirOpcionesUso('${codJs}','${alumnoJs}')" class="underline decoration-dotted hover:opacity-80 transition" style="color:inherit;">${escapeHtml(label)}</button>`;
+                }).join(', ');
+                usoInfo = `<p class="text-xs mt-1" style="color:#69F0AE">👥 Usado con: ${pills}` +
+                    (restantes > 0 ? ` <span class="text-textoSuave">+${restantes} más</span>` : '') +
                     ` <span class="text-textoSuave">· ${usos.length} vez${usos.length !== 1 ? 'es' : ''}${fechaUltimo ? ' · último: ' + fechaUltimo : ''}</span></p>`;
             }
 
@@ -12870,6 +12884,43 @@
                 </div>
             </div>`;
         }).join('');
+    }
+
+    // Al tocar un alumno/código dentro de "Usado con: ..." en el Repositorio,
+    // ofrece las mismas dos opciones que tiene el Historial: ver la rutina real
+    // que se generó para ese alumno (Ver Rutina) o editarla (Editar Rutina).
+    function _pfAbrirOpcionesUso(codigo, alumno) {
+        let modal = document.getElementById('modal-pf-opciones-uso');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'modal-pf-opciones-uso';
+            modal.className = 'hidden fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4';
+            modal.innerHTML =
+                '<div class="bg-fondo2 rounded-2xl p-6 max-w-sm w-full space-y-4 border border-borde">' +
+                    '<div class="text-center">' +
+                        '<div class="text-3xl mb-2">📋</div>' +
+                        '<p id="pf-opciones-uso-msg" class="text-texto font-bold text-sm"></p>' +
+                    '</div>' +
+                    '<div class="space-y-2">' +
+                        '<button id="pf-opciones-uso-btn-ver" class="w-full py-2.5 rounded-xl bg-azul/20 text-azul font-bold text-sm hover:bg-azul/30 transition">Ver Rutina</button>' +
+                        '<button id="pf-opciones-uso-btn-editar" class="w-full py-2.5 rounded-xl bg-verde/20 text-verde font-bold text-sm hover:bg-verde/30 transition">Editar Rutina</button>' +
+                        '<button id="pf-opciones-uso-btn-cancelar" class="w-full py-2 rounded-xl text-textoSuave font-bold text-sm">Cancelar</button>' +
+                    '</div>' +
+                '</div>';
+            document.body.appendChild(modal);
+        }
+        document.getElementById('pf-opciones-uso-msg').textContent =
+            'Rutina ' + codigo.toUpperCase() + (alumno ? ' de ' + alumno : '') + '. ¿Qué querés hacer?';
+        modal.classList.remove('hidden');
+        document.getElementById('pf-opciones-uso-btn-ver').onclick = () => {
+            modal.classList.add('hidden');
+            verRutina(codigo);
+        };
+        document.getElementById('pf-opciones-uso-btn-editar').onclick = () => {
+            modal.classList.add('hidden');
+            editarRutinaDesdeHistorial(codigo);
+        };
+        document.getElementById('pf-opciones-uso-btn-cancelar').onclick = () => modal.classList.add('hidden');
     }
 
     function escapeHtml(str) {
@@ -15066,7 +15117,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
     const MODAL_IDS = ['modal-pf-confirm', 'modal-dash-rutina', 'modal-codigo', 'modal-repo-guardar', 'modal-repo-editar',
         'modal-repo-copiar', 'modal-ver-rutina', 'modal-piz-vt', 'modal-ia-config', 'modal-ia-preview',
         'modal-nueva-cat', 'modal-bloque', 'modal-copiar-destino', 'modal-historial-alumno', 'modal-vista-compacta-rutina',
-        'modal-advertencia-ejercicio', 'modal-advertencia-costoso', 'modal-musculo-detalle'];
+        'modal-advertencia-ejercicio', 'modal-advertencia-costoso', 'modal-musculo-detalle', 'modal-pf-opciones-uso'];
 
     // Devuelve tambien los modales de calentamiento (uno por dia, id dinamico modal-calentamiento-N)
     function _pfTodosLosModalesVisibles() {
