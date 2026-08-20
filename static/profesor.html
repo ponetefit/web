@@ -3305,13 +3305,32 @@
 
     <!-- Modal: reemplazar ejercicio (calentamiento y bloque principal, todos los sistemas) -->
     <div id="modal-reemplazar-ejercicio" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-start sm:items-center justify-center p-2 sm:p-4 overflow-y-auto modal-bottom-sheet-mobile">
-        <div class="bg-tarjeta rounded-2xl border border-borde p-4 sm:p-6 max-w-md w-full max-h-[85vh] flex flex-col my-2 sm:my-0">
-            <div class="flex items-center justify-between mb-3">
+        <div class="bg-tarjeta rounded-2xl border border-borde p-4 sm:p-6 max-w-lg w-full max-h-[85vh] overflow-y-auto my-2 sm:my-0">
+            <div class="flex items-center justify-between mb-1">
                 <h3 class="text-sm font-bold text-naranja uppercase tracking-wider">Reemplazar ejercicio</h3>
                 <button onclick="cerrarModalReemplazarEjercicio()" class="text-textoSuave hover:text-texto text-xl leading-none px-2">&times;</button>
             </div>
-            <input id="reemplazar-ej-buscar" type="text" oninput="filtrarReemplazarEjercicio()" placeholder="Buscar ejercicio..." class="w-full rounded-xl px-3 py-2.5 text-sm mb-3 flex-shrink-0" autocomplete="off">
-            <div id="reemplazar-ej-resultados" class="space-y-1 overflow-y-auto flex-1"></div>
+            <p id="reemplazar-ej-actual" class="text-xs text-textoSuave mb-3"></p>
+
+            <!-- Busqueda DESKTOP/TABLET: input + categoria + elemento + select (igual que al agregar) -->
+            <div class="hidden sm:block mb-2">
+                <input id="reemplazar-buscar-ej" type="text" placeholder="Buscar ejercicio..." onkeyup="filtrarEjsReemplazo()" class="w-full rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-naranja focus:ring-2 focus:ring-naranja/30 transition">
+            </div>
+            <div class="hidden sm:flex gap-2 mb-3 flex-wrap">
+                <select id="reemplazar-cat-select" onchange="cargarEjsReemplazo()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
+                </select>
+                <select id="reemplazar-elemento-select" onchange="cargarEjsReemplazo()" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
+                    <option value="">Todo elemento</option>
+                </select>
+                <select id="reemplazar-ej-select" class="rounded-lg px-3 py-2 text-sm flex-1">
+                </select>
+                <button onclick="confirmarReemplazoEjercicio()" class="bg-naranja/20 text-naranja px-3 py-2 rounded-lg text-sm font-bold hover:bg-naranja/30 transition whitespace-nowrap">Reemplazar</button>
+            </div>
+
+            <!-- Busqueda MOBILE: un solo buscador con sugerencias tocables + categorias (igual que al agregar) -->
+            <div class="sm:hidden mb-3">
+                <input id="reemplazar-buscar-ej-mobile" type="text" autocomplete="off" placeholder="Buscar ejercicio..." class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-naranja focus:ring-2 focus:ring-naranja/30 transition">
+            </div>
         </div>
     </div>
 
@@ -4936,7 +4955,7 @@
     function poblarCategorias() {
         const cats = Object.keys(VIDEOTECA_DATA);
         // Poblar selects de bloque modal
-        ['bloque-cat-select'].forEach(id => {
+        ['bloque-cat-select', 'reemplazar-cat-select'].forEach(id => {
             const sel = document.getElementById(id);
             if (!sel) return;
             sel.innerHTML = '<option value="">Todas las categorías</option>' +
@@ -4970,6 +4989,7 @@
 
         // Poblar select de elemento en el bloque modal
         poblarElementoSelect('bloque-elemento-select');
+        poblarElementoSelect('reemplazar-elemento-select');
         cargarEjsBloque();
         // Poblar los selects de cada dia ya renderizado
         diasData.forEach((_, idx) => poblarCategoriasDia(idx));
@@ -6080,17 +6100,40 @@
     // Crear Rutina: calentamiento standalone, calentamiento por dia y bloque
     // principal (todos los sistemas: Tabata, EMOM, Circuito por vuelta,
     // Circuito por tiempo, Series y repeticiones, Por tiempo, Sumando Ejercicio).
+    // Reutiliza EXACTAMENTE el mismo buscador (desktop: categoria+elemento+select;
+    // mobile: buscador con panel de categorias tactiles) que se usa al agregar.
     let _pfReemplazoCtx = null; // { tipo: 'bloque' | 'warmup' | 'warmup-dia', idx, diaIdx }
 
     function abrirReemplazarEjercicio(tipo, idx, diaIdx) {
         _pfReemplazoCtx = { tipo, idx, diaIdx };
+
+        // Nombre del ejercicio actual, para contexto arriba del buscador
+        let actual = null;
+        if (tipo === 'bloque') actual = bloqueEjsTemp[idx];
+        else if (tipo === 'warmup') actual = warmupEjercicios[idx];
+        else if (tipo === 'warmup-dia') actual = diasData[diaIdx] ? diasData[diaIdx].warmupEjercicios[idx] : null;
+        const actualEl = document.getElementById('reemplazar-ej-actual');
+        if (actualEl) actualEl.textContent = actual ? ('Reemplazando: ' + actual.nombre) : '';
+
         const modal = document.getElementById('modal-reemplazar-ejercicio');
         if (!modal) return;
-        const input = document.getElementById('reemplazar-ej-buscar');
-        if (input) input.value = '';
-        _pfRenderResultadosReemplazo('');
+
+        // Reset buscador desktop
+        const catSel = document.getElementById('reemplazar-cat-select');
+        const elemSel = document.getElementById('reemplazar-elemento-select');
+        const buscar = document.getElementById('reemplazar-buscar-ej');
+        if (catSel) catSel.value = '';
+        if (elemSel) elemSel.value = '';
+        if (buscar) buscar.value = '';
+        cargarEjsReemplazo();
+
+        // Reset buscador mobile + inicializar (con panel de categorias) una sola vez
+        const buscarMobile = document.getElementById('reemplazar-buscar-ej-mobile');
+        if (buscarMobile) buscarMobile.value = '';
+        _initBusquedaEjercicioMobile('reemplazar-buscar-ej-mobile', 'reemplazar-ej-select', confirmarReemplazoEjercicio, null);
+
         modal.classList.remove('hidden');
-        setTimeout(() => { if (input) input.focus(); }, 50);
+        setTimeout(() => { if (window.innerWidth >= 640 && buscar) buscar.focus(); }, 50);
     }
 
     function cerrarModalReemplazarEjercicio() {
@@ -6099,36 +6142,53 @@
         _pfReemplazoCtx = null;
     }
 
-    function filtrarReemplazarEjercicio() {
-        const input = document.getElementById('reemplazar-ej-buscar');
-        _pfRenderResultadosReemplazo(input ? input.value : '');
+    // Pobla el select de ejercicio segun categoria + elemento elegidos (desktop)
+    function cargarEjsReemplazo() {
+        const cat = document.getElementById('reemplazar-cat-select')?.value;
+        const sel = document.getElementById('reemplazar-ej-select');
+        const elemSel = document.getElementById('reemplazar-elemento-select');
+        if (!sel) return;
+        const elemFiltro = elemSel ? elemSel.value : '';
+        let ejs = cat ? (videotecaCache[cat] || []) : Object.values(videotecaCache).flat();
+        if (elemFiltro) ejs = ejs.filter(e => (e.elemento || '') === elemFiltro);
+        sel.innerHTML = ejs.length
+            ? ejs.map(e => '<option value="' + (e.nombre || e[0]) + '" data-cat="' + (cat || '') + '">' + _pfMarcaCostoso(e.nombre || e[0]) + (e.nombre || e[0]) + '</option>').join('')
+            : '<option value="">Sin ejercicios</option>';
     }
 
-    function _pfRenderResultadosReemplazo(filtro) {
-        const cont = document.getElementById('reemplazar-ej-resultados');
-        if (!cont) return;
-        const q = (filtro || '').toLowerCase().trim();
-        let items = [];
-        Object.keys(videotecaCache || {}).forEach(cat => {
-            (videotecaCache[cat] || []).forEach(e => {
-                const nombre = e.nombre || e[0];
-                if (!nombre) return;
-                if (!q || nombre.toLowerCase().indexOf(q) !== -1) items.push({ nombre, cat });
+    // Filtra por texto en TODAS las categorias (desktop)
+    function filtrarEjsReemplazo() {
+        const query = (document.getElementById('reemplazar-buscar-ej')?.value || '').trim().toLowerCase();
+        const sel = document.getElementById('reemplazar-ej-select');
+        const elemSel = document.getElementById('reemplazar-elemento-select');
+        if (!sel) return;
+        const elemFiltro = elemSel ? elemSel.value : '';
+        if (!query) { cargarEjsReemplazo(); return; }
+        let resultados = [];
+        for (const [cat, ejercicios] of Object.entries(videotecaCache)) {
+            (ejercicios || []).forEach(e => {
+                const nombre = (e.nombre || e[0] || '').toLowerCase();
+                if (nombre.includes(query)) {
+                    if (elemFiltro && (e.elemento || '') !== elemFiltro) return;
+                    resultados.push({ nombre: e.nombre || e[0], cat });
+                }
             });
-        });
-        items.sort((a, b) => a.nombre.localeCompare(b.nombre));
-        items = items.slice(0, 60);
-        if (items.length === 0) {
-            cont.innerHTML = '<p class="text-textoSuave text-xs text-center py-4">Sin resultados</p>';
-            return;
         }
-        cont.innerHTML = items.map(it => {
-            const nombreEsc = it.nombre.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
-            const catEsc = (it.cat || '').replace(/'/g, "&#39;").replace(/"/g, '&quot;');
-            return '<button type="button" onclick="_pfSeleccionarReemplazo(\'' + nombreEsc + '\',\'' + catEsc + '\')" ' +
-                'class="w-full text-left px-3 py-2.5 rounded-xl hover:bg-fondoAlt border border-transparent hover:border-borde/50 text-sm text-texto transition">' +
-                it.nombre + '</button>';
-        }).join('');
+        sel.innerHTML = resultados.length
+            ? resultados.map(r => '<option value="' + r.nombre + '" data-cat="' + r.cat + '">' + _pfMarcaCostoso(r.nombre) + r.nombre + ' (' + r.cat + ')</option>').join('')
+            : '<option value="">Sin resultados</option>';
+    }
+
+    // Confirma el reemplazo tomando el ejercicio elegido en #reemplazar-ej-select
+    // (usado tanto por el boton "Reemplazar" de desktop como por el buscador mobile).
+    function confirmarReemplazoEjercicio() {
+        const sel = document.getElementById('reemplazar-ej-select');
+        if (!sel) return;
+        const nombre = sel.value;
+        if (!nombre || nombre === 'Sin ejercicios' || nombre === 'Sin resultados') return;
+        const selectedOption = sel.options[sel.selectedIndex];
+        const cat = (selectedOption && selectedOption.dataset.cat) || document.getElementById('reemplazar-cat-select')?.value || '';
+        _pfSeleccionarReemplazo(nombre, cat);
     }
 
     function _pfSeleccionarReemplazo(nombre, cat) {
