@@ -138,6 +138,39 @@
             min-height: 44px;
             font-size: 26px !important;
         }
+        /* Barra de respaldo: se agrega por JS al final de cada tarjeta para que
+           las acciones sigan siendo visibles aunque otro layout del formulario
+           reordene u oculte la cabecera. */
+        .pf-force-action-bar {
+            display: flex !important;
+            width: 100% !important;
+            min-height: 50px;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid #2a2a35;
+        }
+        .pf-force-action-bar button {
+            display: inline-flex !important;
+            min-width: 110px !important;
+            min-height: 44px !important;
+            align-items: center;
+            justify-content: center;
+            background: #24242d !important;
+            color: #ffffff !important;
+            border: 2px solid #77778a !important;
+            border-radius: 10px !important;
+            font-size: 13px !important;
+            font-weight: 900 !important;
+            z-index: 10;
+        }
+        .pf-force-action-bar button:last-child {
+            min-width: 48px !important;
+            font-size: 25px !important;
+            color: #ff6b6b !important;
+        }
         .ac-item-ej {
             font-size: 1.1rem !important;
         }
@@ -6253,6 +6286,51 @@
     }
     document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('reemplazar-ejercicio-buscar')?.addEventListener('input', _pfRenderOpcionesReemplazo);
+    });
+
+    // Respaldo visual independiente del HTML de cada modo. Si una vista vuelve
+    // a pintar una tarjeta sin sus acciones, esta rutina agrega una barra clara
+    // y grande al pie de la tarjeta, siempre junto a la accion de eliminar.
+    function _pfInyectarBarraAccionesEjercicios(root) {
+        const base = root || document;
+        base.querySelectorAll?.('.exercise-chip[data-idx]').forEach(card => {
+            if (card.querySelector('.pf-force-action-bar')) return;
+            const indice = parseInt(card.dataset.idx);
+            if (isNaN(indice)) return;
+            const lista = card.dataset.list || '';
+            let reemplazar = '';
+            let repetir = '';
+            if (lista === 'warmup') {
+                reemplazar = "abrirModalReemplazarEjercicio('warmup-standalone'," + indice + ")";
+                repetir = 'repetirEjWarmup(' + indice + ')';
+            } else if (lista === 'bloque') {
+                reemplazar = "abrirModalReemplazarEjercicio('bloque'," + indice + ')';
+                repetir = 'repetirEjBloque(' + indice + ')';
+            } else if (lista.indexOf('warmup-dia-') === 0) {
+                const diaIdx = parseInt(lista.replace('warmup-dia-', ''));
+                if (isNaN(diaIdx)) return;
+                reemplazar = "abrirModalReemplazarEjercicio('warmup-dia'," + indice + ',' + diaIdx + ')';
+                repetir = 'repetirEjWarmupDia(' + diaIdx + ',' + indice + ')';
+            } else {
+                return; // EMOM ya tiene sus controles propios por minuto.
+            }
+            const barra = document.createElement('div');
+            barra.className = 'pf-force-action-bar';
+            barra.innerHTML =
+                '<button type="button" onclick="event.stopPropagation();' + reemplazar + '">REEMPLAZAR</button>' +
+                '<button type="button" onclick="event.stopPropagation();' + repetir + '">REPETIR</button>' +
+                '<button type="button" aria-label="Eliminar ejercicio" onclick="event.stopPropagation();' +
+                (lista === 'warmup' ? 'quitarEjWarmup(' + indice + ')' :
+                 lista === 'bloque' ? 'quitarEjBloque(' + indice + ')' :
+                 'quitarEjWarmupDia(' + parseInt(lista.replace('warmup-dia-', '')) + ',' + indice + ')') +
+                '">&times;</button>';
+            card.appendChild(barra);
+        });
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        _pfInyectarBarraAccionesEjercicios(document);
+        const observer = new MutationObserver(() => _pfInyectarBarraAccionesEjercicios(document));
+        observer.observe(document.body, { childList: true, subtree: true });
     });
 
     function renderWarmupEjsDia(idx) {
