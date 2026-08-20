@@ -6123,6 +6123,41 @@
         _pfRenderOpcionesReemplazo();
         setTimeout(() => input.focus(), 50);
     }
+    // Acciones desde las tarjetas resumen (fuera del modal de edición). Se mantienen
+    // separadas de las acciones temporales para que funcionen también después de
+    // guardar un calentamiento o un bloque.
+    function repetirEjWarmupResumen(diaIdx, ejIdx) {
+        const ejs = diasData[diaIdx]?.warmupEjercicios;
+        if (!ejs?.[ejIdx]) return;
+        _pfGuardarUndoSnapshot('repetir ejercicio de calentamiento');
+        ejs.push(JSON.parse(JSON.stringify(ejs[ejIdx])));
+        renderWarmupEjsDia(diaIdx);
+        actualizarBadgeDia(diaIdx);
+        toast('Ejercicio repetido');
+    }
+    function repetirEjBloqueResumen(diaIdx, bloqueIdx, ejIdx) {
+        const ejs = diasData[diaIdx]?.bloquesRutina?.[bloqueIdx]?.ejercicios;
+        if (!ejs?.[ejIdx]) return;
+        _pfGuardarUndoSnapshot('repetir ejercicio de bloque');
+        ejs.push(JSON.parse(JSON.stringify(ejs[ejIdx])));
+        renderBloquesDia(diaIdx);
+        actualizarBadgeDia(diaIdx);
+        toast('Ejercicio repetido');
+    }
+    function abrirModalReemplazarWarmupResumen(diaIdx, ejIdx) {
+        abrirModalReemplazarEjercicio('warmup-dia', ejIdx, diaIdx);
+    }
+    function abrirModalReemplazarBloqueResumen(diaIdx, bloqueIdx, ejIdx) {
+        const actual = diasData[diaIdx]?.bloquesRutina?.[bloqueIdx]?.ejercicios?.[ejIdx];
+        if (!actual) return;
+        _pfReemplazoEjercicio = { tipo: 'bloque-guardado', diaIdx, bloqueIdx, indice: ejIdx };
+        document.getElementById('reemplazar-ejercicio-actual').textContent = 'Actual: ' + actual.nombre;
+        const input = document.getElementById('reemplazar-ejercicio-buscar');
+        input.value = '';
+        document.getElementById('modal-reemplazar-ejercicio').classList.remove('hidden');
+        _pfRenderOpcionesReemplazo();
+        setTimeout(() => input.focus(), 50);
+    }
     function _pfRenderOpcionesReemplazo() {
         const lista = document.getElementById('reemplazar-ejercicio-lista');
         const query = (document.getElementById('reemplazar-ejercicio-buscar')?.value || '').trim().toLowerCase();
@@ -6144,7 +6179,10 @@
         const esEmom = r.tipo === 'emom-bloque' || r.tipo === 'emom-warmup';
         let objetivo = r.tipo === 'warmup-dia'
             ? diasData[r.diaIdx]?.warmupEjercicios?.[r.indice]
-            : r.tipo === 'warmup-standalone' ? warmupEjercicios[r.indice] : bloqueEjsTemp[r.indice];
+            : r.tipo === 'warmup-standalone' ? warmupEjercicios[r.indice]
+            : r.tipo === 'bloque-guardado'
+                ? diasData[r.diaIdx]?.bloquesRutina?.[r.bloqueIdx]?.ejercicios?.[r.indice]
+                : bloqueEjsTemp[r.indice];
         let emomLista = null;
         if (esEmom) {
             const prefijo = r.tipo === 'emom-bloque' ? 'emom-min-' : 'emow-min-' + r.idxOrKey + '-';
@@ -6168,6 +6206,10 @@
             lista.innerHTML = emomLista.map((ej, ei) => emomChipHtml(ej, ei, r.minIdx, r.tipo === 'emom-bloque' ? 'bloque' : 'warmup', r.idxOrKey)).join('');
             if (r.tipo === 'emom-warmup') guardarWarmupEmom(r.idxOrKey);
         } else if (r.tipo === 'warmup-dia') renderWarmupEjsDia(r.diaIdx);
+        else if (r.tipo === 'bloque-guardado') {
+            renderBloquesDia(r.diaIdx);
+            actualizarBadgeDia(r.diaIdx);
+        }
         else if (r.tipo === 'warmup-standalone') renderWarmupEjs();
         else renderBloqueEjsTemp();
         toast('Ejercicio reemplazado');
@@ -6357,13 +6399,17 @@
             const ejs = b.ejercicios || [];
             // Listado de ejercicios igual que las tarjetas de "Ver Entrenamiento" del
             // repositorio: cada uno en su propio recuadro, nombre + reps/seg grandes.
-            const ejItems = ejs.map(e => {
+            const ejItems = ejs.map((e, ejIdx) => {
                 const n = typeof e === 'object' ? (e.nombre || '') : (Array.isArray(e) ? e[0] : '');
                 if (!n) return '';
                 const reps = typeof e === 'object' ? _pfRepsEjercicio(e) : '';
-                return '<div class="pf-vr-ej-item">' +
+                return '<div class="pf-vr-ej-item flex items-center gap-2">' +
                     '<span class="pf-vr-ej-nombre">' + n + '</span>' +
                     (reps ? '<span class="pf-vr-ej-reps">' + reps + '</span>' : '') +
+                 '<span class="flex gap-1 ml-auto flex-shrink-0">' +
+                 '<button type="button" class="pf-ej-action-btn text-textoSuave hover:text-verde text-[10px] font-bold px-1.5 py-1 rounded border border-borde/50" onclick="event.stopPropagation();abrirModalReemplazarBloqueResumen(' + idx + ',' + i + ',' + ejIdx + ')" title="Reemplazar este ejercicio">Reemplazar</button>' +
+                 '<button type="button" class="pf-ej-action-btn text-textoSuave hover:text-naranja text-[10px] font-bold px-1.5 py-1 rounded border border-borde/50" onclick="event.stopPropagation();repetirEjBloqueResumen(' + idx + ',' + i + ',' + ejIdx + ')" title="Repetir este ejercicio">Repetir</button>' +
+                 '</span>' +
                 '</div>';
             }).filter(Boolean).join('');
             // Detalle auto-generado del bloque (vueltas/pausa, trabajo/pausa de tabata, etc.)
@@ -15658,9 +15704,14 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
                     const n = typeof e === 'object' ? (e.nombre || '') : (Array.isArray(e) ? e[0] : '');
                     if (!n) return '';
                     const reps = typeof e === 'object' ? _pfRepsEjercicio(e) : '';
-                    return '<div class="pf-vr-ej-item">' +
+                     const ejIdx = ejs.indexOf(e);
+                     return '<div class="pf-vr-ej-item flex items-center gap-2">' +
                         '<span class="pf-vr-ej-nombre">' + n + '</span>' +
                         (reps ? '<span class="pf-vr-ej-reps">' + reps + '</span>' : '') +
+                         '<span class="flex gap-1 ml-auto flex-shrink-0">' +
+                         '<button type="button" class="pf-ej-action-btn text-textoSuave hover:text-verde text-[10px] font-bold px-1.5 py-1 rounded border border-borde/50" onclick="event.stopPropagation();abrirModalReemplazarWarmupResumen(' + idx + ',' + ejIdx + ')" title="Reemplazar este ejercicio">Reemplazar</button>' +
+                         '<button type="button" class="pf-ej-action-btn text-textoSuave hover:text-naranja text-[10px] font-bold px-1.5 py-1 rounded border border-borde/50" onclick="event.stopPropagation();repetirEjWarmupResumen(' + idx + ',' + ejIdx + ')" title="Repetir este ejercicio">Repetir</button>' +
+                         '</span>' +
                     '</div>';
                 }).filter(Boolean).join('');
                 // Colapsar el listado de ejercicios cada vez que se re-renderiza la tarjeta
