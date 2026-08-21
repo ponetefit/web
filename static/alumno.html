@@ -6185,27 +6185,19 @@
                 var count = opts.startFrom || 5;
                 var showArrancamos = opts.showArrancamos !== false;
                 var extraBeepAt3 = opts.extraBeepAt3 || false;
-                // No depender de cuántos ticks entregue el navegador: en segundo
-                // plano los intervalos pueden agruparse o demorarse. El deadline
-                // hace que el conteo se ponga al día al volver a primer plano.
-                var deadline = Date.now() + count * 1000;
-                var finalizado = false;
                 if (statusEl) statusEl.innerText = "PREPARATE!";
                 clockEl.innerText = count < 10 && opts.padZero ? "0" + count : count;
                 var iv = bgSetInterval(function() {
-                    var nuevoCount = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-                    if (nuevoCount === count && nuevoCount > 0) return;
-                    count = nuevoCount;
-                    if (count > 0) beep(beepFreq);
+                    beep(beepFreq);
+                    count--;
                     clockEl.innerText = count < 10 && opts.padZero ? "0" + count : count;
                     if (extraBeepAt3 && count <= 3 && count > 0) beep(400);
-                    if (count <= 0 && !finalizado) {
-                        finalizado = true;
+                    if (count <= 0) {
                         bgClearInterval(iv);
                         if (extraBeepAt3) beep(800);
                         if (showArrancamos && statusEl) statusEl.innerText = "¡ARRANCAMOS!";
                         clockEl.innerText = "";
-                        callback();
+                        setTimeout(callback, 1000);
                     }
                 }, 1000);
                 return iv;
@@ -8025,11 +8017,7 @@
 
             // ─── RENDER CALENTAMIENTO ───
             function renderWarmup(data) {
-                const tipo = _normalizarTipoTimer(
-                    data.warmup_tipo ||
-                    (data.warmup_config_detalle && data.warmup_config_detalle.tipo) ||
-                    "Circuito (Vueltas)"
-                );
+                const tipo = data.warmup_tipo || "Circuito (Vueltas)";
                 const ejsW = toArray(data.warmup_ejercicios || []);
                 const det = data.warmup_config_detalle || {};
 
@@ -8445,29 +8433,11 @@
             }
 
             // ─── TIMERS CALENTAMIENTO ───
-            // El profesor puede guardar el método con distintas mayúsculas/minúsculas
-            // (por ejemplo "Circuito por tiempo").  La UI se renderiza, pero el
-            // handler anterior comparaba el texto literalmente y por eso el botón
-            // parecía no hacer nada.
-            function _normalizarTipoTimer(tipo) {
-                var t = String(tipo || '').trim().toLowerCase()
-                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                if (t === 'circuito por tiempo') return 'Circuito por Tiempo';
-                if (t === 'circuito (vueltas)' || t === 'circuito por vueltas') return 'Circuito (Vueltas)';
-                if (t === 'tabata') return 'Tabata';
-                if (t === 'emom') return 'EMOM';
-                if (t === 'series/reps' || t === 'series y repeticiones') return 'Series/Reps';
-                if (t === 'por tiempo') return 'Por Tiempo';
-                return String(tipo || '').trim();
-            }
-
             function iniciarWarmupTimer() {
-                const tipo = _normalizarTipoTimer(
-                    dataGlobal && (dataGlobal.warmup_tipo ||
-                        (dataGlobal.warmup_config_detalle && dataGlobal.warmup_config_detalle.tipo))
-                );
-                const det = (dataGlobal && dataGlobal.warmup_config_detalle) ? dataGlobal.warmup_config_detalle : {};
-                const ejsW = (dataGlobal && dataGlobal.warmup_ejercicios) ? dataGlobal.warmup_ejercicios : [];
+                const _dActual = _dataRenderActual || dataGlobal;
+                const tipo = (_dActual && _dActual.warmup_tipo) ? _dActual.warmup_tipo : "";
+                const det = (_dActual && _dActual.warmup_config_detalle) ? _dActual.warmup_config_detalle : {};
+                const ejsW = (_dActual && _dActual.warmup_ejercicios) ? _dActual.warmup_ejercicios : [];
 
                 if (tipo === "Tabata" || tipo === "EMOM" || tipo === "Circuito por Tiempo") {
                     if (warmupRunning) return;
@@ -8803,7 +8773,7 @@
                 _wPorTiempoLapStart = Date.now();
 
                 // Abrir fullscreen con ejercicios del calentamiento
-                var _wEjsFS = (dataGlobal && dataGlobal.warmup_ejercicios) ? toArray(dataGlobal.warmup_ejercicios) : [];
+                var _wEjsFS = ((_dataRenderActual || dataGlobal) && (_dataRenderActual || dataGlobal).warmup_ejercicios) ? toArray((_dataRenderActual || dataGlobal).warmup_ejercicios) : [];
                 _ptFsAbrir('warmup', 'warmup', totalVueltas, _wEjsFS);
 
                 function _fmtCrono(ms) {
@@ -8914,7 +8884,7 @@
                 document.getElementById('warmup-btn').disabled = true;
                 document.getElementById('warmup-btn').innerText = "En curso...";
                 const mins = det.minutos || 5;
-                const ejsW = (dataGlobal && dataGlobal.warmup_ejercicios) ? dataGlobal.warmup_ejercicios : [];
+                const ejsW = ((_dataRenderActual || dataGlobal) && (_dataRenderActual || dataGlobal).warmup_ejercicios) ? (_dataRenderActual || dataGlobal).warmup_ejercicios : [];
                 const ejsPorMin = ejsW.length > 0 ? Math.ceil(ejsW.length / mins) : 1;
                 const emomCfgPorMin = det.emom_config_por_minuto || [];
                 let minActual = 0;
@@ -9114,7 +9084,7 @@
                         if (nextIdx < totalSeries) {
                             document.getElementById('warmup-status').innerText = "LISTA PARA SERIE " + (nextIdx + 1) + "/" + totalSeries;
                             // >>> COACH: tip técnico al volver del descanso en warmup series
-                            var _ejsW = (dataGlobal && dataGlobal.warmup_ejercicios) || [];
+                            var _ejsW = ((_dataRenderActual || dataGlobal) && (_dataRenderActual || dataGlobal).warmup_ejercicios) || [];
                             if (_ejsW.length > 0) {
                                 var _primerEj = Array.isArray(_ejsW[0]) ? _ejsW[0][0] : (_ejsW[0].nombre || '');
                                 var _tipWS = _obtenerTip(_primerEj);
@@ -9837,14 +9807,15 @@
                         pLista.innerHTML += crearCard(n, l, r ? r + " " + ejU : "TIEMPO", cc);
                     });
 
-                    if (dataGlobal && (!dataGlobal.config || !dataGlobal.config.trabajo)) {
-                        const tiempoMin = (dataGlobal.datos && dataGlobal.datos[0] && dataGlobal.datos[0].tiempo_min) ||
-                            (dataGlobal.config && dataGlobal.config.duracion_bloque) || 5;
-                        dataGlobal.config = dataGlobal.config || {};
-                        dataGlobal.config.trabajo = tiempoMin * 60;
-                        dataGlobal.config.pausa = 0;
-                        dataGlobal.config.rondas = 1;
-                        dataGlobal.config.pausa_entre_rondas = 0;
+                    const _dActualCT = _dataRenderActual || dataGlobal;
+                    if (_dActualCT && (!_dActualCT.config || !_dActualCT.config.trabajo)) {
+                        const tiempoMin = (_dActualCT.datos && _dActualCT.datos[0] && _dActualCT.datos[0].tiempo_min) ||
+                            (_dActualCT.config && _dActualCT.config.duracion_bloque) || 5;
+                        _dActualCT.config = _dActualCT.config || {};
+                        _dActualCT.config.trabajo = tiempoMin * 60;
+                        _dActualCT.config.pausa = 0;
+                        _dActualCT.config.rondas = 1;
+                        _dActualCT.config.pausa_entre_rondas = 0;
                     }
                 }
             }
@@ -9868,9 +9839,10 @@
                     cantidad: data.cantidad || 8,
                     pausa_entre_rondas: data.pausa_entre_rondas || 0
                 };
-                // Guardar config en dataGlobal para que el timer lo use
-                if (dataGlobal && !dataGlobal.config) {
-                    dataGlobal.config = config;
+                // Guardar config en los datos del día actual para que el timer lo use
+                const _dActualTab = _dataRenderActual || dataGlobal;
+                if (_dActualTab && !_dActualTab.config) {
+                    _dActualTab.config = config;
                 }
                 const pr = config.pausa_entre_rondas || 0;
 
@@ -12314,14 +12286,15 @@
                 solicitarWakeLock();
                 _iniciarAudioKeepalive();
 
-                const config = dataGlobal.config || {
+                const _dActualCronoT = _dataRenderActual || dataGlobal;
+                const config = _dActualCronoT.config || {
                     trabajo: 20,
                     pausa: 10,
                     rondas: 1,
                     cantidad: 8,
                     pausa_entre_rondas: 0
                 };
-                const rutina = dataGlobal.rutina || dataGlobal.datos || [];
+                const rutina = _dActualCronoT.rutina || _dActualCronoT.datos || [];
                 const trabajo = config.trabajo || 20;
                 const pausa = config.pausa || 10;
                 const rondas = config.rondas || 1;
@@ -12338,7 +12311,7 @@
                 if (btnReiniciar) btnReiniciar.style.display = 'block';
                 var btnFsTabata = document.getElementById('tabata-fs-btn');
                 if (btnFsTabata) btnFsTabata.style.display = 'block';
-                if (dataGlobal && dataGlobal.tipo === 'Circuito por Tiempo') hablarCoach('Arranca el circuito, vamos con todo!');
+                if (_dActualCronoT && _dActualCronoT.tipo === 'Circuito por Tiempo') hablarCoach('Arranca el circuito, vamos con todo!');
 
                 tSegs = 5;
                 tFase = "prep";
@@ -12767,14 +12740,15 @@
                 solicitarWakeLock();
                 _iniciarAudioKeepalive();
 
-                emomMinTotal = dataGlobal.minutos_totales || 10;
+                const _dActualEmom = _dataRenderActual || dataGlobal;
+                emomMinTotal = _dActualEmom.minutos_totales || 10;
                 emomTotalMin = emomMinTotal;
                 emomMinActual = 0;
                 emomSegs = 5;
                 emomFase = "prep";
                 _emomPhaseDeadline = Date.now() + 5000;
-                var _rawCiclo = (dataGlobal.minutos_ciclo && dataGlobal.minutos_ciclo.length > 0) ? dataGlobal.minutos_ciclo : [];
-                if (_rawCiclo.length > 0) emomMinutosCiclo = _emomEnriquecerCiclo(_rawCiclo, toArray(dataGlobal.rutina || []));
+                var _rawCiclo = (_dActualEmom.minutos_ciclo && _dActualEmom.minutos_ciclo.length > 0) ? _dActualEmom.minutos_ciclo : [];
+                if (_rawCiclo.length > 0) emomMinutosCiclo = _emomEnriquecerCiclo(_rawCiclo, toArray(_dActualEmom.rutina || []));
 
                 document.getElementById('btnStartEmom').style.display = "none";
                 document.getElementById('btnPausaEmom').style.display = "block";
@@ -13328,9 +13302,9 @@
 
             function activarTabataMixEnUI(tc, rutina, uid) {
                 // Falls through to global timer UI
-                dataGlobal = dataGlobal || {};
-                dataGlobal.config = tc;
-                dataGlobal.rutina = rutina;
+                _dataRenderActual = _dataRenderActual || dataGlobal || {};
+                _dataRenderActual.config = tc;
+                _dataRenderActual.rutina = rutina;
                 _ultimoBloqueMixUid = uid || null;
                 document.getElementById('sec-rutina-lista').style.display = "none";
                 document.getElementById('sec-timer-ui').style.display = "block";
@@ -14173,7 +14147,7 @@
                         var btnEl = document.getElementById('btn-' + k);
                         if (btnEl && estado.seriesRestantes[k] > 0) {
                             var totalOriginal = 0;
-                            var ejercicios = dataGlobal.rutina || dataGlobal.datos || [];
+                            var ejercicios = _dataParaRetomar.rutina || _dataParaRetomar.datos || [];
                             if (ejercicios[k]) totalOriginal = parseInt(ejercicios[k].series) || 0;
                             if (estado.seriesRestantes[k] < totalOriginal) {
                                 btnEl.innerText = 'Marcar Serie (' + estado.seriesRestantes[k] + ' rest.)';
