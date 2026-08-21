@@ -2614,6 +2614,49 @@
             </div>
         </div>
 
+        <!-- Modal Opciones al Guardar (al editar una rutina completa desde el Repositorio) -->
+        <div id="modal-repo-guardar-opciones" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+            <div class="bg-tarjeta rounded-3xl border border-borde p-6 max-w-sm w-full">
+                <h3 class="text-sm font-bold text-naranja uppercase tracking-wider mb-1">¿Cómo querés guardar?</h3>
+                <p class="text-xs text-textoSuave mb-4">Editaste una plantilla del repositorio. Elegí qué hacer con los cambios.</p>
+                <div class="space-y-3">
+                    <button onclick="_repoOpcionSobrescribir()" class="w-full py-3 rounded-xl border-2 border-naranja/50 text-naranja font-bold text-sm hover:border-naranja hover:bg-naranja/5 transition text-left px-4">
+                        💾 Guardar sobre la misma
+                        <span class="block text-[11px] font-normal text-textoSuave mt-0.5">Reemplaza esta plantilla del repositorio</span>
+                    </button>
+                    <button onclick="_repoOpcionGuardarNueva()" class="w-full py-3 rounded-xl border-2 border-azul/50 text-azul font-bold text-sm hover:border-azul hover:bg-azul/5 transition text-left px-4">
+                        ➕ Guardar como nueva
+                        <span class="block text-[11px] font-normal text-textoSuave mt-0.5">Crea otra plantilla, sin tocar la original</span>
+                    </button>
+                    <button onclick="_repoOpcionCompartir()" class="w-full py-3 rounded-xl border-2 border-verde/50 text-verde font-bold text-sm hover:border-verde hover:bg-verde/5 transition text-left px-4">
+                        📤 Compartir a un alumno
+                        <span class="block text-[11px] font-normal text-textoSuave mt-0.5">Asigna esta rutina (con los cambios) a un alumno</span>
+                    </button>
+                </div>
+                <button onclick="document.getElementById('modal-repo-guardar-opciones').classList.add('hidden')" class="w-full mt-3 py-2.5 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
+            </div>
+        </div>
+
+        <!-- Modal Compartir a Alumno (al editar una rutina completa desde el Repositorio) -->
+        <div id="modal-repo-compartir-alumno" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+            <div class="bg-tarjeta rounded-3xl border border-borde p-6 max-w-sm w-full">
+                <h3 class="text-sm font-bold text-verde uppercase tracking-wider mb-4">Compartir a un Alumno</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Alumno Destino</label>
+                        <select id="repo-edicion-compartir-alumno" class="w-full rounded-lg px-3 py-2.5 text-sm">
+                            <option value="">-- Seleccionar alumno --</option>
+                        </select>
+                    </div>
+                    <p id="repo-edicion-compartir-status" class="text-xs text-verde text-center min-h-[1.2rem]"></p>
+                    <div class="flex gap-3">
+                        <button id="btn-repo-edicion-compartir-confirm" onclick="_repoConfirmarCompartirDesdeEdicion()" class="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold text-sm">Compartir</button>
+                        <button onclick="document.getElementById('modal-repo-compartir-alumno').classList.add('hidden')" class="flex-1 py-2.5 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Modal Editar Plantilla del Repositorio -->
         <div id="modal-repo-editar" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
             <div class="bg-tarjeta rounded-3xl border border-borde p-6 max-w-sm w-full">
@@ -5380,6 +5423,7 @@
     function abrirCrearEntrenamiento() {
         modoRepositorio = true;
         window._repoEditandoIdx = null; // no estamos editando un ítem existente
+        window._repoGuardarComoNueva = false;
         _pfCodigoEditando = null; // no estamos editando una rutina existente del historial
         // Resetear el formulario para empezar desde cero
         diasData = [];
@@ -5409,14 +5453,14 @@
     // Guarda directamente con un prompt de nombre (modo repositorio)
     function guardarEnRepositorioDirecto() {
         document.getElementById('repo-status').textContent = '';
-        // Si venimos de "editar rutina completa", pre-rellenar el nombre del ítem original
+        // Si venimos de "editar rutina completa": dar a elegir cómo guardar
+        // (sobrescribir la plantilla original, guardar como una nueva, o
+        // compartir directamente esta versión editada a un alumno).
         if (window._repoEditandoIdx !== undefined && window._repoEditandoIdx !== null) {
-            const repo = getRepositorio();
-            const r = repo[window._repoEditandoIdx];
-            document.getElementById('repo-nombre-input').value = r ? (r.nombre || '') : '';
-        } else {
-            document.getElementById('repo-nombre-input').value = '';
+            document.getElementById('modal-repo-guardar-opciones').classList.remove('hidden');
+            return;
         }
+        document.getElementById('repo-nombre-input').value = '';
         document.getElementById('modal-repo-guardar').classList.remove('hidden');
         // Al confirmar: desactivar modo repo y volver al repositorio
         window._repoGuardarCallback = () => {
@@ -5425,6 +5469,84 @@
             showTab('repositorio');
         };
         setTimeout(() => document.getElementById('repo-nombre-input').focus(), 100);
+    }
+
+    // ── Opciones al guardar tras "Editar Rutina Completa" ──────────────────
+
+    // Opción 1: sobrescribir la plantilla original del repositorio (comportamiento
+    // de guardado clásico: reemplaza el ítem en window._repoEditandoIdx).
+    function _repoOpcionSobrescribir() {
+        document.getElementById('modal-repo-guardar-opciones').classList.add('hidden');
+        window._repoGuardarComoNueva = false;
+        const repo = getRepositorio();
+        const r = repo[window._repoEditandoIdx];
+        document.getElementById('repo-nombre-input').value = r ? (r.nombre || '') : '';
+        document.getElementById('repo-status').textContent = '';
+        document.getElementById('modal-repo-guardar').classList.remove('hidden');
+        window._repoGuardarCallback = () => {
+            modoRepositorio = false;
+            window._repoEditandoIdx = null;
+            showTab('repositorio');
+        };
+        setTimeout(() => document.getElementById('repo-nombre-input').focus(), 100);
+    }
+
+    // Opción 2: guardar los cambios como una plantilla nueva, sin tocar la original.
+    function _repoOpcionGuardarNueva() {
+        document.getElementById('modal-repo-guardar-opciones').classList.add('hidden');
+        window._repoGuardarComoNueva = true;
+        document.getElementById('repo-nombre-input').value = '';
+        document.getElementById('repo-status').textContent = '';
+        document.getElementById('modal-repo-guardar').classList.remove('hidden');
+        window._repoGuardarCallback = () => {
+            modoRepositorio = false;
+            window._repoEditandoIdx = null;
+            window._repoGuardarComoNueva = false;
+            showTab('repositorio');
+        };
+        setTimeout(() => document.getElementById('repo-nombre-input').focus(), 100);
+    }
+
+    // Opción 3: compartir esta versión editada directamente con un alumno
+    // (sin necesidad de guardarla antes en el repositorio).
+    async function _repoOpcionCompartir() {
+        document.getElementById('modal-repo-guardar-opciones').classList.add('hidden');
+        const sel = document.getElementById('repo-edicion-compartir-alumno');
+        sel.innerHTML = '<option value="">-- Seleccionar alumno --</option>';
+        const alumnos = await _obtenerAlumnosCache();
+        alumnos.forEach(nombre => {
+            const o = document.createElement('option');
+            o.value = nombre;
+            o.textContent = nombre.toUpperCase();
+            sel.appendChild(o);
+        });
+        document.getElementById('repo-edicion-compartir-status').textContent = '';
+        document.getElementById('modal-repo-compartir-alumno').classList.remove('hidden');
+    }
+
+    async function _repoConfirmarCompartirDesdeEdicion() {
+        const alumno = (document.getElementById('repo-edicion-compartir-alumno').value || '').trim();
+        const statusEl = document.getElementById('repo-edicion-compartir-status');
+        if (!alumno) {
+            statusEl.textContent = 'Seleccioná un alumno';
+            statusEl.className = 'text-xs text-rojo text-center min-h-[1.2rem]';
+            return;
+        }
+        statusEl.textContent = 'Compartiendo...';
+        statusEl.className = 'text-xs text-textoSuave text-center min-h-[1.2rem]';
+        document.getElementById('alumno-nombre').value = alumno;
+        // Registrar el uso contra la plantilla que se estaba editando
+        _pfRepoOrigenIdx = (window._repoEditandoIdx !== undefined) ? window._repoEditandoIdx : null;
+        try {
+            await compartirRutina();
+            document.getElementById('modal-repo-compartir-alumno').classList.add('hidden');
+            modoRepositorio = false;
+            window._repoEditandoIdx = null;
+            actualizarModoRepositorio();
+        } catch (e) {
+            statusEl.textContent = 'Error al compartir. Intentá de nuevo.';
+            statusEl.className = 'text-xs text-rojo text-center min-h-[1.2rem]';
+        }
     }
 
     function inicializarRutina() {
@@ -12531,8 +12653,10 @@
         };
 
         const repo = getRepositorio();
-        // Si venimos de "editar rutina completa", reemplazar el ítem existente en vez de agregar uno nuevo
-        if (window._repoEditandoIdx !== undefined && window._repoEditandoIdx !== null && repo[window._repoEditandoIdx]) {
+        // Si venimos de "editar rutina completa" y se eligió sobrescribir, reemplazar
+        // el ítem existente. Si se eligió "Guardar como nueva" (_repoGuardarComoNueva),
+        // se agrega como un ítem nuevo aunque estemos editando uno existente.
+        if (!window._repoGuardarComoNueva && window._repoEditandoIdx !== undefined && window._repoEditandoIdx !== null && repo[window._repoEditandoIdx]) {
             repo[window._repoEditandoIdx] = snapshot;
             _pfRepoOrigenIdx = window._repoEditandoIdx;
         } else {
@@ -12544,6 +12668,7 @@
             _pfRepoOrigenIdx = 0;
         }
         setRepositorio(repo);
+        window._repoGuardarComoNueva = false;
         _pfLimpiarBorrador();
 
         document.getElementById('repo-status').textContent = '✓ Guardado correctamente';
@@ -12902,6 +13027,7 @@
 
         // Activar modo "guardar en repo" para que al guardar se actualice el índice correcto
         window._repoEditandoIdx = repoEditandoIdx;
+        window._repoGuardarComoNueva = false;
         document.getElementById('btn-guardar-repo-normal').classList.add('hidden');
         document.getElementById('btn-compartir-rutina').classList.add('hidden');
         document.getElementById('btn-guardar-repo-modo').classList.remove('hidden');
