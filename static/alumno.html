@@ -6185,19 +6185,27 @@
                 var count = opts.startFrom || 5;
                 var showArrancamos = opts.showArrancamos !== false;
                 var extraBeepAt3 = opts.extraBeepAt3 || false;
+                // No depender de cuántos ticks entregue el navegador: en segundo
+                // plano los intervalos pueden agruparse o demorarse. El deadline
+                // hace que el conteo se ponga al día al volver a primer plano.
+                var deadline = Date.now() + count * 1000;
+                var finalizado = false;
                 if (statusEl) statusEl.innerText = "PREPARATE!";
                 clockEl.innerText = count < 10 && opts.padZero ? "0" + count : count;
                 var iv = bgSetInterval(function() {
-                    beep(beepFreq);
-                    count--;
+                    var nuevoCount = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+                    if (nuevoCount === count && nuevoCount > 0) return;
+                    count = nuevoCount;
+                    if (count > 0) beep(beepFreq);
                     clockEl.innerText = count < 10 && opts.padZero ? "0" + count : count;
                     if (extraBeepAt3 && count <= 3 && count > 0) beep(400);
-                    if (count <= 0) {
+                    if (count <= 0 && !finalizado) {
+                        finalizado = true;
                         bgClearInterval(iv);
                         if (extraBeepAt3) beep(800);
                         if (showArrancamos && statusEl) statusEl.innerText = "¡ARRANCAMOS!";
                         clockEl.innerText = "";
-                        setTimeout(callback, 1000);
+                        callback();
                     }
                 }, 1000);
                 return iv;
@@ -8017,7 +8025,11 @@
 
             // ─── RENDER CALENTAMIENTO ───
             function renderWarmup(data) {
-                const tipo = data.warmup_tipo || "Circuito (Vueltas)";
+                const tipo = _normalizarTipoTimer(
+                    data.warmup_tipo ||
+                    (data.warmup_config_detalle && data.warmup_config_detalle.tipo) ||
+                    "Circuito (Vueltas)"
+                );
                 const ejsW = toArray(data.warmup_ejercicios || []);
                 const det = data.warmup_config_detalle || {};
 
@@ -8433,8 +8445,27 @@
             }
 
             // ─── TIMERS CALENTAMIENTO ───
+            // El profesor puede guardar el método con distintas mayúsculas/minúsculas
+            // (por ejemplo "Circuito por tiempo").  La UI se renderiza, pero el
+            // handler anterior comparaba el texto literalmente y por eso el botón
+            // parecía no hacer nada.
+            function _normalizarTipoTimer(tipo) {
+                var t = String(tipo || '').trim().toLowerCase()
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                if (t === 'circuito por tiempo') return 'Circuito por Tiempo';
+                if (t === 'circuito (vueltas)' || t === 'circuito por vueltas') return 'Circuito (Vueltas)';
+                if (t === 'tabata') return 'Tabata';
+                if (t === 'emom') return 'EMOM';
+                if (t === 'series/reps' || t === 'series y repeticiones') return 'Series/Reps';
+                if (t === 'por tiempo') return 'Por Tiempo';
+                return String(tipo || '').trim();
+            }
+
             function iniciarWarmupTimer() {
-                const tipo = (dataGlobal && dataGlobal.warmup_tipo) ? dataGlobal.warmup_tipo : "";
+                const tipo = _normalizarTipoTimer(
+                    dataGlobal && (dataGlobal.warmup_tipo ||
+                        (dataGlobal.warmup_config_detalle && dataGlobal.warmup_config_detalle.tipo))
+                );
                 const det = (dataGlobal && dataGlobal.warmup_config_detalle) ? dataGlobal.warmup_config_detalle : {};
                 const ejsW = (dataGlobal && dataGlobal.warmup_ejercicios) ? dataGlobal.warmup_ejercicios : [];
 
