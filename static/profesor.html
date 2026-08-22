@@ -8403,8 +8403,9 @@
             if (inp && inp.value.trim()) dia.titulo = inp.value.trim();
         });
 
+        const descGlobalSemana = (document.getElementById('rutina-desc')?.value || '').trim();
         const diasCongelados = diasData.map((dia, i) => {
-            const { tipo, datos } = buildDatosDia(dia, i);
+            const { tipo, datos } = buildDatosDia(dia, i, descGlobalSemana);
             return { titulo: dia.titulo, tipo, datos };
         });
 
@@ -8448,7 +8449,8 @@
     // como al congelar una semana dentro de "Crear Rutina" (misma función,
     // un solo lugar: así ambos caminos arman los datos exactamente igual). ---
 
-            function buildDatosDia(dia, diaIdx) {
+            function buildDatosDia(dia, diaIdx, descGlobal) {
+                descGlobal = descGlobal || '';
                 const warmupTipo = (document.getElementById('warmup-tipo-' + diaIdx) || {}).value || 'Circuito (Vueltas)';
                 // Usar _warmupCfg persistido en diasData como fuente de verdad, con fallback al DOM
                 const _saved = (diasData[diaIdx] && diasData[diaIdx]._warmupCfg) || {};
@@ -8654,7 +8656,7 @@
                 if (inp && inp.value.trim()) dia.titulo = inp.value.trim();
             });
             const dias = diasData.map((dia, i) => {
-                const { tipo, datos } = buildDatosDia(dia, i);
+                const { tipo, datos } = buildDatosDia(dia, i, descGlobal);
                 return { titulo: dia.titulo, tipo, datos };
             });
 
