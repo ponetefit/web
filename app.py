@@ -932,9 +932,11 @@ def fb_meta(codigo):
 if __name__ == "__main__":
     firebase_config.init_firebase()
     control_db.asegurar_cuenta_master()
+    control_db.backfillar_codigos_master()
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
 else:
     # Cuando corre con gunicorn (Render), tambien hay que inicializar aca.
     firebase_config.init_firebase()
     control_db.asegurar_cuenta_master()
+    control_db.backfillar_codigos_master()
