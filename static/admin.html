@@ -167,6 +167,20 @@
 
 <script>
     const lista = document.getElementById('lista');
+    let _featuresDisponibles = {};
+    let _featuresDisponiblesKeys = [];
+
+    async function cargarFeaturesDisponibles() {
+        try {
+            const res = await fetch('/api/admin/features-disponibles', { credentials: 'include' });
+            const data = await res.json();
+            _featuresDisponibles = (data && data.ok) ? (data.features || {}) : {};
+            _featuresDisponiblesKeys = Object.keys(_featuresDisponibles);
+        } catch (e) {
+            _featuresDisponibles = {};
+            _featuresDisponiblesKeys = [];
+        }
+    }
 
     async function verificarSesionAdmin() {
         const res = await fetch('/api/auth/sesion', { credentials: 'include' });
@@ -305,6 +319,7 @@
 
     (async () => {
         if (await verificarSesionAdmin()) {
+            await cargarFeaturesDisponibles();
             cargarSolicitudes();
             cargarCuentasActivas();
         }
@@ -317,15 +332,66 @@
             ? '<span class="badge video">Con videoteca</span>'
             : '<span class="badge novideo">Sin videoteca inicial</span>';
         const estadoTxt = c.estado === 'pendiente' ? ' — pendiente de aprobación' : '';
+
+        const featuresHtml = _featuresDisponiblesKeys.length === 0 ? '' : `
+            <div class="form-aprobar" style="border-top:1px solid #1a1a1a; margin-top:16px; padding-top:16px;">
+                <label style="margin-top:0;">Funciones activadas para esta cuenta</label>
+                <div id="features-${id}"></div>
+            </div>
+        `;
+
         div.innerHTML = `
             <div class="email">${c.email}${badge}</div>
             <div class="fecha">Estado: ${c.estado}${estadoTxt}</div>
+            ${featuresHtml}
             <div class="botones" style="margin-top:16px;">
                 <button class="btn rechazar" style="flex:none; padding:10px 18px;" onclick="eliminarCuenta('${id}', this)">Eliminar cuenta</button>
             </div>
             <div class="resultado" id="resultado-activa-${id}"></div>
         `;
+
+        if (_featuresDisponiblesKeys.length > 0) {
+            const cont = div.querySelector(`#features-${id}`);
+            const activas = c.features || {};
+            _featuresDisponiblesKeys.forEach((key) => {
+                const label = _featuresDisponibles[key];
+                const row = document.createElement('label');
+                row.style.cssText = 'display:flex; align-items:center; gap:10px; font-size:13px; color:var(--texto); margin-top:8px; cursor:pointer;';
+                row.innerHTML = `
+                    <input type="checkbox" ${activas[key] ? 'checked' : ''} style="width:18px; height:18px; accent-color:var(--naranja);">
+                    <span>${label}</span>
+                `;
+                row.querySelector('input').addEventListener('change', (e) => {
+                    toggleFeature(id, key, e.target.checked, row);
+                });
+                cont.appendChild(row);
+            });
+        }
+
         return div;
+    }
+
+    async function toggleFeature(accountId, featureKey, activado, filaEl) {
+        const input = filaEl.querySelector('input');
+        input.disabled = true;
+        try {
+            const res = await fetch('/api/admin/set-feature', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ account_id: accountId, feature_key: featureKey, activado })
+            });
+            const data = await res.json();
+            if (!data.ok) {
+                alert(data.error || 'No se pudo guardar el cambio');
+                input.checked = !activado; // revertir visualmente
+            }
+        } catch (e) {
+            alert('Error de conexión');
+            input.checked = !activado;
+        } finally {
+            input.disabled = false;
+        }
     }
 
     async function cargarCuentasActivas() {
