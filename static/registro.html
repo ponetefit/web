@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>PONETE FIT - Crear cuenta</title>
 <style>
     :root {
@@ -15,17 +15,19 @@
         --error: #FF2E93;
         --verde: #00E676;
     }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { height: 100%; }
     body {
         margin: 0;
-        min-height: 100vh;
+        min-height: 100%;
+        min-height: 100dvh;
         display: flex;
         align-items: center;
         justify-content: center;
         background: radial-gradient(ellipse at 50% 20%, #1a1a28 0%, var(--fondo) 70%);
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         color: var(--texto);
-        padding: 24px;
+        padding: max(20px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom));
     }
     .card {
         width: 100%;
@@ -33,12 +35,12 @@
         background: var(--fondo-alt);
         border: 1px solid #1f1f1f;
         border-radius: 18px;
-        padding: 36px 28px;
+        padding: 32px 22px;
         box-shadow: 0 20px 60px rgba(0,0,0,0.5);
     }
     h1 {
         text-align: center;
-        font-size: 24px;
+        font-size: clamp(22px, 6vw, 26px);
         letter-spacing: 1px;
         margin: 0 0 4px;
         color: var(--naranja);
@@ -47,26 +49,28 @@
     .subt {
         text-align: center;
         color: var(--texto-tenue);
-        font-size: 13px;
-        margin-bottom: 26px;
+        font-size: 14px;
+        margin-bottom: 24px;
         line-height: 1.5;
     }
     label {
         display: block;
-        font-size: 12px;
+        font-size: 13px;
         color: var(--texto-tenue);
-        margin: 16px 0 6px;
+        margin: 16px 0 7px;
     }
     input {
         width: 100%;
-        padding: 13px 14px;
+        padding: 15px 14px;
         border-radius: 10px;
         border: 1.5px solid #262626;
         background: #000;
         color: var(--texto);
-        font-size: 15px;
+        font-size: 16px; /* 16px minimo: evita que iOS haga zoom automatico al tocar */
         outline: none;
         transition: border-color .15s, box-shadow .15s;
+        -webkit-appearance: none;
+        appearance: none;
     }
     input:focus {
         border-color: var(--naranja);
@@ -83,38 +87,40 @@
         border-radius: 10px;
     }
     .toggle-row input[type="checkbox"] {
-        width: 18px;
-        height: 18px;
-        margin-top: 2px;
+        width: 22px;
+        height: 22px;
+        margin-top: 1px;
         accent-color: var(--naranja);
         flex-shrink: 0;
     }
     .toggle-row .txt {
-        font-size: 13px;
+        font-size: 13.5px;
         color: var(--texto-tenue);
         line-height: 1.45;
     }
     .toggle-row .txt b { color: var(--texto); }
     button {
         width: 100%;
-        margin-top: 26px;
+        min-height: 50px;
+        margin-top: 24px;
         padding: 14px;
         border: none;
         border-radius: 10px;
         background: linear-gradient(135deg, var(--naranja), #e85500);
         color: #fff;
-        font-size: 15px;
+        font-size: 16px;
         font-weight: 600;
         letter-spacing: .3px;
         cursor: pointer;
         box-shadow: 0 8px 24px var(--naranja-glow);
         transition: transform .1s;
+        touch-action: manipulation;
     }
     button:active { transform: scale(0.98); }
     button:disabled { opacity: .6; cursor: default; }
     .msg {
         margin-top: 16px;
-        font-size: 13px;
+        font-size: 14px;
         text-align: center;
         line-height: 1.5;
         min-height: 18px;
@@ -124,13 +130,23 @@
     .abajo {
         margin-top: 22px;
         text-align: center;
-        font-size: 13px;
+        font-size: 14px;
         color: var(--texto-tenue);
     }
     .abajo a {
         color: var(--naranja);
         text-decoration: none;
         font-weight: 600;
+        padding: 4px;
+    }
+
+    @media (max-width: 360px) {
+        .card { padding: 26px 18px; border-radius: 14px; }
+        h1 { font-size: 20px; }
+    }
+
+    @media (min-width: 480px) {
+        .card { padding: 40px 32px; }
     }
 </style>
 </head>
