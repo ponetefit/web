@@ -620,6 +620,32 @@ def compartir_rutina():
                 }
             if datos_paquete.get("descripcion"):
                 payload["descripcion"] = datos_paquete["descripcion"]
+
+            # ── Progresion semanal (mismos ejercicios, distinta serie/reps/pausa
+            # por semana) armada de una sola vez desde "Crear Rutina" con el
+            # boton "+ Agregar semana". "semanas" es una lista de semanas, cada
+            # una con la misma forma que "dias" (una por dia). La ultima semana
+            # de la lista es siempre igual a "dias", asi que dia_1..dia_N (arriba)
+            # ya queda mostrando la semana mas nueva por defecto.
+            semanas_input = body.get("semanas")
+            if semanas_input and isinstance(semanas_input, list) and len(semanas_input) > 1:
+                semanas_dict = {}
+                for si, semana_dias in enumerate(semanas_input):
+                    if not isinstance(semana_dias, list):
+                        continue
+                    semana_obj = {}
+                    for di, dia in enumerate(semana_dias):
+                        semana_obj[f"dia_{di + 1}"] = {
+                            "titulo": dia.get("titulo", f"Dia {di + 1}"),
+                            "tipo": dia.get("tipo", "ENTRENAMIENTO"),
+                            "datos": dia.get("datos", {})
+                        }
+                    semanas_dict[f"semana_{si + 1}"] = semana_obj
+                if semanas_dict:
+                    payload["es_progresion_semanal"] = True
+                    payload["total_semanas"] = len(semanas_dict)
+                    payload["semana_actual"] = len(semanas_dict)
+                    payload["semanas"] = semanas_dict
         else:
             payload["es_multidia"] = False
             payload.update(datos_paquete)
@@ -655,6 +681,8 @@ def obtener_rutina(codigo):
 
         if "es_multidia" not in data:
             data["es_multidia"] = False
+        if "es_progresion_semanal" not in data:
+            data["es_progresion_semanal"] = False
 
         return jsonify({"ok": True, "rutina": data})
     except Exception as e:
@@ -683,6 +711,84 @@ def eliminar_rutina(codigo):
                 contador_ref.set(contador_actual - 1)
 
         return jsonify({"ok": True, "mensaje": f"Rutina {codigo.upper()} eliminada correctamente"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/rutina/<codigo>/nueva-semana", methods=["POST"])
+@auth.login_requerido
+def nueva_semana_rutina(codigo):
+    """Agrega una semana nueva de progresion a una rutina de VARIOS DIAS que
+    ya existe (tipicamente: mismos ejercicios, cambia serie/reps/pausa/tiempo).
+    No pisa las semanas anteriores, las va acumulando en /semanas. Se usa
+    desde 'Editar Rutina' en el Historial, con la opcion 'Guardar como
+    semana nueva (mismo codigo)'."""
+    try:
+        codigo = codigo.strip().lower()
+        body = request.json or {}
+        dias = body.get("dias")
+        if not dias or not isinstance(dias, list) or len(dias) < 1:
+            return jsonify({"ok": False, "error": "Faltan los dias de la semana nueva"}), 400
+
+        ref = db_ref(f"/rutinas/{codigo}")
+        data = ref.get()
+        if not data:
+            return jsonify({"ok": False, "error": "Rutina no encontrada"}), 404
+
+        if not data.get("es_multidia"):
+            return jsonify({
+                "ok": False,
+                "error": "La progresion por semanas solo esta disponible para rutinas de varios dias"
+            }), 400
+
+        semanas_existentes = data.get("semanas") or {}
+        total_previo = data.get("total_semanas") or 0
+
+        # Primera vez que se agrega una semana a esta rutina: todavia no tenia
+        # /semanas armado. Migrar lo que ya estaba en dia_1..dia_N (la unica
+        # semana que existia hasta ahora) a "semana_1", para no perder nada.
+        if not semanas_existentes:
+            total_dias_actual = data.get("total_dias") or 0
+            semana_1 = {}
+            for i in range(1, total_dias_actual + 1):
+                clave = f"dia_{i}"
+                if clave in data:
+                    semana_1[clave] = data[clave]
+            if semana_1:
+                semanas_existentes = {"semana_1": semana_1}
+                total_previo = 1
+
+        nueva_semana_num = total_previo + 1
+        nueva_semana_obj = {}
+        for di, dia in enumerate(dias):
+            nueva_semana_obj[f"dia_{di + 1}"] = {
+                "titulo": dia.get("titulo", f"Dia {di + 1}"),
+                "tipo": dia.get("tipo", "ENTRENAMIENTO"),
+                "datos": dia.get("datos", {})
+            }
+        semanas_existentes[f"semana_{nueva_semana_num}"] = nueva_semana_obj
+
+        actualizacion = {
+            "es_progresion_semanal": True,
+            "total_semanas": nueva_semana_num,
+            "semana_actual": nueva_semana_num,
+            "semanas": semanas_existentes,
+            "total_dias": len(dias),
+        }
+        # La semana recien agregada pasa a ser la "semana actual" tambien a
+        # nivel raiz (dia_1, dia_2...), que es lo que alumno.html muestra por
+        # defecto al entrar (con opcion de elegir una semana anterior).
+        for i in range(1, len(dias) + 1):
+            actualizacion[f"dia_{i}"] = nueva_semana_obj[f"dia_{i}"]
+
+        ref.update(actualizacion)
+
+        return jsonify({
+            "ok": True,
+            "codigo": codigo,
+            "semana": nueva_semana_num,
+            "total_semanas": nueva_semana_num
+        })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
