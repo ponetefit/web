@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PONETE FIT - Admin</title>
+<style>
+    :root {
+        --naranja: #FF5E1A;
+        --naranja-glow: rgba(255, 94, 26, 0.5);
+        --fondo: #000000;
+        --fondo-alt: #0a0a0a;
+        --texto: #f2f2f2;
+        --texto-tenue: #9a9a9a;
+        --error: #FF2E93;
+        --verde: #00E676;
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(ellipse at 50% 0%, #1a1a28 0%, var(--fondo) 60%);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        color: var(--texto);
+        padding: 32px 20px 80px;
+    }
+    .top {
+        max-width: 720px;
+        margin: 0 auto 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    h1 {
+        font-size: 22px;
+        letter-spacing: .5px;
+        margin: 0;
+        color: var(--naranja);
+        text-shadow: 0 0 30px var(--naranja-glow);
+    }
+    .salir {
+        background: none;
+        border: 1.5px solid #333;
+        color: var(--texto-tenue);
+        padding: 8px 14px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 13px;
+    }
+    .salir:hover { border-color: var(--naranja); color: var(--texto); }
+    .contenedor {
+        max-width: 720px;
+        margin: 0 auto;
+    }
+    .vacio {
+        text-align: center;
+        color: var(--texto-tenue);
+        padding: 60px 20px;
+        font-size: 14px;
+    }
+    .solicitud {
+        background: var(--fondo-alt);
+        border: 1px solid #1f1f1f;
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 20px;
+    }
+    .solicitud .email {
+        font-size: 17px;
+        font-weight: 600;
+    }
+    .badge {
+        display: inline-block;
+        margin-left: 10px;
+        font-size: 11px;
+        padding: 3px 9px;
+        border-radius: 999px;
+        vertical-align: middle;
+    }
+    .badge.video { background: rgba(0,176,255,0.15); color: #00B0FF; border: 1px solid #00B0FF; }
+    .badge.novideo { background: rgba(255,255,255,0.06); color: var(--texto-tenue); border: 1px solid #333; }
+    .fecha { font-size: 12px; color: var(--texto-tenue); margin-top: 4px; }
+
+    .form-aprobar {
+        margin-top: 18px;
+        padding-top: 18px;
+        border-top: 1px solid #1a1a1a;
+    }
+    .form-aprobar label {
+        display: block;
+        font-size: 12px;
+        color: var(--texto-tenue);
+        margin: 12px 0 6px;
+    }
+    .form-aprobar input, .form-aprobar textarea {
+        width: 100%;
+        padding: 11px 12px;
+        border-radius: 9px;
+        border: 1.5px solid #262626;
+        background: #000;
+        color: var(--texto);
+        font-size: 13px;
+        outline: none;
+        font-family: 'SF Mono', Menlo, Consolas, monospace;
+    }
+    .form-aprobar textarea { min-height: 110px; resize: vertical; }
+    .form-aprobar input:focus, .form-aprobar textarea:focus {
+        border-color: var(--naranja);
+        box-shadow: 0 0 0 3px var(--naranja-glow);
+    }
+    .ayuda {
+        font-size: 11.5px;
+        color: #6a6a6a;
+        margin-top: 4px;
+        line-height: 1.4;
+    }
+    .botones {
+        display: flex;
+        gap: 10px;
+        margin-top: 18px;
+    }
+    .btn {
+        flex: 1;
+        padding: 12px;
+        border: none;
+        border-radius: 9px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .btn.aprobar {
+        background: linear-gradient(135deg, var(--verde), #00b85f);
+        color: #001a0d;
+    }
+    .btn.rechazar {
+        background: none;
+        border: 1.5px solid var(--error);
+        color: var(--error);
+    }
+    .btn:disabled { opacity: .5; cursor: default; }
+    .resultado {
+        margin-top: 12px;
+        font-size: 13px;
+        text-align: center;
+    }
+    .resultado.ok { color: var(--verde); }
+    .resultado.error { color: var(--error); }
+</style>
+</head>
+<body>
+    <div class="top">
+        <h1>Cuentas pendientes</h1>
+        <button class="salir" id="btnSalir">Cerrar sesión</button>
+    </div>
+
+    <div class="contenedor" id="lista">
+        <div class="vacio">Cargando...</div>
+    </div>
+
+<script>
+    const lista = document.getElementById('lista');
+
+    async function verificarSesionAdmin() {
+        const res = await fetch('/api/auth/sesion', { credentials: 'include' });
+        const data = await res.json();
+        if (!data.autenticado || !data.cuenta || data.cuenta.rol !== 'admin') {
+            window.location.href = '/login';
+            return false;
+        }
+        return true;
+    }
+
+    function tarjetaSolicitud(id, s) {
+        const fecha = s.creado ? new Date(s.creado * 1000).toLocaleString('es-AR') : '';
+        const badge = s.quiere_videoteca
+            ? '<span class="badge video">Quiere heredar videoteca</span>'
+            : '<span class="badge novideo">Sin videoteca inicial</span>';
+
+        const div = document.createElement('div');
+        div.className = 'solicitud';
+        div.innerHTML = `
+            <div class="email">${s.email}${badge}</div>
+            <div class="fecha">Solicitado: ${fecha}</div>
+
+            <div class="form-aprobar">
+                <label>1. Creá un proyecto Firebase nuevo para esta cuenta en
+                    <a href="https://console.firebase.google.com/" target="_blank" style="color:var(--naranja)">Firebase Console</a>,
+                    activá Realtime Database y pegá acá sus datos:</label>
+
+                <label for="url-${id}">Database URL</label>
+                <input type="text" id="url-${id}" placeholder="https://nombre-del-proyecto-default-rtdb.firebaseio.com">
+                <div class="ayuda">Realtime Database &gt; datos &gt; copiar la URL de arriba de todo.</div>
+
+                <label for="cred-${id}">Credenciales de servicio (JSON completo)</label>
+                <textarea id="cred-${id}" placeholder='{"type": "service_account", ...}'></textarea>
+                <div class="ayuda">Configuración del proyecto &gt; Cuentas de servicio &gt; Generar nueva clave privada. Pegá el contenido completo del archivo .json descargado.</div>
+
+                <label for="prefijo-${id}">Prefijo de código (opcional, solo informativo)</label>
+                <input type="text" id="prefijo-${id}" placeholder="ej: rafa">
+
+                <div class="botones">
+                    <button class="btn aprobar" onclick="aprobar('${id}', this)">Aprobar cuenta</button>
+                    <button class="btn rechazar" onclick="rechazar('${id}', this)">Rechazar</button>
+                </div>
+                <div class="resultado" id="resultado-${id}"></div>
+            </div>
+        `;
+        return div;
+    }
+
+    async function cargarSolicitudes() {
+        try {
+            const res = await fetch('/api/admin/solicitudes', { credentials: 'include' });
+            const data = await res.json();
+            if (!data.ok) {
+                lista.innerHTML = `<div class="vacio">${data.error || 'No se pudo cargar'}</div>`;
+                return;
+            }
+            const entradas = Object.entries(data.solicitudes || {});
+            if (entradas.length === 0) {
+                lista.innerHTML = '<div class="vacio">No hay cuentas pendientes de aprobación 🎉</div>';
+                return;
+            }
+            lista.innerHTML = '';
+            entradas
+                .sort((a, b) => (b[1].creado || 0) - (a[1].creado || 0))
+                .forEach(([id, s]) => lista.appendChild(tarjetaSolicitud(id, s)));
+        } catch (e) {
+            lista.innerHTML = '<div class="vacio">Error de conexión.</div>';
+        }
+    }
+
+    async function aprobar(id, btn) {
+        const database_url = document.getElementById('url-' + id).value.trim();
+        const credenciales_json = document.getElementById('cred-' + id).value.trim();
+        const prefijo_codigo = document.getElementById('prefijo-' + id).value.trim();
+        const resultado = document.getElementById('resultado-' + id);
+
+        if (!database_url || !credenciales_json) {
+            resultado.textContent = 'Completá la Database URL y las credenciales.';
+            resultado.className = 'resultado error';
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Aprobando...';
+        resultado.textContent = '';
+
+        try {
+            const res = await fetch('/api/admin/aprobar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ account_id: id, database_url, credenciales_json, prefijo_codigo })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                resultado.textContent = data.videoteca_migrada
+                    ? 'Cuenta aprobada y videoteca migrada correctamente.'
+                    : 'Cuenta aprobada.';
+                resultado.className = 'resultado ok';
+                setTimeout(cargarSolicitudes, 1200);
+            } else {
+                resultado.textContent = data.error || 'No se pudo aprobar';
+                resultado.className = 'resultado error';
+                btn.disabled = false;
+                btn.textContent = 'Aprobar cuenta';
+            }
+        } catch (e) {
+            resultado.textContent = 'Error de conexión.';
+            resultado.className = 'resultado error';
+            btn.disabled = false;
+            btn.textContent = 'Aprobar cuenta';
+        }
+    }
+
+    async function rechazar(id, btn) {
+        if (!confirm('¿Seguro que querés rechazar y borrar esta solicitud?')) return;
+        btn.disabled = true;
+        try {
+            await fetch('/api/admin/rechazar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ account_id: id })
+            });
+            cargarSolicitudes();
+        } catch (e) {
+            btn.disabled = false;
+        }
+    }
+
+    document.getElementById('btnSalir').addEventListener('click', async () => {
+        await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+        window.location.href = '/login';
+    });
+
+    (async () => {
+        if (await verificarSesionAdmin()) cargarSolicitudes();
+    })();
+</script>
+</body>
+</html>
