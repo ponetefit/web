@@ -17,6 +17,16 @@
                     return;
                 }
                 window._pfCuenta = data.cuenta;
+                // Cargamos las funciones activadas para esta cuenta (interruptores por
+                // cuenta). Si algo falla, seguimos igual con un objeto vacio: nunca
+                // bloquea el ingreso al panel por esto.
+                try {
+                    const resF = await fetch('/api/mis-features', { credentials: 'include' });
+                    const dataF = await resF.json();
+                    window._pfFeatures = (dataF && dataF.ok) ? (dataF.features || {}) : {};
+                } catch (eF) {
+                    window._pfFeatures = {};
+                }
             } catch (e) {
                 window.location.replace('/login');
                 return;
