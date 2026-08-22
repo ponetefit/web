@@ -15505,25 +15505,26 @@
                         '<div style="width:100%;max-width:360px;background:#0a0a0a;border:1px solid #262626;border-radius:18px;padding:26px 22px;box-shadow:0 20px 60px rgba(0,0,0,.5);">' +
                             '<p style="color:#f2f2f2;font-weight:800;font-size:16px;text-align:center;margin:0 0 4px;">¿En qué semana de tu entrenamiento estás?</p>' +
                             '<p style="color:#9a9a9a;font-size:13px;text-align:center;margin:0 0 18px;line-height:1.4;">Elegí la semana para ver tus series, repeticiones y pausas actualizadas</p>' +
-                            '<select id="pf-selector-semana-select" style="width:100%;padding:14px;border-radius:10px;border:1.5px solid #262626;background:#000;color:#f2f2f2;font-size:16px;margin-bottom:16px;-webkit-appearance:none;appearance:none;"></select>' +
-                            '<button id="pf-selector-semana-confirmar" style="width:100%;min-height:48px;border:none;border-radius:10px;background:linear-gradient(135deg,#FF5E1A,#e85500);color:#fff;font-weight:700;font-size:15px;">Continuar</button>' +
+                            '<div id="pf-selector-semana-botones" style="display:flex;flex-direction:column;gap:10px;"></div>' +
                         '</div>';
                     document.body.appendChild(overlay);
                 }
 
-                var select = document.getElementById('pf-selector-semana-select');
-                select.innerHTML = claves.map(function(k) {
+                var contenedorBotones = document.getElementById('pf-selector-semana-botones');
+                contenedorBotones.innerHTML = claves.map(function(k) {
                     var esUltima = (k === claves[claves.length - 1]);
-                    return '<option value="' + k + '"' + (esUltima ? ' selected' : '') + '>Semana ' + k + (esUltima ? ' (más reciente)' : '') + '</option>';
+                    return '<button type="button" data-semana="' + k + '" style="width:100%;min-height:48px;border:1.5px solid ' + (esUltima ? '#FF5E1A' : '#262626') + ';border-radius:10px;background:' + (esUltima ? 'linear-gradient(135deg,#FF5E1A,#e85500)' : '#141414') + ';color:#fff;font-weight:700;font-size:15px;">Semana ' + k + (esUltima ? ' (más reciente)' : '') + '</button>';
                 }).join('');
                 overlay.style.display = 'flex';
 
-                document.getElementById('pf-selector-semana-confirmar').onclick = function() {
-                    var key = select.value;
-                    overlay.style.display = 'none';
-                    _pfAplicarSemana(key);
-                    onConfirmar();
-                };
+                contenedorBotones.querySelectorAll('button[data-semana]').forEach(function(btn) {
+                    btn.onclick = function() {
+                        var key = btn.getAttribute('data-semana');
+                        overlay.style.display = 'none';
+                        _pfAplicarSemana(key);
+                        onConfirmar();
+                    };
+                });
             }
 
             // ─── Botones de la pantalla de bienvenida (tras entrar con el código) ───
