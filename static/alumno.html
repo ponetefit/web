@@ -3954,9 +3954,6 @@
             <div class="bv-nombre" id="bv-nombre">RUTINA</div>
             <div class="bv-subtitulo">Hoy vas a mover todos estos músculos</div>
 
-            <!-- Selector de semana (progresion semanal: mismos ejercicios, distinta serie/reps/pausa) -->
-            <div id="bv-semanas-selector"></div>
-
             <!-- Tabs frente / espalda -->
             <div class="bv-body-tabs">
                 <button class="bv-tab-btn active" id="bv-tab-frente" onclick="_bvTab('frente')">Frente</button>
@@ -6612,58 +6609,6 @@
                 return 'Hace ' + Math.floor(dias / 30) + ' meses';
             }
 
-            // ══════════════════════════════════════════════════════════════
-            //  PROGRESIÓN SEMANAL (mismos ejercicios, distinta serie/reps/
-            //  pausa por semana). El alumno elige la semana con botones; no
-            //  hay cambio automático por fecha.
-            // ══════════════════════════════════════════════════════════════
-
-            function _pfTieneProgresionSemanal(data) {
-                return !!(data && data.es_progresion_semanal === true && (data.total_semanas || 0) > 1 && data.semanas);
-            }
-
-            // Genera el HTML de los botones "Semana 1", "Semana 2"... Se usa
-            // tanto en la pantalla de bienvenida como en la lista de días.
-            function _pfSemanasTabsHtml(data) {
-                if (!_pfTieneProgresionSemanal(data)) return '';
-                var actual = data.semana_actual || data.total_semanas;
-                var html = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;margin:2px 0 14px;">' +
-                    '<span style="font-size:var(--fs-xs);color:var(--texto-suave);text-transform:uppercase;letter-spacing:1px;width:100%;text-align:center;margin-bottom:2px;">Elegí la semana</span>';
-                for (var s = 1; s <= data.total_semanas; s++) {
-                    var activa = (s === actual);
-                    html += '<button onclick="_pfCambiarSemana(' + s + ')" style="padding:8px 16px;border-radius:999px;border:2px solid ' +
-                        (activa ? 'var(--naranja)' : 'var(--borde)') + ';background:' + (activa ? 'var(--naranja)' : 'transparent') +
-                        ';color:' + (activa ? '#000' : 'var(--texto-suave)') + ';font-weight:900;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;">Semana ' + s + '</button>';
-                }
-                html += '</div>';
-                return html;
-            }
-
-            // Cambia la semana activa: reemplaza dia_1..dia_N de dataGlobal por
-            // los de la semana elegida (mismos ejercicios, series/reps/pausa
-            // distintas) y vuelve a dibujar la pantalla en la que esté el alumno.
-            function _pfCambiarSemana(nueva) {
-                if (!_pfTieneProgresionSemanal(dataGlobal)) return;
-                var semanaObj = dataGlobal.semanas['semana_' + nueva];
-                if (!semanaObj) { mostrarToast('No se encontró esa semana'); return; }
-
-                var totalDPrevio = dataGlobal.total_dias || 0;
-                for (var i = 1; i <= totalDPrevio; i++) delete dataGlobal['dia_' + i];
-                Object.keys(semanaObj).forEach(function(k) { dataGlobal[k] = semanaObj[k]; });
-                dataGlobal.total_dias = Object.keys(semanaObj).length;
-                dataGlobal.semana_actual = nueva;
-
-                mostrarToast('Semana ' + nueva + ' cargada');
-
-                var overlayBv = document.getElementById('overlay-bienvenida');
-                if (overlayBv && overlayBv.classList.contains('visible')) {
-                    _bvMostrar(dataGlobal, currentCode);
-                } else {
-                    cargarProgresoLocal(currentCode);
-                    renderMultidia(dataGlobal, currentCode);
-                }
-            }
-
             function _bvTab(tab) {
                 document.getElementById('bv-tab-frente').classList.toggle('active', tab === 'frente');
                 document.getElementById('bv-tab-espalda').classList.toggle('active', tab === 'espalda');
@@ -6701,9 +6646,6 @@
                 // Tipo tag
                 var tipo = (data.tipo || 'ENTRENAMIENTO').toUpperCase();
                 document.getElementById('bv-tipo-tag').innerText = tipo;
-                // Selector de semana (progresión semanal, si esta rutina la tiene)
-                var _bvSemContainer = document.getElementById('bv-semanas-selector');
-                if (_bvSemContainer) _bvSemContainer.innerHTML = _pfSemanasTabsHtml(data);
                 // Stats
                 var durMin = _bvCalcDuracion(data);
                 var esMultidiaLocal = data.es_multidia === true && (data.total_dias || 1) > 1;
@@ -9366,16 +9308,6 @@
                 titleEl.style.cssText = 'text-align:center;padding:8px 0 4px;';
                 titleEl.innerHTML = '<p style="font-size:var(--fs-xs);color:var(--texto-suave);text-transform:uppercase;letter-spacing:2px;margin:0;">Elegí tu entrenamiento del dia</p>';
                 mdContainer.appendChild(titleEl);
-
-                // Selector de semana (progresión semanal, si esta rutina la tiene):
-                // permite cambiar de semana también desde la lista de días, no
-                // solo antes de arrancar.
-                var semTabsHtml = _pfSemanasTabsHtml(data);
-                if (semTabsHtml) {
-                    var semTabsEl = document.createElement('div');
-                    semTabsEl.innerHTML = semTabsHtml;
-                    mdContainer.appendChild(semTabsEl);
-                }
 
                 for (var i = 0; i < total; i++) {
                     (function(idx) {
@@ -15525,23 +15457,98 @@
             }
             _observarBotonesDia();
 
+            // ─── Progresión semanal: elegir en qué semana está el alumno ───
+            // Si la rutina tiene más de una semana cargada (data.semanas, ver
+            // "+ Agregar semana" del lado del profesor), antes de arrancar le
+            // preguntamos al alumno en qué semana está y le mostramos esa
+            // versión (series/reps/pausa/tiempo actualizadas), sin tocar nada
+            // del resto del render — se arma fusionando el "shape" de la
+            // semana elegida sobre los datos ya cargados.
+            function _pfSemanasDisponibles(data) {
+                if (!data || !data.semanas) return null;
+                var claves = Object.keys(data.semanas).filter(function(k) { return data.semanas[k]; });
+                if (claves.length <= 1) return null;
+                claves.sort(function(a, b) { return parseInt(a, 10) - parseInt(b, 10); });
+                return claves;
+            }
+
+            function _pfAplicarSemana(key) {
+                if (!_bvDataPendiente || !_bvDataPendiente.semanas || !_bvDataPendiente.semanas[key]) return;
+                var base = _bvDataPendiente;
+                var semana = base.semanas[key];
+                var fusion = {};
+                for (var k in base) { if (Object.prototype.hasOwnProperty.call(base, k)) fusion[k] = base[k]; }
+                delete fusion.tipo;
+                delete fusion.datos;
+                delete fusion.es_multidia;
+                delete fusion.total_dias;
+                Object.keys(fusion).forEach(function(k) {
+                    if (/^dia_\d+$/.test(k)) delete fusion[k];
+                });
+                for (var k2 in semana) { if (Object.prototype.hasOwnProperty.call(semana, k2)) fusion[k2] = semana[k2]; }
+                fusion.semanas = base.semanas;
+                fusion.semana_elegida = key;
+                _bvDataPendiente = fusion;
+                dataGlobal = fusion;
+            }
+
+            function _pfMostrarSelectorSemana(onConfirmar) {
+                var claves = _pfSemanasDisponibles(_bvDataPendiente);
+                if (!claves) { onConfirmar(); return; }
+
+                var overlay = document.getElementById('pf-selector-semana-overlay');
+                if (!overlay) {
+                    overlay = document.createElement('div');
+                    overlay.id = 'pf-selector-semana-overlay';
+                    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px;';
+                    overlay.innerHTML =
+                        '<div style="width:100%;max-width:360px;background:#0a0a0a;border:1px solid #262626;border-radius:18px;padding:26px 22px;box-shadow:0 20px 60px rgba(0,0,0,.5);">' +
+                            '<p style="color:#f2f2f2;font-weight:800;font-size:16px;text-align:center;margin:0 0 4px;">¿En qué semana de tu entrenamiento estás?</p>' +
+                            '<p style="color:#9a9a9a;font-size:13px;text-align:center;margin:0 0 18px;line-height:1.4;">Elegí la semana para ver tus series, repeticiones y pausas actualizadas</p>' +
+                            '<select id="pf-selector-semana-select" style="width:100%;padding:14px;border-radius:10px;border:1.5px solid #262626;background:#000;color:#f2f2f2;font-size:16px;margin-bottom:16px;-webkit-appearance:none;appearance:none;"></select>' +
+                            '<button id="pf-selector-semana-confirmar" style="width:100%;min-height:48px;border:none;border-radius:10px;background:linear-gradient(135deg,#FF5E1A,#e85500);color:#fff;font-weight:700;font-size:15px;">Continuar</button>' +
+                        '</div>';
+                    document.body.appendChild(overlay);
+                }
+
+                var select = document.getElementById('pf-selector-semana-select');
+                select.innerHTML = claves.map(function(k) {
+                    var esUltima = (k === claves[claves.length - 1]);
+                    return '<option value="' + k + '"' + (esUltima ? ' selected' : '') + '>Semana ' + k + (esUltima ? ' (más reciente)' : '') + '</option>';
+                }).join('');
+                overlay.style.display = 'flex';
+
+                document.getElementById('pf-selector-semana-confirmar').onclick = function() {
+                    var key = select.value;
+                    overlay.style.display = 'none';
+                    _pfAplicarSemana(key);
+                    onConfirmar();
+                };
+            }
+
             // ─── Botones de la pantalla de bienvenida (tras entrar con el código) ───
             // "EMPEZAR" abre la rutina en modo normal. "MODO LECTURA" la abre en
-            // modo lectura directamente, sin pasos intermedios.
+            // modo lectura directamente, sin pasos intermedios. Si la rutina
+            // tiene progresión semanal cargada, antes se le pregunta al alumno
+            // en qué semana está.
             function _pfEmpezarNormal() {
                 _modoLecturaPendiente = false;
-                _setModoLectura(false);
-                _bvEmpezar();
+                _pfMostrarSelectorSemana(function() {
+                    _setModoLectura(false);
+                    _bvEmpezar();
+                });
             }
             window._pfEmpezarNormal = _pfEmpezarNormal;
 
             function _pfEmpezarLectura() {
                 _modoLecturaPendiente = false;
-                _setModoLectura(true);
-                _bvEmpezar();
-                if (typeof mostrarToast === 'function') {
-                    mostrarToast('Modo solo lectura activado: podés repasar sin timers ni marcar series');
-                }
+                _pfMostrarSelectorSemana(function() {
+                    _setModoLectura(true);
+                    _bvEmpezar();
+                    if (typeof mostrarToast === 'function') {
+                        mostrarToast('Modo solo lectura activado: podés repasar sin timers ni marcar series');
+                    }
+                });
             }
             window._pfEmpezarLectura = _pfEmpezarLectura;
 
@@ -15552,11 +15559,13 @@
             // solo día, que ya funciona bien.
             function _pfEmpezarLecturaDia(diaIdx) {
                 _modoLecturaPendiente = false;
-                _setModoLectura(true);
-                if (typeof iniciarDia === 'function') iniciarDia(diaIdx);
-                if (typeof mostrarToast === 'function') {
-                    mostrarToast('Modo solo lectura activado: podés repasar sin timers ni marcar series');
-                }
+                _pfMostrarSelectorSemana(function() {
+                    _setModoLectura(true);
+                    if (typeof iniciarDia === 'function') iniciarDia(diaIdx);
+                    if (typeof mostrarToast === 'function') {
+                        mostrarToast('Modo solo lectura activado: podés repasar sin timers ni marcar series');
+                    }
+                });
             }
             window._pfEmpezarLecturaDia = _pfEmpezarLecturaDia;
 
