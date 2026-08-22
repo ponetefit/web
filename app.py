@@ -315,6 +315,44 @@ def api_admin_rechazar():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route("/api/admin/features-disponibles", methods=["GET"])
+@auth.admin_requerido
+def api_admin_features_disponibles():
+    """Lista las funciones que existen en el sistema y se pueden
+    prender/apagar por cuenta (se van agregando a mano en control_db.py
+    a medida que se programan funciones nuevas)."""
+    return jsonify({"ok": True, "features": control_db.FEATURES_DISPONIBLES})
+
+
+@app.route("/api/admin/set-feature", methods=["POST"])
+@auth.admin_requerido
+def api_admin_set_feature():
+    """Prende o apaga una funcion puntual para una cuenta puntual."""
+    try:
+        body = request.json or {}
+        account_id = body.get("account_id", "").strip()
+        feature_key = body.get("feature_key", "").strip()
+        activado = bool(body.get("activado", False))
+
+        control_db.set_feature(account_id, feature_key, activado)
+        return jsonify({"ok": True})
+    except ValueError as ve:
+        return jsonify({"ok": False, "error": str(ve)}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/mis-features", methods=["GET"])
+@auth.login_requerido
+def api_mis_features():
+    """Funciones activadas para la cuenta actualmente logueada (la
+    consulta profesor.html al cargar el panel)."""
+    try:
+        features = control_db.obtener_features(auth.account_id_actual())
+        return jsonify({"ok": True, "features": features})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
 # ──────────────────────────────────────────────────────────────
 #  API - VIDEOTECA (CRUD en Firebase, de la cuenta logueada)
 # ──────────────────────────────────────────────────────────────
@@ -956,14 +994,19 @@ def fb_proxy(codigo, subpath):
 
 @app.route("/api/fb-meta/<codigo>", methods=["GET"])
 def fb_meta(codigo):
-    """Datos publicos minimos de la cuenta duena de un codigo (por ahora,
-    el mail del profesor, para el aviso via FormSubmit cuando entra un alumno)."""
+    """Datos publicos minimos de la cuenta duena de un codigo (el mail del
+    profesor para el aviso via FormSubmit, y las funciones activadas para
+    esa cuenta, para que alumno.html sepa que mostrar)."""
     try:
         account_id = control_db.cuenta_de_codigo(codigo)
         if not account_id:
             return jsonify({"ok": False, "error": "Codigo no reconocido"}), 404
         cuenta = control_db.obtener_cuenta(account_id)
-        return jsonify({"ok": True, "email": (cuenta or {}).get("email", control_db.MASTER_EMAIL)})
+        return jsonify({
+            "ok": True,
+            "email": (cuenta or {}).get("email", control_db.MASTER_EMAIL),
+            "features": (cuenta or {}).get("features") or {}
+        })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
