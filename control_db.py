@@ -188,3 +188,39 @@ def backfillar_codigos_master():
         _codigos_ref().update(faltantes)
 
     return len(faltantes)
+
+
+# ──────────────────────────────────────────────────────────────
+#  FEATURES POR CUENTA ("interruptores" para activar funciones
+#  nuevas solo en algunas cuentas, sin afectar al resto)
+# ──────────────────────────────────────────────────────────────
+#
+# Para agregar una funcion nueva que se pueda prender/apagar por cuenta:
+#   1) Agregala aca, en FEATURES_DISPONIBLES, con una clave corta y una
+#      descripcion legible (esto es lo que va a aparecer en /admin).
+#   2) En el codigo de profesor.html / alumno.html, envolvé la parte
+#      nueva en un chequeo tipo:
+#        if (window._pfFeatures && window._pfFeatures.mi_feature) { ... }
+#   3) Desde /admin vas a poder prenderla/apagarla por cuenta con un clic.
+
+FEATURES_DISPONIBLES = {
+    # "nuevo_sistema_entrenamiento": "Nuevo sistema de entrenamiento (ejemplo)",
+}
+
+
+def obtener_features(account_id):
+    """Devuelve el diccionario de funciones activadas para una cuenta
+    (ej: {"nuevo_sistema_entrenamiento": true})."""
+    cuenta = obtener_cuenta(account_id)
+    if not cuenta:
+        return {}
+    return cuenta.get("features") or {}
+
+
+def set_feature(account_id, feature_key, activado):
+    """Prende o apaga una funcion puntual para una cuenta puntual."""
+    if feature_key not in FEATURES_DISPONIBLES:
+        raise ValueError(f"Funcion desconocida: {feature_key}")
+    if not obtener_cuenta(account_id):
+        raise ValueError("Cuenta no encontrada")
+    firebase_config.get_db_ref(f"/cuentas/{account_id}/features/{feature_key}").set(bool(activado))
