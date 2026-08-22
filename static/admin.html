@@ -157,6 +157,14 @@
         <div class="vacio">Cargando...</div>
     </div>
 
+    <div class="top" style="margin-top:44px;">
+        <h1 style="font-size:18px;">Cuentas activas</h1>
+    </div>
+    <div class="contenedor" id="listaActivas">
+        <div class="vacio">Cargando...</div>
+    </div>
+
+
 <script>
     const lista = document.getElementById('lista');
 
@@ -296,8 +304,81 @@
     });
 
     (async () => {
-        if (await verificarSesionAdmin()) cargarSolicitudes();
+        if (await verificarSesionAdmin()) {
+            cargarSolicitudes();
+            cargarCuentasActivas();
+        }
     })();
+
+    function tarjetaCuentaActiva(id, c) {
+        const div = document.createElement('div');
+        div.className = 'solicitud';
+        const badge = c.quiere_videoteca
+            ? '<span class="badge video">Con videoteca</span>'
+            : '<span class="badge novideo">Sin videoteca inicial</span>';
+        const estadoTxt = c.estado === 'pendiente' ? ' — pendiente de aprobación' : '';
+        div.innerHTML = `
+            <div class="email">${c.email}${badge}</div>
+            <div class="fecha">Estado: ${c.estado}${estadoTxt}</div>
+            <div class="botones" style="margin-top:16px;">
+                <button class="btn rechazar" style="flex:none; padding:10px 18px;" onclick="eliminarCuenta('${id}', this)">Eliminar cuenta</button>
+            </div>
+            <div class="resultado" id="resultado-activa-${id}"></div>
+        `;
+        return div;
+    }
+
+    async function cargarCuentasActivas() {
+        const listaActivas = document.getElementById('listaActivas');
+        try {
+            const res = await fetch('/api/admin/cuentas', { credentials: 'include' });
+            const data = await res.json();
+            if (!data.ok) {
+                listaActivas.innerHTML = `<div class="vacio">${data.error || 'No se pudo cargar'}</div>`;
+                return;
+            }
+            const entradas = Object.entries(data.cuentas || {});
+            if (entradas.length === 0) {
+                listaActivas.innerHTML = '<div class="vacio">No hay otras cuentas todavía.</div>';
+                return;
+            }
+            listaActivas.innerHTML = '';
+            entradas.forEach(([id, c]) => listaActivas.appendChild(tarjetaCuentaActiva(id, c)));
+        } catch (e) {
+            listaActivas.innerHTML = '<div class="vacio">Error de conexión.</div>';
+        }
+    }
+
+    async function eliminarCuenta(id, btn) {
+        if (!confirm('¿Seguro que querés eliminar esta cuenta? Esto NO borra su proyecto Firebase (eso hay que borrarlo aparte desde Firebase Console), pero la cuenta deja de poder loguearse y sus alumnos dejan de funcionar en /alumno.')) return;
+        btn.disabled = true;
+        btn.textContent = 'Eliminando...';
+        const resultado = document.getElementById('resultado-activa-' + id);
+        try {
+            const res = await fetch('/api/admin/eliminar-cuenta', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ account_id: id })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                resultado.textContent = 'Cuenta eliminada.';
+                resultado.className = 'resultado ok';
+                setTimeout(() => { cargarCuentasActivas(); cargarSolicitudes(); }, 900);
+            } else {
+                resultado.textContent = data.error || 'No se pudo eliminar';
+                resultado.className = 'resultado error';
+                btn.disabled = false;
+                btn.textContent = 'Eliminar cuenta';
+            }
+        } catch (e) {
+            resultado.textContent = 'Error de conexión.';
+            resultado.className = 'resultado error';
+            btn.disabled = false;
+            btn.textContent = 'Eliminar cuenta';
+        }
+    }
 </script>
 </body>
 </html>
