@@ -578,6 +578,62 @@ def todos_los_ejercicios():
 #  API - COMPARTIR RUTINA (subir a Firebase)
 # ──────────────────────────────────────────────────────────────
 
+def _armar_payload_entrenamiento(dias, datos_paquete=None):
+    """Arma el "shape" de contenido de entrenamiento (tipo/datos o
+    es_multidia/dia_N) a partir de una lista de dias en formato
+    [{titulo, tipo, datos}, ...]. Se usa tanto para el paquete que se
+    comparte por primera vez como para cada semana individual dentro de
+    /semanas, asi ambos casos quedan con exactamente la misma forma y
+    alumno.html puede renderizar cualquier semana con el mismo codigo que
+    ya usa para renderizar la rutina "actual"."""
+    datos_paquete = datos_paquete or {}
+    shape = {}
+    if dias and isinstance(dias, list) and len(dias) > 1:
+        shape["es_multidia"] = True
+        shape["total_dias"] = len(dias)
+        shape["tipo"] = "MULTIDIA"
+        for i, dia in enumerate(dias):
+            key = f"dia_{i + 1}"
+            shape[key] = {
+                "titulo": dia.get("titulo", f"Dia {i + 1}"),
+                "tipo": dia.get("tipo", "ENTRENAMIENTO"),
+                "datos": dia.get("datos", {})
+            }
+        if datos_paquete.get("descripcion"):
+            shape["descripcion"] = datos_paquete["descripcion"]
+    else:
+        shape["es_multidia"] = False
+        if dias and isinstance(dias, list) and len(dias) == 1:
+            shape["tipo"] = dias[0].get("tipo", "ENTRENAMIENTO")
+            shape["datos"] = dias[0].get("datos", {})
+        else:
+            shape.update(datos_paquete)
+    return shape
+
+
+def _extraer_dias_de_payload(data):
+    """Inverso parcial de _armar_payload_entrenamiento: reconstruye la
+    lista de dias [{titulo, tipo, datos}, ...] a partir de una rutina ya
+    guardada (formato clasico), para poder "congelar" la version actual
+    como Semana 1 la primera vez que se agrega una semana nueva."""
+    if data.get("es_multidia"):
+        total = data.get("total_dias", 0) or 0
+        dias = []
+        for i in range(total):
+            d = data.get(f"dia_{i + 1}", {}) or {}
+            dias.append({
+                "titulo": d.get("titulo", f"Dia {i + 1}"),
+                "tipo": d.get("tipo", "ENTRENAMIENTO"),
+                "datos": d.get("datos", {})
+            })
+        return dias
+    return [{
+        "titulo": data.get("titulo", "Dia 1"),
+        "tipo": data.get("tipo", "ENTRENAMIENTO"),
+        "datos": data.get("datos", {})
+    }]
+
+
 @app.route("/api/rutina/compartir", methods=["POST"])
 @auth.login_requerido
 def compartir_rutina():
@@ -590,6 +646,7 @@ def compartir_rutina():
         tipo_rutina = body.get("tipo", "Rutina")
         datos_paquete = body.get("datos", {})
         dias = body.get("dias", None)
+        semanas = body.get("semanas", None)
 
         if not nombre_alumno:
             nombre_alumno = "ALUMNO"
@@ -608,47 +665,22 @@ def compartir_rutina():
         }
 
         if dias and isinstance(dias, list) and len(dias) > 1:
-            payload["es_multidia"] = True
-            payload["total_dias"] = len(dias)
-            payload["tipo"] = "MULTIDIA"
-            for i, dia in enumerate(dias):
-                key = f"dia_{i + 1}"
-                payload[key] = {
-                    "titulo": dia.get("titulo", f"Dia {i + 1}"),
-                    "tipo": dia.get("tipo", "ENTRENAMIENTO"),
-                    "datos": dia.get("datos", {})
-                }
-            if datos_paquete.get("descripcion"):
-                payload["descripcion"] = datos_paquete["descripcion"]
-
-            # ── Progresion semanal (mismos ejercicios, distinta serie/reps/pausa
-            # por semana) armada de una sola vez desde "Crear Rutina" con el
-            # boton "+ Agregar semana". "semanas" es una lista de semanas, cada
-            # una con la misma forma que "dias" (una por dia). La ultima semana
-            # de la lista es siempre igual a "dias", asi que dia_1..dia_N (arriba)
-            # ya queda mostrando la semana mas nueva por defecto.
-            semanas_input = body.get("semanas")
-            if semanas_input and isinstance(semanas_input, list) and len(semanas_input) > 1:
-                semanas_dict = {}
-                for si, semana_dias in enumerate(semanas_input):
-                    if not isinstance(semana_dias, list):
-                        continue
-                    semana_obj = {}
-                    for di, dia in enumerate(semana_dias):
-                        semana_obj[f"dia_{di + 1}"] = {
-                            "titulo": dia.get("titulo", f"Dia {di + 1}"),
-                            "tipo": dia.get("tipo", "ENTRENAMIENTO"),
-                            "datos": dia.get("datos", {})
-                        }
-                    semanas_dict[f"semana_{si + 1}"] = semana_obj
-                if semanas_dict:
-                    payload["es_progresion_semanal"] = True
-                    payload["total_semanas"] = len(semanas_dict)
-                    payload["semana_actual"] = len(semanas_dict)
-                    payload["semanas"] = semanas_dict
+            payload.update(_armar_payload_entrenamiento(dias, datos_paquete))
         else:
             payload["es_multidia"] = False
             payload.update(datos_paquete)
+
+        # Progresion semanal: "semanas" llega como lista de listas de dias,
+        # una por cada semana ya cargada (misma forma que "dias"). Se guarda
+        # tambien como diccionario indexado desde 1, para que alumno.html
+        # pueda elegir cualquiera con el mismo shape que usa la rutina
+        # "actual" (que siempre queda siendo la ultima semana cargada).
+        if semanas and isinstance(semanas, list) and len(semanas) > 0:
+            payload["semanas"] = {
+                str(i + 1): _armar_payload_entrenamiento(dias_semana, datos_paquete)
+                for i, dias_semana in enumerate(semanas)
+            }
+            payload["semana_actual"] = len(semanas)
 
         rutina_ref = db_ref(f"/rutinas/{codigo}")
         rutina_ref.set(payload)
@@ -681,10 +713,68 @@ def obtener_rutina(codigo):
 
         if "es_multidia" not in data:
             data["es_multidia"] = False
-        if "es_progresion_semanal" not in data:
-            data["es_progresion_semanal"] = False
 
         return jsonify({"ok": True, "rutina": data})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/rutina/<codigo>/nueva-semana", methods=["POST"])
+@auth.login_requerido
+def agregar_semana_rutina(codigo):
+    """Agrega una semana nueva de progresion a una rutina YA EXISTENTE, sin
+    pisar las semanas anteriores. Funciona igual para rutinas de un solo
+    dia y para rutinas multi-dia: "dias" siempre llega como lista (de 1 o
+    mas dias). La rutina queda con el contenido de la semana nueva como
+    version "actual" (lo que ve el alumno por defecto), y todas las
+    semanas -incluida la que ya existia antes de este cambio, si todavia
+    no estaba indexada- quedan disponibles en /semanas para que el
+    alumno elija cual ver."""
+    try:
+        codigo = codigo.strip().lower()
+        body = request.json or {}
+        dias = body.get("dias")
+        if not dias or not isinstance(dias, list):
+            return jsonify({"ok": False, "error": "Faltan los dias de la semana nueva"}), 400
+
+        ref = db_ref(f"/rutinas/{codigo}")
+        data = ref.get()
+        if not data:
+            return jsonify({"ok": False, "error": "Rutina no encontrada"}), 404
+
+        semanas_existentes = data.get("semanas") or {}
+        # Si todavia no habia ninguna semana indexada, la version actual de
+        # la rutina (la que ya estaba guardada) pasa a ser la Semana 1.
+        if not semanas_existentes:
+            semanas_existentes = {
+                "1": _armar_payload_entrenamiento(_extraer_dias_de_payload(data))
+            }
+
+        siguiente_num = max(int(k) for k in semanas_existentes.keys()) + 1
+        nueva_shape = _armar_payload_entrenamiento(dias, {"descripcion": data.get("descripcion")})
+        semanas_existentes[str(siguiente_num)] = nueva_shape
+
+        actualizaciones = {
+            "semanas": semanas_existentes,
+            "semana_actual": siguiente_num,
+            "timestamp": time.time(),
+        }
+        actualizaciones.update(nueva_shape)
+
+        # Limpiar dia_N que hayan quedado de una version anterior con mas
+        # dias que la semana nueva (si no, quedarian dias "fantasma").
+        total_dias_anterior = data.get("total_dias", 0) or 0
+        total_dias_nuevo = nueva_shape.get("total_dias", 0) or 0
+        if not nueva_shape.get("es_multidia"):
+            for i in range(total_dias_anterior):
+                actualizaciones[f"dia_{i + 1}"] = None
+        else:
+            for i in range(total_dias_nuevo, total_dias_anterior):
+                actualizaciones[f"dia_{i + 1}"] = None
+
+        ref.update(actualizaciones)
+
+        return jsonify({"ok": True, "codigo": codigo, "semana": siguiente_num})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
@@ -711,84 +801,6 @@ def eliminar_rutina(codigo):
                 contador_ref.set(contador_actual - 1)
 
         return jsonify({"ok": True, "mensaje": f"Rutina {codigo.upper()} eliminada correctamente"})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/api/rutina/<codigo>/nueva-semana", methods=["POST"])
-@auth.login_requerido
-def nueva_semana_rutina(codigo):
-    """Agrega una semana nueva de progresion a una rutina de VARIOS DIAS que
-    ya existe (tipicamente: mismos ejercicios, cambia serie/reps/pausa/tiempo).
-    No pisa las semanas anteriores, las va acumulando en /semanas. Se usa
-    desde 'Editar Rutina' en el Historial, con la opcion 'Guardar como
-    semana nueva (mismo codigo)'."""
-    try:
-        codigo = codigo.strip().lower()
-        body = request.json or {}
-        dias = body.get("dias")
-        if not dias or not isinstance(dias, list) or len(dias) < 1:
-            return jsonify({"ok": False, "error": "Faltan los dias de la semana nueva"}), 400
-
-        ref = db_ref(f"/rutinas/{codigo}")
-        data = ref.get()
-        if not data:
-            return jsonify({"ok": False, "error": "Rutina no encontrada"}), 404
-
-        if not data.get("es_multidia"):
-            return jsonify({
-                "ok": False,
-                "error": "La progresion por semanas solo esta disponible para rutinas de varios dias"
-            }), 400
-
-        semanas_existentes = data.get("semanas") or {}
-        total_previo = data.get("total_semanas") or 0
-
-        # Primera vez que se agrega una semana a esta rutina: todavia no tenia
-        # /semanas armado. Migrar lo que ya estaba en dia_1..dia_N (la unica
-        # semana que existia hasta ahora) a "semana_1", para no perder nada.
-        if not semanas_existentes:
-            total_dias_actual = data.get("total_dias") or 0
-            semana_1 = {}
-            for i in range(1, total_dias_actual + 1):
-                clave = f"dia_{i}"
-                if clave in data:
-                    semana_1[clave] = data[clave]
-            if semana_1:
-                semanas_existentes = {"semana_1": semana_1}
-                total_previo = 1
-
-        nueva_semana_num = total_previo + 1
-        nueva_semana_obj = {}
-        for di, dia in enumerate(dias):
-            nueva_semana_obj[f"dia_{di + 1}"] = {
-                "titulo": dia.get("titulo", f"Dia {di + 1}"),
-                "tipo": dia.get("tipo", "ENTRENAMIENTO"),
-                "datos": dia.get("datos", {})
-            }
-        semanas_existentes[f"semana_{nueva_semana_num}"] = nueva_semana_obj
-
-        actualizacion = {
-            "es_progresion_semanal": True,
-            "total_semanas": nueva_semana_num,
-            "semana_actual": nueva_semana_num,
-            "semanas": semanas_existentes,
-            "total_dias": len(dias),
-        }
-        # La semana recien agregada pasa a ser la "semana actual" tambien a
-        # nivel raiz (dia_1, dia_2...), que es lo que alumno.html muestra por
-        # defecto al entrar (con opcion de elegir una semana anterior).
-        for i in range(1, len(dias) + 1):
-            actualizacion[f"dia_{i}"] = nueva_semana_obj[f"dia_{i}"]
-
-        ref.update(actualizacion)
-
-        return jsonify({
-            "ok": True,
-            "codigo": codigo,
-            "semana": nueva_semana_num,
-            "total_semanas": nueva_semana_num
-        })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
