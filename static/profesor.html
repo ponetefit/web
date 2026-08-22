@@ -2370,6 +2370,18 @@
                 <!-- Dia 1 se genera dinamicamente en initMultiDia() -->
             </div>
 
+            <!-- Barra de progresión semanal (mismos ejercicios, distinta serie/reps/pausa por semana) -->
+            <div id="pf-barra-semanas" class="hidden flex items-center justify-between gap-3 mb-4 p-3 rounded-2xl border border-verde/30 bg-verde/5">
+                <div class="text-sm text-texto">
+                    📅 Editando: <span class="font-black text-verde">Semana <span id="pf-semana-actual-num">1</span></span>
+                    <span class="text-textoSuave text-xs block sm:inline sm:ml-2">Mismos ejercicios, distinta serie/reps/pausa por semana</span>
+                </div>
+                <div class="flex gap-2 flex-shrink-0">
+                    <button id="pf-semana-quitar" onclick="_pfQuitarUltimaSemana()" class="hidden px-3 py-2 rounded-xl border border-borde text-textoSuave text-xs font-bold uppercase">Deshacer última</button>
+                    <button id="pf-semana-agregar" onclick="_pfAgregarSemanaEnCreacion()" class="px-3 py-2 rounded-xl bg-verde text-white text-xs font-bold uppercase whitespace-nowrap">+ Agregar semana</button>
+                </div>
+            </div>
+
             <!-- Botones Agregar Dia + acción principal -->
             <div class="pf-acciones-crear flex flex-col sm:flex-row gap-3 mb-6">
                 <button onclick="agregarDia()" class="flex-1 py-3 rounded-2xl border-2 border-dashed border-verde/40 text-verde font-bold text-sm uppercase tracking-wider hover:border-verde hover:bg-verde/5 transition flex items-center justify-center gap-2">
@@ -5432,7 +5444,7 @@
 
     // Muestra un mini-modal con 3 opciones (sobrescribir / nueva / cancelar) y devuelve
     // una Promise que resuelve a 'sobrescribir', 'nueva' o null (cancelado).
-    function _pfPreguntarModoGuardado(codigoOriginal) {
+    function _pfPreguntarModoGuardado(codigoOriginal, esMultidia) {
         return new Promise(resolve => {
             let modal = document.getElementById('modal-pf-modo-guardado');
             if (!modal) {
@@ -5447,6 +5459,7 @@
                         '</div>' +
                         '<div class="space-y-2">' +
                             '<button id="pf-modo-guardado-btn-sobrescribir" class="w-full py-2.5 rounded-xl btn-primary text-white font-bold text-sm"></button>' +
+                            '<button id="pf-modo-guardado-btn-semana" class="w-full py-2.5 rounded-xl border-2 border-verde/50 text-verde font-bold text-sm hidden">📅 Guardar como semana nueva (mismo código)</button>' +
                             '<button id="pf-modo-guardado-btn-nueva" class="w-full py-2.5 rounded-xl border-2 border-azul/50 text-azul font-bold text-sm">Guardar como rutina nueva</button>' +
                             '<button id="pf-modo-guardado-btn-cancelar" class="w-full py-2 rounded-xl text-textoSuave font-bold text-sm">Cancelar</button>' +
                         '</div>' +
@@ -5457,6 +5470,10 @@
                 'Estás editando la rutina ' + codigoOriginal.toUpperCase() + '. ¿Qué querés hacer con los cambios?';
             document.getElementById('pf-modo-guardado-btn-sobrescribir').textContent =
                 'Guardar cambios en ' + codigoOriginal.toUpperCase();
+            const btnSemana = document.getElementById('pf-modo-guardado-btn-semana');
+            // La opción "semana nueva" solo tiene sentido en rutinas de varios días
+            // (el caso típico: mismo programa, 4 semanas, cambia peso/series/reps cada semana).
+            btnSemana.classList.toggle('hidden', !esMultidia);
             modal.classList.remove('hidden');
 
             function cerrar(valor) {
@@ -5464,6 +5481,7 @@
                 resolve(valor);
             }
             document.getElementById('pf-modo-guardado-btn-sobrescribir').onclick = () => cerrar('sobrescribir');
+            document.getElementById('pf-modo-guardado-btn-semana').onclick = () => cerrar('nueva_semana');
             document.getElementById('pf-modo-guardado-btn-nueva').onclick = () => cerrar('nueva');
             document.getElementById('pf-modo-guardado-btn-cancelar').onclick = () => cerrar(null);
         });
@@ -5620,6 +5638,7 @@
         // el índice de origen para no asociar por error el próximo
         // "compartir" con una plantilla anterior.
         _pfRepoOrigenIdx = null;
+        _pfResetSemanasBorrador();
         agregarDia();
     }
 
@@ -5628,6 +5647,7 @@
         const idx = diasData.length;
         diasData.push({ titulo: 'Dia ' + (idx + 1), warmupEjercicios: [], warmupEmomConfig: [], bloquesRutina: [] });
         renderDias();
+        _pfActualizarBarraSemanas();
         // Expandir el nuevo dia
         setTimeout(() => toggleDia(idx, true), 50);
     }
@@ -5643,6 +5663,8 @@
         diaActivoIdx = 0;
         bloquesRutina = diasData[0].bloquesRutina;
         renderDias();
+        if (diasData.length <= 1) _pfResetSemanasBorrador(); // la progresión por semanas es solo para multidía
+        else _pfActualizarBarraSemanas();
         toastConDeshacer('Día eliminado');
     }
 
@@ -8345,42 +8367,92 @@
         });
     }
 
-    // --- Compartir ---
-    async function compartirRutina() {
-        const alumno = (document.getElementById('alumno-nombre')?.value || '').trim() || 'ALUMNO';
-        const descGlobal = (document.getElementById('rutina-desc')?.value || '').trim();
+    // ══════════════════════════════════════════════════════════════════════
+    //  PROGRESIÓN SEMANAL EN CREAR RUTINA (mismos ejercicios, distinta
+    //  serie/reps/pausa por semana). Se arma TODO de una sola sentada acá,
+    //  sin tener que compartir y volver a editar desde el Historial.
+    // ══════════════════════════════════════════════════════════════════════
+    //
+    // semanasBorrador guarda, por cada semana ya "congelada", el mismo
+    // formato { titulo, tipo, datos } por día que ya usa compartirRutina.
+    // La semana que se está editando en pantalla en este momento (la más
+    // nueva) vive directamente en diasData, como siempre.
+    let semanasBorrador = [];
 
-        // Verificar que haya al menos algo en algun dia
+    function _pfResetSemanasBorrador() {
+        semanasBorrador = [];
+        _pfActualizarBarraSemanas();
+    }
+
+    // Congela la semana actual tal cual está en pantalla ahora mismo, y deja
+    // el formulario listo para seguir editando la semana siguiente (con los
+    // MISMOS ejercicios: la idea es solo tocar series/reps/pausa/tiempo).
+    function _pfAgregarSemanaEnCreacion() {
+        if (diasData.length <= 1) {
+            toast('La progresión por semanas es para rutinas de varios días');
+            return;
+        }
         const hayContenido = diasData.some(d =>
             d.warmupEjercicios.length > 0 ||
             d.bloquesRutina.length > 0 ||
             (d.warmupEmomConfig && d.warmupEmomConfig.some(m => m.ejercicios && m.ejercicios.length > 0))
         );
         if (!hayContenido) {
-            toast('Agrega ejercicios a al menos un dia');
+            toast('Cargá los ejercicios de la semana actual antes de agregar otra');
             return;
         }
 
-        // Avisar si hay ejercicios sin video antes de compartir con el alumno
-        const sinVideo = recopilarEjerciciosSinVideo();
-        if (sinVideo.length > 0) {
-            const continuar = await mostrarAdvertenciaSinVideo(sinVideo);
-            if (!continuar) return;
+        // Sincronizar títulos desde los inputs, igual que hace compartirRutina
+        diasData.forEach((dia, i) => {
+            const inp = document.getElementById('dia-titulo-' + i);
+            if (inp && inp.value.trim()) dia.titulo = inp.value.trim();
+        });
+
+        const diasCongelados = diasData.map((dia, i) => {
+            const { tipo, datos } = buildDatosDia(dia, i);
+            return { titulo: dia.titulo, tipo, datos };
+        });
+
+        semanasBorrador.push(diasCongelados);
+        _pfActualizarBarraSemanas();
+        toast('Semana ' + semanasBorrador.length + ' guardada ✅. Ahora editá la Semana ' + (semanasBorrador.length + 1) + ' (mismos ejercicios: cambiá series, reps, pausa o tiempo)');
+    }
+
+    // Deshace la última semana congelada (por si el profe se equivocó al tocar el botón).
+    function _pfQuitarUltimaSemana() {
+        if (semanasBorrador.length === 0) return;
+        if (!confirm('¿Quitar la Semana ' + semanasBorrador.length + ' que acabás de congelar? Los ejercicios que estás editando ahora en pantalla no se tocan.')) return;
+        semanasBorrador.pop();
+        _pfActualizarBarraSemanas();
+    }
+
+    function _pfActualizarBarraSemanas() {
+        const barra = document.getElementById('pf-barra-semanas');
+        if (!barra) return;
+        const esMultidia = diasData.length > 1;
+        // Armar varias semanas de una sola vez ("+ Agregar semana") es solo
+        // para rutinas NUEVAS que todavía no se compartieron. Si se está
+        // editando una rutina que YA existe (viene del Historial con
+        // "Editar"), agregar semanas se hace de a una con "Guardar como
+        // semana nueva" (en el diálogo de guardado) para no arriesgar pisar
+        // el historial de semanas que esa rutina ya tiene guardado.
+        if (_pfCodigoEditando || (!esMultidia && semanasBorrador.length === 0)) {
+            barra.classList.add('hidden');
+            return;
         }
+        barra.classList.remove('hidden');
+        const numActual = semanasBorrador.length + 1;
+        document.getElementById('pf-semana-actual-num').textContent = numActual;
+        document.getElementById('pf-semana-quitar').classList.toggle('hidden', semanasBorrador.length === 0);
+        document.getElementById('pf-semana-agregar').classList.toggle('hidden', !esMultidia);
+    }
 
-        // Si venimos de "Editar" una rutina desde el Historial, preguntar si los cambios
-        // van a esa misma rutina (sobrescribir) o se guardan como una rutina nueva.
-        let _pfModoGuardadoActual = null;
-        if (_pfCodigoEditando) {
-            _pfModoGuardadoActual = await _pfPreguntarModoGuardado(_pfCodigoEditando);
-            if (_pfModoGuardadoActual === null) return; // el usuario canceló
-        }
+    // --- Construye el objeto "datos" de un día para enviar al backend, en
+    // todos los sistemas de entrenamiento (Tabata, EMOM, Circuito por Vuelta,
+    // Circuito por Tiempo, Series). Se usa tanto al compartir una rutina
+    // como al congelar una semana dentro de "Crear Rutina" (misma función,
+    // un solo lugar: así ambos caminos arman los datos exactamente igual). ---
 
-        const btn = document.getElementById('btn-compartir-rutina');
-        pfBtnLoadingOn(btn, 'SUBIENDO...');
-
-        try {
-            // ── Construir datos de cada dia ──────────────────────────────────
             function buildDatosDia(dia, diaIdx) {
                 const warmupTipo = (document.getElementById('warmup-tipo-' + diaIdx) || {}).value || 'Circuito (Vueltas)';
                 // Usar _warmupCfg persistido en diasData como fuente de verdad, con fallback al DOM
@@ -8544,6 +8616,44 @@
                 return { tipo, datos };
             }
 
+    // --- Compartir ---
+    async function compartirRutina() {
+
+        const alumno = (document.getElementById('alumno-nombre')?.value || '').trim() || 'ALUMNO';
+        const descGlobal = (document.getElementById('rutina-desc')?.value || '').trim();
+
+        // Verificar que haya al menos algo en algun dia
+        const hayContenido = diasData.some(d =>
+            d.warmupEjercicios.length > 0 ||
+            d.bloquesRutina.length > 0 ||
+            (d.warmupEmomConfig && d.warmupEmomConfig.some(m => m.ejercicios && m.ejercicios.length > 0))
+        );
+        if (!hayContenido) {
+            toast('Agrega ejercicios a al menos un dia');
+            return;
+        }
+
+        // Avisar si hay ejercicios sin video antes de compartir con el alumno
+        const sinVideo = recopilarEjerciciosSinVideo();
+        if (sinVideo.length > 0) {
+            const continuar = await mostrarAdvertenciaSinVideo(sinVideo);
+            if (!continuar) return;
+        }
+
+        // Si venimos de "Editar" una rutina desde el Historial, preguntar si los cambios
+        // van a esa misma rutina (sobrescribir) o se guardan como una rutina nueva.
+        let _pfModoGuardadoActual = null;
+        if (_pfCodigoEditando) {
+            _pfModoGuardadoActual = await _pfPreguntarModoGuardado(_pfCodigoEditando, diasData.length > 1);
+            if (_pfModoGuardadoActual === null) return; // el usuario canceló
+        }
+
+        const btn = document.getElementById('btn-compartir-rutina');
+        pfBtnLoadingOn(btn, 'SUBIENDO...');
+
+        try {
+            // ── Construir datos de cada dia ──────────────────────────────────
+
             let payload;
             if (diasData.length === 1) {
                 // ── Rutina de un solo dia: formato clasico ─────────────────
@@ -8560,7 +8670,42 @@
                     const { tipo, datos } = buildDatosDia(dia, i);
                     return { titulo: dia.titulo, tipo, datos };
                 });
+
+                // ── Guardar como semana nueva de progresión (mismo código) ──────
+                // No toca /api/rutina/compartir en absoluto: usa un endpoint aparte
+                // que agrega esta versión al historial de semanas de la rutina,
+                // sin pisar ni afectar las semanas anteriores.
+                if (_pfModoGuardadoActual === 'nueva_semana' && _pfCodigoEditando) {
+                    try {
+                        const resSemana = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(_pfCodigoEditando) + '/nueva-semana', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ dias })
+                        });
+                        const dataSemana = await resSemana.json();
+                        if (dataSemana.ok) {
+                            toast('Semana ' + dataSemana.semana + ' guardada en ' + _pfCodigoEditando.toUpperCase() + ' 🎉');
+                            _pfCodigoEditando = null;
+                            _pfLimpiarBorrador();
+                            showTab('historial');
+                        } else {
+                            toast('Error: ' + (dataSemana.error || 'no se pudo guardar la semana'));
+                        }
+                    } catch (eSemana) {
+                        toast('Error de conexión al guardar la semana');
+                    }
+                    pfBtnLoadingOff(btn);
+                    return;
+                }
+
                 payload = { alumno, tipo: 'MULTIDIA', datos: { descripcion: descGlobal }, dias };
+
+                // Si en "Crear Rutina" se armaron varias semanas de progresión
+                // (mismos ejercicios, distinta serie/reps/pausa), mandarlas TODAS
+                // juntas en este mismo compartir, en vez de una por vez.
+                if (semanasBorrador.length > 0) {
+                    payload.semanas = [...semanasBorrador, dias];
+                }
             }
 
             const res = await fetch(API_BASE + '/api/rutina/compartir', {
@@ -8644,6 +8789,7 @@
                 document.getElementById('modal-codigo').classList.remove('hidden');
                 toast('Rutina compartida!');
                 _pfLimpiarBorrador();
+                _pfResetSemanasBorrador();
             } else {
                 toast('Error: ' + data.error);
             }
@@ -8902,11 +9048,15 @@
             const r    = historialRutinasCache[cod];
             const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
             const tipo  = r.tipo || 'ENTRENAMIENTO';
+            const badgeSemanas = (r.es_progresion_semanal && (r.total_semanas || 0) > 1)
+                ? `<span class="pf-hist-card-semanas text-xs font-bold text-verde ml-2">📅 ${r.total_semanas} semanas</span>`
+                : '';
             return `<div class="pf-hist-card bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50">
                 <div class="pf-hist-card-header flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-1">
                     <div class="pf-hist-card-info">
                         <span class="pf-hist-card-codigo font-mono font-bold text-amarillo text-sm">${cod.toUpperCase()}</span>
                         <span class="pf-hist-card-meta text-xs text-textoSuave ml-2">${tipo} | ${fecha}</span>
+                        ${badgeSemanas}
                     </div>
                     <span class="pf-hist-card-alumno text-xs text-textoSuave">${r.alumno || nombre}</span>
                 </div>
@@ -9142,6 +9292,7 @@
             const r = data.rutina;
             historialRutinasCache[codigo] = r;
             _pfCodigoEditando = codigo; // recordar qué rutina se está editando, para preguntar al guardar
+            _pfResetSemanasBorrador(); // al editar desde Historial no se arma progresión multi-semana acá (esa edición usa "Guardar como semana nueva")
 
             const datos = resolverDatos(r);
             const alumno = r.alumno || datos.alumno || '';
@@ -9355,8 +9506,9 @@
             // Guardar en globales para que el sistema sepa qué rutina estamos viendo
             currentData        = r;
             rutinaModalActual  = { codigo, ...r };
+            _pfSemanaVistaModal = null; // arranca mostrando la semana más reciente
 
-            content.innerHTML  = _pfVistaModalCompacta ? _pfRenderVistaRapidaModal(codigo, r) : generarHTMLRutina(codigo, r);
+            _pfRenderModalContent();
         } catch (e) {
             content.innerHTML = '<p style="text-align:center;color:#EF5350;padding:40px;">Error de conexion</p>';
         }
@@ -9366,6 +9518,63 @@
     // vistazo en el gimnasio, reutilizando el mismo generador que usa el
     // historial (fondo oscuro, pills, sin el detalle "estilo PDF"). ──
     let _pfVistaModalCompacta = true;
+
+    // ══════════════════════════════════════════════════════════════════
+    //  VISOR DE SEMANAS (progresión semanal) EN "VER RUTINA"
+    //  Permite al profesor navegar semanas pasadas de una rutina sin
+    //  salir del modal: null = semana más reciente (la que ya venía
+    //  mostrando dia_1..dia_N a nivel raíz).
+    // ══════════════════════════════════════════════════════════════════
+    let _pfSemanaVistaModal = null;
+
+    // Devuelve un CLON de "r" con dia_1..dia_N reemplazados por los de la
+    // semana pedida (no toca historialRutinasCache ni el objeto original).
+    function _pfRutinaConSemana(r, semanaNum) {
+        if (!r || !semanaNum || !r.es_progresion_semanal || !r.semanas) return r;
+        const semanaObj = r.semanas['semana_' + semanaNum];
+        if (!semanaObj) return r;
+        const clon = Object.assign({}, r);
+        const totalDPrevio = r.total_dias || 0;
+        for (let i = 1; i <= totalDPrevio; i++) delete clon['dia_' + i];
+        Object.keys(semanaObj).forEach(k => { clon[k] = semanaObj[k]; });
+        clon.total_dias = Object.keys(semanaObj).length;
+        clon.semana_actual = semanaNum;
+        return clon;
+    }
+
+    function _pfSemanasTabsHtmlModal(r) {
+        if (!r || !r.es_progresion_semanal || !(r.total_semanas > 1) || !r.semanas) return '';
+        const actual = _pfSemanaVistaModal || r.total_semanas;
+        let html = '<div class="pf-semanas-tabs-modal" style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:0 0 16px;">';
+        for (let s = 1; s <= r.total_semanas; s++) {
+            const activa = (s === actual);
+            html += '<button onclick="_pfVerSemanaModal(' + s + ')" style="padding:6px 14px;border-radius:999px;border:2px solid ' +
+                (activa ? '#FF5E1A' : '#ddd') + ';background:' + (activa ? '#FF5E1A' : 'transparent') + ';color:' +
+                (activa ? '#fff' : '#666') + ';font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;">Semana ' + s + '</button>';
+        }
+        html += '</div>';
+        return html;
+    }
+
+    function _pfVerSemanaModal(semanaNum) {
+        _pfSemanaVistaModal = semanaNum;
+        _pfRenderModalContent();
+    }
+
+    // Recalcula el contenido del modal "Ver Rutina" combinando: la semana
+    // elegida (o la más reciente si no se eligió ninguna) + el modo de
+    // vista (rápida / completa). Usado tanto al abrir el modal como al
+    // cambiar de semana o de modo de vista.
+    function _pfRenderModalContent() {
+        if (!rutinaModalActual || !rutinaModalActual.codigo) return;
+        const codigo = rutinaModalActual.codigo;
+        const rBase = historialRutinasCache[codigo] || rutinaModalActual;
+        const r = _pfRutinaConSemana(rBase, _pfSemanaVistaModal);
+        const content = document.getElementById('modal-rutina-content');
+        if (!content) return;
+        content.innerHTML = _pfSemanasTabsHtmlModal(rBase) +
+            (_pfVistaModalCompacta ? _pfRenderVistaRapidaModal(codigo, r) : generarHTMLRutina(codigo, r));
+    }
 
     function _pfRenderVistaRapidaModal(codigo, r) {
         const dias = _pfParsearDiasHistorial(r);
@@ -9431,9 +9640,7 @@
         _pfVistaModalCompacta = !_pfVistaModalCompacta;
         const btn = document.getElementById('btn-toggle-vista-modal');
         if (btn) btn.textContent = _pfVistaModalCompacta ? '📄 Vista completa' : '📱 Vista rápida';
-        const content = document.getElementById('modal-rutina-content');
-        const r = rutinaModalActual;
-        content.innerHTML = _pfVistaModalCompacta ? _pfRenderVistaRapidaModal(r.codigo, r) : generarHTMLRutina(r.codigo, r);
+        _pfRenderModalContent();
     }
 
     // ====================================================================
@@ -9901,10 +10108,10 @@
 
     function descargarPDFDesdeModal() {
         if (!rutinaModalActual) { toast('No hay rutina seleccionada'); return; }
-        descargarPDF(rutinaModalActual.codigo);
+        descargarPDF(rutinaModalActual.codigo, _pfSemanaVistaModal);
     }
 
-    async function descargarPDF(codigo) {
+    async function descargarPDF(codigo, semanaNum) {
         // Detectar jsPDF (UMD expone window.jspdf, algunos builds window.jsPDF)
         const jsPDFLib = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
         if (!jsPDFLib) { toast('Libreria PDF no disponible, recarga la pagina'); return; }
@@ -9920,6 +10127,7 @@
             if (!data.ok) { toast('Error cargando rutina'); return; }
             r = data.rutina;
             historialRutinasCache[codigo] = r;
+            if (semanaNum) r = _pfRutinaConSemana(r, semanaNum);
         } catch (e) { toast('Error de conexion'); return; }
 
         try {
@@ -9934,6 +10142,7 @@
             const alumno = r.alumno || datos.alumno || '';
             const tipo   = r.tipo   || 'ENTRENAMIENTO';
             const fecha  = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
+            const semanaTag = (r.es_progresion_semanal && r.semana_actual) ? ` &nbsp;|&nbsp; Semana ${r.semana_actual}` : '';
 
             // ── Helpers ──────────────────────────────────────────────────
 
@@ -10275,8 +10484,8 @@
                 // Footer MULTIDIA
                 chk(10);
                 doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(160,160,160);
-                doc.text('Generado por PONETE FIT  |  ' + (fecha||'') + '  |  ' + codigo.toUpperCase(), pw/2, y, {align:'center'});
-                doc.save(alumno.toUpperCase() + '_MULTIDIA_' + codigo.toUpperCase() + '.pdf');
+                doc.text('Generado por PONETE FIT  |  ' + (fecha||'') + (semanaTag ? '  |  Semana ' + r.semana_actual : '') + '  |  ' + codigo.toUpperCase(), pw/2, y, {align:'center'});
+                doc.save(alumno.toUpperCase() + '_MULTIDIA_' + codigo.toUpperCase() + (semanaTag ? '_S' + r.semana_actual : '') + '.pdf');
                 return;
             }
 
