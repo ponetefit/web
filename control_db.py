@@ -167,3 +167,24 @@ def cuenta_de_codigo(codigo):
     if not codigo:
         return None
     return firebase_config.get_db_ref(f"/codigos_index/{codigo}").get()
+
+
+def backfillar_codigos_master():
+    """Migracion unica: registra en /codigos_index todos los codigos de
+    rutina que ya existian ANTES de este sistema multi-cuenta (todos
+    pertenecen a la cuenta master, raffa687), para que alumno.html los
+    siga reconociendo. Es seguro correrla mas de una vez: si un codigo ya
+    esta indexado, no lo toca."""
+    rutinas = firebase_config.get_db_ref("/rutinas").get() or {}
+    indice_actual = _codigos_ref().get() or {}
+
+    faltantes = {}
+    for codigo in rutinas.keys():
+        clave = codigo.strip().lower()
+        if clave not in indice_actual:
+            faltantes[clave] = MASTER_ACCOUNT_ID
+
+    if faltantes:
+        _codigos_ref().update(faltantes)
+
+    return len(faltantes)
