@@ -4,6 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>PONETE FIT | Panel del Profesor</title>
+    <!-- ─── GUARD DE SESION: si no hay login valido, redirige a /login antes de pintar nada ─── -->
+    <style>html.pf-verificando-sesion { visibility: hidden; }</style>
+    <script>document.documentElement.classList.add('pf-verificando-sesion');</script>
+    <script>
+        (async function _pfVerificarSesion() {
+            try {
+                const res = await fetch('/api/auth/sesion', { credentials: 'include' });
+                const data = await res.json();
+                if (!data.autenticado) {
+                    window.location.replace('/login');
+                    return;
+                }
+                window._pfCuenta = data.cuenta;
+            } catch (e) {
+                window.location.replace('/login');
+                return;
+            }
+            document.documentElement.classList.remove('pf-verificando-sesion');
+        })();
+    </script>
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#FF6B35">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1673,6 +1693,29 @@
     </script>
 </head>
 <body class="bg-fondo text-texto min-h-screen">
+    <!-- ─── Barra de cuenta (login multi-cuenta) ─── -->
+    <div id="pf-barra-cuenta" style="position:fixed; top:10px; right:10px; z-index:9999; display:flex; align-items:center; gap:8px; background:rgba(10,10,10,0.85); backdrop-filter:blur(6px); border:1px solid #262626; border-radius:999px; padding:6px 8px 6px 14px; font-family:-apple-system,sans-serif; font-size:12px; color:#9a9a9a;">
+        <span id="pf-email-cuenta"></span>
+        <a id="pf-link-admin" href="/admin" style="display:none; color:#FF5E1A; text-decoration:none; font-weight:600; padding:6px 10px;">Admin</a>
+        <button id="pf-btn-logout" style="background:none; border:1px solid #333; color:#f2f2f2; border-radius:999px; padding:6px 12px; font-size:12px; cursor:pointer;">Salir</button>
+    </div>
+    <script>
+        (function _pfBarraCuenta() {
+            function pintar() {
+                var cuenta = window._pfCuenta;
+                if (!cuenta) { setTimeout(pintar, 150); return; }
+                document.getElementById('pf-email-cuenta').textContent = cuenta.email || '';
+                if (cuenta.rol === 'admin') {
+                    document.getElementById('pf-link-admin').style.display = 'inline-block';
+                }
+            }
+            pintar();
+            document.getElementById('pf-btn-logout').addEventListener('click', async function() {
+                try { await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }); } catch (e) {}
+                window.location.href = '/login';
+            });
+        })();
+    </script>
 
     <!-- HEADER -->
     <header id="pf-main-header" class="bg-tarjeta border-b border-borde px-6 py-4">
