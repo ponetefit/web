@@ -261,6 +261,49 @@ def api_admin_aprobar():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route("/api/admin/cuentas", methods=["GET"])
+@auth.admin_requerido
+def api_admin_cuentas():
+    """Lista TODAS las cuentas (no solo las pendientes), para poder
+    eliminar cuentas de prueba o cuentas aprobadas que ya no se usan."""
+    try:
+        todas = control_db._cuentas_ref().get() or {}
+        # No mostrar la cuenta master en la lista de "borrables"
+        cuentas = {
+            cid: datos for cid, datos in todas.items()
+            if isinstance(datos, dict) and cid != control_db.MASTER_ACCOUNT_ID
+        }
+        return jsonify({"ok": True, "cuentas": cuentas})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/admin/eliminar-cuenta", methods=["POST"])
+@auth.admin_requerido
+def api_admin_eliminar_cuenta():
+    """Elimina una cuenta (pendiente o ya aprobada) y todos los codigos de
+    rutina indexados a nombre de esa cuenta. NO borra el proyecto Firebase
+    propio de esa cuenta (eso hay que borrarlo a mano desde Firebase
+    Console), solo la referencia dentro de esta app."""
+    try:
+        body = request.json or {}
+        account_id = body.get("account_id", "").strip()
+
+        if not account_id or account_id == control_db.MASTER_ACCOUNT_ID:
+            return jsonify({"ok": False, "error": "Esa cuenta no se puede eliminar"}), 400
+
+        indice = control_db._codigos_ref().get() or {}
+        codigos_de_la_cuenta = [cod for cod, aid in indice.items() if aid == account_id]
+        for cod in codigos_de_la_cuenta:
+            control_db.eliminar_codigo(cod)
+
+        control_db.rechazar_cuenta(account_id)
+
+        return jsonify({"ok": True, "mensaje": "Cuenta eliminada", "codigos_eliminados": len(codigos_de_la_cuenta)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route("/api/admin/rechazar", methods=["POST"])
 @auth.admin_requerido
 def api_admin_rechazar():
