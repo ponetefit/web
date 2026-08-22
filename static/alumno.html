@@ -5831,7 +5831,7 @@
                         var fechaISO = hoy.getFullYear() + '-' +
                             String(hoy.getMonth() + 1).padStart(2, '0') + '-' +
                             String(hoy.getDate()).padStart(2, '0');
-                        var base = FIREBASE_ASISTENCIA_URL + encodeURIComponent(currentCode) + '/';
+                        var base = _fbUrl(currentCode, 'asistencia/' + encodeURIComponent(currentCode) + '/');
                         var payload = { ts: ahora, pct: Math.round(Math.min(100, Math.max(0, pct))) };
                         if (esMultidia) payload.dia = diaActivo + 1; // 1-based, igual que dia_N en la rutina
                         fetch(base + 'fechas/' + fechaISO + '.json', {
@@ -6720,7 +6720,7 @@
                 // Desbloquear audio en iOS aprovechando esta interacción real del usuario
                 _desbloquearAudioIOS();
                 try {
-                    const res = await fetch("https://ponetefit-app-default-rtdb.firebaseio.com/rutinas/" + cod + ".json");
+                    const res = await fetch("/api/fb/" + encodeURIComponent(cod) + "/rutinas/" + cod + ".json");
                     const data = await res.json();
                     if (!data) {
                         alert("Codigo no encontrado");
@@ -6824,7 +6824,6 @@
             }
 
             // ─── MIS RUTINAS: ver todas las rutinas asociadas al mismo alumno ───
-            var FIREBASE_RUTINAS_BASE = "https://ponetefit-app-default-rtdb.firebaseio.com/rutinas";
             var _coloresMisRutinas = ['var(--naranja)', 'var(--azul)', 'var(--purpura)', 'var(--verde)', 'var(--amarillo)', 'var(--rosa)'];
 
             async function abrirMisRutinas() {
@@ -6836,7 +6835,7 @@
                 cont.innerHTML = '<div class="mr-estado">Buscando rutinas...</div>';
                 overlay.classList.add('visible');
                 try {
-                    var url = FIREBASE_RUTINAS_BASE + '.json?orderBy=' + encodeURIComponent('"$key"') +
+                    var url = "/api/fb/" + encodeURIComponent(currentCode) + "/rutinas.json?orderBy=" + encodeURIComponent('"$key"') +
                         '&startAt=' + encodeURIComponent('"' + prefijo + '"') +
                         '&endAt=' + encodeURIComponent('"' + prefijo + '\uf8ff"');
                     var res = await fetch(url);
@@ -6938,8 +6937,9 @@
             // se suben a Firebase bajo el código del alumno, de modo que si el mismo
             // alumno abre la app en otro dispositivo (casa, gimnasio, celular, etc.)
             // pueda ver y seguir usando los últimos pesos que cargó.
-            var FIREBASE_CARGAS_URL = "https://ponetefit-app-default-rtdb.firebaseio.com/cargas/";
-            var FIREBASE_ASISTENCIA_URL = "https://ponetefit-app-default-rtdb.firebaseio.com/asistencia/";
+            function _fbUrl(codigo, subpath) {
+                return "/api/fb/" + encodeURIComponent(codigo) + "/" + subpath;
+            }
 
             function _cargaNombreNorm(nombreEj) {
                 return (nombreEj || '').toUpperCase().trim().replace(/[.#$\[\]\/]/g, '_');
@@ -6969,7 +6969,7 @@
                     var ahora = Date.now();
                     var fechaStr = new Date(ahora).toISOString().slice(0, 10); // YYYY-MM-DD
 
-                    fetch(FIREBASE_CARGAS_URL + currentCode + "/" + path + ".json", {
+                    fetch(_fbUrl(currentCode, 'cargas/' + currentCode + "/" + path + ".json"), {
                         method: "PUT",
                         headers: {
                             "Content-Type": "application/json"
@@ -6983,7 +6983,7 @@
                     // Historial: un registro NUEVO por cada carga guardada (no se pisa),
                     // con fecha y metodo de entrenamiento en el momento de guardarla.
                     if (ejercicioNorm) {
-                        fetch(FIREBASE_CARGAS_URL + currentCode + "/historial/" + ejercicioNorm + ".json", {
+                        fetch(_fbUrl(currentCode, 'cargas/' + currentCode + "/historial/" + ejercicioNorm + ".json"), {
                             method: "POST",
                             headers: {
                                 "Content-Type": "application/json"
@@ -7014,7 +7014,7 @@
             async function sincronizarCargasDesdeNube(cod) {
                 if (!cod) return;
                 try {
-                    var res = await fetch(FIREBASE_CARGAS_URL + cod + ".json");
+                    var res = await fetch(_fbUrl(cod, 'cargas/' + cod + ".json"));
                     var remoto = await res.json();
                     if (!remoto) return;
                     if (remoto.simple) {
@@ -7058,7 +7058,7 @@
                     var fechaISO = hoy.getFullYear() + '-' +
                         String(hoy.getMonth() + 1).padStart(2, '0') + '-' +
                         String(hoy.getDate()).padStart(2, '0');
-                    var base = FIREBASE_ASISTENCIA_URL + encodeURIComponent(cod) + '/';
+                    var base = _fbUrl(cod, 'asistencia/' + encodeURIComponent(cod) + '/');
                     fetch(base + 'fechas/' + fechaISO + '.json', {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
@@ -7076,13 +7076,15 @@
 
             // ─── AVISO POR EMAIL AL PROFESOR (entró un alumno) ───
             // Usa FormSubmit (https://formsubmit.co) para enviar un email sin backend
-            // propio ni API keys. La PRIMERA vez que se use, FormSubmit le manda un
-            // mail de confirmación a raffa687@gmail.com que hay que abrir y confirmar
-            // una única vez; después de eso los avisos llegan automáticamente.
+            // propio ni API keys. El mail de destino se resuelve dinámicamente según
+            // a qué profesor pertenece el código (cada profesor recibe sus propios
+            // avisos). La PRIMERA vez que se use el mail de un profesor nuevo,
+            // FormSubmit le manda un mail de confirmación que hay que abrir y
+            // confirmar una única vez; después de eso los avisos llegan automáticamente.
             // No bloquea nada si falla: es solo informativo.
-            var PROFESOR_EMAIL_DESTINO = 'raffa687@gmail.com';
+            var _cacheEmailProfesor = {}; // cod -> email, para no pedirlo mas de una vez
             var _ultimoAvisoEmail = {}; // evita mandar más de un mail por código cada pocos minutos
-            function _avisarProfesorPorEmail(cod, nombre) {
+            async function _avisarProfesorPorEmail(cod, nombre) {
                 if (!cod) return;
                 try {
                     var ahora = Date.now();
@@ -7090,8 +7092,16 @@
                     if (_ultimoAvisoEmail[cod] && (ahora - _ultimoAvisoEmail[cod]) < 20 * 60 * 1000) return;
                     _ultimoAvisoEmail[cod] = ahora;
 
+                    var emailProfesor = _cacheEmailProfesor[cod];
+                    if (!emailProfesor) {
+                        var resMeta = await fetch('/api/fb-meta/' + encodeURIComponent(cod));
+                        var dataMeta = await resMeta.json();
+                        emailProfesor = (dataMeta && dataMeta.email) ? dataMeta.email : 'raffa687@gmail.com';
+                        _cacheEmailProfesor[cod] = emailProfesor;
+                    }
+
                     var fechaHora = new Date(ahora).toLocaleString('es-AR');
-                    fetch('https://formsubmit.co/ajax/' + encodeURIComponent(PROFESOR_EMAIL_DESTINO), {
+                    fetch('https://formsubmit.co/ajax/' + encodeURIComponent(emailProfesor), {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -7321,7 +7331,7 @@
 
             async function _cargarVideotecaTips(onListo) {
                 try {
-                    var res = await fetch("https://ponetefit-app-default-rtdb.firebaseio.com/videoteca.json");
+                    var res = await fetch("/api/fb/" + encodeURIComponent(currentCode) + "/videoteca.json");
                     var videoteca = await res.json();
                     if (!videoteca) return;
                     _videotecaTips = {};
@@ -14677,8 +14687,12 @@
          ==================================================================== -->
     <script>
         (function _pfFeedbackAlumno() {
-            var _feedbackFirebaseUrl = 'https://ponetefit-app-default-rtdb.firebaseio.com/feedback/';
-            var _resueltosFirebaseUrl = 'https://ponetefit-app-default-rtdb.firebaseio.com/resueltos/';
+            function _feedbackUrl(codigo, resto) {
+                return "/api/fb/" + encodeURIComponent(codigo) + "/feedback/" + resto;
+            }
+            function _resueltoUrl(codigo, resto) {
+                return "/api/fb/" + encodeURIComponent(codigo) + "/resueltos/" + resto;
+            }
             var UMBRAL_COSTOSO_PREV = 9;
             var _feedbackEtapasRespondidas = {};
             var _feedbackEtapaActual = null;
@@ -14869,7 +14883,7 @@
                 _dbg.prefijo = prefijo;
                 var codigos = [cod];
                 try {
-                    var urlRutinas = 'https://ponetefit-app-default-rtdb.firebaseio.com/rutinas.json?orderBy=' +
+                    var urlRutinas = '/api/fb/' + encodeURIComponent(cod) + '/rutinas.json?orderBy=' +
                         encodeURIComponent('"$key"') + '&startAt=' + encodeURIComponent('"' + prefijo + '"') +
                         '&endAt=' + encodeURIComponent('"' + prefijo + '\uf8ff"');
                     var resR = await fetch(urlRutinas);
@@ -14884,7 +14898,7 @@
                 var porEjercicio = {};
                 await Promise.all(codigos.map(async function(codigo) {
                     try {
-                        var res = await fetch(_feedbackFirebaseUrl + encodeURIComponent(codigo) + '.json');
+                        var res = await fetch(_feedbackUrl(codigo, encodeURIComponent(codigo) + '.json'));
                         var data = await res.json();
                         if (!data || typeof data !== 'object') return;
                         Object.keys(data).forEach(function(fecha) {
@@ -14930,7 +14944,7 @@
                     var resueltoEnTodos = true;
                     await Promise.all(entry.codigos.map(async function(codigo) {
                         try {
-                            var res2 = await fetch(_resueltosFirebaseUrl + encodeURIComponent(codigo) + '/' + encodeURIComponent(clave) + '.json');
+                            var res2 = await fetch(_resueltoUrl(codigo, encodeURIComponent(codigo) + '/' + encodeURIComponent(clave) + '.json'));
                             var data2 = await res2.json();
                             if (!data2 || (data2.ts || 0) < entry.ts) resueltoEnTodos = false;
                         } catch (e) { resueltoEnTodos = false; }
@@ -14956,7 +14970,7 @@
                 if (!clave || !codigos.length) return;
                 var payload = { ejercicio: nombreEjercicio, ts: Date.now(), fecha: _fechaISO(), quien: 'alumno' };
                 codigos.forEach(function(codigo) {
-                    fetch(_resueltosFirebaseUrl + encodeURIComponent(codigo) + '/' + encodeURIComponent(clave) + '.json', {
+                    fetch(_resueltoUrl(codigo, encodeURIComponent(codigo) + '/' + encodeURIComponent(clave) + '.json'), {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
@@ -15209,7 +15223,7 @@
                 try {
                     var code = typeof currentCode !== 'undefined' ? currentCode : '';
                     if (code) {
-                        fetch(_feedbackFirebaseUrl + encodeURIComponent(code) + '/' + _fechaISO() + '.json', {
+                        fetch(_feedbackUrl(code, encodeURIComponent(code) + '/' + _fechaISO() + '.json'), {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
