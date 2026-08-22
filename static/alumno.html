@@ -5455,6 +5455,11 @@
                 tIdx = 0,
                 tRonda = 1;
             let tPausaRondaResolve = null;
+            // Puntero al "tick" activo del cronómetro genérico (_tick durante trabajo/pausa
+            // normal, o el tick de la pausa entre rondas mientras esa pantalla está visible),
+            // para que el fast-forward de segundo plano siempre avance la fase correcta.
+            var _cronoActiveTickRef = null;
+            var _prDeadlineShared = 0;
             let currentCode = "";
             let bloqueTiempoIntervals = {};
             let emomRunning = false,
@@ -6182,19 +6187,27 @@
             // ─── COUNTDOWN HELPER (compartido por todos los timers de preparacion) ───
             function prepCountdown(clockEl, statusEl, beepFreq, callback, opts) {
                 opts = opts || {};
-                var count = opts.startFrom || 5;
+                var startFrom = opts.startFrom || 5;
                 var showArrancamos = opts.showArrancamos !== false;
                 var extraBeepAt3 = opts.extraBeepAt3 || false;
                 if (statusEl) statusEl.innerText = "PREPARATE!";
-                clockEl.innerText = count < 10 && opts.padZero ? "0" + count : count;
+                clockEl.innerText = startFrom < 10 && opts.padZero ? "0" + startFrom : startFrom;
+                // Deadline basado en reloj real (no en cantidad de "ticks" recibidos), para
+                // que si la app estuvo en segundo plano y perdió ticks, al volver el conteo
+                // refleje el tiempo real transcurrido en vez de arrancar de nuevo el conteo.
+                var deadline = Date.now() + startFrom * 1000;
+                var done = false;
                 var iv = bgSetInterval(function() {
-                    beep(beepFreq);
-                    count--;
+                    var count = Math.max(0, Math.round((deadline - Date.now()) / 1000));
                     clockEl.innerText = count < 10 && opts.padZero ? "0" + count : count;
-                    if (extraBeepAt3 && count <= 3 && count > 0) beep(400);
-                    if (count <= 0) {
+                    if (!_bgFFMode) {
+                        beep(beepFreq);
+                        if (extraBeepAt3 && count <= 3 && count > 0) beep(400);
+                    }
+                    if (count <= 0 && !done) {
+                        done = true;
                         bgClearInterval(iv);
-                        if (extraBeepAt3) beep(800);
+                        if (extraBeepAt3 && !_bgFFMode) beep(800);
                         if (showArrancamos && statusEl) statusEl.innerText = "¡ARRANCAMOS!";
                         clockEl.innerText = "";
                         setTimeout(callback, 1000);
@@ -7958,20 +7971,28 @@
                 }
                 prepCountdown(clock, null, 440, function() {
                     var deadline = Date.now() + segundos * 1000;
-                    var iv = bgSetInterval(function() {
+                    var iv;
+                    var _tick = function() {
                         var rem = Math.max(0, Math.round((deadline - Date.now()) / 1000));
                         if (clock) clock.innerText = formatearTiempo(rem);
-                        if (rem <= 3 && rem > 0) beep(400);
+                        if (!_bgFFMode && rem <= 3 && rem > 0) beep(400);
                         if (rem <= 0) {
                             bgClearInterval(iv);
-                            beep(800);
+                            _bgFastForward = null;
+                            if (!_bgFFMode) beep(800);
                             if (clock) clock.innerText = formatearTiempo(segundos);
                             if (btn) {
                                 btn.disabled = false;
                                 btn.innerText = 'Activar';
                             }
                         }
-                    }, 1000);
+                    };
+                    _bgFastForward = function() {
+                        _bgFFMode = true;
+                        _tick();
+                        _bgFFMode = false;
+                    };
+                    iv = bgSetInterval(_tick, 1000);
                 });
             }
 
@@ -8487,6 +8508,10 @@
             }
 
             let warmupTabInterval = null;
+            // Deadline y puntero de tick compartidos del warmup Tabata (accesibles
+            // también desde togglePausaTabataWarmup para recalibrar al reanudar).
+            let _wTabDeadline = 0;
+            let _wTabTickRef = null;
 
             function iniciarTabataWarmup(ejsW, det) {
                 if (warmupRunning) return;
@@ -8506,6 +8531,20 @@
                 const cantidadSeries = det.cantidad || ejsW.length || 8;
                 let totalEjs = cantidadSeries;
                 let ejIdx = 0;
+                // Reiniciar deadline/puntero compartidos del warmup Tabata para poder
+                // reproducir en silencio los segundos perdidos en segundo plano.
+                _wTabDeadline = 0;
+                _wTabTickRef = null;
+                _bgFastForward = function(elapsed) {
+                    if (!warmupRunning || warmupTabataPausado) return;
+                    _bgFFMode = true;
+                    var steps = Math.min(elapsed, 3600);
+                    for (var i = 0; i < steps && warmupRunning; i++) {
+                        _wTabDeadline -= 1000;
+                        if (_wTabTickRef) _wTabTickRef();
+                    }
+                    _bgFFMode = false;
+                };
 
                 var clockEl = document.getElementById('warmup-clock');
                 var statusEl = document.getElementById('warmup-status');
@@ -8524,6 +8563,7 @@
                         if (_wPausaBtn) _wPausaBtn.style.display = 'none';
                         if (_wReinBtn) _wReinBtn.style.display = 'none';
                         liberarWakeLock();
+                        _bgFastForward = null;
                         return;
                     }
                     const ej = ejsW[ejIdx % ejsW.length];
@@ -8536,12 +8576,12 @@
                     var _tipWTab = _obtenerTip(nombre);
                     if (_tipWTab) hablarCoach(_tipWTab);
                     let rem = trabajo;
-                    var _wkWorkDeadline = Date.now() + trabajo * 1000;
+                    _wTabDeadline = Date.now() + trabajo * 1000;
                     document.getElementById('warmup-clock').innerText = rem < 10 ? "0" + rem : rem;
-                    warmupTabInterval = bgSetInterval(function() {
+                    var _tickWTrabajo = function() {
                         if (warmupTabataPausado) return;
-                        rem = Math.max(0, Math.round((_wkWorkDeadline - Date.now()) / 1000));
-                        document.getElementById('warmup-clock').innerText = rem < 10 ? "0" + rem : rem;
+                        rem = Math.max(0, Math.round((_wTabDeadline - Date.now()) / 1000));
+                        if (!_bgFFMode) document.getElementById('warmup-clock').innerText = rem < 10 ? "0" + rem : rem;
                         if (rem === Math.floor(trabajo / 2) && rem > 3) coachMotivacional(nombre);
                         if (rem <= 3 && rem > 0) beep(400);
                         if (rem <= 0) {
@@ -8571,21 +8611,25 @@
                                 document.getElementById('warmup-ej').innerText = "ULTIMO — CASI LISTO!";
                             }
                             let d = pausa;
-                            var _wkPausaDeadline = Date.now() + pausa * 1000;
+                            _wTabDeadline = Date.now() + pausa * 1000;
                             document.getElementById('warmup-clock').innerText = d < 10 ? "0" + d : d;
-                            warmupTabInterval = bgSetInterval(function() {
+                            var _tickWDescanso = function() {
                                 if (warmupTabataPausado) return;
-                                d = Math.max(0, Math.round((_wkPausaDeadline - Date.now()) / 1000));
-                                document.getElementById('warmup-clock').innerText = d < 10 ? "0" + d : d;
+                                d = Math.max(0, Math.round((_wTabDeadline - Date.now()) / 1000));
+                                if (!_bgFFMode) document.getElementById('warmup-clock').innerText = d < 10 ? "0" + d : d;
                                 if (d <= 0) {
                                     bgClearInterval(warmupTabInterval);
                                     beep(800);
                                     ejIdx++;
                                     siguiente();
                                 }
-                            }, 1000);
+                            };
+                            _wTabTickRef = _tickWDescanso;
+                            warmupTabInterval = bgSetInterval(_tickWDescanso, 1000);
                         }
-                    }, 1000);
+                    };
+                    _wTabTickRef = _tickWTrabajo;
+                    warmupTabInterval = bgSetInterval(_tickWTrabajo, 1000);
                 }
             }
 
@@ -8601,6 +8645,10 @@
                     liberarWakeLock();
                     coachPausa();
                 } else {
+                    // Recalibrar deadline con los segundos que quedaban al pausar
+                    var _wTabClockEl = document.getElementById('warmup-clock');
+                    var _wTabRemSecs = _wTabClockEl ? (parseInt(_wTabClockEl.innerText) || 0) : 0;
+                    _wTabDeadline = Date.now() + _wTabRemSecs * 1000;
                     solicitarWakeLock();
                 }
             }
@@ -8610,6 +8658,7 @@
                 warmupRunning = false;
                 warmupTabataPausado = false;
                 desactivarTimerGlobal();
+                _bgFastForward = null;
                 var clockEl = document.getElementById('warmup-clock');
                 var statusEl = document.getElementById('warmup-status');
                 var ejEl = document.getElementById('warmup-ej');
@@ -8679,6 +8728,7 @@
                 warmupRunning = false;
                 warmupEmomPausado = false;
                 desactivarTimerGlobal();
+                _bgFastForward = null;
                 var clockEl = document.getElementById('warmup-clock');
                 var statusEl = document.getElementById('warmup-status');
                 var ejEl = document.getElementById('warmup-ej');
@@ -8857,6 +8907,10 @@
             }
 
             let warmupEmomInterval = null;
+            // Deadline y puntero de tick compartidos del warmup EMOM (accesibles
+            // también desde togglePausaEmomWarmup para recalibrar al reanudar).
+            let _weDeadline = 0;
+            let _weTickRef = null;
 
             var warmupEmomPausado = false;
 
@@ -8870,6 +8924,10 @@
                     // >>> COACH: Pausa EMOM warmup
                     coachPausa();
                 } else {
+                    // Recalibrar deadline con los segundos que quedaban al pausar
+                    var _weClockEl = document.getElementById('warmup-clock');
+                    var _weRemSecs = _weClockEl ? (parseInt(_weClockEl.innerText) || 0) : 0;
+                    _weDeadline = Date.now() + _weRemSecs * 1000;
                     solicitarWakeLock();
                 }
             }
@@ -8888,6 +8946,20 @@
                 const ejsPorMin = ejsW.length > 0 ? Math.ceil(ejsW.length / mins) : 1;
                 const emomCfgPorMin = det.emom_config_por_minuto || [];
                 let minActual = 0;
+                // Reiniciar deadline/puntero compartidos del warmup EMOM para poder
+                // reproducir en silencio los segundos perdidos en segundo plano.
+                _weDeadline = 0;
+                _weTickRef = null;
+                _bgFastForward = function(elapsed) {
+                    if (!warmupRunning || warmupEmomPausado) return;
+                    _bgFFMode = true;
+                    var steps = Math.min(elapsed, 3600);
+                    for (var i = 0; i < steps && warmupRunning; i++) {
+                        _weDeadline -= 1000;
+                        if (_weTickRef) _weTickRef();
+                    }
+                    _bgFFMode = false;
+                };
 
                 // Mostrar boton pausa y reiniciar EMOM warmup
                 var pausaBtnEW = document.getElementById('warmup-emom-pausa');
@@ -8923,6 +8995,7 @@
                         if (pausaBtnEW) pausaBtnEW.style.display = 'none';
                         if (reiniciarBtnEW) reiniciarBtnEW.style.display = 'none';
                         liberarWakeLock();
+                        _bgFastForward = null;
                         return;
                     }
                     document.getElementById('warmup-status').innerText = "MINUTO " + (minActual + 1) + "/" + mins;
@@ -8965,14 +9038,16 @@
                         _weFillWork.style.width = '100%';
                         _weFillWork.style.transition = 'width 1s linear';
                     }
-                    var _weDeadline = Date.now() + 60000;
-                    warmupEmomInterval = bgSetInterval(function() {
+                    _weDeadline = Date.now() + 60000;
+                    var _tickWEmom = function() {
                         if (warmupEmomPausado) return;
                         rem = Math.max(0, Math.round((_weDeadline - Date.now()) / 1000));
-                        document.getElementById('warmup-clock').innerText = rem < 10 ? "0" + rem : rem;
-                        if (_weFillWork) {
-                            _weFillWork.style.width = ((rem / 60) * 100) + '%';
-                            _weFillWork.style.transition = 'none';
+                        if (!_bgFFMode) {
+                            document.getElementById('warmup-clock').innerText = rem < 10 ? "0" + rem : rem;
+                            if (_weFillWork) {
+                                _weFillWork.style.width = ((rem / 60) * 100) + '%';
+                                _weFillWork.style.transition = 'none';
+                            }
                         }
                         // >>> COACH: 15 segundos antes de cambiar de minuto (EMOM warmup)
                         if (rem === 15) {
@@ -8996,7 +9071,9 @@
                             incrementarProgreso(1);
                             sig();
                         }
-                    }, 1000);
+                    };
+                    _weTickRef = _tickWEmom;
+                    warmupEmomInterval = bgSetInterval(_tickWEmom, 1000);
                 }
             }
 
@@ -9030,17 +9107,25 @@
                 document.getElementById('warmup-ej').innerText = "";
                 prepCountdown(clock, null, 440, function() {
                     var deadline = Date.now() + segundos * 1000;
-                    var iv = bgSetInterval(function() {
+                    var iv;
+                    var _tick = function() {
                         var rem = Math.max(0, Math.round((deadline - Date.now()) / 1000));
                         clock.innerText = formatearTiempo(rem);
-                        if (rem <= 3 && rem > 0) beep(400);
+                        if (!_bgFFMode && rem <= 3 && rem > 0) beep(400);
                         if (rem <= 0) {
                             bgClearInterval(iv);
-                            beep(800);
+                            _bgFastForward = null;
+                            if (!_bgFFMode) beep(800);
                             btn.disabled = false;
                             marcarSerieWarmup(idx, pausaSeg, totalSeries);
                         }
-                    }, 1000);
+                    };
+                    _bgFastForward = function() {
+                        _bgFFMode = true;
+                        _tick();
+                        _bgFFMode = false;
+                    };
+                    iv = bgSetInterval(_tick, 1000);
                 });
             }
 
@@ -9067,13 +9152,14 @@
                     hablarCoach('Última serie completada. Bien ahí!');
                 }
 
-                warmupSeriesIntervals[idx] = bgSetInterval(function() {
+                var _wssTick = function() {
                     rem = Math.max(0, Math.round((_wssDeadline - Date.now()) / 1000));
                     clock.innerText = formatearTiempo(rem);
-                    if (rem <= 3 && rem > 0) beep(400);
+                    if (!_bgFFMode && rem <= 3 && rem > 0) beep(400);
                     if (rem <= 0) {
                         bgClearInterval(warmupSeriesIntervals[idx]);
-                        beep(800);
+                        _bgFastForward = null;
+                        if (!_bgFFMode) beep(800);
                         btn.innerText = "Serie " + (idx + 1) + " completada";
                         btn.style.background = "linear-gradient(135deg,var(--verde),#00c853)";
                         btn.style.color = "#000";
@@ -9095,7 +9181,13 @@
                             liberarWakeLock();
                         }
                     }
-                }, 1000);
+                };
+                _bgFastForward = function() {
+                    _bgFFMode = true;
+                    _wssTick();
+                    _bgFFMode = false;
+                };
+                warmupSeriesIntervals[idx] = bgSetInterval(_wssTick, 1000);
             }
 
             // ═══════════════════════════════════════════════════════════════
@@ -11374,21 +11466,30 @@
 
                 var _deadline = Date.now() + pausa * 1000;
                 if (_spInterval) bgClearInterval(_spInterval);
-                _spInterval = bgSetInterval(function() {
+                var _spTick = function() {
                     var rem = Math.max(0, Math.round((_deadline - Date.now()) / 1000));
                     clockEl.innerText = _fmtSP(rem);
                     progressEl.style.transition = 'width 1s linear';
                     progressEl.style.width = ((rem / total) * 100) + '%';
-                    if (rem === 10) hablarCoach('Quedan 10 segundos. Preparate!');
-                    if (rem <= 3 && rem > 0) beep(400);
+                    if (!_bgFFMode) {
+                        if (rem === 10) hablarCoach('Quedan 10 segundos. Preparate!');
+                        if (rem <= 3 && rem > 0) beep(400);
+                    }
                     if (rem <= 0) {
                         bgClearInterval(_spInterval);
                         _spInterval = null;
-                        beep(800);
+                        _bgFastForward = null;
+                        if (!_bgFFMode) beep(800);
                         cerrarOverlaySeries();
                         onFin && onFin();
                     }
-                }, 1000);
+                };
+                _bgFastForward = function() {
+                    _bgFFMode = true;
+                    _spTick();
+                    _bgFFMode = false;
+                };
+                _spInterval = bgSetInterval(_spTick, 1000);
             }
 
             function cerrarOverlaySeries() {
@@ -11600,22 +11701,33 @@
 
                 let rem = segundos;
                 var _dDeadline = Date.now() + segundos * 1000;
-                dInterval = bgSetInterval(function() {
+                var _dTick = function() {
                     rem = Math.max(0, Math.round((_dDeadline - Date.now()) / 1000));
                     clock.innerText = rem;
                     if (progress) progress.style.width = ((rem / total) * 100) + '%';
-                    if (rem === 10) hablarCoach('Quedan 10 segundos para arrancar.');
-                    if (rem <= 3 && rem > 0) beep(400);
+                    if (!_bgFFMode) {
+                        if (rem === 10) hablarCoach('Quedan 10 segundos para arrancar.');
+                        if (rem <= 3 && rem > 0) beep(400);
+                    }
                     if (rem <= 0) {
                         bgClearInterval(dInterval);
-                        beep(800);
+                        _bgFastForward = null;
+                        if (!_bgFFMode) beep(800);
                         cerrarDescansoCircuito();
                     }
-                }, 1000);
+                };
+                // Respaldo: fuerza un recálculo si el Worker quedó suspendido en segundo plano.
+                _bgFastForward = function() {
+                    _bgFFMode = true;
+                    _dTick();
+                    _bgFFMode = false;
+                };
+                dInterval = bgSetInterval(_dTick, 1000);
             }
 
             function cerrarDescansoCircuito() {
                 bgClearInterval(dInterval);
+                _bgFastForward = null;
                 document.getElementById('overlay-descanso').classList.remove('visible');
                 document.getElementById('overlay-descanso').style.display = 'none';
                 liberarWakeLock();
@@ -11647,19 +11759,31 @@
                     pausaEl.innerText = '⏸ PAUSAR';
                 }
                 if (reinEl) reinEl.style.display = 'block';
-                ct.interval = bgSetInterval(function() {
+                var _ctTick = function() {
                     if (ct.pausado) return;
                     ct.rem = Math.max(0, Math.round((ct.deadline - Date.now()) / 1000));
                     if (clockEl) clockEl.innerText = ct.rem < 10 ? '0' + ct.rem : ct.rem;
-                    if (ct.rem <= 3 && ct.rem > 0) beep(400);
+                    if (!_bgFFMode) {
+                        if (ct.rem <= 3 && ct.rem > 0) beep(400);
+                    }
                     if (ct.rem <= 0) {
                         bgClearInterval(ct.interval);
-                        beep(800);
+                        _bgFastForward = null;
+                        if (!_bgFFMode) beep(800);
                         if (clockEl) clockEl.style.display = 'none';
                         if (pausaEl) pausaEl.style.display = 'none';
                         if (reinEl) reinEl.style.display = 'none';
                     }
-                }, 1000);
+                };
+                // Respaldo: si el Worker en segundo plano quedó totalmente suspendido y no
+                // vuelve a tickear solo, esto fuerza un recálculo del tiempo real al volver.
+                _bgFastForward = function() {
+                    if (ct.pausado) return;
+                    _bgFFMode = true;
+                    _ctTick();
+                    _bgFFMode = false;
+                };
+                ct.interval = bgSetInterval(_ctTick, 1000);
             }
 
             function togglePausaCircuito(clockId, pausaBtn) {
@@ -11678,6 +11802,7 @@
                 var ct = _circTimers[clockId];
                 if (ct) bgClearInterval(ct.interval);
                 delete _circTimers[clockId];
+                _bgFastForward = null;
                 var clockEl = document.getElementById(clockId);
                 var pausaEl = document.getElementById(pausaId);
                 var reinEl = document.getElementById(reinId);
@@ -11732,7 +11857,7 @@
                 var _btLastMinAnnounced = -1;
                 var _btTotalMin = Math.ceil(totalSeg / 60);
                 var _btMinProgressed = 0;
-                bloqueTiempoIntervals[timerId] = bgSetInterval(function() {
+                var _btTick = function() {
                     if (bloqueTiempoPausado[timerId]) {
                         _btRems[timerId] = rem; // guardar rem actual mientras está pausado
                         return;
@@ -11751,28 +11876,31 @@
                         incrementarProgreso(delta);
                     }
 
-                    // >>> COACH: Anunciar cada minuto que pasa
-                    if (rem > 0 && rem % 60 === 0) {
-                        var _minsQuedan = Math.floor(rem / 60);
-                        if (_minsQuedan !== _btLastMinAnnounced) {
-                            _btLastMinAnnounced = _minsQuedan;
-                            coachMinutosRestantes(_minsQuedan);
+                    if (!_bgFFMode) {
+                        // >>> COACH: Anunciar cada minuto que pasa
+                        if (rem > 0 && rem % 60 === 0) {
+                            var _minsQuedan = Math.floor(rem / 60);
+                            if (_minsQuedan !== _btLastMinAnnounced) {
+                                _btLastMinAnnounced = _minsQuedan;
+                                coachMinutosRestantes(_minsQuedan);
+                            }
                         }
+
+                        // >>> COACH: Frase motivacional cada 30 segundos (Circuito por Tiempo)
+                        if (rem > 30 && rem % 30 === 0 && rem % 60 !== 0) coachMotivacional();
+
+                        // >>> COACH: Últimos 30 segundos + frase motivacional (Circuito por Tiempo)
+                        if (rem === 30) hablarCoach('Son los últimos 30 segundos. ' + _fraseRandom(_frasesMotivacionales));
+
+                        // >>> COACH: Conteo final a los 12 segundos restantes
+                        if (rem === 12) coachConteoFinal();
+
+                        if (rem <= 3 && rem > 0) beep(400);
                     }
-
-                    // >>> COACH: Frase motivacional cada 30 segundos (Circuito por Tiempo)
-                    if (rem > 30 && rem % 30 === 0 && rem % 60 !== 0) coachMotivacional();
-
-                    // >>> COACH: Últimos 30 segundos + frase motivacional (Circuito por Tiempo)
-                    if (rem === 30) hablarCoach('Son los últimos 30 segundos. ' + _fraseRandom(_frasesMotivacionales));
-
-                    // >>> COACH: Conteo final a los 12 segundos restantes
-                    if (rem === 12) coachConteoFinal();
-
-                    if (rem <= 3 && rem > 0) beep(400);
                     if (rem <= 0) {
                         bgClearInterval(bloqueTiempoIntervals[timerId]);
-                        beep(800);
+                        _bgFastForward = null;
+                        if (!_bgFFMode) beep(800);
                         timerEl.innerText = "TIEMPO!";
                         btnEl.disabled = false;
                         btnEl.innerText = "Reiniciar";
@@ -11825,7 +11953,16 @@
                             }, 900);
                         }
                     }
-                }, 1000);
+                };
+                // Respaldo: si el Worker en segundo plano quedó suspendido, esto fuerza
+                // un recálculo del tiempo real al volver, en vez de dejar el reloj pegado.
+                _bgFastForward = function() {
+                    if (bloqueTiempoPausado[timerId]) return;
+                    _bgFFMode = true;
+                    _btTick();
+                    _bgFFMode = false;
+                };
+                bloqueTiempoIntervals[timerId] = bgSetInterval(_btTick, 1000);
             }
 
             function togglePausaBloqueTiempo(timerId, pausaBtn) {
@@ -11884,6 +12021,7 @@
                 bloqueTiempoPausado[timerId] = false;
                 desactivarTimerGlobal();
                 liberarWakeLock();
+                _bgFastForward = null;
 
                 var m = Math.floor(totalSeg / 60),
                     s = totalSeg % 60;
@@ -12141,19 +12279,12 @@
                 // Mostrar overlay
                 ov.classList.add('visible');
 
-                // Cuenta regresiva 5-4-3-2-1
-                var count = 5;
+                // Cuenta regresiva 5-4-3-2-1 (usa el Worker en segundo plano + reloj real,
+                // igual que el resto de los timers, para que sobreviva background)
                 activarTimerGlobal();
 
-                var ivPrep = setInterval(function() {
-                    beep(440);
-                    count--;
-                    if (elCountdown) elCountdown.textContent = count > 0 ? String(count) : '';
-                    if (count <= 0) {
-                        clearInterval(ivPrep);
-                        beep(800);
-
-                        // ── Cambiar a modo TIMER ──
+                prepCountdown(elCountdown, null, 440, function() {
+                    // ── Cambiar a modo TIMER ──
                         if (elPrep) elPrep.textContent = tituloBloque || 'CIRCUITO POR TIEMPO';
                         if (elCountdown) elCountdown.style.display = 'none';
                         if (elClock) {
@@ -12217,8 +12348,9 @@
                                 _ctFsActiveTimerId = null;
                             }
                         }, 300);
-                    }
-                }, 1000);
+                }, {
+                    showArrancamos: false
+                });
             }
 
             // ─── TIMER PRINCIPAL (Tabata / Circuito por Tiempo) ───
@@ -12453,6 +12585,12 @@
                                         _setFase("trabajo", trabajo);
                                         actualizarUI();
                                         coachRonda(tRonda, rondas);
+                                        // El interval principal se había detenido al mostrar
+                                        // la pausa entre rondas: hay que reactivarlo o el
+                                        // reloj queda congelado para el resto del entrenamiento.
+                                        bgClearInterval(tInterval);
+                                        _cronoActiveTickRef = _tick;
+                                        tInterval = bgSetInterval(_tick, 1000);
                                     });
                                 } else if (tRonda < rondas) {
                                     tRonda++;
@@ -12500,18 +12638,22 @@
                 }
 
                 actualizarUI();
+                _cronoActiveTickRef = _tick;
                 tInterval = bgSetInterval(_tick, 1000);
 
                 // Fast-forward: al volver de segundo plano, simula los ticks perdidos en silencio.
-                // Se mueve _tPhaseDeadline 1 segundo hacia atrás en cada iteración para que
-                // el cálculo basado en timestamp avance correctamente por las fases.
+                // Se mueve _tPhaseDeadline (o _prDeadlineShared si está mostrando la pausa entre
+                // rondas) 1 segundo hacia atrás en cada iteración para que el cálculo basado en
+                // timestamp avance correctamente por las fases, usando siempre el tick que
+                // corresponda a lo que está mostrando la pantalla en ese momento.
                 _bgFastForward = function(elapsed) {
                     if (!timerActivo || timerPausado) return;
                     _bgFFMode = true;
                     var steps = Math.min(elapsed, 3600);
                     for (var i = 0; i < steps && timerActivo; i++) {
                         _tPhaseDeadline -= 1000;
-                        _tick();
+                        _prDeadlineShared -= 1000;
+                        if (_cronoActiveTickRef) _cronoActiveTickRef();
                     }
                     _bgFFMode = false;
                     if (timerActivo) actualizarUI();
@@ -12609,18 +12751,20 @@
                 solicitarWakeLock();
 
                 let rem = segundos;
-                var _prDeadline = Date.now() + segundos * 1000;
+                _prDeadlineShared = Date.now() + segundos * 1000;
                 tPausaRondaResolve = callback;
-                pausaRondaInterval = bgSetInterval(function() {
-                    rem = Math.max(0, Math.round((_prDeadline - Date.now()) / 1000));
+                var _pausaRondaTick = function() {
+                    rem = Math.max(0, Math.round((_prDeadlineShared - Date.now()) / 1000));
                     clock.innerText = rem;
                     if (progress) progress.style.width = ((rem / total) * 100) + '%';
-                    if (rem <= 3 && rem > 0) beep(400);
+                    if (!_bgFFMode && rem <= 3 && rem > 0) beep(400);
                     if (rem <= 0) {
                         bgClearInterval(pausaRondaInterval);
                         saltarPausaRonda();
                     }
-                }, 1000);
+                };
+                _cronoActiveTickRef = _pausaRondaTick;
+                pausaRondaInterval = bgSetInterval(_pausaRondaTick, 1000);
             }
 
             function saltarPausaRonda() {
@@ -12991,6 +13135,19 @@
                 // Al recalibrarlo al reanudar, la pausa realmente detiene la cuenta en vez
                 // de solo congelar el número en pantalla mientras el reloj sigue corriendo.
                 let _tabDeadline = 0;
+                // Puntero a la función de "un segundo" de la fase actual, para poder
+                // reproducir en silencio los segundos perdidos en segundo plano.
+                let _tabTickRef = null;
+                _bgFastForward = function(elapsed) {
+                    if (!tabataRunningFlags[btnId] || pausado) return;
+                    _bgFFMode = true;
+                    var steps = Math.min(elapsed, 3600);
+                    for (var i = 0; i < steps && tabataRunningFlags[btnId]; i++) {
+                        _tabDeadline -= 1000;
+                        if (_tabTickRef) _tabTickRef();
+                    }
+                    _bgFFMode = false;
+                };
                 if (pausaBtn) pausaBtn.onclick = function() {
                     pausado = !pausado;
                     pausaBtn.innerText = pausado ? "▶ REANUDAR" : "⏸ PAUSAR";
@@ -13031,6 +13188,7 @@
                             tabataRunningFlags[btnId] = false;
                             desactivarTimerGlobal();
                             liberarWakeLock();
+                            _bgFastForward = null;
                             return;
                         }
                         if (ejIdx >= cantidad) {
@@ -13040,15 +13198,17 @@
                                 let rp = pausaRonda;
                                 _tabDeadline = Date.now() + pausaRonda * 1000;
                                 document.getElementById(timerId).innerText = rp;
-                                _tabataBloqueIvs[timerId] = bgSetInterval(function() {
+                                var _tickPausaRonda = function() {
                                     if (pausado) return;
                                     rp = Math.max(0, Math.round((_tabDeadline - Date.now()) / 1000));
-                                    document.getElementById(timerId).innerText = rp;
+                                    if (!_bgFFMode) document.getElementById(timerId).innerText = rp;
                                     if (rp <= 0) {
                                         bgClearInterval(_tabataBloqueIvs[timerId]);
                                         siguiente(0, rondaActual + 1);
                                     }
-                                }, 1000);
+                                };
+                                _tabTickRef = _tickPausaRonda;
+                                _tabataBloqueIvs[timerId] = bgSetInterval(_tickPausaRonda, 1000);
                             } else {
                                 siguiente(0, rondaActual + 1);
                             }
@@ -13067,10 +13227,10 @@
                         let t = trabajo;
                         _tabDeadline = Date.now() + trabajo * 1000;
                         document.getElementById(timerId).innerText = t;
-                        _tabataBloqueIvs[timerId] = bgSetInterval(function() {
+                        var _tickTrabajo = function() {
                             if (pausado) return;
                             t = Math.max(0, Math.round((_tabDeadline - Date.now()) / 1000));
-                            document.getElementById(timerId).innerText = t;
+                            if (!_bgFFMode) document.getElementById(timerId).innerText = t;
                             // >>> COACH: Motivacional/tip a la mitad del trabajo (Tabata Mix)
                             if (t === Math.floor(trabajo / 2) && t > 3) coachMotivacional(nombre);
                             if (t <= 3 && t > 0) beep(400);
@@ -13101,18 +13261,22 @@
                                 let p = pausa;
                                 _tabDeadline = Date.now() + pausa * 1000;
                                 document.getElementById(timerId).innerText = p;
-                                _tabataBloqueIvs[timerId] = bgSetInterval(function() {
+                                var _tickDescanso = function() {
                                     if (pausado) return;
                                     p = Math.max(0, Math.round((_tabDeadline - Date.now()) / 1000));
-                                    document.getElementById(timerId).innerText = p;
+                                    if (!_bgFFMode) document.getElementById(timerId).innerText = p;
                                     // >>> COACH: Tabata Mix - NO decir 3 2 1 en descanso
                                     if (p <= 0) {
                                         bgClearInterval(_tabataBloqueIvs[timerId]);
                                         siguiente(ejIdx + 1, rondaActual);
                                     }
-                                }, 1000);
+                                };
+                                _tabTickRef = _tickDescanso;
+                                _tabataBloqueIvs[timerId] = bgSetInterval(_tickDescanso, 1000);
                             }
-                        }, 1000);
+                        };
+                        _tabTickRef = _tickTrabajo;
+                        _tabataBloqueIvs[timerId] = bgSetInterval(_tickTrabajo, 1000);
                     }
                 }
                 runTabata();
@@ -13142,6 +13306,7 @@
                 desactivarTimerGlobal();
                 detenerCoach();
                 liberarWakeLock();
+                _bgFastForward = null;
                 _marcarRelojPausado(timerId, false);
                 _marcarRelojPausado('fs-clock', false);
 
@@ -13184,6 +13349,7 @@
             var _emomBloqueIvs = {}; // interval activo por clockId (para poder cancelar al reiniciar)
 
             function togglePausaEmomBloque(clockId, pausaBtn) {
+                if (!window._emomBloqueDeadlines) window._emomBloqueDeadlines = {};
                 emomBloquePausado[clockId] = !emomBloquePausado[clockId];
                 if (pausaBtn) pausaBtn.innerText = emomBloquePausado[clockId] ? '\u25b6 REANUDAR' : '\u23f8 PAUSAR';
                 _marcarRelojPausado(clockId, emomBloquePausado[clockId]);
@@ -13217,6 +13383,22 @@
                 emomBloquePausado[clockId] = false;
                         _marcarRelojPausado(clockId, false);
                 let minActual = 0;
+                if (!window._emomBloqueDeadlines) window._emomBloqueDeadlines = {};
+                // Puntero de tick de la fase actual, para poder reproducir en silencio
+                // los segundos perdidos en segundo plano. El deadline vive en
+                // window._emomBloqueDeadlines[clockId] para que togglePausaEmomBloque
+                // también pueda recalibrarlo al reanudar de una pausa.
+                let _emBloqueTickRef = null;
+                _bgFastForward = function(elapsed) {
+                    if (btn.dataset.running !== "1" || emomBloquePausado[clockId]) return;
+                    _bgFFMode = true;
+                    var steps = Math.min(elapsed, 3600);
+                    for (var i = 0; i < steps && btn.dataset.running === "1"; i++) {
+                        window._emomBloqueDeadlines[clockId] -= 1000;
+                        if (_emBloqueTickRef) _emBloqueTickRef();
+                    }
+                    _bgFFMode = false;
+                };
 
                 // Mostrar boton pausa EMOM bloque
                 var pausaBtnEl = document.getElementById(clockId.replace('-clock', '-pausa'));
@@ -13251,6 +13433,7 @@
                         desactivarTimerGlobal();
                         if (pausaBtnEl) pausaBtnEl.style.display = 'none';
                         liberarWakeLock();
+                        _bgFastForward = null;
                         return;
                     }
                     document.getElementById(statusId).innerText = "¡TRABAJA!";
@@ -13261,24 +13444,25 @@
                     if (_emBloqueEsUltimo) hablarCoach('Es el último ejercicio.');
                     // (sin ejercicio específico en este modo, no hay tip)
                     let rem = 60;
-                    var _emBloqueDeadline = Date.now() + 60000;
+                    window._emomBloqueDeadlines[clockId] = Date.now() + 60000;
                     document.getElementById(clockId).innerText = rem < 10 ? "0" + rem : rem;
-                    const iv = bgSetInterval(function() {
+                    var _tickEmBloque = function() {
                         if (emomBloquePausado[clockId]) return;
-                        rem = Math.max(0, Math.round((_emBloqueDeadline - Date.now()) / 1000));
-                        document.getElementById(clockId).innerText = rem < 10 ? "0" + rem : rem;
+                        rem = Math.max(0, Math.round((window._emomBloqueDeadlines[clockId] - Date.now()) / 1000));
+                        if (!_bgFFMode) document.getElementById(clockId).innerText = rem < 10 ? "0" + rem : rem;
                         if (rem === 15) coachConteoEmom('');
                         if (rem <= 3 && rem > 0) beep(400);
                         if (rem <= 0) {
-                            bgClearInterval(iv);
+                            bgClearInterval(_emomBloqueIvs[clockId]);
                             delete _emomBloqueIvs[clockId];
                             beep(800);
                             minActual++;
                             incrementarProgreso(1);
                             sig();
                         }
-                    }, 1000);
-                    _emomBloqueIvs[clockId] = iv;
+                    };
+                    _emBloqueTickRef = _tickEmBloque;
+                    _emomBloqueIvs[clockId] = bgSetInterval(_tickEmBloque, 1000);
                 }
             }
 
@@ -13419,6 +13603,22 @@
                 emomBloquePausado[clockId] = false;
                         _marcarRelojPausado(clockId, false);
                 let minActual = 0;
+                if (!window._emomBloqueDeadlines) window._emomBloqueDeadlines = {};
+                // Puntero de tick de la fase actual, para poder reproducir en silencio
+                // los segundos perdidos en segundo plano. El deadline vive en
+                // window._emomBloqueDeadlines[clockId] para que togglePausaEmomBloque
+                // también pueda recalibrarlo al reanudar de una pausa.
+                let _emcBloqueTickRef = null;
+                _bgFastForward = function(elapsed) {
+                    if (btn.dataset.running !== "1" || emomBloquePausado[clockId]) return;
+                    _bgFFMode = true;
+                    var steps = Math.min(elapsed, 3600);
+                    for (var i = 0; i < steps && btn.dataset.running === "1"; i++) {
+                        window._emomBloqueDeadlines[clockId] -= 1000;
+                        if (_emcBloqueTickRef) _emcBloqueTickRef();
+                    }
+                    _bgFFMode = false;
+                };
 
                 // Mostrar boton pausa y reiniciar EMOM bloque
                 var pausaBtnEl = document.getElementById(clockId.replace('-clock', '-pausa'));
@@ -13486,6 +13686,7 @@
                         if (pausaBtnEl) pausaBtnEl.style.display = 'none';
                         if (reinBtnEl) reinBtnEl.style.display = 'none';
                         liberarWakeLock();
+                        _bgFastForward = null;
                         return;
                     }
                     document.getElementById(statusId).innerText = "¡TRABAJA!";
@@ -13504,12 +13705,12 @@
                         if (_emcEsUltimoMin) hablarCoach('Es el último ejercicio.');
                     }
                     let rem = 60;
-                    var _emcBloqueDeadline = Date.now() + 60000;
+                    window._emomBloqueDeadlines[clockId] = Date.now() + 60000;
                     document.getElementById(clockId).innerText = rem < 10 ? "0" + rem : rem;
-                    const iv = bgSetInterval(function() {
+                    var _tickEmcBloque = function() {
                         if (emomBloquePausado[clockId]) return;
-                        rem = Math.max(0, Math.round((_emcBloqueDeadline - Date.now()) / 1000));
-                        document.getElementById(clockId).innerText = rem < 10 ? "0" + rem : rem;
+                        rem = Math.max(0, Math.round((window._emomBloqueDeadlines[clockId] - Date.now()) / 1000));
+                        if (!_bgFFMode) document.getElementById(clockId).innerText = rem < 10 ? "0" + rem : rem;
                         // >>> COACH: 15 segundos antes de cambiar (EMOM bloque con ciclo)
                         if (rem === 15) {
                             var _emcProxIdx = minActual + 1;
@@ -13525,15 +13726,16 @@
                         // >>> COACH: Countdown sincronizado al final del minuto
                         if (rem <= 3 && rem > 0) beep(400);
                         if (rem <= 0) {
-                            bgClearInterval(iv);
+                            bgClearInterval(_emomBloqueIvs[clockId]);
                             delete _emomBloqueIvs[clockId];
                             beep(800);
                             minActual++;
                             incrementarProgreso(1);
                             sig();
                         }
-                    }, 1000);
-                    _emomBloqueIvs[clockId] = iv;
+                    };
+                    _emcBloqueTickRef = _tickEmcBloque;
+                    _emomBloqueIvs[clockId] = bgSetInterval(_tickEmcBloque, 1000);
                 }
             }
 
@@ -13590,6 +13792,7 @@
                 desactivarTimerGlobal();
                 detenerCoach();
                 liberarWakeLock();
+                _bgFastForward = null;
                 if (btn) {
                     btn.dataset.running = "0";
                     btn.disabled = false;
