@@ -6728,6 +6728,19 @@
                     }
                     dataGlobal = data;
                     currentCode = cod;
+                    // Cargar que funciones tiene activadas la cuenta duena de este codigo
+                    // (interruptores por cuenta: permite mostrar features nuevas solo a
+                    // algunos profesores/alumnos sin afectar al resto). No bloquea nada
+                    // si falla, arranca en vacio.
+                    (async function _pfCargarFeaturesAlumno() {
+                        try {
+                            const resMeta = await fetch('/api/fb-meta/' + encodeURIComponent(cod));
+                            const dataMeta = await resMeta.json();
+                            window._pfFeatures = (dataMeta && dataMeta.ok) ? (dataMeta.features || {}) : {};
+                        } catch (eF) {
+                            window._pfFeatures = {};
+                        }
+                    })();
                     // Avisar al profesor: registrar que el alumno entró hoy a su rutina.
                     // No bloquea la carga de la rutina si falla (fire-and-forget).
                     _registrarAsistencia(cod);
