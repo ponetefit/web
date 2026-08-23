@@ -2022,17 +2022,42 @@
 
                 <!-- Mapa de Calor Muscular (Body Insights) -->
                 <div class="bg-tarjeta rounded-2xl border border-borde p-5 mb-6">
-                    <h3 class="text-sm font-bold text-naranja uppercase tracking-wider mb-1">Mapa de Calor Muscular (Body Insights)</h3>
-                    <p class="text-[11px] text-textoSuave mb-3">Tocá un músculo para ver qué ejercicios lo trabajaron</p>
+                    <div class="flex items-start justify-between gap-3 flex-wrap">
+                        <div>
+                            <h3 class="text-sm font-bold text-naranja uppercase tracking-wider mb-1">Mapa de Calor Muscular (Body Insights)</h3>
+                            <p class="text-[11px] text-textoSuave mb-3">Un solo modelo 3D: el color acompaña la rotación. Pausalo para explorar los músculos.</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button id="hm-play-toggle" type="button" onclick="toggleHeatMapVideo()" class="px-3 py-2 rounded-lg bg-naranja/20 text-naranja text-xs font-bold" aria-pressed="false">⏸ Pausar</button>
+                            <button type="button" onclick="resetHeatMapVideo()" class="px-3 py-2 rounded-lg bg-fondoAlt border border-borde text-textoSuave text-xs font-bold">↺ Reiniciar</button>
+                        </div>
+                    </div>
                     <div id="hm-alertas" class="hidden mb-4 bg-amarillo/10 border border-amarillo/30 rounded-xl p-3"></div>
                     <div class="flex flex-col lg:flex-row items-center justify-center gap-6">
-                        <!-- Vista Frontal -->
                         <div class="text-center">
-                            <p class="text-xs text-textoSuave mb-2 uppercase tracking-wider">Vista Frontal</p>
-                            <div class="hm-video-wrap" style="position:relative;width:195px;height:410px;">
-                                <video id="hm-video-front" class="hm-bg-video" src="/videos/skeleton-muscles.mp4" muted loop autoplay playsinline webkit-playsinline preload="auto" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;z-index:-1;pointer-events:none;"></video>
-                                <canvas id="hm-canvas-front" class="hm-bg-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;border-radius:12px;background:#111;"></canvas>
-                                <svg id="body-front" viewBox="0 0 220 460" width="195" height="410" style="position:relative;z-index:1;filter:drop-shadow(0 0 8px rgba(0,0,0,0.3));">
+                            <p class="text-xs text-textoSuave mb-2 uppercase tracking-wider"><span id="hm-view-label">Cuerpo humano · 360°</span></p>
+                            <div class="hm-video-wrap" style="position:relative;width:min(290px,78vw);height:min(520px,112vw);min-height:390px;background:radial-gradient(ellipse,#25252e 0%,#0d0d11 72%);border:1px solid #2a2a35;border-radius:16px;overflow:hidden;">
+                                <video id="hm-video-rotating" src="/videos/skeleton-muscles.mp4" muted loop autoplay playsinline webkit-playsinline preload="auto" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;"></video>
+                                <canvas id="hm-canvas-rotating" aria-label="Mapa de calor muscular 3D interactivo" style="display:block;width:100%;height:100%;"></canvas>
+                            </div>
+                            <p class="text-[10px] text-textoSuave mt-2">Los colores se calculan con la frecuencia de ejercicios del rango elegido.</p>
+                        </div>
+                        <div class="flex flex-col gap-2 min-w-[190px] max-w-xs">
+                            <p class="text-xs text-textoSuave uppercase tracking-wider mb-1">Tocá un músculo</p>
+                            <div id="hm-muscle-buttons" class="grid grid-cols-2 gap-1.5"></div>
+                            <div id="hm-detalle" class="mt-3 text-xs text-textoSuave space-y-1"></div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-center gap-3 mt-4 flex-wrap text-[11px] text-textoSuave">
+                        <span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#1a4a6e;vertical-align:-2px"></i> Bajo</span>
+                        <span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#2d8f5e;vertical-align:-2px"></i> Moderado</span>
+                        <span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#c4a820;vertical-align:-2px"></i> Alto</span>
+                        <span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#d4541e;vertical-align:-2px"></i> Muy alto</span>
+                        <span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#c41e1e;vertical-align:-2px"></i> Máximo</span>
+                    </div>
+                    <!-- SVG legacy se conserva para los mini mapas de rutinas/PDF, no se muestra duplicado en el dashboard. -->
+                    <div id="hm-legacy-map" class="hidden" aria-hidden="true">
+                                <svg id="body-front" viewBox="0 0 220 460" width="195" height="410">
                                 <!-- Cabeza -->
                                 <ellipse cx="110" cy="28" rx="20" ry="24" fill="none" stroke="none" stroke-width="1"/>
                                 <!-- Cuello -->
@@ -4411,16 +4436,28 @@
         return imageData;
     }
 
+    // El mapa usa un único canvas: así la máscara de color se pinta sobre cada
+    // fotograma del modelo y gira junto con el cuerpo (en vez de quedar pegada
+    // a dos SVG estáticos).
+    let _hmVideoLoop = null;
+    let _hmVideoPausado = false;
+    let _hmRenderCounts = {};
+    let _hmMusculoActivo = '';
+
     function iniciarVideoCromaHeatMap(videoId, canvasId) {
         const video = document.getElementById(videoId);
         const canvas = document.getElementById(canvasId);
         if (!video || !canvas) return;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        _hmVideoLoop = video;
 
         function ajustarTamanoCanvas() {
             const rect = canvas.getBoundingClientRect();
-            canvas.width = Math.max(1, Math.round(rect.width));
-            canvas.height = Math.max(1, Math.round(rect.height));
+            // La máscara se procesa cuadro a cuadro: 1x evita exigir de más a
+            // teléfonos y mantiene la animación fluida en Chrome, Safari y Firefox.
+            const dpr = 1;
+            canvas.width = Math.max(1, Math.round(rect.width * dpr));
+            canvas.height = Math.max(1, Math.round(rect.height * dpr));
         }
         ajustarTamanoCanvas();
         window.addEventListener('resize', ajustarTamanoCanvas);
@@ -4429,14 +4466,38 @@
             if (video.readyState >= 2 && video.videoWidth > 0) {
                 const cw = canvas.width, ch = canvas.height;
                 const vw = video.videoWidth, vh = video.videoHeight;
-                // Recorte tipo "cover": llena el canvas centrando el video y recortando sobrante
+                // Cover, manteniendo el cuerpo centrado en cualquier navegador.
                 const escala = Math.max(cw / vw, ch / vh);
                 const sw = cw / escala, sh = ch / escala;
                 const sx = (vw - sw) / 2, sy = (vh - sh) / 2;
+                ctx.clearRect(0, 0, cw, ch);
                 ctx.drawImage(video, sx, sy, sw, sh, 0, 0, cw, ch);
                 try {
                     const frame = ctx.getImageData(0, 0, cw, ch);
-                    _hmQuitarVerde(frame);
+                    const data = frame.data;
+                    const max = Math.max(1, ...Object.values(_hmRenderCounts || {}));
+                    // Clasificación espacial estable: el video ya gira; por eso
+                    // coloreamos los píxeles del cuerpo del propio frame, no una
+                    // capa externa. La máscara evita teñir el fondo verde.
+                    for (let y = 0; y < ch; y++) {
+                        for (let x = 0; x < cw; x++) {
+                            const i = (y * cw + x) * 4;
+                            const r = data[i], g = data[i + 1], b = data[i + 2];
+                            if (g > 70 && g > r * 1.16 && g > b * 1.16) {
+                                data[i + 3] = 0;
+                                continue;
+                            }
+                            const muscle = _hmMusculoParaPunto(x / cw, y / ch);
+                            const count = Number(_hmRenderCounts[muscle] || 0);
+                            if (count > 0) {
+                                const color = _hmHexToRgb(getHeatColor(count / max));
+                                const strength = _hmMusculoActivo === muscle ? 0.72 : 0.42;
+                                data[i] = Math.round(r * (1 - strength) + color[0] * strength);
+                                data[i + 1] = Math.round(g * (1 - strength) + color[1] * strength);
+                                data[i + 2] = Math.round(b * (1 - strength) + color[2] * strength);
+                            }
+                        }
+                    }
                     ctx.putImageData(frame, 0, 0);
                 } catch (e) { /* si falla el croma, se deja el cuadro tal cual */ }
             }
@@ -4452,11 +4513,15 @@
         document.addEventListener('touchstart', intentarPlay, { once: true, passive: true });
 
         requestAnimationFrame(dibujarCuadro);
+        canvas.addEventListener('click', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const muscle = _hmMusculoParaPunto((event.clientX - rect.left) / rect.width, (event.clientY - rect.top) / rect.height);
+            if (muscle) mostrarDetalleMusculo(muscle);
+        });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        iniciarVideoCromaHeatMap('hm-video-front', 'hm-canvas-front');
-        iniciarVideoCromaHeatMap('hm-video-back', 'hm-canvas-back');
+        iniciarVideoCromaHeatMap('hm-video-rotating', 'hm-canvas-rotating');
     });
 
     // Tambien colorear elementos con class hm-trapecio (duplicado frontal)
@@ -12335,6 +12400,46 @@
     // se colorean con una opacidad parcial para que se siga viendo el musculo real debajo.
     const HM_LIVE_DEFAULT_FILL = 'transparent';
     const HM_LIVE_FILL_OPACITY = '0.55';
+    let _hmRenderMax = 0;
+
+    function _hmHexToRgb(hex) {
+        const n = parseInt(String(hex).replace('#', ''), 16);
+        return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    }
+
+    // Zonas aproximadas del cuerpo: se aplican al frame real del video, por
+    // eso el resaltado sigue la silueta aunque esté de perfil o de espaldas.
+    function _hmMusculoParaPunto(x, y) {
+        if (y < .16) return 'Trapecio';
+        if (y < .27) return x < .30 || x > .70 ? 'Hombros' : 'Pecho';
+        if (y < .39) return x < .28 || x > .72 ? 'Biceps' : (x < .40 || x > .60 ? 'Oblicuos' : 'Abdominales');
+        if (y < .62) return x < .38 || x > .62 ? 'Cuadriceps' : 'Aductores';
+        if (y < .82) return 'Isquiotibiales';
+        return 'Pantorrillas';
+    }
+
+    function toggleHeatMapVideo() {
+        if (!_hmVideoLoop) return;
+        const btn = document.getElementById('hm-play-toggle');
+        if (_hmVideoLoop.paused) {
+            _hmVideoLoop.play().catch(() => {});
+            _hmVideoPausado = false;
+            if (btn) { btn.textContent = '⏸ Pausar'; btn.setAttribute('aria-pressed', 'false'); }
+        } else {
+            _hmVideoLoop.pause();
+            _hmVideoPausado = true;
+            if (btn) { btn.textContent = '▶ Reproducir'; btn.setAttribute('aria-pressed', 'true'); }
+        }
+    }
+
+    function resetHeatMapVideo() {
+        if (!_hmVideoLoop) return;
+        _hmVideoLoop.currentTime = 0;
+        _hmVideoLoop.play().catch(() => {});
+        _hmVideoPausado = false;
+        const btn = document.getElementById('hm-play-toggle');
+        if (btn) { btn.textContent = '⏸ Pausar'; btn.setAttribute('aria-pressed', 'false'); }
+    }
 
     function getHeatColor(ratio) {
         if (ratio <= 0.2) return HM_HEAT_COLORS[0];
@@ -12356,6 +12461,21 @@
     const HM_DIAS_DESEQUILIBRIO = 21; // dias sin trabajar un musculo para considerarlo "descuidado"
 
     function renderHeatMap(muscleCount) {
+        _hmRenderCounts = muscleCount || {};
+        _hmRenderMax = Math.max(0, ...Object.values(_hmRenderCounts));
+        // Un botón por grupo evita duplicar el mapa frontal/posterior y sigue
+        // siendo usable cuando el modelo está pausado.
+        const buttons = document.getElementById('hm-muscle-buttons');
+        if (buttons) {
+            buttons.innerHTML = GRUPOS_MUSCULARES.map(m => {
+                const c = Number(_hmRenderCounts[m] || 0);
+                const color = c ? getHeatColor(c / Math.max(1, _hmRenderMax)) : '#555';
+                return '<button type="button" data-muscle="' + m + '" onclick="mostrarDetalleMusculo(\'' + m + '\');_hmMusculoActivo=\'' + m + '\';renderHeatMap(_hmRenderCounts)" style="border:1px solid ' + color + ';color:' + (c ? color : '#8a8a9a') + ';background:' + color + '18;border-radius:7px;padding:6px 4px;font-size:10px;font-weight:700;cursor:pointer">' + m + '</button>';
+            }).join('');
+        }
+        const viewLabel = document.getElementById('hm-view-label');
+        if (viewLabel) viewLabel.textContent = 'Cuerpo humano · 360° · ' + (_hmVideoPausado ? 'pausado' : 'girando');
+
         // Resetear todos los musculos: sin datos = transparente (se ve el video 3D debajo)
         for (const [muscle, ids] of Object.entries(MUSCLE_SVG_MAP)) {
             ids.forEach(id => {
