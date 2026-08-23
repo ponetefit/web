@@ -8509,8 +8509,18 @@
             const { tipo, datos } = buildDatosDia(dia, i, descGlobalSemana);
             return { titulo: dia.titulo, tipo, datos };
         });
-        semanasBorrador[semanaActivaIdx] = diasCongelados;
-        return diasCongelados;
+        // IMPORTANTE: clonar en profundidad antes de "congelar". buildDatosDia()
+        // reutiliza, para varios campos (reps_por_serie/pausa_por_serie del
+        // calentamiento, ejercicios/bloques del bloque principal), la MISMA
+        // referencia de array/objeto que sigue viva en diasData. Si no se clona
+        // acá, seguir editando la semana activa (p.ej. al usar "+ Agregar
+        // Semana", que a propósito no resetea diasData para mantener "los
+        // mismos ejercicios") termina modificando por referencia los datos ya
+        // guardados de semanas anteriores -series, reps y pausa se "pisaban"
+        // en todas las semanas en vez de solo en la que se está editando-.
+        const diasCongeladosClon = JSON.parse(JSON.stringify(diasCongelados));
+        semanasBorrador[semanaActivaIdx] = diasCongeladosClon;
+        return diasCongeladosClon;
     }
 
     // Arma un objeto con la forma de rutina guardada (la misma que usa
@@ -8894,10 +8904,10 @@
                 const inp = document.getElementById('dia-titulo-' + i);
                 if (inp && inp.value.trim()) dia.titulo = inp.value.trim();
             });
-            const diasVivos = diasData.map((dia, i) => {
+            const diasVivos = JSON.parse(JSON.stringify(diasData.map((dia, i) => {
                 const { tipo, datos } = buildDatosDia(dia, i, descGlobal);
                 return { titulo: dia.titulo, tipo, datos };
-            });
+            })));
             semanasBorrador[semanaActivaIdx] = diasVivos;
             // "dias" siempre representa la semana MÁS RECIENTE (la última),
             // que es la que queda como version "actual" de la rutina, sin
