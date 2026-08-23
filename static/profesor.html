@@ -12677,6 +12677,24 @@
         return parseFloat(m[1].replace(',', '.'));
     }
 
+    // Cada sistema de entrenamiento le llama distinto a la unidad que se
+    // repite (lo que en "Series" es una serie, en "Circuito por Vueltas" es
+    // una vuelta, en "EMOM" es cada vez que se repite el ejercicio, etc.).
+    // Se usa para que el panel del profesor hable con las palabras que
+    // corresponden a cada sistema en vez de decir siempre "series".
+    const PF_ETIQUETA_UNIDAD_POR_METODO = {
+        'Series': 'series',
+        'Circuito': 'vueltas',
+        'Circuito por Tiempo': 'reps en el bloque',
+        'EMOM': 'veces',
+        'Por Tiempo': 'vueltas',
+        'Sumando Ejercicio': 'rondas',
+        'Tabata': 'segundos'
+    };
+    function _pfEtiquetaUnidad(metodo) {
+        return PF_ETIQUETA_UNIDAD_POR_METODO[metodo] || 'series';
+    }
+
     // Agrupa los registros (que pueden venir varios por dia, uno por serie)
     // en un unico punto por fecha, calculando:
     // - pesoDia: el peso maximo usado ese dia (el "peso de trabajo").
@@ -12761,7 +12779,7 @@
         const maximo = Math.max(...pesos);
         const variacionPeso = ultimoDia.peso - primerDia.peso;
 
-        setText3('dash-carga-ultima', ultimoDia.peso + ' kg' + (ultimoDia.reps ? ' × ' + ultimoDia.reps + (ultimoDia.series > 1 ? ' × ' + ultimoDia.series + 's' : '') : ''));
+        setText3('dash-carga-ultima', ultimoDia.peso + ' kg' + (ultimoDia.reps ? ' × ' + ultimoDia.reps + (ultimoDia.series > 1 ? ' × ' + ultimoDia.series + ' ' + _pfEtiquetaUnidad(ultimoDia.metodo) : '') : ''));
         setText3('dash-carga-max', maximo + ' kg');
         setText3('dash-carga-variacion', (variacionPeso >= 0 ? '+' : '') + variacionPeso + ' kg');
 
@@ -12786,8 +12804,10 @@
                 const difPeso = actual.peso - anterior.peso;
                 const difVol = actual.volumen - anterior.volumen;
                 const pctVol = anterior.volumen > 0 ? Math.round((difVol / anterior.volumen) * 100) : 0;
-                const descActual = actual.peso + 'kg×' + (actual.reps || '?') + (actual.series > 1 ? '×' + actual.series + 's' : '');
-                const descAnterior = anterior.peso + 'kg×' + (anterior.reps || '?') + (anterior.series > 1 ? '×' + anterior.series + 's' : '');
+                const unidadActual = _pfEtiquetaUnidad(actual.metodo);
+                const unidadAnterior = _pfEtiquetaUnidad(anterior.metodo);
+                const descActual = actual.peso + 'kg×' + (actual.reps || '?') + (actual.series > 1 ? '×' + actual.series + unidadActual.charAt(0) : '');
+                const descAnterior = anterior.peso + 'kg×' + (anterior.reps || '?') + (anterior.series > 1 ? '×' + anterior.series + unidadAnterior.charAt(0) : '');
                 let msg, clases;
                 if (difPeso > 0 && difVol <= 0) {
                     msg = '⚠️ Subió el peso (' + descAnterior + ' → ' + descActual + ') pero bajaron las reps/series: el volumen total no mejoró (' + (difVol >= 0 ? '+' : '') + difVol + 'kg, ' + pctVol + '%). No es necesariamente una mejora real.';
@@ -12860,7 +12880,7 @@
                             afterLabel: (item) => {
                                 const d = dias[item.dataIndex];
                                 const partes = [];
-                                if (d.reps) partes.push(d.reps + ' reps' + (d.series > 1 ? ' × ' + d.series + ' series' : ''));
+                                if (d.reps) partes.push(d.reps + ' reps' + (d.series > 1 ? ' × ' + d.series + ' ' + _pfEtiquetaUnidad(d.metodo) : ''));
                                 if (d.metodo) partes.push('Metodo: ' + d.metodo);
                                 return partes;
                             }
