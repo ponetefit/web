@@ -6154,7 +6154,7 @@
                    '<div id="emom-warmup-config-' + idx + '" class="mt-3 space-y-2"></div>';
             setTimeout(() => actualizarEMOMWarmupMinutosConfig(idx), 0);
         } else if (tipo === 'Series/Reps') {
-            html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Series</label><input id="warmup-series-' + idx + '" type="number" value="' + (_cfg.series||3) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ');renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones (default)</label><input id="warmup-reps-val-' + idx + '" type="number" value="' + (_cfg.reps||10) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
+            html = '<div class="grid grid-cols-3 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Series</label><input id="warmup-series-' + idx + '" type="number" value="' + (_cfg.series||3) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ');renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones (default)</label><input id="warmup-reps-val-' + idx + '" type="number" value="' + (_cfg.reps||10) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg, default)</label><input id="warmup-pausa-ser-' + idx + '" type="number" value="' + (_cfg.pausa||60) + '" min="0" oninput="guardarWarmupCfgDia(' + idx + ');renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div><p class="text-xs text-textoSuave mt-2">Se aplica a los ejercicios nuevos que agregues. Podés ajustar reps y pausa de cada ejercicio individualmente abajo.</p>';
         } else if (tipo === 'Por Tiempo') {
             html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de Vueltas</label><input id="warmup-portiempo-vueltas-' + idx + '" type="number" value="' + (_cfg.vueltas||3) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><p class="text-xs text-textoSuave mt-2">Cronómetro cuenta hacia arriba. El alumno marca cada vuelta manualmente.</p>';
         } else if (tipo === 'Sumando Ejercicio') {
@@ -6191,6 +6191,7 @@
         } else if (tipo === 'Series/Reps') {
             cfg.series = parseInt(document.getElementById('warmup-series-' + idx)?.value) || 3;
             cfg.reps   = parseInt(document.getElementById('warmup-reps-val-' + idx)?.value) || 10;
+            cfg.pausa  = parseInt(document.getElementById('warmup-pausa-ser-' + idx)?.value) || 60;
         } else if (tipo === 'Por Tiempo') {
             cfg.vueltas = parseInt(document.getElementById('warmup-portiempo-vueltas-' + idx)?.value) || 3;
         } else if (tipo === 'Sumando Ejercicio') {
@@ -6260,9 +6261,12 @@
     function agregarEjWarmupDia(idx) {
         const selEj = document.getElementById('warmup-ej-select-' + idx);
         const nombre = selEj ? selEj.value : '';
-        const reps = (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.reps) || document.getElementById('warmup-ej-reps-' + idx)?.value.trim() || '';
+        const tipoWSel = document.getElementById('warmup-tipo-' + idx)?.value || '';
+        const _cfgW = (diasData[idx] && diasData[idx]._warmupCfg) || {};
+        const reps = (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.reps) || document.getElementById('warmup-ej-reps-' + idx)?.value.trim() || (tipoWSel === 'Series/Reps' ? (_cfgW.reps || 10) : '') || '';
         const unit = (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.unit) || document.getElementById('warmup-ej-unit-' + idx)?.value || 'Reps';
         const nota_tecnica = (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.nota_tecnica) || '';
+        const descanso = (tipoWSel === 'Series/Reps') ? (_cfgW.pausa || 60) : '';
         if (!nombre || nombre === 'Sin ejercicios' || nombre === 'Sin resultados') return;
         if (mostrarAdvertenciaSiProhibido(nombre, () => agregarEjWarmupDia(idx))) return;
         if (mostrarAdvertenciaSiCostoso(nombre, () => agregarEjWarmupDia(idx))) return;
@@ -6308,7 +6312,7 @@
 
         cargarEjsWarmupDia(idx);
         if (!diasData[idx]) return;
-        diasData[idx].warmupEjercicios.push({ nombre, link, reps, unit, con_carga, tip1, tip2, elemento, nota_tecnica });
+        diasData[idx].warmupEjercicios.push({ nombre, link, reps, unit, con_carga, tip1, tip2, elemento, nota_tecnica, descanso });
         renderWarmupEjsDia(idx);
         const repsInput = document.getElementById('warmup-ej-reps-' + idx);
         if (repsInput) repsInput.value = '';
@@ -6886,7 +6890,15 @@
                 <input id="bp-portiempo-vueltas" type="number" value="3" min="1" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
             <p class="text-xs text-textoSuave mt-2">El alumno tiene un cronómetro que cuenta hacia arriba y marca cada vuelta manualmente. Se registran y muestran los tiempos de cada vuelta.</p>`;
         } else if (tipo === 'Series') {
-            html = `<p class="text-xs text-textoSuave">Define series, repeticiones y pausa por ejercicio abajo</p>`;
+            html = `<div class="grid grid-cols-3 gap-3">
+                <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Series</label>
+                <input id="bp-ser-series" type="number" value="3" min="1" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+                <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones</label>
+                <input id="bp-ser-reps" type="number" value="10" min="1" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+                <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label>
+                <input id="bp-ser-pausa" type="number" value="60" min="0" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+            </div>
+            <p class="text-xs text-textoSuave mt-2">Se aplica a los ejercicios nuevos que agregues. Podés ajustar series, repeticiones y pausa de cada ejercicio individualmente abajo.</p>`;
         } else if (tipo === 'Sumando Ejercicio') {
             html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre vueltas (seg, opcional)</label>
                 <input id="bp-se-pausa" type="number" value="0" min="0" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
@@ -7358,11 +7370,15 @@
         if (buscador) buscador.value = '';
         // Restaurar lista completa después de buscar
         cargarEjsBloque();
+        const _esBloqSeries = (tipoBlq === 'Series');
+        const _defSerReps   = _esBloqSeries ? (document.getElementById('bp-ser-reps')?.value || '10') : '10';
+        const _defSerSeries = _esBloqSeries ? (parseInt(document.getElementById('bp-ser-series')?.value) || 3) : 3;
+        const _defSerPausa  = _esBloqSeries ? (document.getElementById('bp-ser-pausa')?.value || '60') : '60';
         bloqueEjsTemp.push({
             nombre, link,
-            reps: (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.reps) || '10',
+            reps: (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.reps) || _defSerReps,
             unit: (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.unit) || 'Reps',
-            series: 3, descanso: '60',
+            series: _defSerSeries, descanso: _defSerPausa,
             nota_tecnica: (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.nota_tecnica) || '',
             con_carga, tip1, tip2, elemento
         });
@@ -8052,6 +8068,11 @@
             const pr = document.getElementById('bp-pausa-rondas'); if(pr) pr.value = b.pausa_entre_rondas || 0;
         } else if (b.tipo === 'Sumando Ejercicio') {
             const psr = document.getElementById('bp-se-pausa'); if(psr) psr.value = b.pausa_ronda || 0;
+        } else if (b.tipo === 'Series') {
+            const primerEj = (b.ejercicios && b.ejercicios[0]) || {};
+            const sSer = document.getElementById('bp-ser-series'); if(sSer) sSer.value = primerEj.series || 3;
+            const sRep = document.getElementById('bp-ser-reps');   if(sRep) sRep.value = primerEj.reps || 10;
+            const sPau = document.getElementById('bp-ser-pausa');  if(sPau) sPau.value = primerEj.descanso || 60;
         } else if (b.tipo === 'EMOM') {
             const _mEl = document.getElementById('bp-minutos');
             const _cEl = document.getElementById('bp-emom-ciclo');
