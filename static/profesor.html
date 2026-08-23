@@ -2354,13 +2354,11 @@
             </div>
 
             <!-- Barra de progresión semanal (mismos ejercicios, distinta serie/reps/pausa por semana) -->
-            <div id="pf-barra-semanas" class="hidden flex items-center justify-between gap-3 mb-4 p-3 rounded-2xl border border-verde/30 bg-verde/5">
-                <div class="text-sm text-texto">
-                    📅 Editando: <span class="font-black text-verde">Semana <span id="pf-semana-actual-num">1</span></span>
-                    <span class="text-textoSuave text-xs block sm:inline sm:ml-2">Mismos ejercicios, distinta serie/reps/pausa/tiempo por semana</span>
-                </div>
+            <div id="pf-barra-semanas" class="hidden flex flex-wrap items-center gap-2 mb-4 p-3 rounded-2xl border border-borde bg-tarjeta">
+                <span class="text-xs font-bold text-textoSuave uppercase tracking-wider mr-1">📅 Semanas</span>
+                <div id="pf-semanas-lista" class="flex flex-wrap gap-1.5 flex-1 min-w-0"></div>
                 <div class="flex gap-2 flex-shrink-0">
-                    <button id="pf-semana-quitar" onclick="_pfQuitarUltimaSemana()" class="hidden px-3 py-2 rounded-xl border border-borde text-textoSuave text-xs font-bold uppercase">Deshacer última</button>
+                    <button id="pf-semana-eliminar" onclick="_pfEliminarSemanaActiva()" title="Eliminar esta semana" class="hidden px-2.5 py-2 rounded-xl border border-rojo/40 text-rojo text-xs font-bold">🗑</button>
                     <button id="pf-semana-agregar" onclick="_pfAgregarSemanaEnCreacion()" class="px-3 py-2 rounded-xl bg-verde text-white text-xs font-bold uppercase whitespace-nowrap">+ Agregar semana</button>
                 </div>
             </div>
@@ -8372,20 +8370,102 @@
     //  sin tener que compartir y volver a editar desde el Historial.
     // ══════════════════════════════════════════════════════════════════════
     //
-    // semanasBorrador guarda, por cada semana ya "congelada", el mismo
-    // formato { titulo, tipo, datos } por día que ya usa compartirRutina.
-    // La semana que se está editando en pantalla en este momento (la más
-    // nueva) vive directamente en diasData, como siempre.
+    // semanasBorrador guarda, por cada semana ya "congelada" (visitada al
+    // menos una vez), el mismo formato { titulo, tipo, datos } por día que
+    // ya usa compartirRutina. semanaActivaIdx (0-based) indica cuál de esas
+    // semanas está viva en diasData ahora mismo en el formulario. La semana
+    // activa puede no estar todavía en semanasBorrador (si es la más nueva
+    // recién creada): en ese caso se sincroniza al navegar o al compartir.
     let semanasBorrador = [];
+    let semanaActivaIdx = 0;
 
     function _pfResetSemanasBorrador() {
         semanasBorrador = [];
+        semanaActivaIdx = 0;
         _pfActualizarBarraSemanas();
+    }
+
+    // Convierte los ejercicios de diasData a la forma { titulo, tipo, datos }
+    // por día, y guarda ("congela") ese resultado en semanasBorrador, en la
+    // posición de la semana activa. Se llama siempre antes de moverse a otra
+    // semana o de compartir, para no perder los cambios recién hechos.
+    function _pfSincronizarSemanaActivaEnBorrador() {
+        diasData.forEach((dia, i) => {
+            const inp = document.getElementById('dia-titulo-' + i);
+            if (inp && inp.value.trim()) dia.titulo = inp.value.trim();
+        });
+        const descGlobalSemana = (document.getElementById('rutina-desc')?.value || '').trim();
+        const diasCongelados = diasData.map((dia, i) => {
+            const { tipo, datos } = buildDatosDia(dia, i, descGlobalSemana);
+            return { titulo: dia.titulo, tipo, datos };
+        });
+        semanasBorrador[semanaActivaIdx] = diasCongelados;
+        return diasCongelados;
+    }
+
+    // Arma un objeto con la forma de rutina guardada (la misma que usa
+    // editarRutinaDesdeHistorial) a partir de una semana ya congelada, para
+    // poder reutilizar el mismo parser (_pfParsearDiasHistorial) y volver a
+    // cargarla en el formulario.
+    function _pfSemanaARutinaShape(diasArr) {
+        if (diasArr && diasArr.length > 1) {
+            const r = { tipo: 'MULTIDIA', total_dias: diasArr.length };
+            diasArr.forEach((d, i) => { r['dia_' + (i + 1)] = { titulo: d.titulo, tipo: d.tipo, datos: d.datos }; });
+            return r;
+        }
+        const d0 = (diasArr && diasArr[0]) || { titulo: 'Dia 1', tipo: 'ENTRENAMIENTO', datos: {} };
+        return { tipo: d0.tipo, datos: d0.datos };
+    }
+
+    // Vuelca un array de dias ya parseados (formato interno diasData) en el
+    // formulario: reconstruye diasData, renderiza y restaura la config de
+    // calentamiento de cada dia (mismo mecanismo que usa "Editar Rutina").
+    function _pfCargarDiasEnFormulario(dias) {
+        diasData = dias;
+        renderDias();
+        if (diasData.length > 0) {
+            diaActivoIdx = 0;
+            bloquesRutina = diasData[0].bloquesRutina;
+        }
+        setTimeout(() => {
+            diasData.forEach((dia, i) => {
+                const wts = document.getElementById('warmup-tipo-' + i);
+                if (wts) { wts.value = dia._wTipo || 'Circuito (Vueltas)'; actualizarWarmupUIDia(i); }
+                const cfg = dia._wCfg || {};
+                setTimeout(() => {
+                    if (dia._wTipo === 'Circuito (Vueltas)') {
+                        const v = document.getElementById('warmup-vueltas-' + i); if (v) v.value = cfg.vueltas || 2;
+                        const p = document.getElementById('warmup-pausa-vuelta-' + i); if (p) p.value = cfg.pausa_vuelta || 30;
+                    } else if (dia._wTipo === 'Circuito por Tiempo') {
+                        const d = document.getElementById('warmup-duracion-' + i); if (d) d.value = cfg.duracion_bloque || 3;
+                    } else if (dia._wTipo === 'Tabata') {
+                        const t = document.getElementById('warmup-trabajo-' + i); if (t) t.value = cfg.trabajo || 20;
+                        const p = document.getElementById('warmup-pausa-' + i); if (p) p.value = cfg.pausa || 10;
+                        const c = document.getElementById('warmup-cantidad-' + i); if (c) c.value = cfg.cantidad || 8;
+                    } else if (dia._wTipo === 'EMOM') {
+                        const minutosReal = cfg.minutos || (dia.warmupEmomConfig ? dia.warmupEmomConfig.length : 5);
+                        const m = document.getElementById('warmup-minutos-' + i); if (m) m.value = minutosReal;
+                        const c = document.getElementById('warmup-emom-ciclo-' + i); if (c) c.value = cfg.emom_ciclo || dia.warmupEmomCiclo || minutosReal;
+                        actualizarEMOMWarmupMinutosConfig(i);
+                    } else if (dia._wTipo === 'Series/Reps') {
+                        const s = document.getElementById('warmup-series-' + i); if (s) s.value = cfg.series || 3;
+                        const rv = document.getElementById('warmup-reps-val-' + i); if (rv) rv.value = cfg.reps || 10;
+                    } else if (dia._wTipo === 'Por Tiempo') {
+                        const v = document.getElementById('warmup-portiempo-vueltas-' + i); if (v) v.value = cfg.vueltas || 3;
+                    }
+                    renderWarmupEjsDia(i);
+                    renderBloquesDia(i);
+                }, 50);
+            });
+            toggleDia(0, true);
+        }, 100);
     }
 
     // Congela la semana actual tal cual está en pantalla ahora mismo, y deja
     // el formulario listo para seguir editando la semana siguiente (con los
     // MISMOS ejercicios: la idea es solo tocar series/reps/pausa/tiempo).
+    // Siempre agrega la semana nueva al final, sin importar qué semana se
+    // esté viendo en este momento.
     function _pfAgregarSemanaEnCreacion() {
         const hayContenido = diasData.some(d =>
             d.warmupEjercicios.length > 0 ||
@@ -8396,29 +8476,42 @@
             toast('Cargá los ejercicios de la semana actual antes de agregar otra');
             return;
         }
-
-        // Sincronizar títulos desde los inputs, igual que hace compartirRutina
-        diasData.forEach((dia, i) => {
-            const inp = document.getElementById('dia-titulo-' + i);
-            if (inp && inp.value.trim()) dia.titulo = inp.value.trim();
-        });
-
-        const descGlobalSemana = (document.getElementById('rutina-desc')?.value || '').trim();
-        const diasCongelados = diasData.map((dia, i) => {
-            const { tipo, datos } = buildDatosDia(dia, i, descGlobalSemana);
-            return { titulo: dia.titulo, tipo, datos };
-        });
-
-        semanasBorrador.push(diasCongelados);
+        _pfSincronizarSemanaActivaEnBorrador();
+        semanaActivaIdx = semanasBorrador.length; // nueva semana al final, con los mismos ejercicios que se estaban viendo
         _pfActualizarBarraSemanas();
-        toast('Semana ' + semanasBorrador.length + ' guardada ✅. Ahora editá la Semana ' + (semanasBorrador.length + 1) + ' (mismos ejercicios: cambiá series, reps, pausa o tiempo)');
+        toast('Semana ' + (semanaActivaIdx) + ' guardada ✅. Ahora editá la Semana ' + (semanaActivaIdx + 1) + ' (mismos ejercicios: cambiá series, reps, pausa o tiempo)');
     }
 
-    // Deshace la última semana congelada (por si el profe se equivocó al tocar el botón).
-    function _pfQuitarUltimaSemana() {
-        if (semanasBorrador.length === 0) return;
-        if (!confirm('¿Quitar la Semana ' + semanasBorrador.length + ' que acabás de congelar? Los ejercicios que estás editando ahora en pantalla no se tocan.')) return;
-        semanasBorrador.pop();
+    // Navega a otra semana ya cargada (para atrás o para adelante), guardando
+    // primero los cambios de la que se estaba editando.
+    function _pfIrASemana(idx) {
+        if (idx === semanaActivaIdx) return;
+        _pfSincronizarSemanaActivaEnBorrador();
+        const totalSemanas = Math.max(semanasBorrador.length, semanaActivaIdx + 1);
+        if (idx < 0 || idx >= totalSemanas || idx >= semanasBorrador.length) return;
+        const rShape = _pfSemanaARutinaShape(semanasBorrador[idx]);
+        const diasParseados = _pfParsearDiasHistorial(rShape);
+        semanaActivaIdx = idx;
+        _pfCargarDiasEnFormulario(diasParseados);
+        _pfActualizarBarraSemanas();
+        toast('Viendo Semana ' + (idx + 1));
+    }
+
+    // Elimina la semana que se está viendo ahora mismo (si hay más de una).
+    function _pfEliminarSemanaActiva() {
+        const totalSemanas = Math.max(semanasBorrador.length, semanaActivaIdx + 1);
+        if (totalSemanas <= 1) return;
+        if (!confirm('¿Eliminar la Semana ' + (semanaActivaIdx + 1) + '? (todavía no compartiste la rutina, así que se pierde para siempre)')) return;
+        if (semanaActivaIdx < semanasBorrador.length) semanasBorrador.splice(semanaActivaIdx, 1);
+        const nuevoTotal = Math.max(semanasBorrador.length, 1);
+        const nuevoIdx = Math.min(semanaActivaIdx, nuevoTotal - 1);
+        if (semanasBorrador.length === 0) {
+            semanaActivaIdx = 0; // no queda ninguna semana congelada: diasData sigue siendo la única semana
+        } else {
+            const rShape = _pfSemanaARutinaShape(semanasBorrador[nuevoIdx]);
+            semanaActivaIdx = nuevoIdx;
+            _pfCargarDiasEnFormulario(_pfParsearDiasHistorial(rShape));
+        }
         _pfActualizarBarraSemanas();
     }
 
@@ -8436,10 +8529,20 @@
             barra.classList.add('hidden');
             return;
         }
+        const totalSemanas = Math.max(semanasBorrador.length, semanaActivaIdx + 1);
         barra.classList.remove('hidden');
-        const numActual = semanasBorrador.length + 1;
-        document.getElementById('pf-semana-actual-num').textContent = numActual;
-        document.getElementById('pf-semana-quitar').classList.toggle('hidden', semanasBorrador.length === 0);
+        const lista = document.getElementById('pf-semanas-lista');
+        if (lista) {
+            let html = '';
+            for (let i = 0; i < totalSemanas; i++) {
+                const activa = (i === semanaActivaIdx);
+                html += '<button type="button" onclick="_pfIrASemana(' + i + ')" class="px-3 py-1.5 rounded-lg text-xs font-bold border transition ' +
+                    (activa ? 'bg-verde text-white border-verde' : 'border-borde text-textoSuave hover:border-verde/50 hover:text-texto') +
+                    '">Semana ' + (i + 1) + '</button>';
+            }
+            lista.innerHTML = html;
+        }
+        document.getElementById('pf-semana-eliminar').classList.toggle('hidden', totalSemanas <= 1);
         document.getElementById('pf-semana-agregar').classList.remove('hidden');
     }
 
@@ -8650,15 +8753,23 @@
 
         try {
             // ── Construir "dias" de forma uniforme, sea 1 día o varios ────────
-            // Sincronizar títulos desde los inputs antes de enviar
+            // Sincronizar títulos desde los inputs antes de enviar, y guardar
+            // esta versión en semanasBorrador en la posición de la semana que
+            // se está viendo ahora mismo (por si el profe compartió mientras
+            // estaba revisando una semana anterior, no necesariamente la última).
             diasData.forEach((dia, i) => {
                 const inp = document.getElementById('dia-titulo-' + i);
                 if (inp && inp.value.trim()) dia.titulo = inp.value.trim();
             });
-            const dias = diasData.map((dia, i) => {
+            const diasVivos = diasData.map((dia, i) => {
                 const { tipo, datos } = buildDatosDia(dia, i, descGlobal);
                 return { titulo: dia.titulo, tipo, datos };
             });
+            semanasBorrador[semanaActivaIdx] = diasVivos;
+            // "dias" siempre representa la semana MÁS RECIENTE (la última),
+            // que es la que queda como version "actual" de la rutina, sin
+            // importar qué semana se estuviera viendo en pantalla al compartir.
+            const dias = semanasBorrador.length > 0 ? semanasBorrador[semanasBorrador.length - 1] : diasVivos;
 
             // ── Guardar como semana nueva de progresión (mismo código) ──────
             // Funciona igual para rutinas de 1 día o de varios días. No toca
@@ -8702,9 +8813,10 @@
             // Si en "Crear Rutina" se armaron varias semanas de progresión
             // (mismos ejercicios, distinta serie/reps/pausa/tiempo, sea 1 día o
             // varios), mandarlas TODAS juntas en este mismo compartir, en vez
-            // de una por vez.
-            if (semanasBorrador.length > 0) {
-                payload.semanas = [...semanasBorrador, dias];
+            // de una por vez. semanasBorrador ya está completo y en orden
+            // (se sincronizó la semana activa unas líneas más arriba).
+            if (semanasBorrador.length > 1) {
+                payload.semanas = semanasBorrador;
             }
 
             const res = await fetch(API_BASE + '/api/rutina/compartir', {
