@@ -8518,17 +8518,12 @@
     function _pfActualizarBarraSemanas() {
         const barra = document.getElementById('pf-barra-semanas');
         if (!barra) return;
-        // Armar varias semanas de una sola vez ("+ Agregar semana") es solo
-        // para rutinas NUEVAS que todavía no se compartieron (de 1 o varios
-        // días por igual). Si se está editando una rutina que YA existe
-        // (viene del Historial con "Editar"), agregar semanas se hace de a
-        // una con "Guardar como semana nueva" (en el diálogo de guardado)
-        // para no arriesgar pisar el historial de semanas que esa rutina
-        // ya tiene guardado.
-        if (_pfCodigoEditando) {
-            barra.classList.add('hidden');
-            return;
-        }
+        // "+ Agregar semana" también está disponible editando una rutina que
+        // YA existe (desde Historial con "Editar"): permite armar varias
+        // semanas nuevas de progresión de una sola vez. Al guardar como
+        // "semana nueva", cada semana armada acá se agrega en orden al
+        // historial de semanas que la rutina ya tenía, sin pisarlas (ver
+        // guardarRutina / editarRutinaCompleta).
         const totalSemanas = Math.max(semanasBorrador.length, semanaActivaIdx + 1);
         barra.classList.remove('hidden');
         const lista = document.getElementById('pf-semanas-lista');
@@ -8775,23 +8770,35 @@
             // Funciona igual para rutinas de 1 día o de varios días. No toca
             // /api/rutina/compartir en absoluto: usa un endpoint aparte que
             // agrega esta versión al historial de semanas de la rutina, sin
-            // pisar ni afectar las semanas anteriores.
+            // pisar ni afectar las semanas anteriores. Si con "+ Agregar
+            // semana" se armó más de una semana nueva en esta misma edición,
+            // se mandan TODAS en orden (una por una), no solo la última, para
+            // no perder las semanas intermedias que se hayan armado.
             if (_pfModoGuardadoActual === 'nueva_semana' && _pfCodigoEditando) {
+                const semanasAEnviar = semanasBorrador.length > 0 ? semanasBorrador : [diasVivos];
                 try {
-                    const resSemana = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(_pfCodigoEditando) + '/nueva-semana', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ dias })
-                    });
-                    const dataSemana = await resSemana.json();
-                    if (dataSemana.ok) {
-                        toast('Semana ' + dataSemana.semana + ' guardada en ' + _pfCodigoEditando.toUpperCase() + ' 🎉');
-                        _pfCodigoEditando = null;
-                        _pfLimpiarBorrador();
-                        showTab('historial');
-                    } else {
-                        toast('Error: ' + (dataSemana.error || 'no se pudo guardar la semana'));
+                    let ultimaGuardada = null;
+                    for (const diasSemana of semanasAEnviar) {
+                        const resSemana = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(_pfCodigoEditando) + '/nueva-semana', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ dias: diasSemana })
+                        });
+                        const dataSemana = await resSemana.json();
+                        if (!dataSemana.ok) {
+                            toast('Error: ' + (dataSemana.error || 'no se pudo guardar la semana'));
+                            pfBtnLoadingOff(btn);
+                            return;
+                        }
+                        ultimaGuardada = dataSemana.semana;
                     }
+                    const msg = semanasAEnviar.length > 1
+                        ? (semanasAEnviar.length + ' semanas nuevas guardadas en ' + _pfCodigoEditando.toUpperCase() + ' (hasta Semana ' + ultimaGuardada + ') 🎉')
+                        : ('Semana ' + ultimaGuardada + ' guardada en ' + _pfCodigoEditando.toUpperCase() + ' 🎉');
+                    toast(msg);
+                    _pfCodigoEditando = null;
+                    _pfLimpiarBorrador();
+                    showTab('historial');
                 } catch (eSemana) {
                     toast('Error de conexión al guardar la semana');
                 }
@@ -9399,7 +9406,7 @@
             const r = data.rutina;
             historialRutinasCache[codigo] = r;
             _pfCodigoEditando = codigo; // recordar qué rutina se está editando, para preguntar al guardar
-            _pfResetSemanasBorrador(); // al editar desde Historial no se arma progresión multi-semana acá (esa edición usa "Guardar como semana nueva")
+            _pfResetSemanasBorrador(); // arranca en blanco: la barra "+ Agregar semana" queda disponible para armar una o más semanas nuevas de progresión sobre esta rutina
 
             const datos = resolverDatos(r);
             const alumno = r.alumno || datos.alumno || '';
