@@ -11126,15 +11126,36 @@
                                 dashAsistenciaFechas.add(f);
                                 if (!dashAsistenciaPorFecha[f]) dashAsistenciaPorFecha[f] = [];
                                 if (!dashAsistenciaPorFecha[f].includes(cod)) dashAsistenciaPorFecha[f].push(cod);
-                                // Formato viejo: solo un timestamp (number). Formato nuevo:
-                                // {ts, pct, dia?} con el progreso real de la rutina ese día.
+                                // Formato más viejo: solo un timestamp (number).
+                                // Formato viejo: {ts, pct, dia?} un único registro que
+                                // pisaba cualquier entreno anterior de esa fecha.
+                                // Formato nuevo: {registros: {d1:{...}, d2:{...}, u:{...}}}
+                                // que permite guardar más de un día entrenado en la
+                                // misma fecha (ej: el alumno se pone al día e
+                                // hizo el Día 1 y el Día 2 el mismo día).
                                 const val = remoto.fechas[f];
-                                if (val && typeof val === 'object' && typeof val.pct === 'number') {
+                                if (val && typeof val === 'object') {
                                     if (!dashAsistenciaProgresoPorFecha[f]) dashAsistenciaProgresoPorFecha[f] = {};
-                                    dashAsistenciaProgresoPorFecha[f][cod] = {
-                                        pct: val.pct,
-                                        dia: typeof val.dia === 'number' ? val.dia : null
-                                    };
+                                    if (!dashAsistenciaProgresoPorFecha[f][cod]) dashAsistenciaProgresoPorFecha[f][cod] = [];
+                                    if (val.registros && typeof val.registros === 'object') {
+                                        Object.keys(val.registros).forEach((diaKey) => {
+                                            const reg = val.registros[diaKey];
+                                            if (!reg || typeof reg.pct !== 'number') return;
+                                            dashAsistenciaProgresoPorFecha[f][cod].push({
+                                                pct: reg.pct,
+                                                dia: typeof reg.dia === 'number' ? reg.dia : null,
+                                                semana: reg.semana || null,
+                                                ts: reg.ts || 0
+                                            });
+                                        });
+                                    } else if (typeof val.pct === 'number') {
+                                        dashAsistenciaProgresoPorFecha[f][cod].push({
+                                            pct: val.pct,
+                                            dia: typeof val.dia === 'number' ? val.dia : null,
+                                            semana: val.semana || null,
+                                            ts: val.ts || 0
+                                        });
+                                    }
                                 }
                             });
                         }
@@ -11262,22 +11283,35 @@
         const items = codigosDia.map((cod) => {
             const r = dashRutinasData ? dashRutinasData[cod] : null;
             const tipoLabel = _pfTipoRutinaLabel(r && r.tipo);
+            // La rutina tiene progresión semanal cargada (más de una semana)
+            // si "semanas" tiene más de una clave con contenido.
+            const semanasRutina = (r && r.semanas) ? Object.keys(r.semanas).filter((k) => r.semanas[k]) : [];
+            const tieneMasDeUnaSemana = semanasRutina.length > 1;
 
             // Progreso REAL que el alumno.html sube (misma barra que ve el
-            // alumno). Si no está disponible (ej: asistencia de antes de esta
-            // función, o el alumno no llegó a mover la barra), se usa como
-            // respaldo la estimación por ejercicios con carga registrada.
-            const progReal = (dashAsistenciaProgresoPorFecha[fechaISO] || {})[cod] || null;
+            // alumno). Puede haber más de un registro si ese día entrenó más
+            // de un día de la rutina (ej: se puso al día). Si no está
+            // disponible (ej: asistencia de antes de esta función, o el
+            // alumno no llegó a mover la barra), se usa como respaldo la
+            // estimación por ejercicios con carga registrada.
+            const registrosReales = ((dashAsistenciaProgresoPorFecha[fechaISO] || {})[cod] || []).slice()
+                .sort((a, b) => (a.ts || 0) - (b.ts || 0));
 
             let progresoHTML = '';
-            if (progReal) {
-                if (r && r.tipo === 'MULTIDIA' && progReal.dia) {
-                    const totalDias = r.total_dias || progReal.dia;
-                    progresoHTML = '<div class="text-xs text-azul mt-0.5">📅 Día ' + progReal.dia + ' de ' + totalDias +
-                        ' · ' + progReal.pct + '% de la rutina completado</div>';
-                } else {
-                    progresoHTML = '<div class="text-xs text-azul mt-0.5">' + progReal.pct + '% de la rutina completado</div>';
-                }
+            if (registrosReales.length) {
+                progresoHTML = registrosReales.map((reg) => {
+                    let linea;
+                    if (r && r.tipo === 'MULTIDIA' && reg.dia) {
+                        const totalDias = r.total_dias || reg.dia;
+                        linea = '📅 Día ' + reg.dia + ' de ' + totalDias + ' · ' + reg.pct + '% de la rutina completado';
+                    } else {
+                        linea = reg.pct + '% de la rutina completado';
+                    }
+                    if (tieneMasDeUnaSemana && reg.semana) {
+                        linea += ' · <span class="text-naranja">Semana ' + escapeHtml(String(reg.semana)) + '</span>';
+                    }
+                    return '<div class="text-xs text-azul mt-0.5">' + linea + '</div>';
+                }).join('');
             } else {
                 const prog = _pfProgresoDelDia(r, fechaISO, cod);
                 if (prog && prog.multidia) {
@@ -16801,6 +16835,14 @@ self.addEventListener('fetch', event => {
                 }).join('') : '';
                 var note = item.comentario ? '<div class="text-xs text-textoSuave mt-1 italic">“' + _escFeedback(item.comentario) + '”</div>' : '';
                 var date = item.fecha ? '<span class="text-[10px] text-textoSuave">' + _escFeedback(item.fecha.split('-').reverse().join('/')) + '</span>' : '';
+                // Día (rutinas multi-día) y Semana (progresión semanal), si vienen
+                // en el feedback y la rutina de este código tiene más de una semana.
+                var rutinaDelCodigo = (typeof dashRutinasData !== 'undefined' && dashRutinasData) ? dashRutinasData[item.codigo] : null;
+                var semanasDelCodigo = (rutinaDelCodigo && rutinaDelCodigo.semanas) ? Object.keys(rutinaDelCodigo.semanas).filter(function(k) { return rutinaDelCodigo.semanas[k]; }) : [];
+                var diaSemanaTag = '';
+                if (item.dia) diaSemanaTag += '<span class="text-[10px] text-azul font-bold">📅 Día ' + _escFeedback(item.dia) + '</span>';
+                if (item.semana && semanasDelCodigo.length > 1) diaSemanaTag += (diaSemanaTag ? ' <span class="text-[10px] text-textoSuave">·</span> ' : '') + '<span class="text-[10px] text-naranja font-bold">Semana ' + _escFeedback(item.semana) + '</span>';
+                if (diaSemanaTag) diaSemanaTag = '<div class="mt-0.5">' + diaSemanaTag + '</div>';
                 var bloque = item.bloque_completo && item.bloque_completo.ejercicios ? item.bloque_completo.ejercicios : [];
                 var detalleBloque = bloque.length ? '<div class="mt-2 pt-2 border-t border-borde"><div class="text-[10px] text-textoSuave uppercase tracking-wider mb-1">Bloque completo</div>' +
                     bloque.map(function(ej) {
@@ -16814,6 +16856,7 @@ self.addEventListener('fetch', event => {
                     '<div class="flex items-center justify-between gap-2">' +
                     '<div class="min-w-0"><div class="text-xs font-black text-texto truncate">' + _escFeedback(_feedbackLabel(item)) + '</div>' +
                     (item.tipo ? '<div class="text-[10px] text-textoSuave uppercase tracking-wider">' + _escFeedback(item.tipo) + '</div>' : '') +
+                    diaSemanaTag +
                     '</div>' +
                     '<div class="flex items-center gap-2 flex-shrink-0">' + date + '<span class="inline-flex items-center justify-center w-8 h-8 rounded-lg font-black text-black" style="background:' + color + '">' + (score || '—') + '</span></div>' +
                     '</div>' + exercise + seguimiento + note + detalleBloque + '</div>';
