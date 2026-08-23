@@ -370,7 +370,6 @@
             #modal-bloque select, #modal-bloque input, #modal-bloque textarea { font-size: 0.8rem; padding: 0.4rem 0.6rem; }
             #modal-bloque .flex.gap-3.pt-2 button { font-size: 0.8rem; padding: 0.6rem 0; }
             /* Body maps */
-            #body-front, #body-back { width: 140px; height: 295px; }
             .flex.flex-col.lg\\:flex-row { gap: 1rem; }
             /* Videoteca */
             #sec-videoteca .grid.grid-cols-2 { grid-template-columns: 1fr; }
@@ -2022,134 +2021,41 @@
 
                 <!-- Mapa de Calor Muscular (Body Insights) -->
                 <div class="bg-tarjeta rounded-2xl border border-borde p-5 mb-6">
-                    <h3 class="text-sm font-bold text-naranja uppercase tracking-wider mb-1">Mapa de Calor Muscular (Body Insights)</h3>
-                    <p class="text-[11px] text-textoSuave mb-3">Tocá un músculo para ver qué ejercicios lo trabajaron</p>
+                    <div class="flex items-start justify-between gap-3 flex-wrap">
+                        <div>
+                            <h3 class="text-sm font-bold text-naranja uppercase tracking-wider mb-1">Mapa de Calor Muscular (Body Insights)</h3>
+                            <p class="text-[11px] text-textoSuave mb-3">Un solo modelo 3D: el color acompaña la rotación. Pausalo para explorar los músculos.</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button id="hm-play-toggle" type="button" onclick="toggleHeatMapVideo()" class="px-3 py-2 rounded-lg bg-naranja/20 text-naranja text-xs font-bold" aria-pressed="false">⏸ Pausar</button>
+                            <button type="button" onclick="resetHeatMapVideo()" class="px-3 py-2 rounded-lg bg-fondoAlt border border-borde text-textoSuave text-xs font-bold">↺ Reiniciar</button>
+                        </div>
+                    </div>
                     <div id="hm-alertas" class="hidden mb-4 bg-amarillo/10 border border-amarillo/30 rounded-xl p-3"></div>
                     <div class="flex flex-col lg:flex-row items-center justify-center gap-6">
-                        <!-- Vista Frontal -->
                         <div class="text-center">
-                            <p class="text-xs text-textoSuave mb-2 uppercase tracking-wider">Vista Frontal</p>
-                            <svg id="body-front" viewBox="0 0 220 460" width="195" height="410" style="filter:drop-shadow(0 0 8px rgba(0,0,0,0.3));">
-                                <!-- Cabeza -->
-                                <ellipse cx="110" cy="28" rx="20" ry="24" fill="#2a2a35" stroke="#3a3a45" stroke-width="1"/>
-                                <!-- Cuello -->
-                                <path d="M102,50 Q102,56 100,62 L120,62 Q118,56 118,50 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.8"/>
-                                <!-- Trapecio -->
-                                <path id="hm-trapecio-f" d="M82,68 Q90,60 100,62 L100,78 Q92,76 82,80 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <path d="M138,68 Q130,60 120,62 L120,78 Q128,76 138,80 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6" class="hm-trapecio"/>
-                                <!-- Hombros (Deltoides) -->
-                                <path id="hm-hombros-fl" d="M82,68 Q64,66 60,80 Q58,90 62,98 L80,88 Q82,80 82,68 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <path id="hm-hombros-fr" d="M138,68 Q156,66 160,80 Q162,90 158,98 L140,88 Q138,80 138,68 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <!-- Pecho -->
-                                <path id="hm-pecho-l" d="M80,78 Q82,74 100,72 L110,72 L110,112 Q98,114 84,108 Q80,104 80,78 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <path id="hm-pecho-r" d="M110,72 L120,72 Q138,74 140,78 Q140,104 136,108 Q122,114 110,112 L110,72 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <!-- Biceps -->
-                                <path id="hm-biceps-l" d="M62,98 Q58,100 56,108 Q52,124 54,140 Q56,146 60,148 Q64,142 66,128 Q68,112 66,98 L62,98 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <path id="hm-biceps-r" d="M158,98 Q162,100 164,108 Q168,124 166,140 Q164,146 160,148 Q156,142 154,128 Q152,112 154,98 L158,98 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <!-- Antebrazo -->
-                                <path id="hm-antebrazo-fl" d="M54,148 Q50,152 48,168 Q46,184 46,198 Q48,204 52,206 Q56,198 58,182 Q60,166 60,148 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <path id="hm-antebrazo-fr" d="M166,148 Q170,152 172,168 Q174,184 174,198 Q172,204 168,206 Q164,198 162,182 Q160,166 160,148 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <!-- Abdominales -->
-                                <path id="hm-abdominales" d="M92,112 L128,112 Q130,136 130,160 Q128,176 126,180 L94,180 Q92,176 90,160 Q88,136 92,112 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <!-- Oblicuos -->
-                                <path id="hm-oblicuos-l" d="M82,108 Q86,110 92,112 Q88,136 90,160 Q92,176 94,180 Q88,182 82,180 Q78,168 78,148 Q78,126 82,108 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <path id="hm-oblicuos-r" d="M138,108 Q134,110 128,112 Q132,136 130,160 Q128,176 126,180 Q132,182 138,180 Q142,168 142,148 Q142,126 138,108 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <!-- Cuadriceps -->
-                                <path id="hm-cuadriceps-l" d="M84,186 Q88,184 96,184 L110,184 L110,188 Q108,220 106,248 Q104,270 100,290 Q96,296 90,296 Q82,290 78,270 Q76,248 78,220 Q80,200 84,186 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <path id="hm-cuadriceps-r" d="M136,186 Q132,184 124,184 L110,184 L110,188 Q112,220 114,248 Q116,270 120,290 Q124,296 130,296 Q138,290 142,270 Q144,248 142,220 Q140,200 136,186 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <!-- Aductores -->
-                                <path id="hm-aductores-l" d="M96,186 L110,188 L108,240 Q104,250 98,248 Q96,230 96,186 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.4" opacity="0.7"/>
-                                <path id="hm-aductores-r" d="M124,186 L110,188 L112,240 Q116,250 122,248 Q124,230 124,186 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.4" opacity="0.7"/>
-                                <!-- Rodilla -->
-                                <ellipse cx="94" cy="302" rx="8" ry="6" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.5"/>
-                                <ellipse cx="126" cy="302" rx="8" ry="6" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.5"/>
-                                <!-- Pantorrillas -->
-                                <path id="hm-pantorrillas-fl" d="M86,308 Q82,318 80,336 Q78,354 80,372 Q82,382 86,388 Q90,392 94,388 Q98,380 100,370 Q102,354 100,336 Q98,318 96,308 Q92,304 86,308 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <path id="hm-pantorrillas-fr" d="M124,308 Q120,318 118,336 Q116,354 118,372 Q120,382 124,388 Q128,392 132,388 Q136,380 138,370 Q140,354 138,336 Q136,318 134,308 Q130,304 124,308 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <!-- Pies -->
-                                <path d="M82,390 Q80,398 78,404 Q76,410 80,412 Q88,414 96,412 Q98,408 96,390 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.5"/>
-                                <path d="M138,390 Q140,398 142,404 Q144,410 140,412 Q132,414 124,412 Q122,408 124,390 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.5"/>
-                                <!-- Manos -->
-                                <ellipse cx="50" cy="212" rx="6" ry="8" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.5"/>
-                                <ellipse cx="170" cy="212" rx="6" ry="8" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.5"/>
-                                <!-- Labels -->
-                                <text x="110" y="96" text-anchor="middle" fill="#8a8a9a" font-size="7" font-family="sans-serif" font-weight="600">Pecho</text>
-                                <text x="110" y="150" text-anchor="middle" fill="#8a8a9a" font-size="7" font-family="sans-serif" font-weight="600">Abs</text>
-                                <text x="58" y="128" text-anchor="middle" fill="#8a8a9a" font-size="6" font-family="sans-serif">Biceps</text>
-                                <text x="162" y="128" text-anchor="middle" fill="#8a8a9a" font-size="6" font-family="sans-serif">Biceps</text>
-                                <text x="94" y="250" text-anchor="middle" fill="#8a8a9a" font-size="6" font-family="sans-serif">Cuad.</text>
-                                <text x="126" y="250" text-anchor="middle" fill="#8a8a9a" font-size="6" font-family="sans-serif">Cuad.</text>
-                                <text x="90" y="356" text-anchor="middle" fill="#8a8a9a" font-size="6" font-family="sans-serif">Pant.</text>
-                                <text x="130" y="356" text-anchor="middle" fill="#8a8a9a" font-size="6" font-family="sans-serif">Pant.</text>
-                            </svg>
+                            <p class="text-xs text-textoSuave mb-2 uppercase tracking-wider"><span id="hm-view-label">Cuerpo humano · 360°</span></p>
+                            <div class="hm-video-wrap" style="position:relative;width:290px;max-width:78vw;height:520px;max-height:112vw;min-height:390px;background:radial-gradient(ellipse,#25252e 0%,#0d0d11 72%);border:1px solid #2a2a35;border-radius:16px;overflow:hidden;">
+                                <video id="hm-video-rotating" muted loop autoplay playsinline webkit-playsinline x5-playsinline preload="auto" disablepictureinpicture aria-hidden="true" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;">
+                                    <source src="/videos/skeleton-muscles.mp4" type="video/mp4">
+                                    Tu navegador no puede reproducir este video MP4.
+                                </video>
+                                <canvas id="hm-canvas-rotating" aria-label="Mapa de calor muscular 3D interactivo" style="display:block;width:100%;height:100%;"></canvas>
+                            </div>
+                            <p class="text-[10px] text-textoSuave mt-2">Los colores se calculan con la frecuencia de ejercicios del rango elegido.</p>
                         </div>
-                        <!-- Vista Posterior -->
-                        <div class="text-center">
-                            <p class="text-xs text-textoSuave mb-2 uppercase tracking-wider">Vista Posterior</p>
-                            <svg id="body-back" viewBox="0 0 220 460" width="195" height="410" style="filter:drop-shadow(0 0 8px rgba(0,0,0,0.3));">
-                                <!-- Cabeza -->
-                                <ellipse cx="110" cy="28" rx="20" ry="24" fill="#2a2a35" stroke="#3a3a45" stroke-width="1"/>
-                                <!-- Cuello -->
-                                <path d="M102,50 Q102,56 100,62 L120,62 Q118,56 118,50 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.8"/>
-                                <!-- Trapecio -->
-                                <path id="hm-trapecio-bl" d="M82,68 Q90,60 100,62 L100,86 Q92,84 82,86 Q80,78 82,68 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <path id="hm-trapecio-br" d="M138,68 Q130,60 120,62 L120,86 Q128,84 138,86 Q140,78 138,68 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <!-- Hombros post -->
-                                <path id="hm-hombros-bl" d="M82,68 Q64,66 60,80 Q58,90 62,98 L80,88 Q82,80 82,68 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <path id="hm-hombros-br" d="M138,68 Q156,66 160,80 Q162,90 158,98 L140,88 Q138,80 138,68 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <!-- Espalda (Dorsal) -->
-                                <path id="hm-espalda-l" d="M80,86 Q86,82 100,80 L110,80 L110,148 Q98,152 86,150 Q80,146 78,130 Q78,108 80,86 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <path id="hm-espalda-r" d="M110,80 L120,80 Q134,82 140,86 Q142,108 142,130 Q140,146 134,150 Q122,152 110,148 L110,80 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <!-- Triceps -->
-                                <path id="hm-triceps-l" d="M62,98 Q58,100 56,108 Q52,124 54,140 Q56,146 60,148 Q64,142 66,128 Q68,112 66,98 L62,98 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <path id="hm-triceps-r" d="M158,98 Q162,100 164,108 Q168,124 166,140 Q164,146 160,148 Q156,142 154,128 Q152,112 154,98 L158,98 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <!-- Antebrazo post -->
-                                <path id="hm-antebrazo-bl" d="M54,148 Q50,152 48,168 Q46,184 46,198 Q48,204 52,206 Q56,198 58,182 Q60,166 60,148 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <path id="hm-antebrazo-br" d="M166,148 Q170,152 172,168 Q174,184 174,198 Q172,204 168,206 Q164,198 162,182 Q160,166 160,148 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <!-- Lumbar -->
-                                <path id="hm-lumbar" d="M86,150 Q96,154 110,152 Q124,154 134,150 Q138,162 138,176 Q136,182 130,184 L90,184 Q84,182 82,176 Q82,162 86,150 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <!-- Gluteos -->
-                                <path id="hm-gluteos-l" d="M84,184 Q88,182 96,184 L110,186 L110,218 Q106,224 98,222 Q88,218 82,210 Q80,200 84,184 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <path id="hm-gluteos-r" d="M136,184 Q132,182 124,184 L110,186 L110,218 Q114,224 122,222 Q132,218 138,210 Q140,200 136,184 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <!-- Isquiotibiales -->
-                                <path id="hm-isquio-l" d="M84,224 Q90,222 98,224 L110,226 Q108,256 106,280 Q104,292 100,296 Q94,298 88,296 Q82,288 80,270 Q78,248 84,224 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <path id="hm-isquio-r" d="M136,224 Q130,222 122,224 L110,226 Q112,256 114,280 Q116,292 120,296 Q126,298 132,296 Q138,288 140,270 Q142,248 136,224 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <!-- Rodilla -->
-                                <ellipse cx="94" cy="302" rx="8" ry="6" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.5"/>
-                                <ellipse cx="126" cy="302" rx="8" ry="6" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.5"/>
-                                <!-- Pantorrillas post -->
-                                <path id="hm-pantorrillas-bl" d="M86,308 Q82,318 80,336 Q78,354 80,372 Q82,382 86,388 Q90,392 94,388 Q98,380 100,370 Q102,354 100,336 Q98,318 96,308 Q92,304 86,308 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <path id="hm-pantorrillas-br" d="M124,308 Q120,318 118,336 Q116,354 118,372 Q120,382 124,388 Q128,392 132,388 Q136,380 138,370 Q140,354 138,336 Q136,318 134,308 Q130,304 124,308 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.6"/>
-                                <!-- Pies -->
-                                <path d="M82,390 Q80,398 78,404 Q76,410 80,412 Q88,414 96,412 Q98,408 96,390 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.5"/>
-                                <path d="M138,390 Q140,398 142,404 Q144,410 140,412 Q132,414 124,412 Q122,408 124,390 Z" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.5"/>
-                                <!-- Manos -->
-                                <ellipse cx="50" cy="212" rx="6" ry="8" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.5"/>
-                                <ellipse cx="170" cy="212" rx="6" ry="8" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.5"/>
-                                <!-- Labels -->
-                                <text x="110" y="72" text-anchor="middle" fill="#8a8a9a" font-size="6" font-family="sans-serif" font-weight="600">Trapecio</text>
-                                <text x="110" y="120" text-anchor="middle" fill="#8a8a9a" font-size="7" font-family="sans-serif" font-weight="600">Espalda</text>
-                                <text x="58" y="128" text-anchor="middle" fill="#8a8a9a" font-size="6" font-family="sans-serif">Triceps</text>
-                                <text x="162" y="128" text-anchor="middle" fill="#8a8a9a" font-size="6" font-family="sans-serif">Triceps</text>
-                                <text x="110" y="170" text-anchor="middle" fill="#8a8a9a" font-size="6" font-family="sans-serif" font-weight="600">Lumbar</text>
-                                <text x="110" y="206" text-anchor="middle" fill="#8a8a9a" font-size="7" font-family="sans-serif" font-weight="600">Gluteos</text>
-                                <text x="94" y="268" text-anchor="middle" fill="#8a8a9a" font-size="6" font-family="sans-serif">Isquio.</text>
-                                <text x="126" y="268" text-anchor="middle" fill="#8a8a9a" font-size="6" font-family="sans-serif">Isquio.</text>
-                                <text x="90" y="356" text-anchor="middle" fill="#8a8a9a" font-size="6" font-family="sans-serif">Pant.</text>
-                                <text x="130" y="356" text-anchor="middle" fill="#8a8a9a" font-size="6" font-family="sans-serif">Pant.</text>
-                            </svg>
-                        </div>
-                        <!-- Leyenda -->
-                        <div class="flex flex-col gap-2">
-                            <p class="text-xs text-textoSuave uppercase tracking-wider mb-1">Intensidad</p>
-                            <div class="flex items-center gap-2"><div class="w-5 h-5 rounded" style="background:#2a2a35;"></div><span class="text-xs text-textoSuave">Sin uso</span></div>
-                            <div class="flex items-center gap-2"><div class="w-5 h-5 rounded" style="background:#1a4a6e;"></div><span class="text-xs text-textoSuave">Bajo</span></div>
-                            <div class="flex items-center gap-2"><div class="w-5 h-5 rounded" style="background:#2d8f5e;"></div><span class="text-xs text-textoSuave">Moderado</span></div>
-                            <div class="flex items-center gap-2"><div class="w-5 h-5 rounded" style="background:#c4a820;"></div><span class="text-xs text-textoSuave">Alto</span></div>
-                            <div class="flex items-center gap-2"><div class="w-5 h-5 rounded" style="background:#d4541e;"></div><span class="text-xs text-textoSuave">Muy Alto</span></div>
-                            <div class="flex items-center gap-2"><div class="w-5 h-5 rounded" style="background:#c41e1e;"></div><span class="text-xs text-textoSuave">Maximo</span></div>
+                        <div class="flex flex-col gap-2 min-w-[190px] max-w-xs">
+                            <p class="text-xs text-textoSuave uppercase tracking-wider mb-1">Tocá un músculo</p>
+                            <div id="hm-muscle-buttons" class="grid grid-cols-2 gap-1.5"></div>
                             <div id="hm-detalle" class="mt-3 text-xs text-textoSuave space-y-1"></div>
                         </div>
+                    </div>
+                    <div class="flex items-center justify-center gap-3 mt-4 flex-wrap text-[11px] text-textoSuave">
+                        <span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#1a4a6e;vertical-align:-2px"></i> Bajo</span>
+                        <span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#2d8f5e;vertical-align:-2px"></i> Moderado</span>
+                        <span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#c4a820;vertical-align:-2px"></i> Alto</span>
+                        <span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#d4541e;vertical-align:-2px"></i> Muy alto</span>
+                        <span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#c41e1e;vertical-align:-2px"></i> Máximo</span>
                     </div>
                 </div>
 
@@ -4379,6 +4285,191 @@
         'Aductores':      ['hm-aductores-l','hm-aductores-r'],
         'Pantorrillas':   ['hm-pantorrillas-fl','hm-pantorrillas-fr','hm-pantorrillas-bl','hm-pantorrillas-br']
     };
+
+    // ====================================================================
+    // Mapa de Calor Muscular: video 3D con croma (fondo verde) en vivo
+    // Reemplaza el diagrama plano de fondo: dibuja el <video> en un <canvas>
+    // cuadro a cuadro quitando el verde, dejando el musculo real de fondo
+    // y los colores del heatmap semi-transparentes arriba (ver renderHeatMap).
+    // ====================================================================
+    function _hmQuitarVerde(imageData) {
+        const d = imageData.data;
+        for (let i = 0; i < d.length; i += 4) {
+            const r = d[i], g = d[i + 1], b = d[i + 2];
+            // Verde tipico de croma: el canal verde domina claramente sobre rojo y azul
+            if (g > 70 && g > r * 1.18 && g > b * 1.18) {
+                d[i + 3] = 0; // transparente
+            } else if (g > r * 1.02 && g > b * 1.02 && g > 60) {
+                // Zona de "spill" verde en los bordes: atenuar en vez de recortar de golpe
+                const exceso = g - Math.max(r, b);
+                d[i + 3] = Math.max(0, 255 - exceso * 4);
+                d[i + 1] = Math.min(g, Math.max(r, b));
+            }
+        }
+        return imageData;
+    }
+
+    // El mapa usa un único canvas: así la máscara de color se pinta sobre cada
+    // fotograma del modelo y gira junto con el cuerpo (en vez de quedar pegada
+    // a dos SVG estáticos).
+    let _hmVideoLoop = null;
+    let _hmVideoPausado = false;
+    let _hmRenderCounts = {};
+    let _hmMusculoActivo = '';
+    let _hmBodyBounds = null;
+
+    function iniciarVideoCromaHeatMap(videoId, canvasId) {
+        const video = document.getElementById(videoId);
+        const canvas = document.getElementById(canvasId);
+        if (!video || !canvas) return;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        _hmVideoLoop = video;
+
+        function ajustarTamanoCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            // La máscara se procesa cuadro a cuadro: 1x evita exigir de más a
+            // teléfonos y mantiene la animación fluida en Chrome, Safari y Firefox.
+            const dpr = 1;
+            canvas.width = Math.max(1, Math.round(rect.width * dpr));
+            canvas.height = Math.max(1, Math.round(rect.height * dpr));
+        }
+        ajustarTamanoCanvas();
+        window.addEventListener('resize', ajustarTamanoCanvas);
+
+        function dibujarCuadro() {
+            if (video.readyState >= 2 && video.videoWidth > 0) {
+                const cw = canvas.width, ch = canvas.height;
+                const vw = video.videoWidth, vh = video.videoHeight;
+                // Cover, manteniendo el cuerpo centrado en cualquier navegador.
+                const escala = Math.max(cw / vw, ch / vh);
+                const sw = cw / escala, sh = ch / escala;
+                const sx = (vw - sw) / 2, sy = (vh - sh) / 2;
+                ctx.clearRect(0, 0, cw, ch);
+                ctx.drawImage(video, sx, sy, sw, sh, 0, 0, cw, ch);
+                try {
+                    const frame = ctx.getImageData(0, 0, cw, ch);
+                    const data = frame.data;
+                    // Detectar la silueta de este fotograma. Las zonas se
+                    // calculan dentro de ella, nunca sobre coordenadas fijas
+                    // de pantalla; así la pintura acompaña el giro.
+                    let minX = cw, maxX = 0, minY = ch, maxY = 0, pixels = 0;
+                    for (let y = 0; y < ch; y++) {
+                        for (let x = 0; x < cw; x++) {
+                            const q = (y * cw + x) * 4;
+                            const qr = data[q], qg = data[q + 1], qb = data[q + 2];
+                            if (!(qg > 70 && qg > qr * 1.16 && qg > qb * 1.16)) {
+                                minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+                                minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+                                pixels++;
+                            }
+                        }
+                    }
+                    const bodyW = Math.max(1, maxX - minX);
+                    const bodyH = Math.max(1, maxY - minY);
+                    _hmBodyBounds = { minX, maxX, minY, maxY };
+                    const max = Math.max(1, ...Object.values(_hmRenderCounts || {}));
+                    // Clasificación espacial estable: el video ya gira; por eso
+                    // coloreamos los píxeles del cuerpo del propio frame, no una
+                    // capa externa. La máscara evita teñir el fondo verde.
+                    for (let y = 0; y < ch; y++) {
+                        for (let x = 0; x < cw; x++) {
+                            const i = (y * cw + x) * 4;
+                            const r = data[i], g = data[i + 1], b = data[i + 2];
+                            if (g > 70 && g > r * 1.16 && g > b * 1.16) {
+                                data[i + 3] = 0;
+                                continue;
+                            }
+                            const insideBody = pixels > 20 && x >= minX && x <= maxX && y >= minY && y <= maxY;
+                            const muscle = insideBody
+                                ? _hmMusculoParaPunto((x - minX) / bodyW, (y - minY) / bodyH)
+                                : '';
+                            const count = Number(_hmRenderCounts[muscle] || 0);
+                            if (count > 0) {
+                                const color = _hmHexToRgb(getHeatColor(count / max));
+                                const strength = _hmMusculoActivo === muscle ? 0.9 : 0.8;
+                                data[i] = Math.round(r * (1 - strength) + color[0] * strength);
+                                data[i + 1] = Math.round(g * (1 - strength) + color[1] * strength);
+                                data[i + 2] = Math.round(b * (1 - strength) + color[2] * strength);
+                            }
+                        }
+                    }
+                    ctx.putImageData(frame, 0, 0);
+                } catch (e) { /* si falla el croma, se deja el cuadro tal cual */ }
+            }
+            requestAnimationFrame(dibujarCuadro);
+        }
+        // Algunos navegadores bloquean el autoplay hasta que hay una interaccion o hasta
+        // que el video termino de cargar metadata; reintentamos en varios eventos.
+        function intentarPlay() { video.play().catch(() => {}); }
+        intentarPlay();
+        video.addEventListener('loadedmetadata', intentarPlay);
+        video.addEventListener('loadeddata', intentarPlay);
+        video.addEventListener('canplay', intentarPlay);
+        document.addEventListener('click', intentarPlay, { once: true });
+        document.addEventListener('touchstart', intentarPlay, { once: true, passive: true });
+        video.addEventListener('error', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#8a8a9a';
+            ctx.font = '600 13px Roboto, Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Video no disponible', canvas.width / 2, canvas.height / 2 - 8);
+            ctx.font = '11px Roboto, Arial, sans-serif';
+            ctx.fillText('Revisá /videos/skeleton-muscles.mp4', canvas.width / 2, canvas.height / 2 + 14);
+        });
+
+        requestAnimationFrame(dibujarCuadro);
+        canvas.addEventListener('click', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const px = (event.clientX - rect.left) / rect.width * canvas.width;
+            const py = (event.clientY - rect.top) / rect.height * canvas.height;
+            const b = _hmBodyBounds;
+            const muscle = b && px >= b.minX && px <= b.maxX && py >= b.minY && py <= b.maxY
+                ? _hmMusculoParaPunto((px - b.minX) / Math.max(1, b.maxX - b.minX), (py - b.minY) / Math.max(1, b.maxY - b.minY))
+                : '';
+            if (muscle) mostrarDetalleMusculo(muscle);
+        });
+
+        // Rotación libre con mouse, dedo o lápiz. Pointer Events evita tener
+        // implementaciones distintas para Edge/Chrome, Safari iOS y Android.
+        let drag = null;
+        canvas.style.touchAction = 'none';
+        canvas.addEventListener('pointerdown', (event) => {
+            if (!video.duration) return;
+            drag = { x: event.clientX, time: video.currentTime };
+            video.pause();
+            _hmVideoPausado = true;
+            if (canvas.setPointerCapture) canvas.setPointerCapture(event.pointerId);
+            event.preventDefault();
+        });
+        canvas.addEventListener('pointermove', (event) => {
+            if (!drag || !video.duration) return;
+            const delta = event.clientX - drag.x;
+            const width = canvas.getBoundingClientRect().width || 1;
+            const secondsPerPixel = video.duration / Math.max(180, width);
+            const nextTime = drag.time - delta * secondsPerPixel;
+            // La rotación es circular: al arrastrar más allá del último frame
+            // vuelve al primero sin frenarse en los extremos.
+            video.currentTime = ((nextTime % video.duration) + video.duration) % video.duration;
+            event.preventDefault();
+        });
+        canvas.addEventListener('pointerup', (event) => {
+            drag = null;
+            if (canvas.releasePointerCapture) canvas.releasePointerCapture(event.pointerId);
+        });
+        canvas.addEventListener('pointercancel', () => { drag = null; });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        iniciarVideoCromaHeatMap('hm-video-rotating', 'hm-canvas-rotating');
+    });
+
+    // Safari iOS y algunos navegadores Android pausan los videos al minimizar
+    // la pestaña. Solo reanudamos si el usuario no lo había pausado a mano.
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && _hmVideoLoop && !_hmVideoPausado) {
+            _hmVideoLoop.play().catch(() => {});
+        }
+    });
 
     // Tambien colorear elementos con class hm-trapecio (duplicado frontal)
     function poblarSelectsMusculos() {
@@ -12251,6 +12342,76 @@
     // Colores del heatmap reutilizables
     const HM_DEFAULT_COLOR = '#2a2a35';
     const HM_HEAT_COLORS = ['#1a4a6e','#2d8f5e','#c4a820','#d4541e','#c41e1e'];
+    // El mapa de calor "en vivo" del dashboard va arriba del video 3D (chroma key), asi que
+    // los musculos sin datos quedan transparentes (se ve el video) y los que si tienen datos
+    // se colorean con una opacidad parcial para que se siga viendo el musculo real debajo.
+    const HM_LIVE_DEFAULT_FILL = 'transparent';
+    const HM_LIVE_FILL_OPACITY = '0.8';
+    let _hmRenderMax = 0;
+
+    function _hmHexToRgb(hex) {
+        const n = parseInt(String(hex).replace('#', ''), 16);
+        return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    }
+
+    // Zonas aproximadas del cuerpo: se aplican al frame real del video, por
+    // eso el resaltado sigue la silueta aunque esté de perfil o de espaldas.
+    function _hmEsPosterior() {
+        if (!_hmVideoLoop || !_hmVideoLoop.duration) return false;
+        const p = _hmVideoLoop.currentTime / _hmVideoLoop.duration;
+        return p > 0.30 && p < 0.72;
+    }
+
+    // Regiones independientes por grupo muscular; no son franjas. Se vuelven a
+    // calcular en cada frame, por eso el color se mueve con el modelo rotatorio.
+    function _hmMusculoParaPunto(x, y) {
+        const posterior = _hmEsPosterior();
+        const lateral = x < .39 || x > .61;
+        const centro = x >= .39 && x <= .61;
+        if (y < .16) return 'Trapecio';
+        if (posterior) {
+            if (y < .34 && centro) return 'Espalda';
+            if (y < .30 && lateral) return 'Hombros';
+            if (y >= .27 && y < .44 && lateral) return 'Triceps';
+            if (y >= .30 && y < .45 && centro) return 'Lumbar';
+            if (y >= .42 && y < .59 && lateral) return 'Gluteos';
+            if (y >= .56 && y < .79) return 'Isquiotibiales';
+        } else {
+            if (y >= .16 && y < .31 && centro) return 'Pecho';
+            if (y >= .18 && y < .34 && lateral) return 'Hombros';
+            if (y >= .25 && y < .43 && lateral) return 'Biceps';
+            if (y >= .29 && y < .47 && centro) return 'Abdominales';
+            if (y >= .30 && y < .48 && lateral) return 'Oblicuos';
+            if (y >= .44 && y < .67 && lateral) return 'Cuadriceps';
+            if (y >= .45 && y < .63 && centro) return 'Aductores';
+        }
+        if (y >= .79) return 'Pantorrillas';
+        if (y >= .67 && lateral) return posterior ? 'Isquiotibiales' : 'Cuadriceps';
+        return '';
+    }
+
+    function toggleHeatMapVideo() {
+        if (!_hmVideoLoop) return;
+        const btn = document.getElementById('hm-play-toggle');
+        if (_hmVideoLoop.paused) {
+            _hmVideoLoop.play().catch(() => {});
+            _hmVideoPausado = false;
+            if (btn) { btn.textContent = '⏸ Pausar'; btn.setAttribute('aria-pressed', 'false'); }
+        } else {
+            _hmVideoLoop.pause();
+            _hmVideoPausado = true;
+            if (btn) { btn.textContent = '▶ Reproducir'; btn.setAttribute('aria-pressed', 'true'); }
+        }
+    }
+
+    function resetHeatMapVideo() {
+        if (!_hmVideoLoop) return;
+        _hmVideoLoop.currentTime = 0;
+        _hmVideoLoop.play().catch(() => {});
+        _hmVideoPausado = false;
+        const btn = document.getElementById('hm-play-toggle');
+        if (btn) { btn.textContent = '⏸ Pausar'; btn.setAttribute('aria-pressed', 'false'); }
+    }
 
     function getHeatColor(ratio) {
         if (ratio <= 0.2) return HM_HEAT_COLORS[0];
@@ -12272,14 +12433,29 @@
     const HM_DIAS_DESEQUILIBRIO = 21; // dias sin trabajar un musculo para considerarlo "descuidado"
 
     function renderHeatMap(muscleCount) {
-        // Resetear todos los musculos al color por defecto
+        _hmRenderCounts = muscleCount || {};
+        _hmRenderMax = Math.max(0, ...Object.values(_hmRenderCounts));
+        // Un botón por grupo evita duplicar el mapa frontal/posterior y sigue
+        // siendo usable cuando el modelo está pausado.
+        const buttons = document.getElementById('hm-muscle-buttons');
+        if (buttons) {
+            buttons.innerHTML = GRUPOS_MUSCULARES.map(m => {
+                const c = Number(_hmRenderCounts[m] || 0);
+                const color = c ? getHeatColor(c / Math.max(1, _hmRenderMax)) : '#555';
+                return '<button type="button" data-muscle="' + m + '" onclick="mostrarDetalleMusculo(\'' + m + '\');_hmMusculoActivo=\'' + m + '\';renderHeatMap(_hmRenderCounts)" style="border:1px solid ' + color + ';color:' + (c ? color : '#8a8a9a') + ';background:' + color + '18;border-radius:7px;padding:6px 4px;font-size:10px;font-weight:700;cursor:pointer">' + m + '</button>';
+            }).join('');
+        }
+        const viewLabel = document.getElementById('hm-view-label');
+        if (viewLabel) viewLabel.textContent = 'Cuerpo humano · 360° · ' + (_hmVideoPausado ? 'pausado' : 'girando');
+
+        // Resetear todos los musculos: sin datos = transparente (se ve el video 3D debajo)
         for (const [muscle, ids] of Object.entries(MUSCLE_SVG_MAP)) {
             ids.forEach(id => {
                 const el = document.getElementById(id);
-                if (el) el.setAttribute('fill', HM_DEFAULT_COLOR);
+                if (el) { el.setAttribute('fill', HM_LIVE_DEFAULT_FILL); el.removeAttribute('fill-opacity'); }
             });
         }
-        document.querySelectorAll('.hm-trapecio').forEach(el => el.setAttribute('fill', HM_DEFAULT_COLOR));
+        document.querySelectorAll('.hm-trapecio').forEach(el => { el.setAttribute('fill', HM_LIVE_DEFAULT_FILL); el.removeAttribute('fill-opacity'); });
 
         // Hacer clickeable cada musculo del mapa (siempre, tenga o no datos)
         for (const [muscle, ids] of Object.entries(MUSCLE_SVG_MAP)) {
@@ -12312,16 +12488,17 @@
             return;
         }
 
-        // Colorear cada grupo muscular segun su intensidad
+        // Colorear cada grupo muscular segun su intensidad (semi-transparente para que
+        // se siga viendo el musculo real del video 3D debajo del color)
         for (const [muscle, count] of Object.entries(muscleCount)) {
             const color = getHeatColor(count / maxVal);
             const ids = MUSCLE_SVG_MAP[muscle] || [];
             ids.forEach(id => {
                 const el = document.getElementById(id);
-                if (el) el.setAttribute('fill', color);
+                if (el) { el.setAttribute('fill', color); el.setAttribute('fill-opacity', HM_LIVE_FILL_OPACITY); }
             });
             if (muscle === 'Trapecio') {
-                document.querySelectorAll('.hm-trapecio').forEach(el => el.setAttribute('fill', color));
+                document.querySelectorAll('.hm-trapecio').forEach(el => { el.setAttribute('fill', color); el.setAttribute('fill-opacity', HM_LIVE_FILL_OPACITY); });
             }
         }
 
