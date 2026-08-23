@@ -13548,13 +13548,40 @@
         }
     }
 
+    // Si la rutina que se está guardando se cargó desde Historial (se tocó
+    // "Editar Rutina" de una rutina existente de un alumno, se la haya
+    // modificado o no), sugerir como nombre de la plantilla el nombre del
+    // alumno + el número de rutina que ya tiene (extraído del código, ej.
+    // "juan-0004" -> "JUAN - Rutina 4"), para no tener que volver a escribirlo
+    // a mano cada vez que se guarda en el Repositorio.
+    function _pfNombreSugeridoRepo() {
+        if (!_pfCodigoEditando) return '';
+        const alumno = (document.getElementById('alumno-nombre')?.value || '').trim().toUpperCase();
+        const m = /-(\d+)$/.exec(_pfCodigoEditando);
+        const numero = m ? parseInt(m[1], 10) : null;
+        if (alumno && numero) return `${alumno} - Rutina ${numero}`;
+        return alumno || '';
+    }
+
     // Abre el modal para guardar la rutina actual en el repositorio
     function abrirGuardarPlantilla() {
         // Si estamos en la tab de repositorio, redirigir a crear rutina
         document.getElementById('repo-status').textContent = '';
-        document.getElementById('repo-nombre-input').value = '';
+        document.getElementById('repo-nombre-input').value = _pfNombreSugeridoRepo();
         document.getElementById('modal-repo-guardar').classList.remove('hidden');
-        setTimeout(() => document.getElementById('repo-nombre-input').focus(), 100);
+        setTimeout(() => document.getElementById('repo-nombre-input').select(), 100);
+    }
+
+    // Firma de contenido de una rutina (días, bloques, ejercicios y
+    // calentamientos) para poder detectar si dos plantillas del repositorio
+    // son "iguales en todo", sin tener en cuenta el nombre de la plantilla,
+    // la fecha ni a qué alumno pertenece cada una.
+    function _pfFirmaContenidoRutina(obj) {
+        return JSON.stringify({
+            dias: obj.diasData || [],
+            warmup: obj.warmupConfigs || [],
+            semanas: obj.semanas || null
+        });
     }
 
     // Captura el estado actual de diasData + DOM y lo guarda en repositorio
@@ -13618,6 +13645,55 @@
         }
 
         const repo = getRepositorio();
+
+        // ── Detección de rutina duplicada ───────────────────────────────
+        // Si esta misma rutina (mismo contenido: mismos días, bloques,
+        // ejercicios y calentamientos) ya existe como OTRA plantilla del
+        // repositorio -por ejemplo porque ya se guardó antes para otro
+        // alumno-, no se duplica: se pregunta si se quiere sumar a este
+        // alumno como otro usuario de esa plantilla ya existente. Aplica
+        // sin importar desde dónde se llegó a "Guardar en Repositorio"
+        // (Crear Rutina, Editar Rutina desde Historial, o Editar Rutina
+        // desde Repositorio).
+        const idxPropio = (!window._repoGuardarComoNueva && window._repoEditandoIdx !== undefined && window._repoEditandoIdx !== null)
+            ? window._repoEditandoIdx : null;
+        const firmaNueva = _pfFirmaContenidoRutina(snapshot);
+        const idxIdentica = repo.findIndex((r, i) => i !== idxPropio && _pfFirmaContenidoRutina(r) === firmaNueva);
+
+        if (idxIdentica !== -1) {
+            const existente = repo[idxIdentica];
+            document.getElementById('modal-repo-guardar').classList.add('hidden');
+            pfConfirm(
+                `Esta rutina es igual a "${existente.nombre}". ¿Querés guardarla?`,
+                { destructivo: false, icono: '🔁', textoConfirmar: 'Sí, guardar', textoCancelar: 'No guardar' }
+            ).then(confirmado => {
+                pfBtnLoadingOff(btnGuardar);
+                if (!confirmado) {
+                    toast('Esta rutina no se guardará');
+                    showTab('repositorio');
+                    return;
+                }
+                // No se duplica la plantilla: se registra a este alumno como
+                // otro usuario de la que ya existe, igual que queda
+                // registrado cuando se comparte una rutina copiada del
+                // Repositorio (mismo campo "usos").
+                if (!Array.isArray(existente.usos)) existente.usos = [];
+                const alumnoActual = ((document.getElementById('alumno-nombre')?.value || '').trim() || snapshot.alumnoNombre || '').toUpperCase();
+                existente.usos.push({ alumno: alumnoActual || null, fecha: Date.now(), codigo: (_pfCodigoEditando || '').toUpperCase() || null });
+                setRepositorio(repo);
+                window._repoGuardarComoNueva = false;
+                window._repoEditandoIdx = null;
+                _pfLimpiarBorrador();
+                if (document.getElementById('repo-lista')) renderizarRepositorio();
+                toast('Alumno agregado a "' + existente.nombre + '" en el repositorio');
+                if (typeof window._repoGuardarCallback === 'function') {
+                    window._repoGuardarCallback();
+                    window._repoGuardarCallback = null;
+                }
+            });
+            return;
+        }
+
         // Si venimos de "editar rutina completa" y se eligió sobrescribir, reemplazar
         // el ítem existente. Si se eligió "Guardar como nueva" (_repoGuardarComoNueva),
         // se agrega como un ítem nuevo aunque estemos editando uno existente.
