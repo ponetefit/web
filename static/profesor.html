@@ -11299,6 +11299,13 @@
 
             let progresoHTML = '';
             if (registrosReales.length) {
+                // Chequeo de coherencia contra el historial de cargas (que nunca
+                // se pisa, a diferencia del registro de asistencia viejo antes de
+                // este arreglo). Si el día que quedó guardado no coincide con el
+                // día que sugieren los pesos cargados ese día, avisamos: esto
+                // ayuda a detectar registros viejos afectados por el bug anterior
+                // (donde a veces quedaba mal etiquetado el día).
+                const estimadoParaChequeo = (r && r.tipo === 'MULTIDIA') ? _pfProgresoDelDia(r, fechaISO, cod) : null;
                 progresoHTML = registrosReales.map((reg) => {
                     let linea;
                     if (r && r.tipo === 'MULTIDIA' && reg.dia) {
@@ -11310,7 +11317,13 @@
                     if (tieneMasDeUnaSemana && reg.semana) {
                         linea += ' · <span class="text-naranja">Semana ' + escapeHtml(String(reg.semana)) + '</span>';
                     }
-                    return '<div class="text-xs text-azul mt-0.5">' + linea + '</div>';
+                    let advertencia = '';
+                    if (estimadoParaChequeo && estimadoParaChequeo.dia && reg.dia &&
+                        estimadoParaChequeo.dia !== reg.dia && estimadoParaChequeo.hechos >= 2) {
+                        advertencia = '<div class="text-[11px] text-rojo mt-0.5">⚠️ Los pesos cargados ese día coinciden más con el Día ' +
+                            estimadoParaChequeo.dia + ' — este registro podría estar mal etiquetado (dato viejo).</div>';
+                    }
+                    return '<div class="text-xs text-azul mt-0.5">' + linea + '</div>' + advertencia;
                 }).join('');
             } else {
                 const prog = _pfProgresoDelDia(r, fechaISO, cod);
