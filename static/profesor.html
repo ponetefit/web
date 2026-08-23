@@ -2389,14 +2389,18 @@
             </div>
 
             <!-- Barra de progresión semanal (mismos ejercicios, distinta serie/reps/pausa por semana) -->
-            <div id="pf-barra-semanas" class="hidden flex flex-wrap items-center gap-2 mb-4 p-3 rounded-2xl border border-borde bg-tarjeta">
-                <span class="text-xs font-bold text-textoSuave uppercase tracking-wider mr-1">📅 Semanas</span>
-                <div id="pf-semanas-lista" class="flex flex-wrap gap-1.5 flex-1 min-w-0"></div>
-                <div class="flex gap-2 flex-shrink-0">
-                    <button id="pf-semana-eliminar" onclick="_pfEliminarSemanaActiva()" title="Eliminar esta semana" class="hidden px-2.5 py-2 rounded-xl border border-rojo/40 text-rojo text-xs font-bold">🗑</button>
-                    <button id="pf-semana-agregar" onclick="_pfAgregarSemanaEnCreacion()" class="px-3 py-2 rounded-xl bg-verde text-white text-xs font-bold uppercase whitespace-nowrap">+ Agregar semana</button>
+            <div id="pf-barra-semanas" class="hidden mb-4 p-3 rounded-2xl border border-borde bg-tarjeta">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-textoSuave uppercase tracking-wider flex-shrink-0">📅 Semanas</span>
+                    <div id="pf-semanas-lista" class="overflow-x-auto flex items-center gap-1.5 flex-1 min-w-0 pb-0.5" style="-webkit-overflow-scrolling:touch;scrollbar-width:none;"></div>
+                    <button id="pf-semana-eliminar" onclick="_pfEliminarSemanaActiva()" title="Eliminar esta semana" class="hidden flex-shrink-0 px-2.5 py-2 rounded-xl border border-rojo/40 text-rojo text-xs font-bold">🗑</button>
+                    <button id="pf-semana-agregar-desktop" onclick="_pfAgregarSemanaEnCreacion()" class="hidden sm:inline-block flex-shrink-0 px-3 py-2 rounded-xl bg-verde text-white text-xs font-bold uppercase whitespace-nowrap">+ Agregar semana</button>
                 </div>
+                <button id="pf-semana-agregar-mobile" onclick="_pfAgregarSemanaEnCreacion()" class="sm:hidden w-full mt-2.5 py-2.5 rounded-xl bg-verde text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5">
+                    <span class="text-base leading-none">+</span> Agregar semana
+                </button>
             </div>
+            <style>#pf-semanas-lista::-webkit-scrollbar{display:none;}</style>
 
             <!-- Navegador de dias para mobile: swipe o flechas para moverse entre dias -->
             <div id="dia-pager-mobile" class="hidden items-center justify-between gap-2 bg-tarjeta rounded-2xl border border-borde px-3 py-2.5 mb-3" style="display:none;">
@@ -8679,14 +8683,19 @@
             let html = '';
             for (let i = 0; i < totalSemanas; i++) {
                 const activa = (i === semanaActivaIdx);
-                html += '<button type="button" onclick="_pfIrASemana(' + i + ')" class="px-3 py-1.5 rounded-lg text-xs font-bold border transition ' +
+                html += '<button type="button" onclick="_pfIrASemana(' + i + ')" class="flex-shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold border transition ' +
                     (activa ? 'bg-verde text-white border-verde' : 'border-borde text-textoSuave hover:border-verde/50 hover:text-texto') +
                     '">Semana ' + (i + 1) + '</button>';
             }
             lista.innerHTML = html;
+            // En mobile, la lista scrollea horizontal: llevar la semana activa a
+            // la vista (por si hay varias semanas y la activa quedó fuera de foco).
+            const chipActivo = lista.children[semanaActivaIdx];
+            if (chipActivo && chipActivo.scrollIntoView) {
+                chipActivo.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            }
         }
         document.getElementById('pf-semana-eliminar').classList.toggle('hidden', totalSemanas <= 1);
-        document.getElementById('pf-semana-agregar').classList.remove('hidden');
     }
 
     // --- Construye el objeto "datos" de un día para enviar al backend, en
