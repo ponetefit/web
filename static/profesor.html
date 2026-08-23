@@ -2036,8 +2036,11 @@
                     <div class="flex flex-col lg:flex-row items-center justify-center gap-6">
                         <div class="text-center">
                             <p class="text-xs text-textoSuave mb-2 uppercase tracking-wider"><span id="hm-view-label">Cuerpo humano · 360°</span></p>
-                            <div class="hm-video-wrap" style="position:relative;width:min(290px,78vw);height:min(520px,112vw);min-height:390px;background:radial-gradient(ellipse,#25252e 0%,#0d0d11 72%);border:1px solid #2a2a35;border-radius:16px;overflow:hidden;">
-                                <video id="hm-video-rotating" src="/videos/skeleton-muscles.mp4" muted loop autoplay playsinline webkit-playsinline preload="auto" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;"></video>
+                            <div class="hm-video-wrap" style="position:relative;width:290px;max-width:78vw;height:520px;max-height:112vw;min-height:390px;background:radial-gradient(ellipse,#25252e 0%,#0d0d11 72%);border:1px solid #2a2a35;border-radius:16px;overflow:hidden;">
+                                <video id="hm-video-rotating" muted loop autoplay playsinline webkit-playsinline x5-playsinline preload="auto" disablepictureinpicture aria-hidden="true" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;">
+                                    <source src="/videos/skeleton-muscles.mp4" type="video/mp4">
+                                    Tu navegador no puede reproducir este video MP4.
+                                </video>
                                 <canvas id="hm-canvas-rotating" aria-label="Mapa de calor muscular 3D interactivo" style="display:block;width:100%;height:100%;"></canvas>
                             </div>
                             <p class="text-[10px] text-textoSuave mt-2">Los colores se calculan con la frecuencia de ejercicios del rango elegido.</p>
@@ -2116,8 +2119,12 @@
                         <div class="text-center">
                             <p class="text-xs text-textoSuave mb-2 uppercase tracking-wider">Vista Posterior</p>
                             <div class="hm-video-wrap" style="position:relative;width:195px;height:410px;">
-                                <video id="hm-video-back" class="hm-bg-video" src="/videos/skeleton-muscles.mp4" muted loop autoplay playsinline webkit-playsinline preload="auto" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;z-index:-1;pointer-events:none;"></video>
-                                <canvas id="hm-canvas-back" class="hm-bg-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;border-radius:12px;background:#111;"></canvas>
+                                <!-- El modelo visible del dashboard es hm-canvas-rotating.
+                                     Este bloque queda oculto para conservar IDs usados por
+                                     exportaciones antiguas, pero no descarga ni reproduce
+                                     un segundo video. -->
+                                <video id="hm-video-back" class="hm-bg-video" src="/videos/skeleton-muscles.mp4" muted loop playsinline webkit-playsinline preload="none" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;"></video>
+                                <canvas id="hm-canvas-back" class="hm-bg-canvas" style="display:none;"></canvas>
                                 <svg id="body-back" viewBox="0 0 220 460" width="195" height="410" style="position:relative;z-index:1;filter:drop-shadow(0 0 8px rgba(0,0,0,0.3));">
                                 <!-- Cabeza -->
                                 <ellipse cx="110" cy="28" rx="20" ry="24" fill="none" stroke="none" stroke-width="1"/>
@@ -4443,6 +4450,7 @@
     let _hmVideoPausado = false;
     let _hmRenderCounts = {};
     let _hmMusculoActivo = '';
+    let _hmBodyBounds = null;
 
     function iniciarVideoCromaHeatMap(videoId, canvasId) {
         const video = document.getElementById(videoId);
@@ -4475,6 +4483,24 @@
                 try {
                     const frame = ctx.getImageData(0, 0, cw, ch);
                     const data = frame.data;
+                    // Detectar la silueta de este fotograma. Las zonas se
+                    // calculan dentro de ella, nunca sobre coordenadas fijas
+                    // de pantalla; así la pintura acompaña el giro.
+                    let minX = cw, maxX = 0, minY = ch, maxY = 0, pixels = 0;
+                    for (let y = 0; y < ch; y++) {
+                        for (let x = 0; x < cw; x++) {
+                            const q = (y * cw + x) * 4;
+                            const qr = data[q], qg = data[q + 1], qb = data[q + 2];
+                            if (!(qg > 70 && qg > qr * 1.16 && qg > qb * 1.16)) {
+                                minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+                                minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+                                pixels++;
+                            }
+                        }
+                    }
+                    const bodyW = Math.max(1, maxX - minX);
+                    const bodyH = Math.max(1, maxY - minY);
+                    _hmBodyBounds = { minX, maxX, minY, maxY };
                     const max = Math.max(1, ...Object.values(_hmRenderCounts || {}));
                     // Clasificación espacial estable: el video ya gira; por eso
                     // coloreamos los píxeles del cuerpo del propio frame, no una
@@ -4487,7 +4513,10 @@
                                 data[i + 3] = 0;
                                 continue;
                             }
-                            const muscle = _hmMusculoParaPunto(x / cw, y / ch);
+                            const insideBody = pixels > 20 && x >= minX && x <= maxX && y >= minY && y <= maxY;
+                            const muscle = insideBody
+                                ? _hmMusculoParaPunto((x - minX) / bodyW, (y - minY) / bodyH)
+                                : '';
                             const count = Number(_hmRenderCounts[muscle] || 0);
                             if (count > 0) {
                                 const color = _hmHexToRgb(getHeatColor(count / max));
@@ -4508,20 +4537,72 @@
         function intentarPlay() { video.play().catch(() => {}); }
         intentarPlay();
         video.addEventListener('loadedmetadata', intentarPlay);
+        video.addEventListener('loadeddata', intentarPlay);
         video.addEventListener('canplay', intentarPlay);
         document.addEventListener('click', intentarPlay, { once: true });
         document.addEventListener('touchstart', intentarPlay, { once: true, passive: true });
+        video.addEventListener('error', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#8a8a9a';
+            ctx.font = '600 13px Roboto, Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Video no disponible', canvas.width / 2, canvas.height / 2 - 8);
+            ctx.font = '11px Roboto, Arial, sans-serif';
+            ctx.fillText('Revisá /videos/skeleton-muscles.mp4', canvas.width / 2, canvas.height / 2 + 14);
+        });
 
         requestAnimationFrame(dibujarCuadro);
         canvas.addEventListener('click', (event) => {
             const rect = canvas.getBoundingClientRect();
-            const muscle = _hmMusculoParaPunto((event.clientX - rect.left) / rect.width, (event.clientY - rect.top) / rect.height);
+            const px = (event.clientX - rect.left) / rect.width * canvas.width;
+            const py = (event.clientY - rect.top) / rect.height * canvas.height;
+            const b = _hmBodyBounds;
+            const muscle = b && px >= b.minX && px <= b.maxX && py >= b.minY && py <= b.maxY
+                ? _hmMusculoParaPunto((px - b.minX) / Math.max(1, b.maxX - b.minX), (py - b.minY) / Math.max(1, b.maxY - b.minY))
+                : '';
             if (muscle) mostrarDetalleMusculo(muscle);
         });
+
+        // Rotación libre con mouse, dedo o lápiz. Pointer Events evita tener
+        // implementaciones distintas para Edge/Chrome, Safari iOS y Android.
+        let drag = null;
+        canvas.style.touchAction = 'none';
+        canvas.addEventListener('pointerdown', (event) => {
+            if (!video.duration) return;
+            drag = { x: event.clientX, time: video.currentTime };
+            video.pause();
+            _hmVideoPausado = true;
+            if (canvas.setPointerCapture) canvas.setPointerCapture(event.pointerId);
+            event.preventDefault();
+        });
+        canvas.addEventListener('pointermove', (event) => {
+            if (!drag || !video.duration) return;
+            const delta = event.clientX - drag.x;
+            const width = canvas.getBoundingClientRect().width || 1;
+            const secondsPerPixel = video.duration / Math.max(180, width);
+            const nextTime = drag.time - delta * secondsPerPixel;
+            // La rotación es circular: al arrastrar más allá del último frame
+            // vuelve al primero sin frenarse en los extremos.
+            video.currentTime = ((nextTime % video.duration) + video.duration) % video.duration;
+            event.preventDefault();
+        });
+        canvas.addEventListener('pointerup', (event) => {
+            drag = null;
+            if (canvas.releasePointerCapture) canvas.releasePointerCapture(event.pointerId);
+        });
+        canvas.addEventListener('pointercancel', () => { drag = null; });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
         iniciarVideoCromaHeatMap('hm-video-rotating', 'hm-canvas-rotating');
+    });
+
+    // Safari iOS y algunos navegadores Android pausan los videos al minimizar
+    // la pestaña. Solo reanudamos si el usuario no lo había pausado a mano.
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && _hmVideoLoop && !_hmVideoPausado) {
+            _hmVideoLoop.play().catch(() => {});
+        }
     });
 
     // Tambien colorear elementos con class hm-trapecio (duplicado frontal)
@@ -12409,13 +12490,38 @@
 
     // Zonas aproximadas del cuerpo: se aplican al frame real del video, por
     // eso el resaltado sigue la silueta aunque esté de perfil o de espaldas.
+    function _hmEsPosterior() {
+        if (!_hmVideoLoop || !_hmVideoLoop.duration) return false;
+        const p = _hmVideoLoop.currentTime / _hmVideoLoop.duration;
+        return p > 0.30 && p < 0.72;
+    }
+
+    // Regiones independientes por grupo muscular; no son franjas. Se vuelven a
+    // calcular en cada frame, por eso el color se mueve con el modelo rotatorio.
     function _hmMusculoParaPunto(x, y) {
+        const posterior = _hmEsPosterior();
+        const lateral = x < .39 || x > .61;
+        const centro = x >= .39 && x <= .61;
         if (y < .16) return 'Trapecio';
-        if (y < .27) return x < .30 || x > .70 ? 'Hombros' : 'Pecho';
-        if (y < .39) return x < .28 || x > .72 ? 'Biceps' : (x < .40 || x > .60 ? 'Oblicuos' : 'Abdominales');
-        if (y < .62) return x < .38 || x > .62 ? 'Cuadriceps' : 'Aductores';
-        if (y < .82) return 'Isquiotibiales';
-        return 'Pantorrillas';
+        if (posterior) {
+            if (y < .34 && centro) return 'Espalda';
+            if (y < .30 && lateral) return 'Hombros';
+            if (y >= .27 && y < .44 && lateral) return 'Triceps';
+            if (y >= .30 && y < .45 && centro) return 'Lumbar';
+            if (y >= .42 && y < .59 && lateral) return 'Gluteos';
+            if (y >= .56 && y < .79) return 'Isquiotibiales';
+        } else {
+            if (y >= .16 && y < .31 && centro) return 'Pecho';
+            if (y >= .18 && y < .34 && lateral) return 'Hombros';
+            if (y >= .25 && y < .43 && lateral) return 'Biceps';
+            if (y >= .29 && y < .47 && centro) return 'Abdominales';
+            if (y >= .30 && y < .48 && lateral) return 'Oblicuos';
+            if (y >= .44 && y < .67 && lateral) return 'Cuadriceps';
+            if (y >= .45 && y < .63 && centro) return 'Aductores';
+        }
+        if (y >= .79) return 'Pantorrillas';
+        if (y >= .67 && lateral) return posterior ? 'Isquiotibiales' : 'Cuadriceps';
+        return '';
     }
 
     function toggleHeatMapVideo() {
