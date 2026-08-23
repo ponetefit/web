@@ -4142,12 +4142,6 @@
                     <div class="header-rutina-sub">
                         <span class="tipo-tag" id="tipo-tag">MODO</span>
                         <span id="id-display">---</span>
-                        <!-- Solo aparece si la rutina tiene mas de una semana cargada.
-                             Muestra la semana que se esta viendo ahora mismo, al lado
-                             del nombre/sistema/numero de rutina, Y funciona como botón
-                             para cambiarla (por si en esta pantalla no se llega a ver
-                             la barra naranja "Semana" de abajo). Ver _pfActualizarBotonSemanas(). -->
-                        <button type="button" id="semana-actual-tag" onclick="_pfCambiarSemana()" class="tipo-tag" style="display:none;background:var(--tarjeta-alt);color:var(--texto-suave);border:1px solid var(--borde);cursor:pointer;font:inherit;letter-spacing:2px;">SEMANA 1 ✎</button>
                     </div>
                 </div>
                 <div class="header-rutina-actions">
@@ -15598,6 +15592,12 @@
                         var key = btn.getAttribute('data-semana');
                         overlay.style.display = 'none';
                         _pfAplicarSemana(key);
+                        // Actualizar la barra "Semana" YA, apenas se toca la
+                        // semana, sin esperar a que termine de renderizarse
+                        // toda la rutina (eso puede tardar un toque en
+                        // rutinas largas y hacía parecer que no había pasado
+                        // nada al tocar).
+                        _pfActualizarBotonSemanas();
                         onConfirmar();
                     };
                 });
@@ -15625,21 +15625,10 @@
 
             // Muestra en la barra "Semana" en qué semana está el alumno
             // ahora mismo (ej: "SEMANA 3"), para que quede visible sin tener
-            // que abrir el selector. También actualiza el tag junto al
-            // nombre/sistema/número de rutina ("SEMANA 3"), para que se vea
-            // de un vistazo qué semana se está entrenando.
+            // que abrir el selector.
             function _pfActualizarLabelBotonSemanas(key) {
                 var label = document.getElementById('btn-semana-bar-label');
                 if (label) label.textContent = key ? ('SEMANA ' + key) : 'SEMANA';
-                var tag = document.getElementById('semana-actual-tag');
-                if (tag) {
-                    if (key) {
-                        tag.textContent = 'SEMANA ' + key + ' ✎';
-                        tag.style.display = 'inline-block';
-                    } else {
-                        tag.style.display = 'none';
-                    }
-                }
             }
 
             // Barra "Semana": permite cambiar de semana en cualquier
@@ -15655,10 +15644,14 @@
                     _bvDataPendiente = null;
                     if (!data) return;
                     esMultidia = data.es_multidia === true && (data.total_dias || 1) > 1;
-                    if (esMultidia) {
-                        renderMultidia(data, currentCode);
-                    } else {
-                        render(data);
+                    try {
+                        if (esMultidia) {
+                            renderMultidia(data, currentCode);
+                        } else {
+                            render(data);
+                        }
+                    } catch (e) {
+                        console.error('Error al renderizar la semana elegida:', e);
                     }
                     _pfActualizarBotonSemanas();
                     if (typeof mostrarToast === 'function') {
