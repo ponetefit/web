@@ -1596,8 +1596,19 @@
             background: rgba(255,193,7,0.14);
             border: 1px solid rgba(255,193,7,0.35);
             border-radius: 999px;
-            padding: 3px 10px;
+            padding: 5px 12px;
             letter-spacing: 0.03em;
+            cursor: pointer;
+            min-height: 28px;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+        }
+        .pf-vr-semana-tag:active {
+            background: rgba(255,193,7,0.28);
+        }
+        .pf-vr-semana-tag-activa {
+            color: #0a0a0a;
+            background: #FFD54F;
+            border-color: #FFD54F;
         }
         .pf-vr-dia-title {
             font-family: 'Roboto', sans-serif;
@@ -9708,7 +9719,7 @@
             currentData        = r;
             rutinaModalActual  = { codigo, ...r };
 
-            content.innerHTML  = _pfVistaModalCompacta ? _pfRenderVistaRapidaModal(codigo, r) : generarHTMLRutina(codigo, r);
+            content.innerHTML  = _pfVistaModalCompacta ? _pfRenderVistaRapidaModal(codigo, r, 'modal-rutina-content') : generarHTMLRutina(codigo, r);
         } catch (e) {
             content.innerHTML = '<p style="text-align:center;color:#EF5350;padding:40px;">Error de conexion</p>';
         }
@@ -9732,17 +9743,55 @@
         return numeros.length > 1 ? numeros : null;
     }
 
-    function _pfRenderVistaRapidaModal(codigo, r) {
-        const dias = _pfParsearDiasHistorial(r);
+    // Re-renderiza la vista rápida ya abierta (modal "Ver Rutina" del historial,
+    // o el modal del dashboard) mostrando los datos de la semana tocada, sin
+    // cerrar el modal. contentId identifica en qué modal está montada la vista
+    // (cada uno guarda su rutina actual en su propia variable global) para
+    // saber de dónde sacar "codigo"/"r" y dónde volver a pintar el HTML.
+    function _pfCambiarSemanaVistaRapida(contentId, semanaNum) {
+        let codigo, r;
+        if (contentId === 'modal-rutina-content') {
+            if (!rutinaModalActual) return;
+            codigo = rutinaModalActual.codigo;
+            r = rutinaModalActual;
+        } else if (contentId === 'modal-dash-rutina-content') {
+            if (!_pfDashRutinaActual) return;
+            codigo = _pfDashRutinaActual.codigo;
+            r = _pfDashRutinaActual.r;
+        } else {
+            return;
+        }
+        const content = document.getElementById(contentId);
+        if (!content) return;
+        content.innerHTML = _pfRenderVistaRapidaModal(codigo, r, contentId, semanaNum);
+    }
+    window._pfCambiarSemanaVistaRapida = _pfCambiarSemanaVistaRapida;
+
+    function _pfRenderVistaRapidaModal(codigo, r, contentId, semanaSel) {
+        // Si la rutina tiene mas de una semana cargada (progresion semanal),
+        // se muestran tags "SEM 1", "SEM 2", etc debajo del codigo, tocables,
+        // para que el profe pueda ver de un vistazo cuantas semanas tiene esa
+        // rutina Y cambiar entre ellas para chequear series/reps/pausa de
+        // cada una (no solo la ultima, que es la que trae "r" por defecto).
+        const numerosSemana = _pfNumerosSemanaRutina(r);
+        // "r" (fuera de /semanas) siempre refleja el contenido de la ULTIMA
+        // semana cargada (ver comentario en editarRutinaDesdeHistorial), asi
+        // que si no se pidio una semana especifica o se pidio la ultima, se
+        // usa "r" directo. Para cualquier semana anterior, se parsea desde
+        // r.semanas[n] (mismo "shape" que r, ver _pfExtraerDiasDeShape).
+        const ultimaSemana = numerosSemana ? numerosSemana[numerosSemana.length - 1] : null;
+        const semanaActiva = numerosSemana ? (semanaSel && numerosSemana.indexOf(semanaSel) !== -1 ? semanaSel : ultimaSemana) : null;
+        const rSemana = (semanaActiva && semanaActiva !== ultimaSemana && r.semanas[String(semanaActiva)]) ? r.semanas[String(semanaActiva)] : r;
+        const dias = _pfParsearDiasHistorial(rSemana);
         const alumno = (r.alumno || '').toUpperCase();
         const codigoTxt = (codigo || '').toUpperCase() + (r.tipo === 'MULTIDIA' ? ' · MULTI-DÍA' : '');
-        // Si la rutina tiene mas de una semana cargada (progresion semanal),
-        // se muestran tags "SEM 1", "SEM 2", etc debajo del codigo, para que
-        // el profe vea de un vistazo cuantas semanas tiene esa rutina.
-        const numerosSemana = _pfNumerosSemanaRutina(r);
         const semanasTags = numerosSemana ?
             '<div class="pf-vr-header-semanas">' +
-                numerosSemana.map(n => '<span class="pf-vr-semana-tag">SEM ' + n + '</span>').join('') +
+                numerosSemana.map(n => {
+                    const activa = n === semanaActiva;
+                    return '<button type="button" class="pf-vr-semana-tag' + (activa ? ' pf-vr-semana-tag-activa' : '') +
+                        '" onclick="_pfCambiarSemanaVistaRapida(\'' + contentId + '\', ' + n + ')">SEM ' + n + '</button>';
+                }).join('') +
             '</div>' : '';
         const headerCard = (alumno || codigoTxt) ?
             '<div class="pf-vr-header-card">' +
@@ -9807,7 +9856,7 @@
         if (btn) btn.textContent = _pfVistaModalCompacta ? '📄 Vista completa' : '📱 Vista rápida';
         const content = document.getElementById('modal-rutina-content');
         const r = rutinaModalActual;
-        content.innerHTML = _pfVistaModalCompacta ? _pfRenderVistaRapidaModal(r.codigo, r) : generarHTMLRutina(r.codigo, r);
+        content.innerHTML = _pfVistaModalCompacta ? _pfRenderVistaRapidaModal(r.codigo, r, 'modal-rutina-content') : generarHTMLRutina(r.codigo, r);
     }
 
     // ====================================================================
@@ -12801,7 +12850,7 @@
             // Vista compacta por defecto (mismo estilo oscuro tipo pills que usa
             // Crear Rutina/Historial) — combina mucho mejor con este modal oscuro
             // que la vista "estilo PDF" en blanco que tenía antes.
-            content.innerHTML = _pfDashVistaCompacta ? _pfRenderVistaRapidaModal(codigo, r) : generarHTMLRutina(codigo, r);
+            content.innerHTML = _pfDashVistaCompacta ? _pfRenderVistaRapidaModal(codigo, r, 'modal-dash-rutina-content') : generarHTMLRutina(codigo, r);
         } catch (e) {
             content.innerHTML = '<p class="text-rojo text-center py-8">Error de conexion</p>';
         }
@@ -12814,7 +12863,7 @@
         if (btn) btn.textContent = _pfDashVistaCompacta ? '📄 Vista completa' : '📱 Vista rápida';
         const content = document.getElementById('modal-dash-rutina-content');
         const { codigo, r } = _pfDashRutinaActual;
-        content.innerHTML = _pfDashVistaCompacta ? _pfRenderVistaRapidaModal(codigo, r) : generarHTMLRutina(codigo, r);
+        content.innerHTML = _pfDashVistaCompacta ? _pfRenderVistaRapidaModal(codigo, r, 'modal-dash-rutina-content') : generarHTMLRutina(codigo, r);
     }
 
     // ====================================================================
@@ -13393,7 +13442,7 @@
 
         const { codigo, obj } = convertirRepoARutinaFormat(r);
         const content = document.getElementById('modal-rutina-content');
-        content.innerHTML = _pfVistaModalCompacta ? _pfRenderVistaRapidaModal(codigo, obj) : generarHTMLRutina(codigo, obj);
+        content.innerHTML = _pfVistaModalCompacta ? _pfRenderVistaRapidaModal(codigo, obj, 'modal-rutina-content') : generarHTMLRutina(codigo, obj);
 
         // Guardar para poder descargar el PDF
         currentData = obj;
