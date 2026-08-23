@@ -6963,13 +6963,16 @@
         const ejPanel = document.getElementById('bloque-ejercicios-panel');
         let html = '';
         if (tipo === 'Circuito') {
-            html = `<div class="grid grid-cols-2 gap-3">
+            html = `<div class="grid grid-cols-3 gap-3">
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Vueltas</label>
                 <input id="bp-vueltas" type="number" value="3" min="1" oninput="renderBloqueEjsTemp();_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre vueltas (seg)</label>
                 <input id="bp-pausa-vuelta" type="number" value="60" min="0" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+                <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones</label>
+                <input id="bp-circ-reps" type="text" value="12" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
             </div>
-            <p class="text-xs text-textoSuave mt-2">Podes editar reps por vuelta en cada ejercicio abajo</p>`;
+            <p class="text-xs text-textoSuave mt-2">Se aplica a los ejercicios nuevos que agregues (todas las vueltas). Podés ajustar reps por vuelta de cada ejercicio individualmente abajo.</p>
+            <button type="button" onclick="_pfAplicarDefaultsCircuitoATodosBloque()" class="w-full mt-2 text-xs font-bold py-2 rounded-lg" style="background:rgba(105,240,174,.12);color:#69F0AE;border:1px solid rgba(105,240,174,.3);cursor:pointer">⟳ Aplicar estos valores a TODOS los ejercicios ya cargados</button>`;
         } else if (tipo === 'Circuito por Tiempo') {
             html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Duracion (minutos)</label>
                 <input id="bp-duracion" type="number" value="5" min="1" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>`;
@@ -7486,12 +7489,17 @@
         // Restaurar lista completa después de buscar
         cargarEjsBloque();
         const _esBloqSeries = (tipoBlq === 'Series');
+        const _esBloqCircuito = (tipoBlq === 'Circuito');
         const _defSerReps   = _esBloqSeries ? (document.getElementById('bp-ser-reps')?.value || '10') : '10';
         const _defSerSeries = _esBloqSeries ? (parseInt(document.getElementById('bp-ser-series')?.value) || 3) : 3;
         const _defSerPausa  = _esBloqSeries ? (document.getElementById('bp-ser-pausa')?.value || '60') : '60';
+        // Circuito por Vuelta: usa el valor "Repeticiones" del panel de config como
+        // default para los ejercicios nuevos (igual que Series usa bp-ser-reps).
+        const _defCircReps  = _esBloqCircuito ? (document.getElementById('bp-circ-reps')?.value || '12') : '12';
+        const _repsDefault = _esBloqCircuito ? _defCircReps : _defSerReps;
         bloqueEjsTemp.push({
             nombre, link,
-            reps: (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.reps) || _defSerReps,
+            reps: (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.reps) || _repsDefault,
             unit: (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.unit) || 'Reps',
             series: _defSerSeries, descanso: _defSerPausa,
             nota_tecnica: (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.nota_tecnica) || '',
@@ -7527,6 +7535,26 @@
         });
         renderBloqueEjsTemp();
         toast('Series, repeticiones y pausa actualizadas en ' + bloqueEjsTemp.length + ' ejercicio(s)');
+    }
+
+    // Aplica el valor de Repeticiones del panel de configuración de Circuito a
+    // TODOS los ejercicios ya cargados en el bloque (útil al editar una rutina
+    // existente -otra semana, Repositorio, Historial- donde ya hay ejercicios y
+    // se quiere cambiar las reps de todos de una sola vez, igual que hace Series
+    // con "Aplicar estos valores a TODOS los ejercicios ya cargados").
+    function _pfAplicarDefaultsCircuitoATodosBloque() {
+        if (bloqueEjsTemp.length === 0) return;
+        const numVueltas = parseInt(document.getElementById('bp-vueltas')?.value) || 3;
+        const nReps = document.getElementById('bp-circ-reps')?.value || '12';
+        bloqueEjsTemp.forEach(ej => {
+            ej.reps = nReps;
+            ej.reps_por_vuelta = [];
+            for (let v = 0; v < numVueltas; v++) {
+                ej.reps_por_vuelta.push(nReps);
+            }
+        });
+        renderBloqueEjsTemp();
+        toast('Repeticiones actualizadas en ' + bloqueEjsTemp.length + ' ejercicio(s)');
     }
 
     // Duplica el ejercicio en la posicion idx y lo agrega AL FINAL de la lista
@@ -8195,6 +8223,9 @@
         if (b.tipo === 'Circuito') {
             const v = document.getElementById('bp-vueltas'); if(v) v.value = b.vueltas || 3;
             const p = document.getElementById('bp-pausa-vuelta'); if(p) p.value = b.pausa_vuelta || 60;
+            const primerEjC = (b.ejercicios && b.ejercicios[0]) || {};
+            const primerRepC = (primerEjC.reps_por_vuelta && primerEjC.reps_por_vuelta[0]) || primerEjC.reps || 12;
+            const rC = document.getElementById('bp-circ-reps'); if(rC) rC.value = primerRepC;
         } else if (b.tipo === 'Por Tiempo') {
             const v = document.getElementById('bp-portiempo-vueltas'); if(v) v.value = b.vueltas || 3;
         } else if (b.tipo === 'Circuito por Tiempo') {
