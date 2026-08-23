@@ -13720,6 +13720,10 @@
             const totalEjs = (r.diasData || []).reduce((acc, d) => {
                 return acc + (d.warmupEjercicios||[]).length + (d.bloquesRutina||[]).reduce((a2, b) => a2 + (b.ejercicios||[]).length, 0);
             }, 0);
+            // Cuántas semanas de progresión tiene guardadas esta plantilla (ver
+            // guardarEnRepositorio). Mostrarlo acá de un vistazo evita tener que
+            // abrir "Ver Entrenamiento" para confirmar que se guardaron todas.
+            const totalSemanasRepo = Array.isArray(r.semanas) ? r.semanas.length : 0;
             const sistemas = pfSistemasDeRutinaRepo(r);
             const sistemasBadges = sistemas.length
                 ? sistemas.map(t => {
@@ -13753,6 +13757,7 @@
                     </div>
                     <div class="pf-repo-full-badges flex gap-2 flex-wrap items-center">
                         ${totalDias > 0 ? `<span class="text-xs text-azul">${totalDias} día${totalDias !== 1 ? 's' : ''}</span>` : ''}
+                        ${totalSemanasRepo > 1 ? `<span class="text-xs font-bold text-amarillo">📅 ${totalSemanasRepo} semanas</span>` : ''}
                         ${sistemasBadges}
                         ${totalEjs > 0 ? `<span class="text-xs text-verde">${totalEjs} ejercicio${totalEjs !== 1 ? 's' : ''}</span>` : ''}
                         ${r.alumnoNombre ? `<span class="text-xs text-textoSuave">· ${escapeHtml(r.alumnoNombre)}</span>` : ''}
@@ -13867,17 +13872,18 @@
 
         const codigo = r.nombre ? r.nombre.toUpperCase().replace(/\s+/g, '-').substring(0, 12) : 'REPO';
 
+        let obj;
         if (diasArr.length <= 1) {
             const dia = diasArr[0] || { warmupEjercicios: [], bloquesRutina: [] };
             const { tipo, datos } = buildDatosDiaRepo(dia, 0);
-            return { codigo, obj: { alumno, tipo, datos } };
+            obj = { alumno, tipo, datos };
         } else {
             const dias = diasArr.map((dia, i) => {
                 const { tipo, datos } = buildDatosDiaRepo(dia, i);
                 return { titulo: dia.titulo || ('Día ' + (i+1)), tipo, datos };
             });
             // Armar formato multidia que entiende generarHTMLRutina
-            const obj = {
+            obj = {
                 alumno,
                 tipo: 'MULTIDIA',
                 es_multidia: true,
@@ -13887,8 +13893,23 @@
             dias.forEach((dia, i) => {
                 obj['dia_' + (i+1)] = { titulo: dia.titulo, tipo: dia.tipo, datos: dia.datos };
             });
-            return { codigo, obj };
         }
+        // Si la plantilla tiene progresión semanal guardada (ver guardarEnRepositorio,
+        // r.semanas es un array de semanas ya "congeladas" en formato {titulo,tipo,datos}
+        // por día), exponerla acá como r.semanas EN FORMATO OBJETO (mismo shape que usa
+        // una rutina real del historial: {"1":{...}, "2":{...}}), para que la vista rápida
+        // del modal (_pfRenderVistaRapidaModal / _pfNumerosSemanaRutina) detecte que hay
+        // más de una semana y muestre las pestañas "Semana 1", "Semana 2", etc. Antes esto
+        // no se armaba nunca acá, así que aunque se guardaran todas las semanas en el
+        // repositorio, la vista previa solo mostraba la última y parecía que se habían
+        // perdido las demás.
+        if (Array.isArray(r.semanas) && r.semanas.length > 1) {
+            obj.semanas = {};
+            r.semanas.forEach((diasSemana, i) => {
+                obj.semanas[String(i + 1)] = _pfSemanaARutinaShape(diasSemana);
+            });
+        }
+        return { codigo, obj };
     }
 
     function verEntrenamientoRepo(idx) {
