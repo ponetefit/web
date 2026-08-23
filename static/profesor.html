@@ -6227,7 +6227,8 @@
         if (tipo === 'Circuito (Vueltas)') {
             const vueltas = _cfg.vueltas || 2;
             const pausa   = _cfg.pausa_vuelta || 30;
-            html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Vueltas</label><input id="warmup-vueltas-' + idx + '" type="number" value="' + vueltas + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ');renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre vueltas (seg)</label><input id="warmup-pausa-vuelta-' + idx + '" type="number" value="' + pausa + '" min="0" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div>';
+            const repsDefault = (_cfg.reps !== undefined && _cfg.reps !== null && _cfg.reps !== '') ? _cfg.reps : 12;
+            html = '<div class="grid grid-cols-3 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Vueltas</label><input id="warmup-vueltas-' + idx + '" type="number" value="' + vueltas + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ');renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre vueltas (seg)</label><input id="warmup-pausa-vuelta-' + idx + '" type="number" value="' + pausa + '" min="0" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones</label><input id="warmup-circ-reps-' + idx + '" type="text" value="' + repsDefault + '" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div><p class="text-xs text-textoSuave mt-2">Se aplica a los ejercicios nuevos que agregues (todas las vueltas). Podés ajustar reps por vuelta de cada ejercicio individualmente abajo.</p><button type="button" onclick="_pfAplicarDefaultsCircuitoATodosWarmup(' + idx + ')" class="w-full mt-2 text-xs font-bold py-2 rounded-lg" style="background:rgba(105,240,174,.12);color:#69F0AE;border:1px solid rgba(105,240,174,.3);cursor:pointer">⟳ Aplicar estos valores a TODOS los ejercicios ya cargados</button>';
         } else if (tipo === 'Circuito por Tiempo') {
             const dur = _cfg.duracion_bloque || 3;
             html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Duracion (minutos)</label><input id="warmup-duracion-' + idx + '" type="number" value="' + dur + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>';
@@ -6268,6 +6269,7 @@
         if (tipo === 'Circuito (Vueltas)') {
             cfg.vueltas     = parseInt(document.getElementById('warmup-vueltas-' + idx)?.value) || 2;
             cfg.pausa_vuelta = parseInt(document.getElementById('warmup-pausa-vuelta-' + idx)?.value) || 30;
+            cfg.reps        = (document.getElementById('warmup-circ-reps-' + idx)?.value || '').trim() || 12;
         } else if (tipo === 'Circuito por Tiempo') {
             cfg.duracion_bloque = parseInt(document.getElementById('warmup-duracion-' + idx)?.value) || 3;
         } else if (tipo === 'Tabata') {
@@ -6352,7 +6354,7 @@
         const nombre = selEj ? selEj.value : '';
         const tipoWSel = document.getElementById('warmup-tipo-' + idx)?.value || '';
         const _cfgW = (diasData[idx] && diasData[idx]._warmupCfg) || {};
-        const reps = (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.reps) || document.getElementById('warmup-ej-reps-' + idx)?.value.trim() || (tipoWSel === 'Series/Reps' ? (_cfgW.reps || 10) : '') || '';
+        const reps = (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.reps) || document.getElementById('warmup-ej-reps-' + idx)?.value.trim() || (tipoWSel === 'Series/Reps' ? (_cfgW.reps || 10) : '') || (tipoWSel === 'Circuito (Vueltas)' ? (_cfgW.reps || 12) : '') || '';
         const unit = (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.unit) || document.getElementById('warmup-ej-unit-' + idx)?.value || 'Reps';
         const nota_tecnica = (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.nota_tecnica) || '';
         const descanso = (tipoWSel === 'Series/Reps') ? (_cfgW.pausa || 60) : '';
@@ -6413,6 +6415,27 @@
     // del calentamiento a TODOS los ejercicios ya cargados (útil al editar una
     // rutina existente -otra semana, Repositorio, Historial- donde ya hay
     // ejercicios y se quiere cambiar el esquema general de una sola vez).
+    // Aplica la cantidad de Repeticiones del panel de configuración de
+    // "Circuito (Vueltas)" del calentamiento a TODOS los ejercicios ya
+    // cargados (misma idea que _pfAplicarDefaultsCircuitoATodosBloque, pero
+    // para el calentamiento). Útil al editar una rutina existente -otra
+    // semana, Repositorio, Historial- donde ya hay ejercicios cargados y se
+    // quiere cambiar la cantidad de repeticiones de todos de una sola vez.
+    function _pfAplicarDefaultsCircuitoATodosWarmup(idx) {
+        if (!diasData[idx] || diasData[idx].warmupEjercicios.length === 0) return;
+        const numVueltas = parseInt(document.getElementById('warmup-vueltas-' + idx)?.value) || 2;
+        const nReps = (document.getElementById('warmup-circ-reps-' + idx)?.value || '').trim() || 12;
+        diasData[idx].warmupEjercicios.forEach(ej => {
+            ej.reps = nReps;
+            ej.reps_por_vuelta = [];
+            for (let v = 0; v < numVueltas; v++) {
+                ej.reps_por_vuelta.push(nReps);
+            }
+        });
+        renderWarmupEjsDia(idx);
+        toast('Repeticiones actualizadas en ' + diasData[idx].warmupEjercicios.length + ' ejercicio(s) del calentamiento');
+    }
+
     function _pfAplicarDefaultsSeriesATodosWarmup(idx) {
         if (!diasData[idx] || diasData[idx].warmupEjercicios.length === 0) return;
         const nSeries = parseInt(document.getElementById('warmup-series-' + idx)?.value) || 3;
@@ -8702,6 +8725,7 @@
                     if (dia._wTipo === 'Circuito (Vueltas)') {
                         const v = document.getElementById('warmup-vueltas-' + i); if (v) v.value = cfg.vueltas || 2;
                         const p = document.getElementById('warmup-pausa-vuelta-' + i); if (p) p.value = cfg.pausa_vuelta || 30;
+                        const rc = document.getElementById('warmup-circ-reps-' + i); if (rc) rc.value = (cfg.reps !== undefined && cfg.reps !== null && cfg.reps !== '') ? cfg.reps : 12;
                     } else if (dia._wTipo === 'Circuito por Tiempo') {
                         const d = document.getElementById('warmup-duracion-' + i); if (d) d.value = cfg.duracion_bloque || 3;
                     } else if (dia._wTipo === 'Tabata') {
@@ -8835,6 +8859,7 @@
                 if (warmupTipo === 'Circuito (Vueltas)') {
                     warmupDetalle.vueltas      = parseInt(document.getElementById('warmup-vueltas-' + diaIdx)?.value)      || _saved.vueltas      || 2;
                     warmupDetalle.pausa_vuelta = parseInt(document.getElementById('warmup-pausa-vuelta-' + diaIdx)?.value) || _saved.pausa_vuelta || 30;
+                    warmupDetalle.reps         = (document.getElementById('warmup-circ-reps-' + diaIdx)?.value || '').trim() || _saved.reps || 12;
                 } else if (warmupTipo === 'Circuito por Tiempo') {
                     warmupDetalle.duracion_bloque = parseInt(document.getElementById('warmup-duracion-' + diaIdx)?.value) || _saved.duracion_bloque || 3;
                 } else if (warmupTipo === 'Tabata') {
@@ -13559,6 +13584,7 @@
                 if (tipo === 'Circuito (Vueltas)') {
                     cfg.vueltas      = parseInt(document.getElementById('warmup-vueltas-' + diaIdx)?.value)      || _saved.vueltas      || 2;
                     cfg.pausa_vuelta = parseInt(document.getElementById('warmup-pausa-vuelta-' + diaIdx)?.value) || _saved.pausa_vuelta || 30;
+                    cfg.reps         = (document.getElementById('warmup-circ-reps-' + diaIdx)?.value || '').trim() || _saved.reps || 12;
                 } else if (tipo === 'Circuito por Tiempo') {
                     cfg.duracion_bloque = parseInt(document.getElementById('warmup-duracion-' + diaIdx)?.value) || _saved.duracion_bloque || 3;
                 } else if (tipo === 'Tabata') {
@@ -14093,6 +14119,7 @@
                         const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
                         set('warmup-vueltas-' + diaIdx, cfg.vueltas);
                         set('warmup-pausa-vuelta-' + diaIdx, cfg.pausa_vuelta);
+                        set('warmup-circ-reps-' + diaIdx, cfg.reps);
                         set('warmup-duracion-' + diaIdx, cfg.duracion_bloque);
                         set('warmup-trabajo-' + diaIdx, cfg.trabajo);
                         set('warmup-pausa-' + diaIdx, cfg.pausa);
