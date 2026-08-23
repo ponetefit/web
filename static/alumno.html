@@ -7300,8 +7300,9 @@
             }
 
             // ─── FILA DE VUELTAS: reps y carga alineados en la misma columna (V1, V2, V3...) ───
-            function crearFilaVueltas(nombreEj, repsPorVuelta, unit, baseId, conCarga) {
+            function crearFilaVueltas(nombreEj, repsPorVuelta, unit, baseId, conCarga, prefijo, labelsArr) {
                 var ejU = (unit || 'REPS').toUpperCase();
+                var pfx = prefijo || 'V';
                 var cols = repsPorVuelta.map(function(rv, vi) {
                     var inputHtml = '';
                     if (conCarga) {
@@ -7312,8 +7313,9 @@
                             '<span class="vuelta-carga-kg">kg</span>' +
                             '</div>';
                     }
+                    var labelTxt = (labelsArr && labelsArr[vi]) ? labelsArr[vi] : (pfx + (vi + 1));
                     return '<div class="vuelta-col">' +
-                        '<span class="vuelta-num">V' + (vi + 1) + '</span>' +
+                        '<span class="vuelta-num">' + labelTxt + '</span>' +
                         '<span class="vuelta-reps">' + rv + ' ' + ejU + '</span>' +
                         inputHtml +
                         '</div>';
@@ -7623,7 +7625,8 @@
             // ─── EMOM: agrupar ejercicios que se repiten en varios minutos en una sola card ───
             // (en vez de repetir la card completa por cada minuto, se muestra una vez con
             // un texto compacto indicando en qué minutos toca, sin llenar la card de chips)
-            function _emomCicloHtmlAgrupado(cicloEnriq) {
+            function _emomCicloHtmlAgrupado(cicloEnriq, uidPrefix) {
+                var _emUidPfx = uidPrefix || 'emom';
                 var html = '';
                 var yaRenderizado = {};
                 var totalMinutosNoDescanso = cicloEnriq.filter(function(md) { return !md.es_descanso; }).length;
@@ -7665,7 +7668,9 @@
                         if (apariciones.length > 1) {
                             // Repetido: una sola card con un texto compacto de minutos
                             // ("CADA MINUTO ×6" / "MIN 2-6" / "MIN 1-2, 4-5") en vez de
-                            // una fila de chips individuales que se hace larga y satura la vista
+                            // una fila de chips individuales que se hace larga y satura la vista.
+                            // La carga se registra POR REPETICIÓN (cada vez que vuelve a tocar,
+                            // igual que en Series), etiquetada con el minuto real (MIN 2, MIN 5...).
                             var minutosArr = apariciones.map(function(a) { return a.min; });
                             var minutosLabel = _emomFormatearMinutos(minutosArr, totalMinutosNoDescanso);
                             var repsBase = apariciones[0].reps,
@@ -7675,7 +7680,15 @@
                             });
                             var metaTexto = mismasReps && repsBase ? (repsBase + ' ' + unitBase + ' c/vez') : '';
                             var stripGrupo = _crearMinStripHtml(minutosLabel);
-                            html += '<div style="margin-bottom:10px;">' + crearCard(n, l, metaTexto, cc, null, '', false, null, stripGrupo) + '</div>';
+                            var extraHtmlEmomRep = '';
+                            var omitirGenEmomRep = false;
+                            if (cc) {
+                                var repsArrEmom = apariciones.map(function(a) { return a.reps || ''; });
+                                var labelsArrEmom = apariciones.map(function(a) { return 'MIN ' + a.min; });
+                                extraHtmlEmomRep = crearFilaVueltas(n, repsArrEmom, unitBase, _emUidPfx + '-rep-' + n.replace(/\s/g, ''), true, 'M', labelsArrEmom);
+                                omitirGenEmomRep = true;
+                            }
+                            html += '<div style="margin-bottom:10px;">' + crearCard(n, l, metaTexto, cc, null, extraHtmlEmomRep, omitirGenEmomRep, null, stripGrupo) + '</div>';
                         } else {
                             // Aparece una sola vez: igual que antes
                             var stripUnico = _crearMinStripHtml(minLabel);
@@ -8141,11 +8154,11 @@
                 return '<div class="card-ejercicio">' + crearAcordeonEjercicio(nombreFinal, contenido, meta, afterHeaderHtml) + '</div>';
             }
 
-            function crearCardNumero(idx, total, nombre, link, con_carga, elemento, meta) {
+            function crearCardNumero(idx, total, nombre, link, con_carga, elemento, meta, extraHtml, omitirPesoGenerico) {
                 var elem = elemento || _obtenerElemento(nombre);
                 var elemHtml = elem ? '<span class="card-elemento-badge">' + elem + '</span>' : '';
                 var pesoHtml = '';
-                if (con_carga || _obtenerConCarga(nombre)) {
+                if (!omitirPesoGenerico && (con_carga || _obtenerConCarga(nombre))) {
                     var pid = 'peso-card-' + (_cardCargaIdx++);
                     pesoHtml = crearPesoRow(nombre, pid, meta);
                 }
@@ -8156,7 +8169,7 @@
                     '<div class="card-thumb-overlay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg></div>' +
                     '</div>' : '<div class="card-thumb sin-video"><svg class="sinvideo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg><span>Sin video</span></div>';
                 _registrarLink(nombre, linkActual);
-                var contenido = elemHtml + thumbHtml + pesoHtml;
+                var contenido = elemHtml + thumbHtml + (extraHtml || '') + pesoHtml;
                 var nombreConIdx = '<span class="card-numero-idx-inline">EJ ' + idx + '/' + total + '</span>' + nombre;
                 return '<div class="card-numero card-ejercicio">' + crearAcordeonEjercicio(nombreConIdx, contenido, meta) + '</div>';
             }
@@ -8298,7 +8311,7 @@
                     var _cicloEnriqW = _emomEnriquecerCiclo(_cicloBaseW, ejsW);
                     if (_cicloEnriqW.length > 0) {
                         var emomMinHtmlW = '<div style="margin-bottom:12px;">';
-                        emomMinHtmlW += _emomCicloHtmlAgrupado(_cicloEnriqW);
+                        emomMinHtmlW += _emomCicloHtmlAgrupado(_cicloEnriqW, 'emomw');
                         emomMinHtmlW += '</div>';
                         wLista.innerHTML += emomMinHtmlW;
                     }
@@ -10070,11 +10083,25 @@
                     pLista.innerHTML += '<div class="bloque-descripcion">' + data.descripcion + '</div>';
                 }
 
-                // Tabata es por tiempo: no se muestran reps ni carga individual (el tiempo ya se ve arriba en el bloque)
+                // Tabata es por tiempo (no reps): la carga se registra por RONDA, ya que
+                // el ejercicio se repite "rondas" veces con "trabajo" segundos cada vez
+                // (a más segundos de trabajo, suele bajar el peso usado). Si solo hay
+                // 1 ronda, se muestra un único campo de carga genérico.
+                var tabRondas = parseInt(config.rondas) || 1;
                 ejercicios.forEach(function(ej, i) {
                     const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || "");
                     const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
-                    pLista.innerHTML += crearCardNumero(i + 1, ejercicios.length, n, l, false);
+                    var conCargaTab = Array.isArray(ej) ? false : !!(ej.con_carga || _obtenerConCarga(n));
+                    var metaTab = config.trabajo ? config.trabajo + ' SEG' : '';
+                    var extraHtmlTab = '';
+                    var omitirGenTab = false;
+                    if (conCargaTab && tabRondas > 1) {
+                        var segsArrTab = [];
+                        for (var _rti = 0; _rti < tabRondas; _rti++) segsArrTab.push(config.trabajo);
+                        extraHtmlTab = crearFilaVueltas(n, segsArrTab, 'SEG', 'tab-main-e' + i, true, 'R');
+                        omitirGenTab = true;
+                    }
+                    pLista.innerHTML += crearCardNumero(i + 1, ejercicios.length, n, l, conCargaTab, null, metaTab, extraHtmlTab, omitirGenTab);
                 });
             }
 
@@ -10125,7 +10152,7 @@
                 // -eso es lo que causaba que ejercicios con carga aparecieran duplicados
                 // como cards sueltas despues del ultimo minuto del EMOM.
                 if (_cicloEnriq.length > 0) {
-                    pLista.innerHTML += '<div style="margin-bottom:10px;">' + _emomCicloHtmlAgrupado(_cicloEnriq) + '</div>';
+                    pLista.innerHTML += '<div style="margin-bottom:10px;">' + _emomCicloHtmlAgrupado(_cicloEnriq, 'emom') + '</div>';
                 }
 
                 document.getElementById('emom-status').innerText = "LISTO";
@@ -10483,8 +10510,17 @@
                     rutinaTab.forEach(function(ej, i) {
                         const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej.ejercicio || "");
                         const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
-                        const cc = Array.isArray(ej) ? false : (ej.con_carga || false);
-                        htmlTab += crearCardNumero(i + 1, rutinaTab.length, n, l, cc);
+                        const cc = Array.isArray(ej) ? false : !!(ej.con_carga || _obtenerConCarga(n));
+                        var metaTabMix = tc.trabajo ? tc.trabajo + ' SEG' : '';
+                        var extraHtmlTabMix = '';
+                        var omitirGenTabMix = false;
+                        if (cc && tc.rondas > 1) {
+                            var segsArrTabMix = [];
+                            for (var _rtmi = 0; _rtmi < tc.rondas; _rtmi++) segsArrTabMix.push(tc.trabajo);
+                            extraHtmlTabMix = crearFilaVueltas(n, segsArrTabMix, 'SEG', tabUid + '-e' + i, true, 'R');
+                            omitirGenTabMix = true;
+                        }
+                        htmlTab += crearCardNumero(i + 1, rutinaTab.length, n, l, cc, null, metaTabMix, extraHtmlTabMix, omitirGenTabMix);
                     });
                     htmlTab += '<div class="emom-inline-box">' +
                         '<div id="' + tabStatusId + '" style="font-size:var(--fs-xs); font-weight:900; letter-spacing:3px; color:var(--naranja);">LISTO PARA TABATA</div>' +
@@ -10541,7 +10577,7 @@
                     // carga/peso ya se agrega solo dentro de cada card agrupada, asi que no
                     // hay que volver a listar los ejercicios con carga aparte (evita duplicados).
                     if (_cicloEnriqMix.length > 0) {
-                        emomHtml += '<div style="margin-bottom:10px;">' + _emomCicloHtmlAgrupado(_cicloEnriqMix) + '</div>';
+                        emomHtml += '<div style="margin-bottom:10px;">' + _emomCicloHtmlAgrupado(_cicloEnriqMix, emomUid) + '</div>';
                     }
                     var emomPausaId = emomUid + "-pausa";
                     var emomReinId = emomUid + "-rein";
@@ -11411,11 +11447,22 @@
                     reinId = uid + "-rein";
                 let html = '<div class="mix-seccion" style="border-color:var(--naranja);--card-color:var(--naranja);">' +
                     '<div class="mix-seccion-titulo" style="color:var(--naranja);">TABATA — ' + tc.trabajo + 's / ' + tc.pausa + 's | ' + tc.rondas + ' ronda(s) × ' + (tc.cantidad || 8) + ' ejercicios</div>';
-                // Tabata es por tiempo - sin carga individual (el tiempo ya se ve arriba)
+                // Tabata es por tiempo: carga por ronda (o campo único si hay 1 sola ronda)
+                var tabRondasInline = parseInt(tc.rondas) || 1;
                 rutina.forEach(function(ej, i) {
                     const n = Array.isArray(ej) ? ej[0] : (ej.nombre || ej);
                     const l = Array.isArray(ej) ? ej[1] : (ej.link || "");
-                    html += crearCardNumero(i + 1, rutina.length, n, l, false);
+                    var ccTabInline = Array.isArray(ej) ? false : !!(ej.con_carga || _obtenerConCarga(n));
+                    var metaTabInline = tc.trabajo ? tc.trabajo + ' SEG' : '';
+                    var extraHtmlTabInline = '';
+                    var omitirGenTabInline = false;
+                    if (ccTabInline && tabRondasInline > 1) {
+                        var segsArrTabInline = [];
+                        for (var _rtii = 0; _rtii < tabRondasInline; _rtii++) segsArrTabInline.push(tc.trabajo);
+                        extraHtmlTabInline = crearFilaVueltas(n, segsArrTabInline, 'SEG', uid + '-e' + i, true, 'R');
+                        omitirGenTabInline = true;
+                    }
+                    html += crearCardNumero(i + 1, rutina.length, n, l, ccTabInline, null, metaTabInline, extraHtmlTabInline, omitirGenTabInline);
                 });
                 html += '<div class="emom-inline-box">' +
                     '<div id="' + statusId + '" style="font-size:var(--fs-xs); font-weight:900; letter-spacing:3px; color:var(--naranja);">LISTO PARA TABATA</div>' +
