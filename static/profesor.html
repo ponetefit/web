@@ -13572,12 +13572,39 @@
         setTimeout(() => document.getElementById('repo-nombre-input').select(), 100);
     }
 
+    // JSON.stringify "estable": ordena alfabéticamente las claves de cada
+    // objeto (en todos los niveles, recursivamente) antes de convertir a
+    // texto. Un JSON.stringify normal depende del orden en que las
+    // propiedades quedaron insertadas en el objeto, que puede variar según
+    // por dónde se cargó la rutina (Firebase, IA, edición manual) aunque el
+    // contenido visible sea exactamente el mismo — eso hacía que dos
+    // rutinas idénticas no se detectaran como duplicadas. Ordenando las
+    // claves nos aseguramos de que el mismo contenido siempre produzca el
+    // mismo texto, sin importar el orden de carga.
+    function _pfStableStringify(valor) {
+        const ordenar = (v) => {
+            if (Array.isArray(v)) return v.map(ordenar);
+            if (v && typeof v === 'object') {
+                const out = {};
+                Object.keys(v).sort().forEach(k => {
+                    // Tratamos undefined igual que "clave ausente" para que no
+                    // importe si una rutina trae la clave con undefined y otra
+                    // directamente no la tiene.
+                    if (v[k] !== undefined) out[k] = ordenar(v[k]);
+                });
+                return out;
+            }
+            return v;
+        };
+        return JSON.stringify(ordenar(valor));
+    }
+
     // Firma de contenido de una rutina (días, bloques, ejercicios y
     // calentamientos) para poder detectar si dos plantillas del repositorio
     // son "iguales en todo", sin tener en cuenta el nombre de la plantilla,
     // la fecha ni a qué alumno pertenece cada una.
     function _pfFirmaContenidoRutina(obj) {
-        return JSON.stringify({
+        return _pfStableStringify({
             dias: obj.diasData || [],
             warmup: obj.warmupConfigs || [],
             semanas: obj.semanas || null
@@ -13701,6 +13728,13 @@
             repo[window._repoEditandoIdx] = snapshot;
             _pfRepoOrigenIdx = window._repoEditandoIdx;
         } else {
+            // Registrar de entrada al alumno que originó esta plantilla nueva
+            // (mismo campo "usos" que se usa cuando se detecta una rutina
+            // duplicada más adelante), para que quede el registro con nombre
+            // del alumno + número de rutina desde el primer guardado, y no
+            // recién cuando aparece una segunda rutina igual.
+            const alumnoOrigen = ((document.getElementById('alumno-nombre')?.value || '').trim() || snapshot.alumnoNombre || '').toUpperCase();
+            snapshot.usos = [{ alumno: alumnoOrigen || null, fecha: Date.now(), codigo: (_pfCodigoEditando || '').toUpperCase() || null }];
             repo.unshift(snapshot);
             // La rutina recién guardada queda en el índice 0. La marcamos como
             // "origen" para que, si el profe la comparte a continuación desde
