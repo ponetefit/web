@@ -2135,7 +2135,7 @@
                             <h3 class="text-sm font-bold text-azul uppercase tracking-wider">Historial de Carga</h3>
                             <select id="dash-carga-ejercicio-select" onchange="renderCargaChartEjercicio()" class="rounded-lg px-3 py-2 text-xs flex-shrink-0" style="max-width:220px"></select>
                         </div>
-                        <div class="grid grid-cols-3 gap-2 mb-4">
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
                             <div class="bg-fondoAlt rounded-xl p-3 text-center">
                                 <p class="text-lg font-black text-texto" id="dash-carga-ultima">--</p>
                                 <p class="text-[10px] text-textoSuave uppercase tracking-wider mt-1">Ultima carga</p>
@@ -2146,13 +2146,19 @@
                             </div>
                             <div class="bg-fondoAlt rounded-xl p-3 text-center">
                                 <p class="text-lg font-black text-verde" id="dash-carga-variacion">--</p>
-                                <p class="text-[10px] text-textoSuave uppercase tracking-wider mt-1">Variacion</p>
+                                <p class="text-[10px] text-textoSuave uppercase tracking-wider mt-1">Variacion peso</p>
+                            </div>
+                            <div class="bg-fondoAlt rounded-xl p-3 text-center">
+                                <p class="text-lg font-black text-naranja" id="dash-carga-volumen">--</p>
+                                <p class="text-[10px] text-textoSuave uppercase tracking-wider mt-1">Volumen (peso×reps)</p>
                             </div>
                         </div>
+                        <div id="dash-carga-insight" class="hidden text-xs rounded-xl p-3 mb-4 border"></div>
                         <div class="relative" style="height:220px;">
                             <canvas id="dash-chart-carga-ejercicio"></canvas>
                         </div>
                         <p id="dash-carga-sin-datos" class="text-textoSuave text-xs text-center py-8 hidden">Este alumno todavia no tiene cargas registradas en este rango</p>
+                        <p id="dash-carga-sin-reps-nota" class="hidden text-[10px] text-textoSuave text-center mt-2">Este ejercicio no tiene repeticiones registradas junto con el peso, asi que el volumen no se puede calcular (solo se compara el peso).</p>
                     </div>
 
                     <!-- Promedio por metodo -->
@@ -11102,7 +11108,13 @@
                                     t: r.t || 0,
                                     fecha: r.fecha || '',
                                     metodo: r.metodo || '',
-                                    codigo: cod
+                                    codigo: cod,
+                                    // reps: puede ser numero (reps de esa serie puntual)
+                                    // o texto libre (ej. "3x10") segun de donde vino.
+                                    // series: cantidad total de series del bloque, si
+                                    // se pudo identificar. Ambos opcionales.
+                                    reps: (r.reps !== undefined && r.reps !== null) ? r.reps : null,
+                                    series: (r.series !== undefined && r.series !== null) ? r.series : null
                                 });
                             });
                         });
@@ -12652,63 +12664,190 @@
         renderCargaPorMetodo();
     }
 
-    // Grafico de linea: evolucion del peso del ejercicio seleccionado
+    // Un registro individual de carga trae "reps" que puede ser un numero
+    // (reps de esa serie puntual) o texto libre tipo "3x10" (peso generico
+    // sin desglose por serie, guardado con la meta de la tarjeta). Esta
+    // funcion intenta sacar un numero de reps utilizable de cualquiera de
+    // los dos formatos. Devuelve null si no se puede interpretar.
+    function _pfRepsNumero(reps) {
+        if (reps === null || reps === undefined || reps === '') return null;
+        if (typeof reps === 'number' && !isNaN(reps)) return reps;
+        const m = String(reps).match(/(\d+(?:[.,]\d+)?)/);
+        if (!m) return null;
+        return parseFloat(m[1].replace(',', '.'));
+    }
+
+    // Agrupa los registros (que pueden venir varios por dia, uno por serie)
+    // en un unico punto por fecha, calculando:
+    // - pesoDia: el peso maximo usado ese dia (el "peso de trabajo").
+    // - repsDelPesoMax: las reps registradas junto a ese peso maximo, si se sabe.
+    // - seriesDia: cantidad de series/registros distintos logueados ese dia
+    //   (o el mayor "series" declarado, si vino en algun registro).
+    // - volumenDia: suma de (peso x reps) de cada registro individual de ese
+    //   dia. Si ALGUN registro del dia no tiene reps, el volumen de ese dia
+    //   queda como null (no se estima con datos incompletos, para no engañar).
+    function _pfAgruparCargaPorDia(registros) {
+        const porFecha = {};
+        registros.forEach((r) => {
+            const f = r.fecha || new Date(r.t).toISOString().slice(0, 10);
+            if (!porFecha[f]) porFecha[f] = { fecha: f, t: r.t, items: [], metodo: r.metodo };
+            porFecha[f].items.push(r);
+            if (r.t > porFecha[f].t) porFecha[f].t = r.t;
+        });
+        return Object.values(porFecha).sort((a, b) => a.t - b.t).map((dia) => {
+            let pesoDia = -Infinity, repsDelPesoMax = null, volumenDia = 0, volumenCompleto = true, seriesDeclaradas = 0;
+            dia.items.forEach((it) => {
+                if (it.v > pesoDia) { pesoDia = it.v; repsDelPesoMax = _pfRepsNumero(it.reps); }
+                const repsNum = _pfRepsNumero(it.reps);
+                if (repsNum !== null) volumenDia += it.v * repsNum;
+                else volumenCompleto = false;
+                if (it.series && it.series > seriesDeclaradas) seriesDeclaradas = it.series;
+            });
+            const seriesDia = seriesDeclaradas || dia.items.length;
+            return {
+                fecha: dia.fecha,
+                t: dia.t,
+                metodo: dia.metodo,
+                peso: pesoDia,
+                reps: repsDelPesoMax,
+                series: seriesDia,
+                volumen: volumenCompleto ? Math.round(volumenDia) : null,
+                cantidadRegistros: dia.items.length
+            };
+        });
+    }
+
+    // Grafico de linea: evolucion del peso (y del volumen, cuando hay datos
+    // de reps) del ejercicio seleccionado. Un dia con MAS peso pero MENOS
+    // reps/series no necesariamente es "mejora": por eso se muestra tambien
+    // el volumen (peso x reps x series) y un mensaje que aclara que paso.
     function renderCargaChartEjercicio() {
         const select = document.getElementById('dash-carga-ejercicio-select');
         const ctx = document.getElementById('dash-chart-carga-ejercicio');
         const sinDatos = document.getElementById('dash-carga-sin-datos');
+        const insightEl = document.getElementById('dash-carga-insight');
+        const notaSinReps = document.getElementById('dash-carga-sin-reps-nota');
         if (!select || !ctx) return;
 
-        const registros = dashCargaHistorialFiltrado[select.value] || [];
+        const registrosRaw = dashCargaHistorialFiltrado[select.value] || [];
+        const dias = _pfAgruparCargaPorDia(registrosRaw);
 
         if (dashCargaChartInstance) {
             dashCargaChartInstance.destroy();
             dashCargaChartInstance = null;
         }
 
-        if (registros.length === 0) {
+        if (dias.length === 0) {
             ctx.classList.add('hidden');
             if (sinDatos) sinDatos.classList.remove('hidden');
+            if (insightEl) insightEl.classList.add('hidden');
+            if (notaSinReps) notaSinReps.classList.add('hidden');
             setText3('dash-carga-ultima', '--');
             setText3('dash-carga-max', '--');
             setText3('dash-carga-variacion', '--');
+            setText3('dash-carga-volumen', '--');
             return;
         }
         ctx.classList.remove('hidden');
         if (sinDatos) sinDatos.classList.add('hidden');
 
-        const labels = registros.map(r => r.fecha || new Date(r.t).toLocaleDateString('es-AR'));
-        const valores = registros.map(r => r.v);
+        const labels = dias.map(d => d.fecha);
+        const pesos = dias.map(d => d.peso);
+        const hayAlgunVolumen = dias.some(d => d.volumen !== null);
+        const volumenes = dias.map(d => d.volumen);
 
-        const ultima = valores[valores.length - 1];
-        const maximo = Math.max(...valores);
-        const variacion = valores[valores.length - 1] - valores[0];
+        const ultimoDia = dias[dias.length - 1];
+        const primerDia = dias[0];
+        const maximo = Math.max(...pesos);
+        const variacionPeso = ultimoDia.peso - primerDia.peso;
 
-        setText3('dash-carga-ultima', ultima + ' kg');
+        setText3('dash-carga-ultima', ultimoDia.peso + ' kg' + (ultimoDia.reps ? ' × ' + ultimoDia.reps + (ultimoDia.series > 1 ? ' × ' + ultimoDia.series + 's' : '') : ''));
         setText3('dash-carga-max', maximo + ' kg');
-        setText3('dash-carga-variacion', (variacion >= 0 ? '+' : '') + variacion + ' kg');
+        setText3('dash-carga-variacion', (variacionPeso >= 0 ? '+' : '') + variacionPeso + ' kg');
+
+        // Volumen: comparamos el ultimo dia CON dato de volumen contra el
+        // primer dia CON dato de volumen (no necesariamente el primero/ultimo
+        // de la lista completa, por si algun dia intermedio no tiene reps).
+        const diasConVolumen = dias.filter(d => d.volumen !== null);
+        if (diasConVolumen.length >= 1) {
+            const ultV = diasConVolumen[diasConVolumen.length - 1];
+            setText3('dash-carga-volumen', ultV.volumen + ' kg');
+        } else {
+            setText3('dash-carga-volumen', '--');
+        }
+
+        // ── Insight: compara el ULTIMO dia con volumen contra el ANTERIOR con
+        // volumen, y aclara si el cambio de peso vino acompañado de un cambio
+        // real de volumen o si fue solo un cambio de esquema (menos reps).
+        if (insightEl) {
+            if (diasConVolumen.length >= 2) {
+                const actual = diasConVolumen[diasConVolumen.length - 1];
+                const anterior = diasConVolumen[diasConVolumen.length - 2];
+                const difPeso = actual.peso - anterior.peso;
+                const difVol = actual.volumen - anterior.volumen;
+                const pctVol = anterior.volumen > 0 ? Math.round((difVol / anterior.volumen) * 100) : 0;
+                const descActual = actual.peso + 'kg×' + (actual.reps || '?') + (actual.series > 1 ? '×' + actual.series + 's' : '');
+                const descAnterior = anterior.peso + 'kg×' + (anterior.reps || '?') + (anterior.series > 1 ? '×' + anterior.series + 's' : '');
+                let msg, clases;
+                if (difPeso > 0 && difVol <= 0) {
+                    msg = '⚠️ Subió el peso (' + descAnterior + ' → ' + descActual + ') pero bajaron las reps/series: el volumen total no mejoró (' + (difVol >= 0 ? '+' : '') + difVol + 'kg, ' + pctVol + '%). No es necesariamente una mejora real.';
+                    clases = 'bg-amarillo/10 border-amarillo/30 text-amarillo';
+                } else if (difVol > 0) {
+                    msg = '✅ Progreso real: volumen subió de ' + anterior.volumen + 'kg a ' + actual.volumen + 'kg (' + (pctVol >= 0 ? '+' : '') + pctVol + '%), comparando ' + descAnterior + ' vs ' + descActual + '.';
+                    clases = 'bg-verde/10 border-verde/30 text-verde';
+                } else if (difVol < 0) {
+                    msg = '🔻 El volumen bajó de ' + anterior.volumen + 'kg a ' + actual.volumen + 'kg (' + pctVol + '%), comparando ' + descAnterior + ' vs ' + descActual + '.';
+                    clases = 'bg-rojo/10 border-rojo/30 text-rojo';
+                } else {
+                    msg = '➖ Volumen igual (' + actual.volumen + 'kg) aunque cambió el esquema: ' + descAnterior + ' → ' + descActual + '.';
+                    clases = 'bg-fondoAlt border-borde text-textoSuave';
+                }
+                insightEl.className = 'text-xs rounded-xl p-3 mb-4 border ' + clases;
+                insightEl.textContent = msg;
+                insightEl.classList.remove('hidden');
+            } else {
+                insightEl.classList.add('hidden');
+            }
+        }
+        if (notaSinReps) notaSinReps.classList.toggle('hidden', hayAlgunVolumen);
+
+        const datasets = [{
+            label: 'Peso (kg)',
+            data: pesos,
+            borderColor: '#4FC3F7',
+            backgroundColor: 'rgba(79,195,247,0.12)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4,
+            pointBackgroundColor: '#4FC3F7',
+            borderWidth: 2,
+            yAxisID: 'y'
+        }];
+        if (hayAlgunVolumen) {
+            datasets.push({
+                label: 'Volumen (kg totales)',
+                data: volumenes,
+                borderColor: '#FFB74D',
+                backgroundColor: 'rgba(255,183,77,0.08)',
+                fill: false,
+                tension: 0.3,
+                pointRadius: 3,
+                pointBackgroundColor: '#FFB74D',
+                borderWidth: 2,
+                borderDash: [4, 3],
+                spanGaps: true,
+                yAxisID: 'y1'
+            });
+        }
 
         dashCargaChartInstance = new Chart(ctx, {
             type: 'line',
-            data: {
-                labels,
-                datasets: [{
-                    label: 'Peso (kg)',
-                    data: valores,
-                    borderColor: '#4FC3F7',
-                    backgroundColor: 'rgba(79,195,247,0.12)',
-                    fill: true,
-                    tension: 0.3,
-                    pointRadius: 4,
-                    pointBackgroundColor: '#4FC3F7',
-                    borderWidth: 2
-                }]
-            },
+            data: { labels, datasets },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: false },
+                    legend: { display: hayAlgunVolumen, labels: { color: '#8a8a9a', boxWidth: 12, font: { size: 10 } } },
                     tooltip: {
                         backgroundColor: '#1a1a20',
                         titleColor: '#f0f0f5',
@@ -12719,14 +12858,18 @@
                         padding: 10,
                         callbacks: {
                             afterLabel: (item) => {
-                                const m = registros[item.dataIndex].metodo;
-                                return m ? 'Metodo: ' + m : '';
+                                const d = dias[item.dataIndex];
+                                const partes = [];
+                                if (d.reps) partes.push(d.reps + ' reps' + (d.series > 1 ? ' × ' + d.series + ' series' : ''));
+                                if (d.metodo) partes.push('Metodo: ' + d.metodo);
+                                return partes;
                             }
                         }
                     }
                 },
                 scales: {
-                    y: { ticks: { color: '#8a8a9a', callback: v => v + ' kg' }, grid: { color: 'rgba(138,138,154,0.15)' } },
+                    y: { position: 'left', ticks: { color: '#4FC3F7', callback: v => v + ' kg' }, grid: { color: 'rgba(138,138,154,0.15)' } },
+                    y1: { position: 'right', display: hayAlgunVolumen, ticks: { color: '#FFB74D', callback: v => v + ' kg' }, grid: { display: false } },
                     x: { ticks: { color: '#8a8a9a' }, grid: { display: false } }
                 }
             }
