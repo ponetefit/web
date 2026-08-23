@@ -605,10 +605,47 @@ def _armar_payload_entrenamiento(dias, datos_paquete=None):
         shape["es_multidia"] = False
         if dias and isinstance(dias, list) and len(dias) == 1:
             shape["tipo"] = dias[0].get("tipo", "ENTRENAMIENTO")
-            shape["datos"] = dias[0].get("datos", {})
+            # OJO: hay que APLANAR dias[0]["datos"] sobre el shape (no
+            # anidarlo bajo una clave "datos"), para que quede con la misma
+            # forma "plana" que usa compartir_rutina para la version
+            # "actual" (payload.update(datos_paquete) unas lineas mas
+            # abajo). dias[0]["datos"] ya trae adentro las claves reales del
+            # bloque principal (segun el tipo: "datos", "rutina" o
+            # "bloques"), la "descripcion" y todos los "warmup_*" del
+            # calentamiento de ese dia. Si se dejaba anidado bajo "datos",
+            # alumno.html terminaba leyendo data.datos como si fuera
+            # directamente la lista de ejercicios del bloque principal
+            # (Object.values() de ese objeto mezclado), mostrando ejercicios
+            # mezclados con la descripcion y el tipo de calentamiento en el
+            # bloque principal. Ademas los "warmup_*" nunca quedaban seteados
+            # a nivel plano, asi que el calentamiento no se actualizaba al
+            # cambiar de semana (quedaba pegado el de la ultima semana
+            # cargada).
+            shape.update(dias[0].get("datos", {}) or {})
         else:
             shape.update(datos_paquete)
     return shape
+
+
+# Claves de metadata de una rutina guardada (no son contenido de
+# calentamiento/bloque principal), usadas para separar el contenido real al
+# "congelar" la version actual de una rutina de un solo dia como Semana 1.
+_META_KEYS_RUTINA = {
+    "app", "tipo", "alumno", "timestamp", "es_multidia", "total_dias",
+    "semanas", "semana_actual", "titulo"
+}
+
+
+def _extraer_datos_planos(data):
+    """Devuelve todas las claves de contenido (bloque principal + descripcion
+    + calentamiento, etc.) de una rutina de un solo dia ya guardada en
+    formato plano, excluyendo las claves de metadata y los "dia_N" (que solo
+    existen en rutinas multidia). Es la inversa de "shape.update(...)" en
+    _armar_payload_entrenamiento."""
+    return {
+        k: v for k, v in data.items()
+        if k not in _META_KEYS_RUTINA and not re.match(r"^dia_\d+$", k)
+    }
 
 
 def _extraer_dias_de_payload(data):
@@ -630,7 +667,11 @@ def _extraer_dias_de_payload(data):
     return [{
         "titulo": data.get("titulo", "Dia 1"),
         "tipo": data.get("tipo", "ENTRENAMIENTO"),
-        "datos": data.get("datos", {})
+        # Antes usaba solo data.get("datos", {}), que para una rutina plana
+        # es apenas el arreglo/objeto del bloque principal (segun el tipo);
+        # perdia la descripcion y todo el calentamiento al congelar la
+        # Semana 1. Ahora se capturan todas las claves de contenido.
+        "datos": _extraer_datos_planos(data)
     }]
 
 
