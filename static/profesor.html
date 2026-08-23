@@ -1755,6 +1755,13 @@
         }
         .pf-cr-cal { border-left-color: #4FC3F7; }
         .pf-cr-bloque { border-left-color: #CE93D8; }
+        /* Calendario de Asistencia: día que el profesor tocó para ver el detalle.
+           Usa outline (no ring) para poder combinarse con el ring-naranja de "hoy"
+           cuando el día tocado es justo el día de hoy. */
+        #dash-cal-grid .pf-cal-dia-seleccionado {
+            outline: 2px solid #4FC3F7;
+            outline-offset: 2px;
+        }
     </style>
 
     <!-- PWA: Inline Manifest + Service Worker + Icons -->
@@ -11185,6 +11192,7 @@
     let dashAsistenciaProgresoPorFecha = {};
     let dashAsistenciaUltimo = 0; // timestamp del ultimo acceso (el mas reciente entre todos sus codigos)
     let dashCalMesActivo = new Date(); // primer día del mes que se está mostrando en el calendario
+    let dashCalDiaSeleccionado = null; // fechaISO del día que el profesor tocó en el calendario (distinto de "hoy")
     const FIREBASE_ASISTENCIA_URL_DASH = "https://ponetefit-app-default-rtdb.firebaseio.com/asistencia/";
 
     async function cargarAlumnosDash() {
@@ -11391,6 +11399,7 @@
         // Al recalcular el mes (o cambiar de alumno) se cierra el detalle del
         // día que hubiera quedado abierto, para no mostrar info vieja.
         if (detalleEl) { detalleEl.classList.add('hidden'); detalleEl.innerHTML = ''; }
+        dashCalDiaSeleccionado = null;
 
         const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
         const DIAS = ['L','M','X','J','V','S','D'];
@@ -11420,7 +11429,9 @@
                 clases += ' border border-borde text-textoSuave';
             }
             if (esHoy) clases += ' ring-2 ring-naranja';
-            html += '<div class="' + clases + '" style="' + estilo + '" onclick="_pfMostrarDetalleDiaAsistencia(\'' + fechaISO + '\')">' + d + '</div>';
+            const esSeleccionado = fechaISO === dashCalDiaSeleccionado;
+            if (esSeleccionado) clases += ' pf-cal-dia-seleccionado';
+            html += '<div class="' + clases + '" data-fecha="' + fechaISO + '" style="' + estilo + '" onclick="_pfMostrarDetalleDiaAsistencia(\'' + fechaISO + '\')">' + d + '</div>';
         }
         gridEl.innerHTML = html;
         if (resumenEl) {
@@ -11448,6 +11459,20 @@
     function _pfMostrarDetalleDiaAsistencia(fechaISO) {
         const detalleEl = document.getElementById('dash-cal-detalle-dia');
         if (!detalleEl) return;
+
+        // Marcar en la grilla qué día tocó el profesor (además del día de hoy,
+        // que ya se marca aparte). Se actualiza el DOM directamente, sin volver
+        // a renderizar todo el calendario, para no perder el detalle que se
+        // está por mostrar.
+        const gridEl = document.getElementById('dash-cal-grid');
+        if (gridEl) {
+            const previo = gridEl.querySelector('.pf-cal-dia-seleccionado');
+            if (previo) previo.classList.remove('pf-cal-dia-seleccionado');
+            const celda = gridEl.querySelector('[data-fecha="' + fechaISO + '"]');
+            if (celda) celda.classList.add('pf-cal-dia-seleccionado');
+        }
+        dashCalDiaSeleccionado = fechaISO;
+
         const partes = fechaISO.split('-');
         const fechaLegible = partes[2] + '/' + partes[1] + '/' + partes[0];
         const codigosDia = dashAsistenciaPorFecha[fechaISO] || [];
@@ -17243,6 +17268,16 @@ self.addEventListener('fetch', event => {
                     box.className = 'mt-4 pt-4 border-t border-borde';
                     panel.appendChild(box);
                 }
+                // Este resumen junta feedback de CUALQUIER fecha (las últimas 5
+                // respuestas en general), a diferencia del detalle de un día
+                // puntual. Si el profesor ya tocó un día del calendario, ocultamos
+                // este resumen general para no dar la impresión de que se están
+                // mezclando entrenamientos de otros días con el día tocado.
+                if (typeof dashCalDiaSeleccionado !== 'undefined' && dashCalDiaSeleccionado) {
+                    box.classList.add('hidden');
+                    return;
+                }
+                box.classList.remove('hidden');
                 var entries = Object.keys(dashFeedbackPorFecha).reduce(function(all, fecha) {
                     return all.concat(dashFeedbackPorFecha[fecha] || []);
                 }, []).sort(function(a, b) { return (b.ts || 0) - (a.ts || 0); });
@@ -17316,6 +17351,7 @@ self.addEventListener('fetch', event => {
                     _originalDetalle(fechaISO);
                     var detalle = document.getElementById('dash-cal-detalle-dia');
                     if (detalle) detalle.insertAdjacentHTML('beforeend', _renderFeedbackDetalle(fechaISO));
+                    _renderFeedbackResumen(); // se oculta solo, ya que ahora hay un día seleccionado
                 };
             }
 
