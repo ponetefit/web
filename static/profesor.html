@@ -2030,7 +2030,7 @@
                         <div class="text-center">
                             <p class="text-xs text-textoSuave mb-2 uppercase tracking-wider">Vista Frontal</p>
                             <div class="hm-video-wrap" style="position:relative;width:195px;height:410px;">
-                                <video id="hm-video-front" class="hm-bg-video" src="/videos/skeleton-muscles.mp4" muted loop autoplay playsinline style="display:none;"></video>
+                                <video id="hm-video-front" class="hm-bg-video" src="/videos/skeleton-muscles.mp4" muted loop autoplay playsinline webkit-playsinline preload="auto" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;z-index:-1;pointer-events:none;"></video>
                                 <canvas id="hm-canvas-front" class="hm-bg-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;border-radius:12px;background:#111;"></canvas>
                                 <svg id="body-front" viewBox="0 0 220 460" width="195" height="410" style="position:relative;z-index:1;filter:drop-shadow(0 0 8px rgba(0,0,0,0.3));">
                                 <!-- Cabeza -->
@@ -2091,7 +2091,7 @@
                         <div class="text-center">
                             <p class="text-xs text-textoSuave mb-2 uppercase tracking-wider">Vista Posterior</p>
                             <div class="hm-video-wrap" style="position:relative;width:195px;height:410px;">
-                                <video id="hm-video-back" class="hm-bg-video" src="/videos/skeleton-muscles.mp4" muted loop autoplay playsinline style="display:none;"></video>
+                                <video id="hm-video-back" class="hm-bg-video" src="/videos/skeleton-muscles.mp4" muted loop autoplay playsinline webkit-playsinline preload="auto" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;z-index:-1;pointer-events:none;"></video>
                                 <canvas id="hm-canvas-back" class="hm-bg-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;border-radius:12px;background:#111;"></canvas>
                                 <svg id="body-back" viewBox="0 0 220 460" width="195" height="410" style="position:relative;z-index:1;filter:drop-shadow(0 0 8px rgba(0,0,0,0.3));">
                                 <!-- Cabeza -->
@@ -4442,7 +4442,15 @@
             }
             requestAnimationFrame(dibujarCuadro);
         }
-        video.play().catch(() => {});
+        // Algunos navegadores bloquean el autoplay hasta que hay una interaccion o hasta
+        // que el video termino de cargar metadata; reintentamos en varios eventos.
+        function intentarPlay() { video.play().catch(() => {}); }
+        intentarPlay();
+        video.addEventListener('loadedmetadata', intentarPlay);
+        video.addEventListener('canplay', intentarPlay);
+        document.addEventListener('click', intentarPlay, { once: true });
+        document.addEventListener('touchstart', intentarPlay, { once: true, passive: true });
+
         requestAnimationFrame(dibujarCuadro);
     }
 
