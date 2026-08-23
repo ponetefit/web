@@ -5439,6 +5439,12 @@
     // Código de la rutina que se está editando desde el Historial (null = rutina nueva).
     // Se usa para preguntar, al guardar, si se sobreescribe esa misma rutina o se crea una nueva.
     let _pfCodigoEditando = null;
+    // Cuántas semanas ya existían en Firebase para _pfCodigoEditando al abrir
+    // la edición (0 si la rutina no tenía progresión semanal todavía). Sirve
+    // para que "Guardar como semana nueva" solo suba las semanas realmente
+    // nuevas que se agregaron en esta edición, sin volver a subir como
+    // "nuevas" las que ya estaban guardadas de antes.
+    let _pfSemanasExistentesAlEditar = 0;
 
     // Muestra un mini-modal con 3 opciones (sobrescribir / nueva / cancelar) y devuelve
     // una Promise que resuelve a 'sobrescribir', 'nueva' o null (cancelado).
@@ -8417,6 +8423,30 @@
         return { tipo: d0.tipo, datos: d0.datos };
     }
 
+    // Inversa de _pfSemanaARutinaShape: a partir de una semana tal como la
+    // guarda el backend en /semanas/<n> (mismo shape que la rutina "actual":
+    // tipo/datos plano para 1 dia, o es_multidia/dia_N para varios), arma
+    // el array [{titulo,tipo,datos}, ...] que usa semanasBorrador. Espeja a
+    // _extraer_dias_de_payload() del lado del servidor.
+    const _PF_META_KEYS_SEMANA = { es_multidia:1, tipo:1, semanas:1, semana_actual:1, alumno:1, timestamp:1, app:1, titulo:1, total_dias:1 };
+    function _pfExtraerDiasDeShape(shape) {
+        shape = shape || {};
+        if (shape.es_multidia) {
+            const total = shape.total_dias || 0;
+            const dias = [];
+            for (let i = 1; i <= total; i++) {
+                const d = shape['dia_' + i] || {};
+                dias.push({ titulo: d.titulo || ('Dia ' + i), tipo: d.tipo || 'ENTRENAMIENTO', datos: d.datos || {} });
+            }
+            return dias;
+        }
+        const datos = {};
+        Object.keys(shape).forEach(k => {
+            if (!_PF_META_KEYS_SEMANA[k] && !/^dia_\d+$/.test(k)) datos[k] = shape[k];
+        });
+        return [{ titulo: 'Dia 1', tipo: shape.tipo || 'ENTRENAMIENTO', datos: datos }];
+    }
+
     // Vuelca un array de dias ya parseados (formato interno diasData) en el
     // formulario: reconstruye diasData, renderiza y restaura la config de
     // calentamiento de cada dia (mismo mecanismo que usa "Editar Rutina").
@@ -8501,7 +8531,11 @@
     function _pfEliminarSemanaActiva() {
         const totalSemanas = Math.max(semanasBorrador.length, semanaActivaIdx + 1);
         if (totalSemanas <= 1) return;
-        if (!confirm('¿Eliminar la Semana ' + (semanaActivaIdx + 1) + '? (todavía no compartiste la rutina, así que se pierde para siempre)')) return;
+        const esSemanaYaGuardada = semanaActivaIdx < _pfSemanasExistentesAlEditar;
+        const msgConfirm = esSemanaYaGuardada
+            ? '¿Eliminar la Semana ' + (semanaActivaIdx + 1) + '? Ya está guardada: se borra recién al guardar los cambios con "Guardar cambios en..." (sobrescribir).'
+            : '¿Eliminar la Semana ' + (semanaActivaIdx + 1) + '? (todavía no compartiste la rutina, así que se pierde para siempre)';
+        if (!confirm(msgConfirm)) return;
         if (semanaActivaIdx < semanasBorrador.length) semanasBorrador.splice(semanaActivaIdx, 1);
         const nuevoTotal = Math.max(semanasBorrador.length, 1);
         const nuevoIdx = Math.min(semanaActivaIdx, nuevoTotal - 1);
@@ -8772,10 +8806,21 @@
             // agrega esta versión al historial de semanas de la rutina, sin
             // pisar ni afectar las semanas anteriores. Si con "+ Agregar
             // semana" se armó más de una semana nueva en esta misma edición,
-            // se mandan TODAS en orden (una por una), no solo la última, para
-            // no perder las semanas intermedias que se hayan armado.
+            // se mandan TODAS en orden (una por una). Las semanas que YA
+            // existían antes de abrir la edición (semanasBorrador se
+            // precarga con ellas para poder navegarlas/editarlas) NO se
+            // reenvían acá para no duplicarlas — si se les hizo algún
+            // cambio, esos cambios se guardan con "Guardar cambios en..."
+            // (sobrescribir), que sí manda el historial completo.
             if (_pfModoGuardadoActual === 'nueva_semana' && _pfCodigoEditando) {
-                const semanasAEnviar = semanasBorrador.length > 0 ? semanasBorrador : [diasVivos];
+                // Si la rutina no tenía progresión semanal todavía (semanas
+                // existentes = 0), el propio endpoint /nueva-semana se
+                // encarga de "promover" el contenido actual a Semana 1 y
+                // agrega lo que mandemos como Semana 2: alcanza con un solo
+                // envío (el más reciente, "dias"), igual que antes.
+                const semanasAEnviar = _pfSemanasExistentesAlEditar > 0
+                    ? (semanasBorrador.slice(_pfSemanasExistentesAlEditar).length > 0 ? semanasBorrador.slice(_pfSemanasExistentesAlEditar) : [dias])
+                    : [dias];
                 try {
                     let ultimaGuardada = null;
                     for (const diasSemana of semanasAEnviar) {
@@ -9406,7 +9451,31 @@
             const r = data.rutina;
             historialRutinasCache[codigo] = r;
             _pfCodigoEditando = codigo; // recordar qué rutina se está editando, para preguntar al guardar
-            _pfResetSemanasBorrador(); // arranca en blanco: la barra "+ Agregar semana" queda disponible para armar una o más semanas nuevas de progresión sobre esta rutina
+
+            // Cargar TODAS las semanas ya guardadas de esta rutina (si tiene
+            // progresión semanal) en semanasBorrador, para poder navegarlas y
+            // editarlas todas desde acá (antes solo se cargaba la última
+            // semana, así que el resto quedaba inaccesible para editar y,
+            // encima, se perdía si se guardaba con "Guardar cambios").
+            semanasBorrador = [];
+            semanaActivaIdx = 0;
+            if (r.semanas && typeof r.semanas === 'object') {
+                const numerosSemana = Object.keys(r.semanas)
+                    .map(k => parseInt(k, 10))
+                    .filter(n => !isNaN(n) && r.semanas[String(n)])
+                    .sort((a, b) => a - b);
+                numerosSemana.forEach(n => {
+                    semanasBorrador[n - 1] = _pfExtraerDiasDeShape(r.semanas[String(n)]);
+                });
+                // La rutina "r" tal cual llega (fuera de /semanas) es siempre
+                // el contenido de la última semana, así que el formulario
+                // (que se carga con "r" más abajo) queda posicionado ahí.
+                if (numerosSemana.length > 0) semanaActivaIdx = numerosSemana.length - 1;
+                _pfSemanasExistentesAlEditar = numerosSemana.length;
+            } else {
+                _pfSemanasExistentesAlEditar = 0;
+            }
+            _pfActualizarBarraSemanas();
 
             const datos = resolverDatos(r);
             const alumno = r.alumno || datos.alumno || '';
