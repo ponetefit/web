@@ -5862,6 +5862,22 @@
             function _sincronizarProgresoAsistencia(pct) {
                 if (!currentCode) return;
                 clearTimeout(_syncProgresoTimeout);
+                // Capturamos código, si es multidia y qué día está activo EN ESTE
+                // MOMENTO (cuando se llamó a la función), no cuando el timeout
+                // finalmente se ejecuta 1.2s después. Antes se leían esMultidia y
+                // diaActivo directamente adentro del setTimeout, así que si el
+                // alumno terminaba el Día 1 y pasaba rápido al Día 2 (antes de que
+                // se cumplieran los 1.2s), el progreso del Día 1 se mandaba al
+                // profesor pero etiquetado como Día 2 (el valor "vivo" de diaActivo
+                // en ese instante). Esto hacía que en el calendario del profe
+                // apareciera "hizo el día 2" cuando en realidad había hecho el día 1.
+                var _codigoAlMomento = currentCode;
+                var _esMultidiaAlMomento = esMultidia;
+                var _diaActivoAlMomento = diaActivo;
+                // Semana elegida (progresión semanal), si la rutina tiene más de
+                // una semana cargada. Se manda junto con el progreso para que el
+                // profesor sepa en qué semana está entrenando el alumno.
+                var _semanaAlMomento = (typeof dataGlobal !== 'undefined' && dataGlobal && dataGlobal.semana_elegida) ? dataGlobal.semana_elegida : null;
                 _syncProgresoTimeout = setTimeout(function() {
                     try {
                         var ahora = Date.now();
@@ -5869,13 +5885,22 @@
                         var fechaISO = hoy.getFullYear() + '-' +
                             String(hoy.getMonth() + 1).padStart(2, '0') + '-' +
                             String(hoy.getDate()).padStart(2, '0');
-                        var base = _fbUrl(currentCode, 'asistencia/' + encodeURIComponent(currentCode) + '/');
-                        var payload = { ts: ahora, pct: Math.round(Math.min(100, Math.max(0, pct))) };
-                        if (esMultidia) payload.dia = diaActivo + 1; // 1-based, igual que dia_N en la rutina
-                        fetch(base + 'fechas/' + fechaISO + '.json', {
+                        var base = _fbUrl(_codigoAlMomento, 'asistencia/' + encodeURIComponent(_codigoAlMomento) + '/');
+                        var registro = { ts: ahora, pct: Math.round(Math.min(100, Math.max(0, pct))) };
+                        if (_esMultidiaAlMomento) registro.dia = _diaActivoAlMomento + 1; // 1-based, igual que dia_N en la rutina
+                        if (_semanaAlMomento) registro.semana = _semanaAlMomento;
+                        // Se guarda bajo una clave por día (d1, d2... o "u" si la
+                        // rutina no es multi-día), DENTRO de la fecha, en vez de
+                        // pisar directamente "fechas/{fecha}". Así, si el alumno
+                        // entrena más de un día de la rutina en la misma fecha
+                        // (por ejemplo se pone al día y hace el Día 1 y el Día 2
+                        // el mismo día), el calendario del profesor puede mostrar
+                        // ambos en vez de que el último sobrescriba al anterior.
+                        var diaKey = _esMultidiaAlMomento ? ('d' + (_diaActivoAlMomento + 1)) : 'u';
+                        fetch(base + 'fechas/' + fechaISO + '/registros/' + diaKey + '.json', {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
+                            body: JSON.stringify(registro)
                         }).catch(function() {});
                         fetch(base + 'ultimo.json', {
                             method: 'PUT',
@@ -15246,6 +15271,7 @@
                     rutina: typeof currentCode !== 'undefined' ? currentCode : '',
                     alumno: typeof nombreUsuario !== 'undefined' ? nombreUsuario : '',
                     dia: typeof esMultidia !== 'undefined' && esMultidia ? (typeof diaActivo !== 'undefined' ? diaActivo + 1 : null) : null,
+                    semana: (typeof dataGlobal !== 'undefined' && dataGlobal && dataGlobal.semana_elegida) ? dataGlobal.semana_elegida : null,
                     etapa: _feedbackEtapaActual.indice === 0 ? 'calentamiento' : 'bloque',
                     etapa_indice: _feedbackEtapaActual.indice,
                     etapa_nombre: _nombreEtapa(_feedbackEtapaActual.indice),
