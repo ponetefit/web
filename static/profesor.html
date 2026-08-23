@@ -6154,7 +6154,7 @@
                    '<div id="emom-warmup-config-' + idx + '" class="mt-3 space-y-2"></div>';
             setTimeout(() => actualizarEMOMWarmupMinutosConfig(idx), 0);
         } else if (tipo === 'Series/Reps') {
-            html = '<div class="grid grid-cols-3 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Series</label><input id="warmup-series-' + idx + '" type="number" value="' + (_cfg.series||3) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ');renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones (default)</label><input id="warmup-reps-val-' + idx + '" type="number" value="' + (_cfg.reps||10) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg, default)</label><input id="warmup-pausa-ser-' + idx + '" type="number" value="' + (_cfg.pausa||60) + '" min="0" oninput="guardarWarmupCfgDia(' + idx + ');renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div><p class="text-xs text-textoSuave mt-2">Se aplica a los ejercicios nuevos que agregues. Podés ajustar reps y pausa de cada ejercicio individualmente abajo.</p>';
+            html = '<div class="grid grid-cols-3 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Series</label><input id="warmup-series-' + idx + '" type="number" value="' + (_cfg.series||3) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ');renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones (default)</label><input id="warmup-reps-val-' + idx + '" type="number" value="' + (_cfg.reps||10) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg, default)</label><input id="warmup-pausa-ser-' + idx + '" type="number" value="' + (_cfg.pausa||60) + '" min="0" oninput="guardarWarmupCfgDia(' + idx + ');renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div><p class="text-xs text-textoSuave mt-2">Se aplica a los ejercicios nuevos que agregues. Podés ajustar reps y pausa de cada ejercicio individualmente abajo.</p><button type="button" onclick="_pfAplicarDefaultsSeriesATodosWarmup(' + idx + ')" class="w-full mt-2 text-xs font-bold py-2 rounded-lg" style="background:rgba(105,240,174,.12);color:#69F0AE;border:1px solid rgba(105,240,174,.3);cursor:pointer">⟳ Aplicar estos valores a TODOS los ejercicios ya cargados</button>';
         } else if (tipo === 'Por Tiempo') {
             html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de Vueltas</label><input id="warmup-portiempo-vueltas-' + idx + '" type="number" value="' + (_cfg.vueltas||3) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><p class="text-xs text-textoSuave mt-2">Cronómetro cuenta hacia arriba. El alumno marca cada vuelta manualmente.</p>';
         } else if (tipo === 'Sumando Ejercicio') {
@@ -6318,6 +6318,29 @@
         if (repsInput) repsInput.value = '';
         // Actualizar badge
         actualizarBadgeDia(idx);
+    }
+
+    // Aplica los valores de Series/Repeticiones/Pausa del panel de configuración
+    // del calentamiento a TODOS los ejercicios ya cargados (útil al editar una
+    // rutina existente -otra semana, Repositorio, Historial- donde ya hay
+    // ejercicios y se quiere cambiar el esquema general de una sola vez).
+    function _pfAplicarDefaultsSeriesATodosWarmup(idx) {
+        if (!diasData[idx] || diasData[idx].warmupEjercicios.length === 0) return;
+        const nSeries = parseInt(document.getElementById('warmup-series-' + idx)?.value) || 3;
+        const nReps   = document.getElementById('warmup-reps-val-' + idx)?.value || 10;
+        const nPausa  = document.getElementById('warmup-pausa-ser-' + idx)?.value || 60;
+        diasData[idx].warmupEjercicios.forEach(ej => {
+            ej.reps = nReps;
+            ej.descanso = nPausa;
+            ej.reps_por_serie = [];
+            ej.pausa_por_serie = [];
+            for (let s = 0; s < nSeries; s++) {
+                ej.reps_por_serie.push(nReps);
+                ej.pausa_por_serie.push(nPausa);
+            }
+        });
+        renderWarmupEjsDia(idx);
+        toast('Reps y pausa actualizadas en ' + diasData[idx].warmupEjercicios.length + ' ejercicio(s) del calentamiento');
     }
 
     function quitarEjWarmupDia(idx, ejIdx) {
@@ -6898,7 +6921,8 @@
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label>
                 <input id="bp-ser-pausa" type="number" value="60" min="0" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
             </div>
-            <p class="text-xs text-textoSuave mt-2">Se aplica a los ejercicios nuevos que agregues. Podés ajustar series, repeticiones y pausa de cada ejercicio individualmente abajo.</p>`;
+            <p class="text-xs text-textoSuave mt-2">Se aplica a los ejercicios nuevos que agregues. Podés ajustar series, repeticiones y pausa de cada ejercicio individualmente abajo.</p>
+            <button type="button" onclick="_pfAplicarDefaultsSeriesATodosBloque()" class="w-full mt-2 text-xs font-bold py-2 rounded-lg" style="background:rgba(105,240,174,.12);color:#69F0AE;border:1px solid rgba(105,240,174,.3);cursor:pointer">⟳ Aplicar estos valores a TODOS los ejercicios ya cargados</button>`;
         } else if (tipo === 'Sumando Ejercicio') {
             html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre vueltas (seg, opcional)</label>
                 <input id="bp-se-pausa" type="number" value="0" min="0" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
@@ -7388,6 +7412,30 @@
     function quitarEjBloque(idx) {
         bloqueEjsTemp.splice(idx, 1);
         renderBloqueEjsTemp();
+    }
+
+    // Aplica los valores de Series/Repeticiones/Pausa del panel de configuración
+    // a TODOS los ejercicios ya cargados en el bloque (útil al editar una rutina
+    // existente -otra semana, Repositorio, Historial- donde ya hay ejercicios y
+    // se quiere cambiar el esquema general de todos de una sola vez).
+    function _pfAplicarDefaultsSeriesATodosBloque() {
+        if (bloqueEjsTemp.length === 0) return;
+        const nSeries = parseInt(document.getElementById('bp-ser-series')?.value) || 3;
+        const nReps   = document.getElementById('bp-ser-reps')?.value || '10';
+        const nPausa  = document.getElementById('bp-ser-pausa')?.value || '60';
+        bloqueEjsTemp.forEach(ej => {
+            ej.series = nSeries;
+            ej.reps = nReps;
+            ej.descanso = nPausa;
+            ej.reps_por_serie = [];
+            ej.pausa_por_serie = [];
+            for (let s = 0; s < nSeries; s++) {
+                ej.reps_por_serie.push(nReps);
+                ej.pausa_por_serie.push(nPausa);
+            }
+        });
+        renderBloqueEjsTemp();
+        toast('Series, repeticiones y pausa actualizadas en ' + bloqueEjsTemp.length + ' ejercicio(s)');
     }
 
     // Duplica el ejercicio en la posicion idx y lo agrega AL FINAL de la lista
