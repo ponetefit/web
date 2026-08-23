@@ -3578,6 +3578,43 @@
     // ====================================================================
     const API_BASE = ''; // Mismo origen
 
+    // ====================================================================
+    // CACHE TEMPORAL PARA LECTURAS DIRECTAS A FIREBASE (ahorro de descarga)
+    // ====================================================================
+    // Varias pantallas (badges "Entrenó hoy", dashboard del alumno,
+    // feedback/resueltos) leen directo de Firebase por codigo de rutina,
+    // y se re-renderizan varias veces por sesion (cambiar de pestaña,
+    // volver a abrir el mismo alumno, etc.). Sin cache, cada una de esas
+    // veces se vuelve a descargar TODO de nuevo desde Firebase, que es lo
+    // que infla el % de "descargado" del plan. Este cache guarda la
+    // respuesta de cada URL por unos minutos (sessionStorage, se borra solo
+    // al cerrar la pestaña) asi que ver el mismo alumno o refrescar la
+    // lista dentro de esa ventana no vuelve a pegarle a Firebase; despues
+    // de ese tiempo se vuelve a pedir normal, asi que nunca queda
+    // permanentemente desactualizado.
+    const _FB_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutos
+    async function _fbFetchCached(url, ttlMs) {
+        ttlMs = ttlMs || _FB_CACHE_TTL_MS;
+        const key = 'fbcache_' + url;
+        try {
+            const raw = sessionStorage.getItem(key);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Date.now() - parsed.t < ttlMs) {
+                    return parsed.v;
+                }
+            }
+        } catch (e) { /* sessionStorage no disponible: seguimos sin cache */ }
+
+        const res = await fetch(url);
+        const data = await res.json();
+        try { sessionStorage.setItem(key, JSON.stringify({ t: Date.now(), v: data })); } catch (e) {}
+        return data;
+    }
+    function _fbCacheInvalidar(url) {
+        try { sessionStorage.removeItem('fbcache_' + url); } catch (e) {}
+    }
+
     // Estado global
     let videotecaCache = {};
     // ── MULTI-DIA ─────────────────────────────────────────────────────────
@@ -4387,9 +4424,7 @@
     // Carga todas las fichas de alumnos guardadas en Firebase
     async function cargarPerfilesAlumnos() {
         try {
-            const res = await fetch(FIREBASE_BASE + '/alumnos_perfil.json');
-            const data = await res.json();
-            _perfilAlumnosCache = data || {};
+            _perfilAlumnosCache = await _fbFetchCached(FIREBASE_BASE + '/alumnos_perfil.json') || {};
         } catch (e) {
             console.error('Error cargando fichas de alumnos:', e);
         }
@@ -4457,6 +4492,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(perfil)
             });
+            _fbCacheInvalidar(FIREBASE_BASE + '/alumnos_perfil.json');
             _perfilAlumnosCache[clave] = perfil;
             toast('Ficha de ' + perfil.nombre + ' guardada');
             limpiarFormAlumno();
@@ -4495,6 +4531,7 @@
         if (!await pfConfirm('¿Eliminar la ficha de ' + p.nombre + '? (No se eliminan sus rutinas ni su historial)')) return;
         try {
             await fetch(FIREBASE_BASE + '/alumnos_perfil/' + clave + '.json', { method: 'DELETE' });
+            _fbCacheInvalidar(FIREBASE_BASE + '/alumnos_perfil.json');
             delete _perfilAlumnosCache[clave];
             renderizarListaAlumnosPerfil();
             toast('Ficha eliminada');
@@ -4574,8 +4611,7 @@
                     let ultimo = 0;
                     await Promise.all(codigos.map(async (cod) => {
                         try {
-                            const ra = await fetch(FIREBASE_ASISTENCIA_URL_LISTA + encodeURIComponent(cod) + '/ultimo.json');
-                            const val = await ra.json();
+                            const val = await _fbFetchCached(FIREBASE_ASISTENCIA_URL_LISTA + encodeURIComponent(cod) + '/ultimo.json');
                             if (val && val > ultimo) ultimo = val;
                         } catch (e) {}
                     }));
@@ -4709,13 +4745,11 @@
             // Resoluciones para este código: {EJERCICIO_UPPER: {ts, fecha, quien}}
             let resueltos = {};
             try {
-                const resR = await fetch(RESUELTOS_URL_COSTOSO + encodeURIComponent(codigo) + '.json');
-                const dataR = await resR.json();
+                const dataR = await _fbFetchCached(RESUELTOS_URL_COSTOSO + encodeURIComponent(codigo) + '.json');
                 if (dataR && typeof dataR === 'object') resueltos = dataR;
             } catch (e) {}
             try {
-                const res = await fetch(FEEDBACK_URL_COSTOSO + encodeURIComponent(codigo) + '.json');
-                const data = await res.json();
+                const data = await _fbFetchCached(FEEDBACK_URL_COSTOSO + encodeURIComponent(codigo) + '.json');
                 if (!data || typeof data !== 'object') return;
                 Object.keys(data).forEach(fecha => {
                     const dia = data[fecha];
@@ -4855,6 +4889,7 @@
                     body: JSON.stringify(payload)
                 }).catch(() => {})
             ));
+            codigos.forEach(codigo => _fbCacheInvalidar(RESUELTOS_URL_COSTOSO + encodeURIComponent(codigo) + '.json'));
         } catch (e) {}
         delete _pfFeedbackCostosoCache[clave];
         document.getElementById('modal-advertencia-costoso').classList.add('hidden');
@@ -11226,8 +11261,7 @@
                 dashCargasHistorial = {};
                 const fetchesCargas = codigos.map(async (cod) => {
                     try {
-                        const rc = await fetch(FIREBASE_CARGAS_URL_DASH + encodeURIComponent(cod) + '/historial.json');
-                        const remoto = await rc.json();
+                        const remoto = await _fbFetchCached(FIREBASE_CARGAS_URL_DASH + encodeURIComponent(cod) + '/historial.json');
                         if (!remoto) return;
                         Object.keys(remoto).forEach((normEj) => {
                             const registros = remoto[normEj];
@@ -11263,8 +11297,7 @@
                 dashAsistenciaUltimo = 0;
                 const fetchesAsistencia = codigos.map(async (cod) => {
                     try {
-                        const ra = await fetch(FIREBASE_ASISTENCIA_URL_DASH + encodeURIComponent(cod) + '.json');
-                        const remoto = await ra.json();
+                        const remoto = await _fbFetchCached(FIREBASE_ASISTENCIA_URL_DASH + encodeURIComponent(cod) + '.json');
                         if (!remoto) return;
                         if (remoto.fechas) {
                             Object.keys(remoto.fechas).forEach((f) => {
