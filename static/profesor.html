@@ -13536,6 +13536,13 @@
         const btnGuardar = document.getElementById('btn-repo-guardar-confirm');
         pfBtnLoadingOn(btnGuardar, 'Guardando...');
 
+        // Sincronizar la semana que se está viendo ahora mismo dentro de
+        // semanasBorrador (misma lógica que usa compartirRutina) para que, si
+        // la rutina tiene progresión semanal, se guarden TODAS las semanas
+        // en la plantilla del repositorio y no se pierdan al copiarla a un
+        // alumno después.
+        _pfSincronizarSemanaActivaEnBorrador();
+
         // Capturar estado actual de diasData incluyendo configuraciones DOM
         const snapshot = {
             nombre,
@@ -13567,6 +13574,14 @@
                 return cfg;
             })
         };
+        // Si la rutina tiene progresión semanal (más de una semana armada),
+        // guardar TODAS las semanas en la plantilla — mismo formato que ya usa
+        // compartirRutina para mandarlas a Firebase — para no perder ninguna
+        // al guardar en el Repositorio ni al copiarla luego a un alumno.
+        if (semanasBorrador.length > 1) {
+            snapshot.semanas = JSON.parse(JSON.stringify(semanasBorrador));
+            snapshot.semanaActivaIdx = semanaActivaIdx;
+        }
 
         const repo = getRepositorio();
         // Si venimos de "editar rutina completa" y se eligió sobrescribir, reemplazar
@@ -14009,6 +14024,25 @@
         if (diasData.length === 0) {
             diasData = [{ titulo: 'Día 1', warmupEjercicios: [], bloquesRutina: [] }];
         }
+        // No estamos editando una rutina existente del historial (esto viene
+        // del Repositorio), así que al compartir no debe preguntar si se
+        // sobrescribe ni tratarlo como "nueva semana" de otro código.
+        _pfCodigoEditando = null;
+        // Restaurar progresión semanal si la plantilla tenía más de una
+        // semana guardada (ver guardarEnRepositorio), para que "Copiar a
+        // Alumno" y "Editar rutina completa" compartan/copien TODAS las
+        // semanas y no solo la que se ve en pantalla.
+        if (r.semanas && Array.isArray(r.semanas) && r.semanas.length > 1) {
+            semanasBorrador = JSON.parse(JSON.stringify(r.semanas));
+            semanaActivaIdx = (typeof r.semanaActivaIdx === 'number' && r.semanaActivaIdx >= 0 && r.semanaActivaIdx < semanasBorrador.length)
+                ? r.semanaActivaIdx : semanasBorrador.length - 1;
+            _pfSemanasExistentesAlEditar = 0; // son semanas nuevas para el código que se genere al compartir, no de un código ya existente
+        } else {
+            semanasBorrador = [];
+            semanaActivaIdx = 0;
+            _pfSemanasExistentesAlEditar = 0;
+        }
+        _pfActualizarBarraSemanas();
         // Autocorregir tipos de bloque guardados con variantes de texto (p.ej. "Sumando
         // Ejercicios" en plural) que hayan quedado de una version anterior con el bug.
         diasData.forEach(d => {
