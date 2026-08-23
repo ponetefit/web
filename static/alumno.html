@@ -7040,7 +7040,7 @@
             // Ademas de guardar el valor "actual" (que se pisa, como antes), agrega un
             // registro nuevo al historial con fecha y metodo, para que el Panel del
             // Profesor pueda graficar la evolucion del peso en el tiempo.
-            function _subirCargaNube(path, peso, ejercicioNorm) {
+            function _subirCargaNube(path, peso, ejercicioNorm, repsInfo) {
                 if (!currentCode) return;
                 try {
                     var ahora = Date.now();
@@ -7059,28 +7059,46 @@
 
                     // Historial: un registro NUEVO por cada carga guardada (no se pisa),
                     // con fecha y metodo de entrenamiento en el momento de guardarla.
+                    // Ademas de "v" (peso), se guarda "reps" y "series" cuando estan
+                    // disponibles: esto permite que el Panel del Profesor distinga
+                    // "subio de peso" real de un simple cambio de esquema (menos
+                    // repeticiones, mas/menos series) al comparar la evolucion.
                     if (ejercicioNorm) {
+                        var bodyHist = {
+                            v: peso,
+                            t: ahora,
+                            fecha: fechaStr,
+                            metodo: _tipoEntrenamientoGlobal || ''
+                        };
+                        if (repsInfo) {
+                            if (repsInfo.reps !== undefined && repsInfo.reps !== null && repsInfo.reps !== '') {
+                                var repsNum = parseFloat(repsInfo.reps);
+                                bodyHist.reps = isNaN(repsNum) ? repsInfo.reps : repsNum;
+                            }
+                            if (repsInfo.series !== undefined && repsInfo.series !== null && repsInfo.series !== '') {
+                                var seriesNum = parseInt(repsInfo.series);
+                                if (!isNaN(seriesNum) && seriesNum > 0) bodyHist.series = seriesNum;
+                            }
+                        }
                         fetch(_fbUrl(currentCode, 'cargas/' + currentCode + "/historial/" + ejercicioNorm + ".json"), {
                             method: "POST",
                             headers: {
                                 "Content-Type": "application/json"
                             },
-                            body: JSON.stringify({
-                                v: peso,
-                                t: ahora,
-                                fecha: fechaStr,
-                                metodo: _tipoEntrenamientoGlobal || ''
-                            })
+                            body: JSON.stringify(bodyHist)
                         }).catch(function(e) {});
                     }
                 } catch (e) {}
             }
 
-            function guardarPeso(nombreEj, peso) {
+            function guardarPeso(nombreEj, peso, repsMeta) {
                 try {
                     if (peso && !isNaN(peso) && peso > 0) {
                         localStorage.setItem(_pesoKey(nombreEj), peso);
-                        _subirCargaNube('simple/' + _cargaNombreNorm(nombreEj), peso, _cargaNombreNorm(nombreEj));
+                        // repsMeta llega como texto libre (ej: "3x10", "4 series x 6")
+                        // cuando esta disponible en la tarjeta del ejercicio.
+                        var info = repsMeta ? { reps: repsMeta } : null;
+                        _subirCargaNube('simple/' + _cargaNombreNorm(nombreEj), peso, _cargaNombreNorm(nombreEj), info);
                     }
                 } catch (e) {}
             }
@@ -7202,12 +7220,16 @@
                 }
             }
 
-            function crearPesoRow(nombreEj, inputId) {
+            function crearPesoRow(nombreEj, inputId, metaTexto) {
                 var ultimo = obtenerUltimoPeso(nombreEj);
                 var ultimaHtml = ultimo ? '<span class="peso-ultima">\u00DAltima vez: ' + ultimo + 'kg</span>' : '';
+                // metaTexto (ej: "3x10", "4 series x 6") viaja como data-peso-meta
+                // para que, al guardar el peso, el historial que ve el profesor
+                // sepa con que esquema de reps/series se hizo esa carga.
+                var metaAttr = metaTexto ? ' data-peso-meta="' + String(metaTexto).replace(/"/g, '&quot;') + '"' : '';
                 return '<div class="peso-row">' +
                     '<span class="peso-label">\u{1F3CB}\uFE0F Peso</span>' +
-                    '<input type="number" class="peso-input" id="' + inputId + '" data-peso-nombre="' + (nombreEj || '').replace(/"/g, '&quot;') + '" placeholder="0" min="0" step="0.5"' +
+                    '<input type="number" class="peso-input" id="' + inputId + '" data-peso-nombre="' + (nombreEj || '').replace(/"/g, '&quot;') + '"' + metaAttr + ' placeholder="0" min="0" step="0.5"' +
                     (ultimo ? ' value="' + ultimo + '"' : '') + '>' +
                     '<span class="peso-suffix">kg</span>' +
                     ultimaHtml +
@@ -7219,11 +7241,17 @@
                 return 'peso_serie__' + currentCode + '__' + _cargaNombreNorm(nombreEj) + '__' + serieIdx;
             }
 
-            function guardarPesoSerie(nombreEj, serieIdx, peso) {
+            function guardarPesoSerie(nombreEj, serieIdx, peso, repsSerie, totalSeries) {
                 try {
                     if (peso && !isNaN(peso) && peso > 0) {
                         localStorage.setItem(_pesoSerieKey(nombreEj, serieIdx), peso);
-                        _subirCargaNube('serie/' + _cargaNombreNorm(nombreEj) + '/' + serieIdx, peso, _cargaNombreNorm(nombreEj));
+                        // repsSerie: repeticiones de ESA serie puntual (S1, S2...), ya
+                        // que en "Series" cada set puede tener reps distintas (ej.
+                        // series descendentes). totalSeries: cuantas series tiene el
+                        // bloque, para poder estimar volumen total (peso x reps x series).
+                        var info = (repsSerie !== undefined && repsSerie !== null && repsSerie !== '')
+                            ? { reps: repsSerie, series: totalSeries } : null;
+                        _subirCargaNube('serie/' + _cargaNombreNorm(nombreEj) + '/' + serieIdx, peso, _cargaNombreNorm(nombreEj), info);
                     }
                 } catch (e) {}
             }
@@ -7279,7 +7307,7 @@
                     if (conCarga) {
                         var ultimo = obtenerUltimoPesoSerie(nombreEj, vi);
                         inputHtml = '<div class="vuelta-carga">\u{1F3CB}\uFE0F' +
-                            '<input type="number" class="peso-input vuelta-carga-input" id="' + baseId + '-v' + vi + '" data-peso-nombre="' + (nombreEj || '').replace(/"/g, '&quot;') + '" data-peso-idx="' + vi + '" placeholder="0" min="0" step="0.5"' +
+                            '<input type="number" class="peso-input vuelta-carga-input" id="' + baseId + '-v' + vi + '" data-peso-nombre="' + (nombreEj || '').replace(/"/g, '&quot;') + '" data-peso-idx="' + vi + '" data-peso-reps="' + (parseFloat(rv) || '') + '" data-peso-series-total="' + repsPorVuelta.length + '" placeholder="0" min="0" step="0.5"' +
                             (ultimo ? ' value="' + ultimo + '"' : '') + '>' +
                             '<span class="vuelta-carga-kg">kg</span>' +
                             '</div>';
@@ -7300,7 +7328,7 @@
                 var cols = repsPorSerie.map(function(rs, si) {
                     var ultimo = obtenerUltimoPesoSerie(nombreEj, si);
                     var inputHtml = '<div class="vuelta-carga">\u{1F3CB}\uFE0F' +
-                        '<input type="number" class="peso-input vuelta-carga-input" id="' + baseId + '-s' + si + '" data-peso-nombre="' + (nombreEj || '').replace(/"/g, '&quot;') + '" data-peso-idx="' + si + '" placeholder="0" min="0" step="0.5"' +
+                        '<input type="number" class="peso-input vuelta-carga-input" id="' + baseId + '-s' + si + '" data-peso-nombre="' + (nombreEj || '').replace(/"/g, '&quot;') + '" data-peso-idx="' + si + '" data-peso-reps="' + (parseFloat(rs) || '') + '" data-peso-series-total="' + repsPorSerie.length + '" placeholder="0" min="0" step="0.5"' +
                         (ultimo ? ' value="' + ultimo + '"' : '') + '>' +
                         '<span class="vuelta-carga-kg">kg</span>' +
                         '</div>';
@@ -7374,11 +7402,16 @@
 
                 var idxAttr = t.getAttribute('data-peso-idx');
                 if (idxAttr !== null && idxAttr !== '') {
-                    // Peso por serie o por vuelta
-                    guardarPesoSerie(nombre, parseInt(idxAttr), val);
+                    // Peso por serie o por vuelta: viaja con las reps EXACTAS de
+                    // esa serie puntual (pueden variar serie a serie) y el total
+                    // de series del bloque, para poder estimar volumen despues.
+                    var repsSerieAttr = t.getAttribute('data-peso-reps');
+                    var totalSeriesAttr = t.getAttribute('data-peso-series-total');
+                    guardarPesoSerie(nombre, parseInt(idxAttr), val, repsSerieAttr, totalSeriesAttr);
                 } else {
                     // Peso simple/genérico del ejercicio
-                    guardarPeso(nombre, val);
+                    var metaAttr = t.getAttribute('data-peso-meta');
+                    guardarPeso(nombre, val, metaAttr);
                     var pesoRow = t.closest ? t.closest('.peso-row') : null;
                     if (pesoRow) {
                         var ultimaSpan = pesoRow.querySelector('.peso-ultima');
@@ -8094,7 +8127,7 @@
                 var pesoHtml = '';
                 if (!omitirPesoGenerico && (con_carga || _obtenerConCarga(nombre))) {
                     var pid = 'peso-card-' + (_cardCargaIdx++);
-                    pesoHtml = crearPesoRow(nombre, pid);
+                    pesoHtml = crearPesoRow(nombre, pid, meta);
                 }
                 var linkActual = link || _obtenerLinkVideo(nombre);
                 var thumbUrl = extraerYoutubeThumbnail(linkActual);
@@ -8114,7 +8147,7 @@
                 var pesoHtml = '';
                 if (con_carga || _obtenerConCarga(nombre)) {
                     var pid = 'peso-card-' + (_cardCargaIdx++);
-                    pesoHtml = crearPesoRow(nombre, pid);
+                    pesoHtml = crearPesoRow(nombre, pid, meta);
                 }
                 var linkActual = link || _obtenerLinkVideo(nombre);
                 var thumbUrl = extraerYoutubeThumbnail(linkActual);
@@ -11621,7 +11654,18 @@
                 if (pesoInput && pesoInput.value) {
                     var nombreEj = ejercicioNombres[i] || '';
                     pesoKg = parseFloat(pesoInput.value);
-                    guardarPeso(nombreEj, pesoKg);
+                    // Si hay reps por serie definidas para este ejercicio, identificar
+                    // con cuál serie (y cuántas reps) se guardó este peso, para que el
+                    // historial del profesor no vea solo "peso" sin contexto.
+                    var _repsMetaMarcar = null;
+                    var _repsSerieArr = (typeof _repsPorSerieData !== 'undefined' && _repsPorSerieData[i] && _repsPorSerieData[i].length) ? _repsPorSerieData[i] : null;
+                    if (_repsSerieArr) {
+                        var _serieIdxDone = _repsSerieArr.length - seriesRestantes[i];
+                        if (_serieIdxDone >= 0 && _serieIdxDone < _repsSerieArr.length) {
+                            _repsMetaMarcar = _repsSerieArr[_serieIdxDone] + 'x' + _repsSerieArr.length + 'series';
+                        }
+                    }
+                    guardarPeso(nombreEj, pesoKg, _repsMetaMarcar);
                     var pesoRow = pesoInput.closest ? pesoInput.closest('.peso-row') : null;
                     if (pesoRow) {
                         var ultimaSpan = pesoRow.querySelector('.peso-ultima');
