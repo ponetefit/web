@@ -18,6 +18,7 @@ import random
 import re
 import time
 import os
+import threading
 import requests
 from flask import Flask, request, jsonify, session
 from flask_cors import CORS
@@ -101,6 +102,40 @@ def db_ref(path):
     """Referencia Firebase en el proyecto de LA CUENTA LOGUEADA actualmente.
     Solo usar dentro de rutas protegidas con @auth.login_requerido."""
     return multi_firebase.get_db_ref(auth.account_id_actual(), path)
+
+
+# ──────────────────────────────────────────────────────────────
+#  CACHE TEMPORAL EN MEMORIA (ahorro de descarga en Firebase)
+# ──────────────────────────────────────────────────────────────
+# Guarda por unos segundos el resultado de las lecturas que se piden mas
+# seguido (la videoteca completa y cada rutina), asi si dos pedidos caen
+# muy cerca en el tiempo (profesor.html y alumno.html leyendo lo mismo, o
+# la misma pantalla que se vuelve a abrir) el segundo no vuelve a pegarle
+# a Firebase. Se guarda por cuenta (account_id) + ruta, para no mezclar
+# datos entre profesores. Vive en memoria del proceso: si el dato cambia
+# (se guarda un ejercicio, se comparte/edita una rutina, etc.) se limpia
+# a mano esa entrada puntual en el mismo momento en que se escribe, asi
+# nunca se sirve algo desactualizado por mas del TTL.
+_cache_lock = threading.Lock()
+_cache_store = {}  # (account_id, path) -> (timestamp, data)
+
+
+def cache_get(account_id, path):
+    with _cache_lock:
+        entry = _cache_store.get((account_id, path))
+    if entry and (time.time() - entry[0]) < entry[2]:
+        return entry[1]
+    return None
+
+
+def cache_set(account_id, path, data, ttl_seg=60):
+    with _cache_lock:
+        _cache_store[(account_id, path)] = (time.time(), data, ttl_seg)
+
+
+def cache_clear(account_id, path):
+    with _cache_lock:
+        _cache_store.pop((account_id, path), None)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -360,13 +395,17 @@ def api_mis_features():
 @app.route("/api/videoteca", methods=["GET"])
 @auth.login_requerido
 def obtener_videoteca():
-    """Obtiene toda la videoteca desde Firebase. Si no existe, la inicializa con datos por defecto."""
+    """Obtiene toda la videoteca desde Firebase (con cache corta). Si no existe, la inicializa con datos por defecto."""
     try:
-        ref = db_ref("/videoteca")
-        data = ref.get()
-        if not data:
-            ref.set(VIDEOTECA_DEFAULTS)
-            data = VIDEOTECA_DEFAULTS
+        account_id = auth.account_id_actual()
+        data = cache_get(account_id, "/videoteca")
+        if data is None:
+            ref = db_ref("/videoteca")
+            data = ref.get()
+            if not data:
+                ref.set(VIDEOTECA_DEFAULTS)
+                data = VIDEOTECA_DEFAULTS
+            cache_set(account_id, "/videoteca", data, ttl_seg=120)
         return jsonify({"ok": True, "videoteca": data})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
@@ -452,6 +491,7 @@ def guardar_ejercicio():
             ejercicios.append(ej_data)
 
         ref.set(ejercicios)
+        cache_clear(auth.account_id_actual(), "/videoteca")
         accion = "actualizado" if encontrado else "guardado"
         return jsonify({"ok": True, "mensaje": f"Ejercicio {accion}: {nombre}", "accion": accion})
     except Exception as e:
@@ -477,6 +517,7 @@ def eliminar_ejercicio():
 
         if len(nuevos) < len(ejercicios):
             ref.set(nuevos)
+            cache_clear(auth.account_id_actual(), "/videoteca")
             return jsonify({"ok": True, "mensaje": f"Eliminado: {nombre}"})
         else:
             return jsonify({"ok": False, "error": "Ejercicio no encontrado"}), 404
@@ -500,6 +541,7 @@ def nueva_categoria():
             return jsonify({"ok": False, "error": "La categoria ya existe"}), 409
 
         ref.set([])
+        cache_clear(auth.account_id_actual(), "/videoteca")
         return jsonify({"ok": True, "mensaje": f"Categoria creada: {nombre}"})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
@@ -517,6 +559,7 @@ def eliminar_categoria():
 
         ref = db_ref(f"/videoteca/{nombre}")
         ref.delete()
+        cache_clear(auth.account_id_actual(), "/videoteca")
         return jsonify({"ok": True, "mensaje": f"Categoria eliminada: {nombre}"})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
@@ -726,6 +769,8 @@ def compartir_rutina():
         rutina_ref = db_ref(f"/rutinas/{codigo}")
         rutina_ref.set(payload)
         contador_ref.set(nuevo_contador)
+        cache_clear(auth.account_id_actual(), f"/rutinas/{codigo}")
+        cache_clear(auth.account_id_actual(), "/rutinas")
 
         control_db.registrar_codigo(codigo, auth.account_id_actual())
 
@@ -745,15 +790,20 @@ def compartir_rutina():
 @app.route("/api/rutina/<codigo>", methods=["GET"])
 @auth.login_requerido
 def obtener_rutina(codigo):
-    """Obtiene una rutina por su codigo."""
+    """Obtiene una rutina por su codigo (con cache corta)."""
     try:
-        ref = db_ref(f"/rutinas/{codigo}")
-        data = ref.get()
-        if not data:
-            return jsonify({"ok": False, "error": "Codigo no encontrado"}), 404
+        account_id = auth.account_id_actual()
+        cache_path = f"/rutinas/{codigo}"
+        data = cache_get(account_id, cache_path)
+        if data is None:
+            ref = db_ref(cache_path)
+            data = ref.get()
+            if not data:
+                return jsonify({"ok": False, "error": "Codigo no encontrado"}), 404
 
-        if "es_multidia" not in data:
-            data["es_multidia"] = False
+            if "es_multidia" not in data:
+                data["es_multidia"] = False
+            cache_set(account_id, cache_path, data, ttl_seg=60)
 
         return jsonify({"ok": True, "rutina": data})
     except Exception as e:
@@ -814,6 +864,8 @@ def agregar_semana_rutina(codigo):
                 actualizaciones[f"dia_{i + 1}"] = None
 
         ref.update(actualizaciones)
+        cache_clear(auth.account_id_actual(), f"/rutinas/{codigo}")
+        cache_clear(auth.account_id_actual(), "/rutinas")
 
         return jsonify({"ok": True, "codigo": codigo, "semana": siguiente_num})
     except Exception as e:
@@ -834,6 +886,8 @@ def eliminar_rutina(codigo):
         alumno = data.get("alumno", "").strip().lower()
         ref.delete()
         control_db.eliminar_codigo(codigo)
+        cache_clear(auth.account_id_actual(), f"/rutinas/{codigo}")
+        cache_clear(auth.account_id_actual(), "/rutinas")
 
         if alumno:
             contador_ref = db_ref(f"/alumnos/{alumno}/contador")
@@ -889,6 +943,9 @@ def renumerar_rutinas(nombre):
                 ref_viejo.delete()
                 control_db.registrar_codigo(codigo_nuevo, account_id)
                 control_db.eliminar_codigo(codigo_viejo)
+                cache_clear(account_id, f"/rutinas/{codigo_viejo}")
+                cache_clear(account_id, f"/rutinas/{codigo_nuevo}")
+                cache_clear(account_id, "/rutinas")
                 cambios += 1
                 mapeo.append({"viejo": codigo_viejo.upper(), "nuevo": codigo_nuevo.upper()})
 
@@ -936,6 +993,9 @@ def renombrar_rutina():
 
         control_db.registrar_codigo(codigo_nuevo, auth.account_id_actual())
         control_db.eliminar_codigo(codigo_viejo)
+        cache_clear(auth.account_id_actual(), f"/rutinas/{codigo_viejo}")
+        cache_clear(auth.account_id_actual(), f"/rutinas/{codigo_nuevo}")
+        cache_clear(auth.account_id_actual(), "/rutinas")
 
         return jsonify({"ok": True, "mensaje": f"Rutina renombrada de {codigo_viejo.upper()} a {codigo_nuevo.upper()}"})
     except Exception as e:
@@ -948,8 +1008,19 @@ def rutinas_por_alumno(nombre):
     """Lista las rutinas de un alumno."""
     try:
         nombre_lower = nombre.strip().lower()
-        ref = db_ref("/rutinas")
-        todas = ref.get() or {}
+        account_id = auth.account_id_actual()
+
+        # Cache de "/rutinas" completo: esta ruta se llama muy seguido (una
+        # vez por cada alumno que se mira en badges/dashboard/historial) y
+        # cada vez bajaba TODA la tabla de rutinas de la cuenta (con el
+        # contenido completo de cada una) solo para filtrar por nombre. Con
+        # cache, varias consultas seguidas (a distintos alumnos incluso)
+        # comparten la misma descarga durante un ratito.
+        todas = cache_get(account_id, "/rutinas")
+        if todas is None:
+            ref = db_ref("/rutinas")
+            todas = ref.get() or {}
+            cache_set(account_id, "/rutinas", todas, ttl_seg=60)
 
         rutinas_alumno = {}
         for cod, data in todas.items():
@@ -997,10 +1068,13 @@ def eliminar_alumno(nombre):
             if isinstance(data, dict) and data.get("alumno", "").lower() == nombre_lower:
                 db_ref(f"/rutinas/{cod}").delete()
                 control_db.eliminar_codigo(cod)
+                cache_clear(auth.account_id_actual(), f"/rutinas/{cod}")
                 rutinas_eliminadas += 1
 
         ref_alumno = db_ref(f"/alumnos/{nombre_lower}")
         ref_alumno.delete()
+        if rutinas_eliminadas:
+            cache_clear(auth.account_id_actual(), "/rutinas")
 
         return jsonify({
             "ok": True,
@@ -1137,6 +1211,20 @@ def fb_proxy(codigo, subpath):
                 query = query.limit_to_first(int(limit_first))
 
         if request.method == "GET":
+            # Cache especial para /videoteca: es lo mismo que ya cachea
+            # /api/videoteca (usada por profesor.html), pero alumno.html la
+            # pide por ESTA ruta generica (proxy publico) cada vez que un
+            # alumno abre su rutina -- hasta 3 veces por sesion, una por
+            # cada alumno. Comparte la misma entrada de cache (y por lo
+            # tanto la misma invalidacion automatica al editar un
+            # ejercicio) para no duplicar logica.
+            if db_path == "/videoteca" and not order_by:
+                data = cache_get(account_id, "/videoteca")
+                if data is None:
+                    data = ref.get()
+                    if data:
+                        cache_set(account_id, "/videoteca", data, ttl_seg=120)
+                return jsonify(data)
             return jsonify(query.get())
 
         body = request.get_json(silent=True)
