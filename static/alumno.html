@@ -15159,6 +15159,12 @@
                         body: JSON.stringify(payload)
                     }).catch(function() {});
                 });
+                // Lo sacamos ya mismo del caché en memoria: si no lo hacemos, como
+                // _costososPrevios se carga una sola vez al iniciar la rutina, en los
+                // siguientes bloques de esta misma sesión _renderSeguimiento lo seguiría
+                // encontrando y volvería a preguntar "¿te sigue costando?" aunque el
+                // alumno ya haya dicho que no.
+                delete _costososPrevios[clave];
             }
 
 
