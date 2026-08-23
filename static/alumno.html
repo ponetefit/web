@@ -7433,6 +7433,7 @@
             // ─── VIDEOTECA TIPS + ELEMENTO: cache de tips y elemento por ejercicio ───
             var _videotecaTips = {}; // { "SENTADILLAS": { tip1: "...", tip2: "...", elemento: "Mancuerna" }, ... }
             var _tipTurno = {}; // { "SENTADILLAS": 0/1 } — alterna entre tip1 y tip2
+            var _videotecaTipsCargadaPara = null; // currentCode para el que ya se descargó (evita repetir el fetch)
 
             // Normaliza un nombre de ejercicio para poder compararlo/buscarlo sin que
             // rompan diferencias de mayúsculas, espacios extra o tildes (ej: "Bíceps  Africano"
@@ -7447,6 +7448,13 @@
             }
 
             async function _cargarVideotecaTips(onListo) {
+                // Ya se descargó la videoteca para esta misma rutina/codigo en esta
+                // sesión (esta función se llama hasta 3 veces por sesión): reusar
+                // _videotecaTips en vez de volver a descargar todo de nuevo.
+                if (_videotecaTipsCargadaPara === currentCode && Object.keys(_videotecaTips).length) {
+                    if (typeof onListo === 'function') onListo();
+                    return;
+                }
                 try {
                     var res = await fetch("/api/fb/" + encodeURIComponent(currentCode) + "/videoteca.json");
                     var videoteca = await res.json();
@@ -7470,6 +7478,7 @@
                             }
                         });
                     });
+                    _videotecaTipsCargadaPara = currentCode;
                     if (typeof onListo === 'function') onListo();
                 } catch (e) { /* sin conexión, no pasa nada */ }
             }
