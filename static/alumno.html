@@ -4154,17 +4154,20 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;vertical-align:-2px;"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
                         Rutinas
                     </button>
-                    <!-- Solo aparece si la rutina tiene mas de una semana cargada
-                         (data.semanas), para que el alumno pueda cambiar de semana
-                         en cualquier momento por si se confundio al elegir al
-                         arrancar. Ver _pfActualizarBotonSemanas() / _pfCambiarSemana(). -->
-                    <button id="btn-semanas-header" onclick="_pfCambiarSemana()" style="display:none;background:var(--tarjeta-alt);border:1px solid var(--borde);border-radius:var(--radius-md);padding:10px 14px;color:var(--texto-suave);font-size:var(--fs-xs);font-weight:700;cursor:pointer;letter-spacing:1px;white-space:nowrap;align-items:center;gap:6px;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;vertical-align:-2px;"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>
-                        <span id="btn-semanas-header-label">Semana</span>
-                    </button>
                     <button class="btn-header" onclick="cerrar()">Salir</button>
                 </div>
             </div>
+
+            <!-- Barra de semana: fila propia, ancho completo, separada de los
+                 botones del header (Días/Rutinas/Salir) para que NUNCA quede
+                 tapada ni cortada, ni en mobile ni en escritorio. Solo
+                 aparece si la rutina tiene mas de una semana cargada
+                 (data.semanas). Ver _pfActualizarBotonSemanas() / _pfCambiarSemana(). -->
+            <button id="btn-semana-bar" onclick="_pfCambiarSemana()" style="display:none;width:100%;background:var(--naranja);border:none;border-bottom:1px solid var(--borde);padding:11px 16px;color:#fff;font-weight:800;font-size:var(--fs-sm);letter-spacing:0.5px;cursor:pointer;align-items:center;justify-content:center;gap:8px;flex-shrink:0;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;flex-shrink:0;"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>
+                <span id="btn-semana-bar-label">SEMANA 1</span>
+                <span style="opacity:.85;font-weight:700;text-transform:uppercase;font-size:var(--fs-xs);">· Cambiar</span>
+            </button>
 
             <!-- Barra de progreso general de la rutina (fija, fuera del scroll) -->
             <div class="rutina-progress-container" id="rutina-progress-container" style="display:none;">
@@ -15598,14 +15601,15 @@
                 });
             }
 
-            // Muestra u oculta el botón "Semana" del header segun si la rutina
-            // cargada en dataGlobal tiene mas de una semana disponible. Se llama
-            // despues de cada render (render/renderMultidia) y despues de
-            // cambiar de semana, para que el boton siempre refleje el estado
-            // actual (por ejemplo, sigue visible aunque el alumno cambie de dia
-            // dentro de una rutina multidia).
+            // Muestra u oculta la barra "Semana" (fila propia debajo del
+            // header) segun si la rutina cargada en dataGlobal tiene mas de
+            // una semana disponible. Se llama despues de cada render
+            // (render/renderMultidia) y despues de cambiar de semana, para
+            // que la barra siempre refleje el estado actual (por ejemplo,
+            // sigue visible aunque el alumno cambie de dia dentro de una
+            // rutina multidia).
             function _pfActualizarBotonSemanas() {
-                var btn = document.getElementById('btn-semanas-header');
+                var btn = document.getElementById('btn-semana-bar');
                 if (!btn) return;
                 var claves = _pfSemanasDisponibles(dataGlobal);
                 btn.style.display = claves ? 'flex' : 'none';
@@ -15617,14 +15621,14 @@
                 }
             }
 
-            // Muestra en el botón "Semana" del header en qué semana está el
-            // alumno ahora mismo (ej: "Semana 3"), para que quede visible sin
-            // tener que abrir el selector. También actualiza el tag junto al
+            // Muestra en la barra "Semana" en qué semana está el alumno
+            // ahora mismo (ej: "SEMANA 3"), para que quede visible sin tener
+            // que abrir el selector. También actualiza el tag junto al
             // nombre/sistema/número de rutina ("SEMANA 3"), para que se vea
             // de un vistazo qué semana se está entrenando.
             function _pfActualizarLabelBotonSemanas(key) {
-                var label = document.getElementById('btn-semanas-header-label');
-                if (label) label.textContent = key ? ('Semana ' + key) : 'Semana';
+                var label = document.getElementById('btn-semana-bar-label');
+                if (label) label.textContent = key ? ('SEMANA ' + key) : 'SEMANA';
                 var tag = document.getElementById('semana-actual-tag');
                 if (tag) {
                     if (key) {
@@ -15636,7 +15640,7 @@
                 }
             }
 
-            // Botón "Semana" del header: permite cambiar de semana en cualquier
+            // Barra "Semana": permite cambiar de semana en cualquier
             // momento (no solo al arrancar), por si el alumno se confundió al
             // elegir la semana en la pantalla de bienvenida. Reaplica la semana
             // elegida sobre dataGlobal (misma fusión que usa el selector
