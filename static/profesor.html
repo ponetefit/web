@@ -124,6 +124,13 @@
         .exercise-chip .text-\[9px\] {
             font-size: 0.7rem !important;
         }
+        .emom-chip-nombre {
+            flex: 1 1 auto;
+            min-width: 40px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
         .ac-item-ej {
             font-size: 1.1rem !important;
         }
@@ -374,6 +381,42 @@
                pasen a una segunda linea si no entran, igual que en el resto de la app mobile. */
             [id^="warmup-ejercicios-lista-"] .exercise-chip > .flex.items-center.justify-between { flex-wrap: wrap; row-gap: 6px; }
             [id^="warmup-ejercicios-lista-"] .warmup-dia-acciones { margin-left: auto; }
+            /* El nombre del ejercicio (calentamiento por dia y bloque principal) usa
+               flex:1 con base 0, así que el navegador nunca lo consideraba "demasiado
+               ancho" para pasar a otra linea y los botones de texto (Reemplazar/Repetir/x)
+               se quedaban con casi todo el espacio, dejando el nombre en una columna
+               angosta e ilegible. Forzamos que las acciones ocupen toda la fila (se van
+               solas a la linea de abajo) para que el nombre reciba el ancho completo del
+               chip. Aplica a los 7 sistemas (EMOM, Tabata, Circuito por Vueltas, Circuito
+               por Tiempo, Por Tiempo, Series y Sumando Ejercicio) porque todos comparten
+               el mismo chip de bloque principal. */
+            [id^="warmup-ejercicios-lista-"] .warmup-dia-acciones,
+            #bloque-ejercicios-lista .exercise-chip > .flex.items-center.justify-between > .flex.items-center.gap-1.flex-shrink-0 {
+                flex-basis: 100%;
+                justify-content: flex-end;
+            }
+            #bloque-ejercicios-lista .exercise-chip > .flex.items-center.justify-between { flex-wrap: wrap; row-gap: 6px; }
+            /* Nombre del ejercicio: ancho completo y sin cortar palabras raras */
+            [id^="warmup-ejercicios-lista-"] .exercise-chip .ej-hover-preview,
+            #bloque-ejercicios-lista .exercise-chip .ej-hover-preview {
+                white-space: normal;
+                overflow-wrap: break-word;
+            }
+            /* Chip EMOM (calentamiento y bloque EMOM por minuto): el nombre pasa a su
+               propia fila completa en vez de truncarse con "..." compartiendo espacio
+               con el input de reps y los botones. */
+            .emom-chip { flex-wrap: wrap; row-gap: 4px; }
+            .emom-chip-header { flex: 1 1 100%; min-width: 0; }
+            .emom-chip-nombre {
+                flex: 1 1 auto;
+                min-width: 0;
+                overflow: visible;
+                text-overflow: unset;
+                white-space: normal;
+                overflow-wrap: break-word;
+                font-size: 0.85rem !important;
+                font-weight: 700;
+            }
             /* Bloque exercise chips - prevent overflow */
             #bloque-ejercicios-lista .exercise-chip .flex.gap-2.items-center { flex-wrap: wrap; }
             /* Video preview tooltip - mobile friendly */
@@ -6969,11 +7012,13 @@
         const reemplazar = tipo === 'bloque'
             ? 'emomBloqueReemplazarEj(' + minIdx + ',' + ei + ')'
             : "emomWarmupReemplazarEj('" + idxOrKey + "'," + minIdx + ',' + ei + ')';
-        return '<div class="flex items-center gap-1.5 bg-fondoAlt rounded-lg px-2 py-1 mt-1">' +
-            '<span class="text-xs font-bold text-amarillo w-5 flex-shrink-0">E' + (ei+1) + '</span>' +
-            '<span class="text-xs flex-1 truncate ej-hover-preview cursor-pointer" style="min-width:0"' +
+        return '<div class="emom-chip flex items-center gap-1.5 bg-fondoAlt rounded-lg px-2 py-1 mt-1">' +
+            '<div class="emom-chip-header flex items-center gap-1.5">' +
+            '<span class="text-xs font-bold text-amarillo flex-shrink-0">E' + (ei+1) + '</span>' +
+            '<span class="emom-chip-nombre ej-hover-preview cursor-pointer"' +
             ' data-video-url="' + videoUrl + '" data-ej-nombre="' + nombreEsc + '"' +
             ' onmouseenter="showVideoPreview(event,this)" onmouseleave="hideVideoPreview()">' + ej.nombre + '</span>' +
+            '</div>' +
             '<input type="text" value="' + (ej.reps || '') + '" placeholder="Reps"' +
             ' onchange="' + setReps + '" class="rounded px-1 py-0.5 text-xs w-14 flex-shrink-0">' +
             '<select onchange="' + setUnit + '" class="rounded px-1 py-0.5 text-xs flex-shrink-0">' +
