@@ -7136,7 +7136,12 @@
                         String(hoy.getMonth() + 1).padStart(2, '0') + '-' +
                         String(hoy.getDate()).padStart(2, '0');
                     var base = _fbUrl(cod, 'asistencia/' + encodeURIComponent(cod) + '/');
-                    fetch(base + 'fechas/' + fechaISO + '.json', {
+                    // OJO: NO pisar "fechas/{fecha}" completo (eso borraba cualquier
+                    // "registros" que ya hubiera ahí si el alumno entraba más de una
+                    // vez el mismo día, por ejemplo para hacer el Día 2 después del
+                    // Día 1). Se guarda en una subclave propia para no chocar con
+                    // "registros/{diaKey}" que escribe _sincronizarProgresoAsistencia.
+                    fetch(base + 'fechas/' + fechaISO + '/presente.json', {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(ahora)
