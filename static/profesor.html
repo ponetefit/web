@@ -1581,6 +1581,24 @@
             margin-top: 4px;
             letter-spacing: 0.05em;
         }
+        .pf-vr-header-semanas {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .pf-vr-semana-tag {
+            font-family: 'Roboto', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 800;
+            color: #FFD54F;
+            background: rgba(255,193,7,0.14);
+            border: 1px solid rgba(255,193,7,0.35);
+            border-radius: 999px;
+            padding: 3px 10px;
+            letter-spacing: 0.03em;
+        }
         .pf-vr-dia-title {
             font-family: 'Roboto', sans-serif;
             font-size: 1.05rem;
@@ -9701,14 +9719,36 @@
     // historial (fondo oscuro, pills, sin el detalle "estilo PDF"). ──
     let _pfVistaModalCompacta = true;
 
+    // Devuelve la lista ordenada de números de semana que tiene cargados
+    // esta rutina (ej: [1,2,3]), o null si no tiene progresión semanal
+    // (r.semanas) o solo tiene una semana cargada.
+    function _pfNumerosSemanaRutina(r) {
+        if (!r || !r.semanas || typeof r.semanas !== 'object') return null;
+        const numeros = Object.keys(r.semanas)
+            .filter(k => r.semanas[k])
+            .map(k => parseInt(k, 10))
+            .filter(n => !isNaN(n))
+            .sort((a, b) => a - b);
+        return numeros.length > 1 ? numeros : null;
+    }
+
     function _pfRenderVistaRapidaModal(codigo, r) {
         const dias = _pfParsearDiasHistorial(r);
         const alumno = (r.alumno || '').toUpperCase();
         const codigoTxt = (codigo || '').toUpperCase() + (r.tipo === 'MULTIDIA' ? ' · MULTI-DÍA' : '');
+        // Si la rutina tiene mas de una semana cargada (progresion semanal),
+        // se muestran tags "SEM 1", "SEM 2", etc debajo del codigo, para que
+        // el profe vea de un vistazo cuantas semanas tiene esa rutina.
+        const numerosSemana = _pfNumerosSemanaRutina(r);
+        const semanasTags = numerosSemana ?
+            '<div class="pf-vr-header-semanas">' +
+                numerosSemana.map(n => '<span class="pf-vr-semana-tag">SEM ' + n + '</span>').join('') +
+            '</div>' : '';
         const headerCard = (alumno || codigoTxt) ?
             '<div class="pf-vr-header-card">' +
                 (alumno ? '<div class="pf-vr-header-alumno">' + escapeHtml(alumno) + '</div>' : '') +
                 (codigoTxt ? '<div class="pf-vr-header-codigo">' + escapeHtml(codigoTxt) + '</div>' : '') +
+                semanasTags +
             '</div>' : '';
         return '<div style="background:#17171C;border-radius:16px;padding:16px;margin:-8px -8px 0;">' +
             headerCard +
