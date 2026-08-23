@@ -4115,6 +4115,10 @@
                     <div class="header-rutina-sub">
                         <span class="tipo-tag" id="tipo-tag">MODO</span>
                         <span id="id-display">---</span>
+                        <!-- Solo aparece si la rutina tiene mas de una semana cargada.
+                             Muestra la semana que se esta viendo ahora mismo, al lado
+                             del nombre/sistema/numero de rutina. Ver _pfActualizarBotonSemanas(). -->
+                        <span class="tipo-tag" id="semana-actual-tag" style="display:none;background:var(--tarjeta-alt);color:var(--texto-suave);border:1px solid var(--borde);">SEMANA 1</span>
                     </div>
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;">
@@ -15581,15 +15585,28 @@
                 if (claves) {
                     var actual = (dataGlobal && dataGlobal.semana_elegida) || _pfObtenerSemanaGuardada(currentCode) || claves[0];
                     _pfActualizarLabelBotonSemanas(actual);
+                } else {
+                    _pfActualizarLabelBotonSemanas(null);
                 }
             }
 
             // Muestra en el botón "Semana" del header en qué semana está el
             // alumno ahora mismo (ej: "Semana 3"), para que quede visible sin
-            // tener que abrir el selector.
+            // tener que abrir el selector. También actualiza el tag junto al
+            // nombre/sistema/número de rutina ("SEMANA 3"), para que se vea
+            // de un vistazo qué semana se está entrenando.
             function _pfActualizarLabelBotonSemanas(key) {
                 var label = document.getElementById('btn-semanas-header-label');
                 if (label) label.textContent = key ? ('Semana ' + key) : 'Semana';
+                var tag = document.getElementById('semana-actual-tag');
+                if (tag) {
+                    if (key) {
+                        tag.textContent = 'SEMANA ' + key;
+                        tag.style.display = 'inline-block';
+                    } else {
+                        tag.style.display = 'none';
+                    }
+                }
             }
 
             // Botón "Semana" del header: permite cambiar de semana en cualquier
