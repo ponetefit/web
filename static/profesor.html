@@ -2898,6 +2898,14 @@
                     <div id="ca-chips-ejercicios" class="flex flex-wrap gap-2 mt-3"></div>
                 </div>
 
+                <div class="mt-4">
+                    <label class="flex items-center gap-2 text-xs text-textoSuave uppercase tracking-wider cursor-pointer select-none">
+                        <input id="ca-feedback-habilitado" type="checkbox" checked style="accent-color:#FF6B35;width:16px;height:16px">
+                        🔔 Pedirle feedback post-entreno (esfuerzo, ejercicio que le costó)
+                    </label>
+                    <p class="text-[11px] text-textoSuave mt-1">Si lo desmarcás, a este alumno no le va a aparecer más el cartel para calificar el entreno.</p>
+                </div>
+
                 <div class="pf-acciones-crear flex gap-3 mt-6">
                     <button id="btn-guardar-alumno" onclick="guardarPerfilAlumno()" class="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold text-sm uppercase tracking-wider">Guardar Alumno</button>
                     <button onclick="limpiarFormAlumno()" class="px-5 py-2.5 rounded-xl border border-borde text-textoSuave text-sm font-bold hover:text-texto transition">Cancelar</button>
@@ -4485,6 +4493,8 @@
         document.querySelectorAll('.ca-elemento-check').forEach(chk => chk.checked = false);
         _caEjerciciosProhibidosTemp = [];
         renderizarChipsEjerciciosProhibidos();
+        const chkFeedback = document.getElementById('ca-feedback-habilitado');
+        if (chkFeedback) chkFeedback.checked = true;
         const titulo = document.getElementById('ca-form-titulo');
         if (titulo) titulo.textContent = 'Nueva Ficha de Alumno';
     }
@@ -4496,8 +4506,10 @@
         const lesiones = document.getElementById('ca-lesiones').value.trim();
         const elementos = Array.from(document.querySelectorAll('.ca-elemento-check:checked')).map(el => el.value);
         const ejerciciosProhibidos = _caEjerciciosProhibidosTemp.slice();
+        const chkFeedback = document.getElementById('ca-feedback-habilitado');
+        const feedbackHabilitado = chkFeedback ? !!chkFeedback.checked : true;
         const clave = _claveAlumno(nombre);
-        const perfil = { nombre: nombre.toUpperCase(), edad, elementos, lesiones, ejerciciosProhibidos };
+        const perfil = { nombre: nombre.toUpperCase(), edad, elementos, lesiones, ejerciciosProhibidos, feedbackHabilitado };
 
         const btn = document.getElementById('btn-guardar-alumno');
         if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
@@ -4533,6 +4545,8 @@
         });
         _caEjerciciosProhibidosTemp = (p.ejerciciosProhibidos || []).slice();
         renderizarChipsEjerciciosProhibidos();
+        const chkFeedback = document.getElementById('ca-feedback-habilitado');
+        if (chkFeedback) chkFeedback.checked = (p.feedbackHabilitado !== false);
         const titulo = document.getElementById('ca-form-titulo');
         if (titulo) titulo.textContent = 'Editando Ficha de ' + p.nombre;
         const sec = document.getElementById('sec-crear-alumno');
@@ -4552,6 +4566,31 @@
             toast('Ficha eliminada');
         } catch (e) {
             toast('Error de conexion al eliminar la ficha');
+        }
+    }
+
+    // Prende/apaga el feedback post-entreno de un alumno puntual sin tener
+    // que abrir el formulario completo. Si el alumno todavía no tiene ficha,
+    // crea una mínima (solo con el nombre) para poder guardar el interruptor.
+    async function toggleFeedbackAlumno(clave, nombreFallback) {
+        const existente = _perfilAlumnosCache[clave];
+        const estabaOn = existente ? (existente.feedbackHabilitado !== false) : true;
+        const nuevoEstado = !estabaOn;
+        const perfil = existente ?
+            Object.assign({}, existente, { feedbackHabilitado: nuevoEstado }) :
+            { nombre: (nombreFallback || '').toUpperCase(), edad: '', elementos: [], lesiones: '', ejerciciosProhibidos: [], feedbackHabilitado: nuevoEstado };
+        try {
+            await fetch(FIREBASE_BASE + '/alumnos_perfil/' + clave + '.json', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(perfil)
+            });
+            _fbCacheInvalidar(FIREBASE_BASE + '/alumnos_perfil.json');
+            _perfilAlumnosCache[clave] = perfil;
+            renderizarListaAlumnosPerfil();
+            toast(nuevoEstado ? 'Feedback activado para ' + perfil.nombre : 'Feedback desactivado para ' + perfil.nombre);
+        } catch (e) {
+            toast('Error de conexion al cambiar el feedback');
         }
     }
 
@@ -4575,6 +4614,7 @@
                 const elementos = p.elementos || [];
                 const badgeId = 'asist-badge-' + (_asistIdx++);
                 if (p.nombre) _asistTargets.push({ id: badgeId, nombre: p.nombre });
+                const fbOn = p.feedbackHabilitado !== false;
                 html += '<div class="pf-alumno-card bg-fondoAlt rounded-xl border border-borde p-3 flex items-start justify-between gap-3 flex-wrap">' +
                     '<div class="pf-alumno-card-info min-w-0">' +
                     '<p class="pf-alumno-card-nombre font-bold text-sm">' + (p.nombre || '') + (p.edad ? ' <span class="text-textoSuave font-normal">(' + p.edad + ' años)</span>' : '') + ' <span id="' + badgeId + '"></span></p>' +
@@ -4583,6 +4623,7 @@
                     (prohibidos.length ? '<p class="text-xs text-amarillo mt-0.5">🚫 ' + prohibidos.join(', ') + '</p>' : '') +
                     '</div>' +
                     '<div class="pf-alumno-card-actions flex gap-2 flex-shrink-0">' +
+                    '<button onclick="toggleFeedbackAlumno(\'' + clave + '\')" class="' + (fbOn ? 'bg-verde/20 text-verde hover:bg-verde/30' : 'bg-borde/40 text-textoSuave hover:bg-borde/60') + ' px-3 py-1.5 rounded-lg text-xs font-bold transition" title="' + (fbOn ? 'Feedback post-entreno activado (click para desactivar)' : 'Feedback post-entreno desactivado (click para activar)') + '">' + (fbOn ? '🔔 Feedback' : '🔕 Feedback') + '</button>' +
                     '<button onclick="editarPerfilAlumno(\'' + clave + '\')" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">Editar</button>' +
                     '<button onclick="eliminarPerfilAlumno(\'' + clave + '\')" class="bg-rojo/20 text-rojo px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition">✕</button>' +
                     '</div>' +
@@ -4590,11 +4631,13 @@
             });
         extras.sort((a, b) => a.localeCompare(b)).forEach(n => {
             const nEsc = n.replace(/'/g, "\\'");
+            const claveExtra = _claveAlumno(n);
             const badgeId = 'asist-badge-' + (_asistIdx++);
             _asistTargets.push({ id: badgeId, nombre: n });
             html += '<div class="pf-alumno-card pf-alumno-card-extra bg-fondoAlt rounded-xl border border-borde/50 p-3 flex items-center justify-between gap-3 flex-wrap" style="border-style:dashed">' +
                 '<p class="pf-alumno-card-nombre text-sm text-textoSuave">' + n.toUpperCase() + ' <span class="text-[10px]">(sin ficha todavía)</span> <span id="' + badgeId + '"></span></p>' +
-                '<div class="pf-alumno-card-actions">' +
+                '<div class="pf-alumno-card-actions flex gap-2">' +
+                '<button onclick="toggleFeedbackAlumno(\'' + claveExtra + '\', \'' + nEsc + '\')" class="bg-verde/20 text-verde hover:bg-verde/30 px-3 py-1.5 rounded-lg text-xs font-bold transition" title="Feedback post-entreno activado (click para desactivar)">🔔 Feedback</button>' +
                 '<button onclick="document.getElementById(\'ca-nombre\').value=\'' + nEsc + '\'; document.getElementById(\'ca-nombre\').scrollIntoView({behavior:\'smooth\'});" class="bg-naranja/20 text-naranja px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition">Crear ficha</button>' +
                 '</div>' +
                 '</div>';
@@ -11395,7 +11438,8 @@
                                                 pct: reg.pct,
                                                 dia: typeof reg.dia === 'number' ? reg.dia : null,
                                                 semana: reg.semana || null,
-                                                ts: reg.ts || 0
+                                                ts: reg.ts || 0,
+                                                tiempoUsoSegundos: typeof reg.tiempo_uso_segundos === 'number' ? reg.tiempo_uso_segundos : null
                                             });
                                         });
                                     } else if (typeof val.pct === 'number') {
@@ -11403,7 +11447,8 @@
                                             pct: val.pct,
                                             dia: typeof val.dia === 'number' ? val.dia : null,
                                             semana: val.semana || null,
-                                            ts: val.ts || 0
+                                            ts: val.ts || 0,
+                                            tiempoUsoSegundos: typeof val.tiempo_uso_segundos === 'number' ? val.tiempo_uso_segundos : null
                                         });
                                     }
                                 }
@@ -11518,6 +11563,17 @@
         return t.charAt(0) + t.slice(1).toLowerCase();
     }
 
+    // Formatea segundos como "1h 12m" o "8m" para mostrar el tiempo de uso en
+    // el calendario de asistencia.
+    function _pfFormatearDuracion(segs) {
+        const s = Math.max(0, Math.round(Number(segs) || 0));
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        if (h > 0) return h + 'h ' + m + 'm';
+        if (m > 0) return m + 'm';
+        return s + 's';
+    }
+
     // Muestra, debajo del calendario, qué rutina(s) hizo el alumno en el día
     // tocado (o avisa que ese día no hay asistencia registrada).
     function _pfMostrarDetalleDiaAsistencia(fechaISO) {
@@ -11583,6 +11639,9 @@
                     }
                     if (tieneMasDeUnaSemana && reg.semana) {
                         linea += ' · <span class="text-naranja">Semana ' + escapeHtml(String(reg.semana)) + '</span>';
+                    }
+                    if (reg.tiempoUsoSegundos) {
+                        linea += ' · <span class="text-textoSuave">⏱ ' + _pfFormatearDuracion(reg.tiempoUsoSegundos) + ' de uso</span>';
                     }
                     let advertencia = '';
                     if (estimadoParaChequeo && estimadoParaChequeo.dia && reg.dia &&
@@ -17533,7 +17592,21 @@ self.addEventListener('fetch', event => {
 
             function _renderFeedbackDetalle(fechaISO) {
                 var entries = _feedbackDeFecha(fechaISO).sort(function(a, b) { return (a.ts || 0) - (b.ts || 0); });
-                if (!entries.length) return '<div class="mt-3 pt-3 border-t border-borde"><div class="text-xs font-bold text-textoSuave uppercase tracking-wider">Feedback post-entreno</div><p class="text-xs text-textoSuave mt-1">Sin feedback registrado ese día.</p></div>';
+                if (!entries.length) {
+                    // Si ese día hubo un entreno completado (>=95%) pero no hay
+                    // feedback (porque el profesor lo desactivó para este alumno,
+                    // o porque el alumno cerró el cartel sin responder), lo
+                    // avisamos distinto a "no hay nada" para que quede claro que
+                    // sí entrenó.
+                    var porCodigo = (typeof dashAsistenciaProgresoPorFecha !== 'undefined' && dashAsistenciaProgresoPorFecha[fechaISO]) || {};
+                    var huboEntrenoCompleto = Object.keys(porCodigo).some(function(cod) {
+                        return (porCodigo[cod] || []).some(function(reg) { return (reg.pct || 0) >= 95; });
+                    });
+                    if (huboEntrenoCompleto) {
+                        return '<div class="mt-3 pt-3 border-t border-borde"><div class="text-xs font-bold text-textoSuave uppercase tracking-wider">Feedback post-entreno</div><p class="text-xs text-texto mt-1">✅ Completó el entrenamiento ese día, sin percepción registrada.</p></div>';
+                    }
+                    return '<div class="mt-3 pt-3 border-t border-borde"><div class="text-xs font-bold text-textoSuave uppercase tracking-wider">Feedback post-entreno</div><p class="text-xs text-textoSuave mt-1">Sin feedback registrado ese día.</p></div>';
+                }
                 return '<div class="mt-3 pt-3 border-t border-borde"><div class="text-xs font-bold text-rojo uppercase tracking-wider mb-2">Feedback post-entreno · ' + entries.length + '</div>' +
                     entries.map(function(item) { return _feedbackCard(item, false); }).join('') + '</div>';
             }
