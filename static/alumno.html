@@ -5795,10 +5795,12 @@
                 actualizarProgresoUI();
             }
 
-            function actualizarProgresoUI() {
+            // Calcula el % actual de la rutina (mismo cálculo que usa la barra de
+            // progreso), reutilizable desde el sync final de tiempo de uso al
+            // cerrar/ocultar la pestaña.
+            function _pfCalcularPctActual() {
                 var pct = 0;
                 if (_progresoSegmentos.length > 0) {
-                    // Sumar los segmentos completados + el parcial del actual
                     for (var i = 0; i < _progresoSegmentos.length; i++) {
                         var seg = _progresoSegmentos[i];
                         if (i < _progresoSegActual) {
@@ -5810,7 +5812,11 @@
                         }
                     }
                 }
-                pct = Math.min(100, Math.max(0, pct));
+                return Math.min(100, Math.max(0, pct));
+            }
+
+            function actualizarProgresoUI() {
+                var pct = _pfCalcularPctActual();
                 var fillEl = document.getElementById('rutina-progress-fill');
                 var pctEl = document.getElementById('rutina-progress-pct');
                 if (fillEl) {
@@ -5889,6 +5895,13 @@
                         var registro = { ts: ahora, pct: Math.round(Math.min(100, Math.max(0, pct))) };
                         if (_esMultidiaAlMomento) registro.dia = _diaActivoAlMomento + 1; // 1-based, igual que dia_N en la rutina
                         if (_semanaAlMomento) registro.semana = _semanaAlMomento;
+                        // Cuánto tiempo lleva usando la app en esta sesión (arranca al
+                        // abrir el día/rutina). Se manda junto con el progreso para que
+                        // el profesor lo vea en el calendario, sin depender de que el
+                        // alumno termine el entreno.
+                        if (_tiempoInicioEntrenamiento) {
+                            registro.tiempo_uso_segundos = Math.floor((ahora - _tiempoInicioEntrenamiento) / 1000);
+                        }
                         // Se guarda bajo una clave por día (d1, d2... o "u" si la
                         // rutina no es multi-día), DENTRO de la fecha, en vez de
                         // pisar directamente "fechas/{fecha}". Así, si el alumno
@@ -5910,6 +5923,49 @@
                     } catch (e) {}
                 }, 1200);
             }
+
+            // Sync final e inmediato del tiempo de uso: se dispara al ocultar/cerrar
+            // la pestaña (el alumno se va a otra app, apaga la pantalla, cierra el
+            // navegador) en vez de esperar el debounce normal de 1.2s, que puede no
+            // llegar a ejecutarse si el navegador mata la página antes. Usa
+            // keepalive para que el pedido siga en curso aunque la página ya se
+            // haya cerrado.
+            var _ultimoTiempoUsoSincronizado = 0;
+            function _sincronizarTiempoUsoFinal() {
+                try {
+                    if (!currentCode || !_tiempoInicioEntrenamiento) return;
+                    var ahora = Date.now();
+                    var segs = Math.floor((ahora - _tiempoInicioEntrenamiento) / 1000);
+                    // Evitar mandar el mismo valor dos veces seguidas (ej. pagehide
+                    // Y visibilitychange disparándose casi juntos).
+                    if (segs <= 0 || segs === _ultimoTiempoUsoSincronizado) return;
+                    _ultimoTiempoUsoSincronizado = segs;
+                    var hoy = new Date(ahora);
+                    var fechaISO = hoy.getFullYear() + '-' +
+                        String(hoy.getMonth() + 1).padStart(2, '0') + '-' +
+                        String(hoy.getDate()).padStart(2, '0');
+                    var base = _fbUrl(currentCode, 'asistencia/' + encodeURIComponent(currentCode) + '/');
+                    var diaKey = (typeof esMultidia !== 'undefined' && esMultidia) ? ('d' + (diaActivo + 1)) : 'u';
+                    var registro = {
+                        ts: ahora,
+                        pct: Math.round(_pfCalcularPctActual()),
+                        tiempo_uso_segundos: segs
+                    };
+                    if (typeof esMultidia !== 'undefined' && esMultidia) registro.dia = diaActivo + 1;
+                    var semanaActual = (typeof dataGlobal !== 'undefined' && dataGlobal && dataGlobal.semana_elegida) ? dataGlobal.semana_elegida : null;
+                    if (semanaActual) registro.semana = semanaActual;
+                    fetch(base + 'fechas/' + fechaISO + '/registros/' + diaKey + '.json', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(registro),
+                        keepalive: true
+                    }).catch(function() {});
+                } catch (e) {}
+            }
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'hidden') _sincronizarTiempoUsoFinal();
+            });
+            window.addEventListener('pagehide', _sincronizarTiempoUsoFinal);
 
             // ─── TIEMPO DE SESIÓN ───
             var _tiempoInicioEntrenamiento = null;
@@ -14889,6 +14945,19 @@
             var _costososPrevios = {};
             var _costososPreviosPromise = null;
             var _costososPreviosListo = false;
+            // Interruptor por alumno: el profesor puede desactivar el feedback
+            // post-entreno para alumnos a los que no les gusta que se lo pidan.
+            // Por defecto queda ACTIVADO (si no hay ficha o no tiene el campo,
+            // se comporta igual que antes).
+            var _feedbackDeshabilitado = false;
+            var _configFeedbackPromise = null;
+            var _configFeedbackListo = false;
+
+            // Misma normalización que usa profesor.html (_claveAlumno) para
+            // construir la clave de "alumnos_perfil" a partir del nombre.
+            function _claveAlumnoFeedback(nombre) {
+                return String(nombre || '').trim().toUpperCase().replace(/[.#$\[\]\/\s]+/g, '_');
+            }
 
             function _esc(value) {
                 return String(value == null ? '' : value)
@@ -15055,6 +15124,28 @@
             // muy costosos (sensación 9-10) y que todavía no confirmó que le sigan
             // costando. Si ya había avisado "no me cuesta más" (resueltos) después del
             // último reporte, no se incluye.
+            // Consulta si el profesor desactivó el feedback post-entreno para
+            // ESTE alumno puntual (ficha guardada en "alumnos_perfil", igual
+            // que edad/elementos/lesiones). Si no hay ficha, o no tiene el
+            // campo, queda ACTIVADO (comportamiento de siempre).
+            async function _cargarConfigFeedback() {
+                _configFeedbackListo = false;
+                _feedbackDeshabilitado = false;
+                try {
+                    var cod = typeof currentCode !== 'undefined' ? currentCode : '';
+                    var nombreAlumno = (typeof dataGlobal !== 'undefined' && dataGlobal && dataGlobal.nombre) || '';
+                    if (cod && nombreAlumno) {
+                        var clave = _claveAlumnoFeedback(nombreAlumno);
+                        var res = await fetch('/api/fb/' + encodeURIComponent(cod) + '/alumnos_perfil/' + encodeURIComponent(clave) + '.json');
+                        var perfil = await res.json();
+                        _feedbackDeshabilitado = !!(perfil && perfil.feedbackHabilitado === false);
+                    }
+                } catch (e) {
+                    _feedbackDeshabilitado = false;
+                }
+                _configFeedbackListo = true;
+            }
+
             async function _cargarCostososPrevios() {
                 _costososPreviosListo = false;
                 _costososPrevios = {};
@@ -15281,8 +15372,53 @@
                 });
             }
 
+            // Junta, sin repetidos, los ejercicios de TODAS las etapas de la rutina
+            // (calentamiento + todos los bloques). Se usa para el resumen final
+            // simplificado de los alumnos que tienen el feedback por bloque
+            // apagado: en vez de preguntar por cada bloque, se pregunta una sola
+            // vez al terminar, pero dejando elegir entre TODOS los ejercicios del
+            // día (no solo los del último bloque).
+            function _ejerciciosTodaLaRutina() {
+                var names = [];
+                var seen = {};
+                var total = (typeof _progresoSegmentos !== 'undefined' && _progresoSegmentos) ? _progresoSegmentos.length : 0;
+                for (var i = 0; i < total; i++) {
+                    _ejerciciosEtapa(i).forEach(function(n) {
+                        var key = n.toUpperCase();
+                        if (seen[key]) return;
+                        seen[key] = true;
+                        names.push(n);
+                    });
+                }
+                return names;
+            }
+
             function _abrirFeedback(indice, pendienteFinal) {
                 if (_feedbackEtapasRespondidas[indice] || _feedbackEtapaActual) return;
+                // Esperar a saber si el profesor desactivó el feedback para este
+                // alumno antes de decidir si mostramos la ventana (máx. 2.5s).
+                if (_configFeedbackPromise && !_configFeedbackListo) {
+                    Promise.race([
+                        _configFeedbackPromise,
+                        new Promise(function(res) { setTimeout(res, 2500); })
+                    ]).then(function() {
+                        _abrirFeedback(indice, pendienteFinal);
+                    });
+                    return;
+                }
+                if (_feedbackDeshabilitado) {
+                    // Este alumno tiene el feedback por bloque apagado: no
+                    // mostramos nada durante la rutina, pero al llegar al final
+                    // sí le mostramos UNA sola pantalla resumen (sensación 1-10 +
+                    // ejercicio que más le costó de TODA la rutina), en vez del
+                    // feedback por bloque de siempre.
+                    if (!pendienteFinal) {
+                        _feedbackEtapasRespondidas[indice] = true;
+                        return;
+                    }
+                    _abrirFeedbackFinalSimplificado(indice);
+                    return;
+                }
                 // Si todavía no llegó la respuesta de Firebase con los ejercicios que
                 // le costaron en rutinas anteriores, esperamos un toque (máx. 2.5s) en
                 // vez de abrir la ventana con "_costososPrevios" vacío: si abrimos antes,
@@ -15305,6 +15441,37 @@
                     pendienteFinal: !!pendienteFinal
                 };
                 document.getElementById('pf-feedback-subtitle').textContent = _nombreEtapa(indice) + ' · una respuesta rápida para ajustar tu próximo entrenamiento';
+                _renderSeguimiento(nombres);
+                var select = document.getElementById('pf-feedback-ejercicio');
+                select.innerHTML = '<option value="">Elegí un ejercicio</option>' +
+                    '<option value="Ninguno me costó">Ninguno me costó</option>' +
+                    nombres.map(function(n) { return '<option value="' + _esc(n) + '">' + _esc(n) + '</option>'; }).join('');
+                document.getElementById('pf-feedback-ejercicio-otro').value = '';
+                document.getElementById('pf-feedback-nota').value = '';
+                document.getElementById('pf-feedback-required').textContent = '';
+                _renderEscala(null);
+                document.getElementById('pf-feedback-overlay').classList.add('visible');
+                setTimeout(function() {
+                    var first = document.querySelector('#pf-feedback-scale button');
+                    if (first) first.focus();
+                }, 50);
+            }
+
+            // Pantalla única de cierre para alumnos con el feedback por bloque
+            // apagado: se abre solo al terminar TODA la rutina (nunca en medio
+            // de un bloque), con la misma escala 1-10 y el mismo selector de
+            // ejercicio de siempre, pero ofreciendo los ejercicios de la rutina
+            // completa en vez de solo los del último bloque.
+            function _abrirFeedbackFinalSimplificado(indice) {
+                _crearOverlay();
+                var nombres = _ejerciciosTodaLaRutina();
+                _feedbackEtapaActual = {
+                    indice: indice,
+                    rpe: null,
+                    pendienteFinal: true,
+                    esFinalSimplificado: true
+                };
+                document.getElementById('pf-feedback-subtitle').textContent = 'Un resumen rápido de cómo te fue con toda la rutina de hoy';
                 _renderSeguimiento(nombres);
                 var select = document.getElementById('pf-feedback-ejercicio');
                 select.innerHTML = '<option value="">Elegí un ejercicio</option>' +
@@ -15364,6 +15531,7 @@
                     return;
                 }
                 var nota = document.getElementById('pf-feedback-nota').value.trim();
+                var esFinalSimplificado = !!_feedbackEtapaActual.esFinalSimplificado;
                 var fuenteEtapaActual = _fuenteEtapa(_feedbackEtapaActual.indice);
                 // Convertimos el mapa de seguimiento (EJ_UPPER -> true/false) en una lista
                 // legible para el profesor, con el nombre "lindo" del ejercicio y el dato
@@ -15383,19 +15551,17 @@
                     alumno: typeof nombreUsuario !== 'undefined' ? nombreUsuario : '',
                     dia: typeof esMultidia !== 'undefined' && esMultidia ? (typeof diaActivo !== 'undefined' ? diaActivo + 1 : null) : null,
                     semana: (typeof dataGlobal !== 'undefined' && dataGlobal && dataGlobal.semana_elegida) ? dataGlobal.semana_elegida : null,
-                    etapa: _feedbackEtapaActual.indice === 0 ? 'calentamiento' : 'bloque',
+                    // Para el resumen final simplificado (alumnos con feedback por
+                    // bloque apagado), no etiquetamos con el último bloque -- es un
+                    // resumen de TODA la rutina, no de una etapa puntual.
+                    etapa: esFinalSimplificado ? 'rutina_completa' : (_feedbackEtapaActual.indice === 0 ? 'calentamiento' : 'bloque'),
                     etapa_indice: _feedbackEtapaActual.indice,
-                    etapa_nombre: _nombreEtapa(_feedbackEtapaActual.indice),
-                    tipo: (typeof _progresoSegmentos !== 'undefined' && _progresoSegmentos[_feedbackEtapaActual.indice]) ? _progresoSegmentos[_feedbackEtapaActual.indice].nombre : '',
+                    etapa_nombre: esFinalSimplificado ? 'RUTINA COMPLETA' : _nombreEtapa(_feedbackEtapaActual.indice),
+                    tipo: esFinalSimplificado ? '' : ((typeof _progresoSegmentos !== 'undefined' && _progresoSegmentos[_feedbackEtapaActual.indice]) ? _progresoSegmentos[_feedbackEtapaActual.indice].nombre : ''),
                     // Sistema de entrenamiento con detalle (ej: "Tabata 20/10 · 4 ejercicios · 2 rondas"),
                     // para que el profesor sepa exactamente en qué contexto le costó el ejercicio.
-                    sistema_tipo: fuenteEtapaActual.tipo || '',
-                    sistema_detalle: _formatoSistemaEntrenamiento(fuenteEtapaActual),
-                    bloque_completo: {
-                        nombre: _nombreEtapa(_feedbackEtapaActual.indice),
-                        tipo: (typeof _progresoSegmentos !== 'undefined' && _progresoSegmentos[_feedbackEtapaActual.indice]) ? _progresoSegmentos[_feedbackEtapaActual.indice].nombre : '',
-                        ejercicios: _detalleEtapa(_feedbackEtapaActual.indice)
-                    },
+                    sistema_tipo: esFinalSimplificado ? '' : (fuenteEtapaActual.tipo || ''),
+                    sistema_detalle: esFinalSimplificado ? '' : _formatoSistemaEntrenamiento(fuenteEtapaActual),
                     sensacion: rpe,
                     ejercicio_dificil: ejercicioDificil,
                     comentario: nota,
@@ -15404,6 +15570,13 @@
                     // dejar de advertir sobre los que el alumno confirmó que ya no le cuestan.
                     seguimiento_costosos: seguimientoCostosos
                 };
+                if (!esFinalSimplificado) {
+                    payload.bloque_completo = {
+                        nombre: _nombreEtapa(_feedbackEtapaActual.indice),
+                        tipo: (typeof _progresoSegmentos !== 'undefined' && _progresoSegmentos[_feedbackEtapaActual.indice]) ? _progresoSegmentos[_feedbackEtapaActual.indice].nombre : '',
+                        ejercicios: _detalleEtapa(_feedbackEtapaActual.indice)
+                    };
+                }
                 _feedbackEtapasRespondidas[_feedbackEtapaActual.indice] = payload;
                 // Si confirmó que algún ejercicio ya NO le cuesta más, avisamos ya mismo
                 // (no hace falta esperar a que el profesor procese el feedback).
@@ -15454,6 +15627,10 @@
                     // cargar la rutina, antes de inicializarProgreso); si no, reintentamos.
                     _costososPreviosPromise = new Promise(function(resolve) {
                         setTimeout(function() { _cargarCostososPrevios().then(resolve).catch(resolve); }, 300);
+                    });
+                    _configFeedbackListo = false;
+                    _configFeedbackPromise = new Promise(function(resolve) {
+                        setTimeout(function() { _cargarConfigFeedback().then(resolve).catch(resolve); }, 300);
                     });
                     return _feedbackOriginalInicializar(data);
                 };
