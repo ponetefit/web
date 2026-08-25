@@ -15133,7 +15133,14 @@
                 _feedbackDeshabilitado = false;
                 try {
                     var cod = typeof currentCode !== 'undefined' ? currentCode : '';
-                    var nombreAlumno = (typeof dataGlobal !== 'undefined' && dataGlobal && dataGlobal.nombre) || '';
+                    // OJO: la rutina que guarda profesor.html no tiene campo "nombre",
+                    // tiene "alumno" (payload = { alumno, tipo, datos }). Antes se leía
+                    // dataGlobal.nombre, que siempre es undefined, así que esta función
+                    // nunca llegaba a consultar la ficha del alumno y el feedback quedaba
+                    // SIEMPRE activado sin importar lo que tildara el profesor. Se agrega
+                    // además nombreUsuario (derivado del código) como último respaldo.
+                    var nombreAlumno = (typeof dataGlobal !== 'undefined' && dataGlobal && dataGlobal.alumno) ||
+                        (typeof nombreUsuario !== 'undefined' && nombreUsuario) || '';
                     if (cod && nombreAlumno) {
                         var clave = _claveAlumnoFeedback(nombreAlumno);
                         var res = await fetch('/api/fb/' + encodeURIComponent(cod) + '/alumnos_perfil/' + encodeURIComponent(clave) + '.json');
