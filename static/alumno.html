@@ -5418,6 +5418,14 @@
             // ─── WAKE LOCK API ───
             let wakeLock = null;
             let _wakeLockVideoFallback = null;
+            // Se pone en true en CADA solicitarWakeLock() y en false en CADA
+            // liberarWakeLock(), sin importar desde qué motor de timer se
+            // llame (descanso entre series, pausa entre rondas, Tabata, EMOM,
+            // Circuito por Tiempo, Por Tiempo, Mix, calentamiento...). Así
+            // sabemos en todo momento si "debería" haber pantalla encendida,
+            // más allá de cuál de los muchos timers de la app sea el que está
+            // corriendo ahora mismo.
+            let _wakeLockDeseado = false;
 
             // Fallback: video invisible en loop para mantener pantalla encendida en Safari iOS
             function _activarVideoFallback() {
@@ -5436,6 +5444,7 @@
             }
 
             async function solicitarWakeLock() {
+                _wakeLockDeseado = true;
                 if ('wakeLock' in navigator) {
                     try {
                         wakeLock = await navigator.wakeLock.request('screen');
@@ -5454,6 +5463,7 @@
             }
 
             async function liberarWakeLock() {
+                _wakeLockDeseado = false;
                 if (wakeLock) {
                     try {
                         await wakeLock.release();
@@ -5464,9 +5474,24 @@
                 document.getElementById('wakelock-indicator').classList.remove('active');
             }
 
-            // Re-solicitar WakeLock si la pestaña vuelve a ganar foco
+            // Re-solicitar WakeLock si la pestaña vuelve a ganar foco (ej: se
+            // apagó la pantalla del celular y se volvió a prender).
+            // BUGFIX: antes acá solo se miraba "timerActivo", una variable
+            // específica de UN solo motor de timer (el cronómetro por
+            // tiempo). La app tiene más de una decena de motores de timer
+            // distintos (descanso entre series, pausa entre rondas, Tabata,
+            // EMOM, Circuito por Tiempo, Por Tiempo, Mix, calentamiento...) y
+            // varios de ellos piden el WakeLock sin tocar "timerActivo" (ni
+            // siquiera "_timerGlobalActivo", que tampoco cubre todos los
+            // casos, ej. el descanso entre series). Por eso, si apagabas la
+            // pantalla mientras corría cualquiera de esos otros timers, al
+            // volver a prenderla no se re-pedía el WakeLock y el sistema
+            // operativo la apagaba de nuevo sola a los pocos segundos. Ahora
+            // se usa "_wakeLockDeseado", que queda en sync automáticamente
+            // con cualquier solicitarWakeLock()/liberarWakeLock() sin importar
+            // de qué motor venga.
             document.addEventListener('visibilitychange', async() => {
-                if (document.visibilityState === 'visible' && timerActivo) {
+                if (document.visibilityState === 'visible' && _wakeLockDeseado) {
                     await solicitarWakeLock();
                 }
             });
@@ -14628,9 +14653,37 @@
                 }
 
                 // Restaurar progreso
+                var _huboAjusteBloqueNoRestaurable = false;
                 if (estado.progresoSegmentos && estado.progresoSegmentos.length > 0) {
                     _progresoSegmentos = estado.progresoSegmentos;
                     _progresoSegActual = estado.progresoSegActual || 0;
+
+                    // ─── Sincronizar la barra con lo que realmente se puede
+                    // restaurar ───
+                    // Solo persistimos el estado interno de dos tipos de bloque:
+                    // "Series" (seriesRestantes) y "Circuito" simple con vueltas
+                    // (circVueltasRestantes). El resto de los tipos (Tabata,
+                    // EMOM, Circuito por Tiempo, Por Tiempo, Sumando Ejercicio y
+                    // el Calentamiento en general) tienen su propio motor de
+                    // cronómetro/rondas que arranca siempre de cero al recargar
+                    // la página, porque no guardamos en qué vuelta/ronda exacta
+                    // iban. Antes de este ajuste, la barra de progreso mostraba
+                    // el % de avance guardado (ej: 45%) mientras el bloque en
+                    // pantalla aparecía sin ningún avance (arrancando de nuevo),
+                    // lo que se veía como "no sale el progreso" y a veces
+                    // generaba botones de pausa/inicio inconsistentes. Ahora, si
+                    // el bloque donde se interrumpió la sesión es de un tipo no
+                    // restaurable, bajamos el "completados" de ESE segmento a 0
+                    // (los segmentos anteriores ya completados se mantienen
+                    // intactos) para que el número de la barra y lo que se ve en
+                    // pantalla coincidan siempre.
+                    var _segRetomado = _progresoSegmentos[_progresoSegActual];
+                    var _tiposNoRestaurables = ['Tabata', 'EMOM', 'Circuito por Tiempo', 'Por Tiempo', 'Sumando Ejercicio', 'Calentamiento'];
+                    if (_segRetomado && _tiposNoRestaurables.indexOf(_segRetomado.nombre) !== -1 && _segRetomado.completados > 0) {
+                        _segRetomado.completados = 0;
+                        _huboAjusteBloqueNoRestaurable = true;
+                    }
+
                     actualizarProgresoUI();
                 }
 
@@ -14642,6 +14695,14 @@
                             if (pesoInput) pesoInput.value = estado.pesosActuales[pid];
                         }
                     }, 100);
+                }
+
+                // Avisar si un bloque tuvo que reiniciarse por no poder
+                // restaurar su cronómetro/rondas exactas (ver ajuste arriba)
+                if (_huboAjusteBloqueNoRestaurable) {
+                    setTimeout(function() {
+                        mostrarToast('El bloque donde estabas se reinicia; tu progreso anterior quedó guardado');
+                    }, 3200);
                 }
 
                 // Mostrar modal de rutina
@@ -15858,11 +15919,25 @@
                 for (var k in base) { if (Object.prototype.hasOwnProperty.call(base, k)) fusion[k] = base[k]; }
                 delete fusion.tipo;
                 delete fusion.datos;
-                delete fusion.es_multidia;
-                delete fusion.total_dias;
-                Object.keys(fusion).forEach(function(k) {
-                    if (/^dia_\d+$/.test(k)) delete fusion[k];
-                });
+                // BUGFIX: antes acá se borraban SIEMPRE "es_multidia" y
+                // "total_dias" (y todos los "dia_N") asumiendo que la semana
+                // elegida los iba a redefinir. La mayoría de las semanas NO
+                // redefinen esos campos (solo traen series/reps/pausa
+                // actualizadas), así que quedaban en "undefined" y toda rutina
+                // multi-día con progresión semanal pasaba a evaluarse como si
+                // NO fuera multi-día (es_multidia === true daba false) apenas
+                // el alumno elegía una semana. Sin "dia_N" y sin "tipo/datos"
+                // propios, la pantalla quedaba rota/vacía: esto es el error
+                // reportado de "una semana que hace que la app no funcione".
+                // Ahora solo se pisan/borran esos campos si la semana elegida
+                // realmente trae su propio set de días (dia_1, dia_2, ...);
+                // si no, se conservan los de la rutina base tal cual.
+                var semanaTraeDias = Object.keys(semana).some(function(k) { return /^dia_\d+$/.test(k); });
+                if (semanaTraeDias) {
+                    Object.keys(fusion).forEach(function(k) {
+                        if (/^dia_\d+$/.test(k)) delete fusion[k];
+                    });
+                }
                 for (var k2 in semana) { if (Object.prototype.hasOwnProperty.call(semana, k2)) fusion[k2] = semana[k2]; }
                 fusion.semanas = base.semanas;
                 fusion.semana_elegida = key;
