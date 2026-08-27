@@ -5541,8 +5541,38 @@
             // ─── BLOQUEO GLOBAL DE TIMERS ───
             var _timerGlobalActivo = false;
 
+            // BUGFIX #10: antes, si "_timerGlobalActivo" quedaba en true sin que
+            // hubiera en realidad ningún timer corriendo (por ejemplo, una
+            // excepción de JS entre activarTimerGlobal() y el arranque real del
+            // timer, o un motor que se salteó el desactivarTimerGlobal() final
+            // en algún camino de error), TODOS los botones "Empezar" de la app
+            // quedaban bloqueados para siempre con el mismo toast genérico, sin
+            // ninguna forma de destrabarlos salvo recargar la página (perdiendo
+            // lo no guardado). Esta función verifica que exista al menos UNA
+            // señal concreta de timer corriendo antes de bloquear; si el
+            // candado está en true pero no hay ninguna señal real, lo libera
+            // solo y deja seguir al alumno.
+            function _hayTimerRealActivo() {
+                if (typeof timerActivo !== 'undefined' && timerActivo) return true;
+                if (typeof emomRunning !== 'undefined' && emomRunning) return true;
+                if (typeof warmupRunning !== 'undefined' && warmupRunning) return true;
+                if (typeof _wPorTiempoRunning !== 'undefined' && _wPorTiempoRunning) return true;
+                if (typeof _porTiempoState !== 'undefined' && _porTiempoState) {
+                    for (var _ptk in _porTiempoState) {
+                        if (_porTiempoState[_ptk] && _porTiempoState[_ptk].running) return true;
+                    }
+                }
+                if (document.querySelector('[data-running="1"]')) return true;
+                return false;
+            }
+
             function hayTimerActivo() {
                 if (_timerGlobalActivo) {
+                    if (!_hayTimerRealActivo()) {
+                        // Candado huérfano: se libera solo y se deja pasar.
+                        desactivarTimerGlobal();
+                        return false;
+                    }
                     mostrarToast('Ya hay un timer activo. Esperá a que termine.');
                     return true;
                 }
@@ -5551,11 +5581,22 @@
 
             function activarTimerGlobal() {
                 _timerGlobalActivo = true;
+                // BUGFIX: si quedaban mensajes de voz encolados de un bloque
+                // que el alumno abandonó sin terminar (no lo hizo, o se
+                // olvidó de apretar la última pausa), esos mensajes se
+                // quedaban esperando en "_colaVoz" y recién se disparaban
+                // cuando arrancaba el bloque siguiente — sonando como
+                // feedback de ese bloque nuevo y confundiendo al alumno. Al
+                // arrancar cualquier bloque nuevo, se descarta lo que haya
+                // quedado pendiente del anterior (no corta lo que se está
+                // diciendo en este instante, solo lo que todavía no arrancó).
+                _colaVoz.length = 0;
             }
 
             function desactivarTimerGlobal() {
                 _timerGlobalActivo = false;
             }
+
 
             // ─── PROGRESO DE RUTINA (SISTEMA POR SEGMENTOS PONDERADOS) ───
             // Cada segmento: {nombre, pctStart, pctEnd, totalItems, completados}
@@ -9686,6 +9727,11 @@
             }
 
             function volverADias() {
+                // Descartar feedback de voz pendiente de lo que se haya
+                // abandonado a medio hacer (ver activarTimerGlobal())
+                _colaVoz.length = 0;
+                _ultimoEjercicioMarcado = null;
+
                 // Detener todos los timers activos
                 bgClearInterval(tInterval);
                 bgClearInterval(pausaRondaInterval);
@@ -11695,6 +11741,7 @@
             // ─── OVERLAY PAUSA SERIES ───
             var _spInterval = null;
             var _spSerieIdx = -1; // índice del ejercicio en descanso
+            var _spFinalizarActual = null; // callback idempotente del descanso en curso (ver #9)
 
             function abrirOverlaySeries(nombreEj, seriesRestantes, pesoKg, pausa, onFin) {
                 var overlay = document.getElementById('overlay-series-pausa');
@@ -11765,8 +11812,19 @@
                     bgClearInterval(_spInterval);
                     _spInterval = null;
                 }
+                if (_spFinalizarActual) {
+                    // Usa el mismo camino idempotente que el fin normal del
+                    // descanso, para que el watchdog de seguridad (#9) no
+                    // vuelva a dispararse más tarde y duplique el aviso.
+                    // silent=true: al saltar la pausa manualmente no hace
+                    // falta que el coach hable, como ya era el comportamiento
+                    // original de este botón.
+                    _spFinalizarActual(true);
+                    return;
+                }
                 cerrarOverlaySeries();
-                // Re-habilitar el botón del ejercicio en descanso
+                // Re-habilitar el botón del ejercicio en descanso (respaldo,
+                // por si no había un callback idempotente registrado)
                 if (_spSerieIdx >= 0) {
                     var btn = document.getElementById('btn-' + _spSerieIdx);
                     var timer = document.getElementById('timer-' + _spSerieIdx);
@@ -11780,10 +11838,21 @@
                 }
             }
 
+            var _ultimoEjercicioMarcado = null;
+
             function marcarSerie(i, pausa) {
                 if (seriesRestantes[i] <= 0) return;
                 const btn = document.getElementById('btn-' + i);
                 if (btn && btn.disabled) return;
+
+                // Ver comentario en activarTimerGlobal(): si el alumno saltó
+                // a otro ejercicio sin terminar el anterior, descartar el
+                // feedback de voz pendiente de ese ejercicio anterior para
+                // que no aparezca fuera de contexto acá.
+                if (_ultimoEjercicioMarcado !== null && _ultimoEjercicioMarcado !== i) {
+                    _colaVoz.length = 0;
+                }
+                _ultimoEjercicioMarcado = i;
 
                 // Guardar peso en localStorage
                 var pesoInput = document.getElementById('peso-' + i);
@@ -11865,30 +11934,74 @@
 
                 coachPausaSeries(seriesRestantes[i]);
 
-                // Abrir overlay de pausa pantalla completa
+                // BUGFIX #9: antes, la única forma de reactivar este botón era
+                // que el callback "onFin" del overlay de pausa se ejecutara con
+                // éxito. Si eso fallaba por cualquier motivo (una excepción en
+                // medio del tick del overlay, el overlay cerrándose de otra
+                // forma, etc.), el botón quedaba en "Descansando..." y
+                // deshabilitado para siempre, sin ninguna forma de continuar el
+                // entrenamiento salvo recargar la página (perdiendo lo no
+                // guardado). Ahora la reactivación vive en una única función
+                // idempotente (protegida por "_terminado") que se puede
+                // disparar desde tres lugares distintos: el fin normal del
+                // overlay, el timer inline de respaldo, y un watchdog de
+                // seguridad — el que llegue primero gana, y cualquiera de los
+                // otros que llegue después no hace nada.
                 _spSerieIdx = i;
                 var _nombreParaOverlay = ejercicioNombres[i] || '';
-                abrirOverlaySeries(_nombreParaOverlay, seriesRestantes[i], pesoKg, pausa, function() {
-                    // Al terminar el descanso
-                    var _tipSeries = _obtenerTip(_nombreParaOverlay);
-                    if (_nombreParaOverlay) hablarCoach('Es momento de hacer ' + _nombreParaOverlay + '.');
-                    if (_tipSeries) hablarCoach(_tipSeries);
+                var _terminadoDescanso = false;
+                var _finalizarDescanso = function(silent) {
+                    if (_terminadoDescanso) return;
+                    _terminadoDescanso = true;
+                    if (_spFinalizarActual === _finalizarDescanso) _spFinalizarActual = null;
+                    if (!silent) {
+                        var _tipSeries = _obtenerTip(_nombreParaOverlay);
+                        if (_nombreParaOverlay) hablarCoach('Es momento de hacer ' + _nombreParaOverlay + '.');
+                        if (_tipSeries) hablarCoach(_tipSeries);
+                    }
                     if (timer) timer.style.display = 'none';
                     if (btn) {
                         btn.classList.remove('active');
                         btn.disabled = false;
                         btn.innerText = _labelBotonSerie(i, seriesRestantes[i]);
                     }
-                    _spSerieIdx = -1;
-                });
+                    if (_spSerieIdx === i) _spSerieIdx = -1;
+                    if (restIntervals[i]) {
+                        bgClearInterval(restIntervals[i]);
+                        restIntervals[i] = null;
+                    }
+                    cerrarOverlaySeries();
+                };
+
+                // Abrir overlay de pausa pantalla completa
+                _spFinalizarActual = _finalizarDescanso;
+                try {
+                    abrirOverlaySeries(_nombreParaOverlay, seriesRestantes[i], pesoKg, pausa, _finalizarDescanso);
+                } catch (_eOverlay) {
+                    // Si el overlay ni siquiera pudo abrir, no dejar el botón
+                    // trabado esperando un callback que nunca va a llegar.
+                    _finalizarDescanso();
+                }
 
                 // Mantener interval inline sincronizado (accesibilidad, por si overlay está cerrado)
                 var _restDeadline = Date.now() + pausa * 1000;
                 restIntervals[i] = bgSetInterval(function() {
                     var remaining = Math.max(0, Math.round((_restDeadline - Date.now()) / 1000));
                     if (timer) timer.innerText = formatearTiempo(remaining);
-                    if (remaining <= 0) bgClearInterval(restIntervals[i]);
+                    if (remaining <= 0) {
+                        bgClearInterval(restIntervals[i]);
+                        restIntervals[i] = null;
+                        // Respaldo: si por lo que sea el overlay nunca llamó a
+                        // _finalizarDescanso, este backup lo hace.
+                        _finalizarDescanso();
+                    }
                 }, 1000);
+
+                // Watchdog de seguridad: pase lo que pase con el overlay, el
+                // timer inline o el Worker de segundo plano, el botón se
+                // reactiva sí o sí a más tardar unos segundos después de que
+                // debería haber terminado el descanso.
+                setTimeout(_finalizarDescanso, pausa * 1000 + 8000);
             }
 
             // Diccionarios globales: índice de ejercicio → arrays de pausas/reps por serie
