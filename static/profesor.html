@@ -2948,8 +2948,25 @@
                 </div>
                 <div class="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex flex-wrap gap-3 rounded-b-3xl">
                     <button onclick="descargarPDFDesdeModal()" class="btn-primary flex-1 py-3 rounded-xl text-white font-bold text-sm uppercase tracking-wider min-w-[140px]">Descargar PDF</button>
-                    <button onclick="descargarPDFPlanillaDesdeModal()" class="flex-1 py-3 rounded-xl text-white font-bold text-sm uppercase tracking-wider min-w-[140px]" style="background:#333;">📋 Planilla</button>
+                    <button onclick="mostrarPreviaPlanillaDesdeModal()" class="flex-1 py-3 rounded-xl text-white font-bold text-sm uppercase tracking-wider min-w-[140px]" style="background:#333;">📋 Planilla</button>
                     <button onclick="document.getElementById('modal-ver-rutina').classList.add('hidden')" class="flex-1 py-3 rounded-xl border border-gray-300 text-gray-500 text-sm font-bold hover:text-gray-700 transition min-w-[100px]">Cerrar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Vista previa de la Planilla -->
+        <div id="modal-planilla-preview" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl max-w-3xl w-full max-h-[92vh] overflow-hidden flex flex-col">
+                <div class="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+                    <span class="text-sm font-bold text-gray-700">📋 Vista previa de la planilla</span>
+                    <button onclick="cerrarPreviaPlanilla()" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+                </div>
+                <div class="flex-1 bg-gray-100 overflow-hidden" style="min-height:60vh;">
+                    <iframe id="planilla-preview-iframe" src="about:blank" class="w-full h-full" style="min-height:60vh; border:0;"></iframe>
+                </div>
+                <div class="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex flex-wrap gap-3 rounded-b-3xl">
+                    <button onclick="descargarPlanillaActual()" class="btn-primary flex-1 py-3 rounded-xl text-white font-bold text-sm uppercase tracking-wider min-w-[140px]">⬇️ Descargar PDF</button>
+                    <button onclick="cerrarPreviaPlanilla()" class="flex-1 py-3 rounded-xl border border-gray-300 text-gray-500 text-sm font-bold hover:text-gray-700 transition min-w-[100px]">Cerrar</button>
                 </div>
             </div>
         </div>
@@ -9550,10 +9567,6 @@
                         class="bg-naranja/20 text-naranja px-3 py-2 rounded-lg text-xs font-bold hover:bg-naranja/30 transition flex-1 min-w-[100px]">
                         Descargar PDF
                     </button>
-                    <button onclick="descargarPDFPlanilla('${cod}')"
-                        class="bg-gray-500/20 text-gray-300 px-3 py-2 rounded-lg text-xs font-bold hover:bg-gray-500/30 transition flex-1 min-w-[100px]">
-                        📋 Planilla
-                    </button>
                     <button onclick="eliminarRutinaHistorial('${cod}')" 
                         class="bg-rojo/20 text-rojo px-3 py-2 rounded-lg text-xs font-bold hover:bg-rojo/30 transition flex-1 min-w-[100px]">
                         Eliminar Rutina
@@ -11283,24 +11296,67 @@
     // unificando cada grupo con un corchete que indica vueltas/tiempo/etc.
     // ====================================================================
 
-    function descargarPDFPlanillaDesdeModal() {
+    // Guarda el ultimo PDF de planilla generado (para poder descargarlo desde
+    // el modal de vista previa sin tener que reconstruirlo).
+    let _planillaPreviewActual = null;
+
+    function mostrarPreviaPlanillaDesdeModal() {
         if (!rutinaModalActual) { toast('No hay rutina seleccionada'); return; }
-        descargarPDFPlanilla(rutinaModalActual.codigo);
+        mostrarPreviaPlanilla(rutinaModalActual.codigo);
     }
 
-    async function descargarPDFPlanilla(codigo) {
+    async function mostrarPreviaPlanilla(codigo) {
+        toast('Generando vista previa...');
+        const resultado = await construirPDFPlanilla(codigo);
+        if (!resultado) return;
+
+        if (_planillaPreviewActual && _planillaPreviewActual.blobUrl) {
+            URL.revokeObjectURL(_planillaPreviewActual.blobUrl);
+        }
+        const blobUrl = URL.createObjectURL(resultado.doc.output('blob'));
+        _planillaPreviewActual = { doc: resultado.doc, filename: resultado.filename, blobUrl };
+
+        const iframe = document.getElementById('planilla-preview-iframe');
+        if (iframe) iframe.src = blobUrl;
+
+        const modal = document.getElementById('modal-planilla-preview');
+        if (modal) modal.classList.remove('hidden');
+    }
+
+    function cerrarPreviaPlanilla() {
+        const modal = document.getElementById('modal-planilla-preview');
+        if (modal) modal.classList.add('hidden');
+        const iframe = document.getElementById('planilla-preview-iframe');
+        if (iframe) iframe.src = 'about:blank';
+    }
+
+    function descargarPlanillaActual() {
+        if (!_planillaPreviewActual) { toast('No hay planilla para descargar'); return; }
+        _planillaPreviewActual.doc.save(_planillaPreviewActual.filename);
+        toast('Planilla descargada correctamente!');
+    }
+
+    // ====================================================================
+    // PLANILLA CLASICA (HOJA CON MEMBRETE) — construccion del PDF
+    // Formato imprimible en blanco y negro: agrupa ejercicios por bloque
+    // (circuito por vueltas, circuito por tiempo, tabata, emom, series)
+    // unificando cada grupo con un corchete que indica vueltas/tiempo/etc.
+    // Devuelve {doc, filename} sin guardar el archivo — quien la llama
+    // decide si la muestra en vista previa y/o la descarga.
+    // ====================================================================
+
+    async function construirPDFPlanilla(codigo) {
         const jsPDFLib = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
-        if (!jsPDFLib) { toast('Libreria PDF no disponible, recarga la pagina'); return; }
+        if (!jsPDFLib) { toast('Libreria PDF no disponible, recarga la pagina'); return null; }
 
         let r;
-        toast('Generando planilla...');
         try {
             const res  = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
             const data = await res.json();
-            if (!data.ok) { toast('Error cargando rutina'); return; }
+            if (!data.ok) { toast('Error cargando rutina'); return null; }
             r = data.rutina;
             historialRutinasCache[codigo] = r;
-        } catch (e) { toast('Error de conexion'); return; }
+        } catch (e) { toast('Error de conexion'); return null; }
 
         try {
             const doc = new jsPDFLib({ unit: 'mm', format: 'a4' });
@@ -11379,15 +11435,29 @@
                 return e.reps + ' ' + uLow;
             }
 
-            // Lista de ejercicios unificada a la derecha con un corchete "]"
-            // que agrupa el bloque entero e indica vueltas / tiempo / tabata / emom.
+            // Lista de ejercicios unificada con un corchete que se apoya justo
+            // despues de la ultima letra del ejercicio mas largo del grupo
+            // (no pegado al margen derecho de la hoja), con las puntas del
+            // corchete mirando HACIA el texto que agrupa y la punta central
+            // apuntando hacia la etiqueta (vueltas / tiempo / tabata / emom).
             function listaConCorchete(items, label) {
                 if (!items.length) return;
-                const bracketReserve = 46;
-                const bx = pw - mR - bracketReserve + 6;
                 const lineH = 6.2;
                 chk(items.length * lineH + 8);
                 const yStart = y;
+
+                // 1) Medir el ancho maximo de texto para ubicar el corchete
+                //    pegado a la ultima letra del ejercicio mas largo.
+                let maxTextEndX = 0;
+                items.forEach(it => {
+                    doc.setFont('helvetica', it.bold ? 'bold' : 'normal');
+                    doc.setFontSize(it.bold ? 9.5 : 10);
+                    const textX = mL + 4 + (it.indent || 0);
+                    const w = doc.getTextWidth(it.text);
+                    if (textX + w > maxTextEndX) maxTextEndX = textX + w;
+                });
+
+                // 2) Dibujar el texto de cada linea
                 items.forEach(it => {
                     doc.setFont('helvetica', it.bold ? 'bold' : 'normal');
                     doc.setFontSize(it.bold ? 9.5 : 10);
@@ -11396,13 +11466,20 @@
                     y += lineH;
                 });
                 const yEnd = y - lineH + 4.2;
+
+                // 3) Corchete pegado al texto (con tope para no chocar el margen
+                //    si el nombre del ejercicio es muy largo), puntas invertidas
+                //    (apuntando hacia el texto) y la seña central hacia la etiqueta.
+                const bx = Math.min(maxTextEndX + 5, pw - mR - 38);
                 doc.setDrawColor(40, 40, 40);
                 doc.setLineWidth(0.5);
-                doc.line(bx, yStart + 1, bx, yEnd);
-                doc.line(bx, yStart + 1, bx + 3, yStart + 1);
-                doc.line(bx, yEnd, bx + 3, yEnd);
-                const midY = (yStart + 1 + yEnd) / 2;
-                doc.line(bx, midY, bx + 5, midY);
+                const yTop = yStart + 1;
+                doc.line(bx, yTop, bx, yEnd);          // asta vertical
+                doc.line(bx, yTop, bx - 3, yTop);      // punta superior -> hacia el texto
+                doc.line(bx, yEnd, bx - 3, yEnd);       // punta inferior -> hacia el texto
+                const midY = (yTop + yEnd) / 2;
+                doc.line(bx, midY, bx + 5, midY);       // seña central -> hacia la etiqueta
+
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(9);
                 doc.setTextColor(25, 25, 25);
@@ -11541,6 +11618,8 @@
                 }
             }
 
+            let filename;
+
             // ── MULTIDIA vs día único ────────────────────────────────────
             if (tipo === 'MULTIDIA') {
                 const totalDias = r.total_dias || 0;
@@ -11564,32 +11643,33 @@
 
                     renderDia(diaDatosX, diaTipo);
                 }
-                doc.save(alumno.toUpperCase().replace(/[^A-Z0-9]/g, '_') + '_PLANILLA_MULTIDIA_' + codigo.toUpperCase() + '.pdf');
-                toast('Planilla descargada correctamente!');
-                return;
+                filename = alumno.toUpperCase().replace(/[^A-Z0-9]/g, '_') + '_PLANILLA_MULTIDIA_' + codigo.toUpperCase() + '.pdf';
+            } else {
+                renderDia(datos, tipo);
+
+                // ── Footer ───────────────────────────────────────────────
+                chk(12);
+                doc.setDrawColor(200, 200, 200);
+                doc.setLineWidth(0.3);
+                doc.line(mL, y + 3, pw - mR, y + 3);
+                y += 9;
+                doc.setFont('helvetica', 'italic');
+                doc.setFontSize(8.5);
+                doc.setTextColor(150, 150, 150);
+                doc.text('Generado por PONETE FIT   |   ' + fecha + '   |   ' + codigo.toUpperCase(), pw / 2, y, { align: 'center' });
+
+                filename = alumno.toUpperCase().replace(/[^A-Z0-9]/g, '_') + '_PLANILLA_' + codigo.toUpperCase() + '.pdf';
             }
 
-            renderDia(datos, tipo);
-
-            // ── Footer ───────────────────────────────────────────────────
-            chk(12);
-            doc.setDrawColor(200, 200, 200);
-            doc.setLineWidth(0.3);
-            doc.line(mL, y + 3, pw - mR, y + 3);
-            y += 9;
-            doc.setFont('helvetica', 'italic');
-            doc.setFontSize(8.5);
-            doc.setTextColor(150, 150, 150);
-            doc.text('Generado por PONETE FIT   |   ' + fecha + '   |   ' + codigo.toUpperCase(), pw / 2, y, { align: 'center' });
-
-            doc.save(alumno.toUpperCase().replace(/[^A-Z0-9]/g, '_') + '_PLANILLA_' + codigo.toUpperCase() + '.pdf');
-            toast('Planilla descargada correctamente!');
+            return { doc, filename };
 
         } catch (err) {
             console.error('Error generando planilla:', err);
             toast('Error al generar planilla: ' + (err.message || 'desconocido'));
+            return null;
         }
     }
+
 
 
     // ====================================================================
