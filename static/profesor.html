@@ -2946,9 +2946,10 @@
                 </div>
                 <div id="modal-rutina-content" class="p-8">
                 </div>
-                <div class="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex gap-3 rounded-b-3xl">
-                    <button onclick="descargarPDFDesdeModal()" class="btn-primary flex-1 py-3 rounded-xl text-white font-bold text-sm uppercase tracking-wider">Descargar PDF</button>
-                    <button onclick="document.getElementById('modal-ver-rutina').classList.add('hidden')" class="flex-1 py-3 rounded-xl border border-gray-300 text-gray-500 text-sm font-bold hover:text-gray-700 transition">Cerrar</button>
+                <div class="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex flex-wrap gap-3 rounded-b-3xl">
+                    <button onclick="descargarPDFDesdeModal()" class="btn-primary flex-1 py-3 rounded-xl text-white font-bold text-sm uppercase tracking-wider min-w-[140px]">Descargar PDF</button>
+                    <button onclick="descargarPDFPlanillaDesdeModal()" class="flex-1 py-3 rounded-xl text-white font-bold text-sm uppercase tracking-wider min-w-[140px]" style="background:#333;">📋 Planilla</button>
+                    <button onclick="document.getElementById('modal-ver-rutina').classList.add('hidden')" class="flex-1 py-3 rounded-xl border border-gray-300 text-gray-500 text-sm font-bold hover:text-gray-700 transition min-w-[100px]">Cerrar</button>
                 </div>
             </div>
         </div>
@@ -9549,6 +9550,10 @@
                         class="bg-naranja/20 text-naranja px-3 py-2 rounded-lg text-xs font-bold hover:bg-naranja/30 transition flex-1 min-w-[100px]">
                         Descargar PDF
                     </button>
+                    <button onclick="descargarPDFPlanilla('${cod}')"
+                        class="bg-gray-500/20 text-gray-300 px-3 py-2 rounded-lg text-xs font-bold hover:bg-gray-500/30 transition flex-1 min-w-[100px]">
+                        📋 Planilla
+                    </button>
                     <button onclick="eliminarRutinaHistorial('${cod}')" 
                         class="bg-rojo/20 text-rojo px-3 py-2 rounded-lg text-xs font-bold hover:bg-rojo/30 transition flex-1 min-w-[100px]">
                         Eliminar Rutina
@@ -11270,6 +11275,322 @@
             toast('Error al generar PDF: ' + (err.message || 'desconocido'));
         }
     }
+
+    // ====================================================================
+    // PLANILLA CLASICA (HOJA CON MEMBRETE) — segunda forma de exportar
+    // Formato imprimible en blanco y negro: agrupa ejercicios por bloque
+    // (circuito por vueltas, circuito por tiempo, tabata, emom, series)
+    // unificando cada grupo con un corchete que indica vueltas/tiempo/etc.
+    // ====================================================================
+
+    function descargarPDFPlanillaDesdeModal() {
+        if (!rutinaModalActual) { toast('No hay rutina seleccionada'); return; }
+        descargarPDFPlanilla(rutinaModalActual.codigo);
+    }
+
+    async function descargarPDFPlanilla(codigo) {
+        const jsPDFLib = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+        if (!jsPDFLib) { toast('Libreria PDF no disponible, recarga la pagina'); return; }
+
+        let r;
+        toast('Generando planilla...');
+        try {
+            const res  = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+            const data = await res.json();
+            if (!data.ok) { toast('Error cargando rutina'); return; }
+            r = data.rutina;
+            historialRutinasCache[codigo] = r;
+        } catch (e) { toast('Error de conexion'); return; }
+
+        try {
+            const doc = new jsPDFLib({ unit: 'mm', format: 'a4' });
+            const pw  = doc.internal.pageSize.getWidth();
+            const ph  = doc.internal.pageSize.getHeight();
+            const mL  = 15, mR = 15, mBot = 18;
+            const cW  = pw - mL - mR;
+            let   y   = 20;
+
+            const datos  = resolverDatos(r);
+            const alumno = r.alumno || datos.alumno || '';
+            const tipo   = r.tipo   || 'ENTRENAMIENTO';
+            const fecha  = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
+
+            // ── Membrete (encabezado) ───────────────────────────────────
+            function membrete() {
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(26);
+                doc.setTextColor(255, 107, 53);
+                doc.text('PONETE FIT', pw / 2, y, { align: 'center' });
+                y += 7;
+                doc.setDrawColor(255, 107, 53);
+                doc.setLineWidth(0.8);
+                doc.line(mL, y, pw - mR, y);
+                y += 6;
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(10);
+                doc.setTextColor(80, 80, 80);
+                doc.text('Alumno: ' + alumno.toUpperCase() + '   |   Tipo: ' + tipo + '   |   Codigo: ' + codigo.toUpperCase(), pw / 2, y, { align: 'center' });
+                y += 10;
+            }
+            function membreteCompacto() {
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(13);
+                doc.setTextColor(255, 107, 53);
+                doc.text('PONETE FIT', mL, y);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(8);
+                doc.setTextColor(130, 130, 130);
+                doc.text(codigo.toUpperCase(), pw - mR, y, { align: 'right' });
+                y += 4;
+                doc.setDrawColor(200, 200, 200);
+                doc.setLineWidth(0.3);
+                doc.line(mL, y, pw - mR, y);
+                y += 7;
+            }
+
+            function newPage() { doc.addPage(); y = 18; membreteCompacto(); }
+            function chk(h)   { if (y + h > ph - mBot) newPage(); }
+
+            membrete();
+
+            // ── Helpers de sección ───────────────────────────────────────
+            function tituloSeccion(texto) {
+                chk(11);
+                doc.setFillColor(30, 30, 30);
+                doc.roundedRect(mL, y, cW, 8, 1.5, 1.5, 'F');
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.setTextColor(255, 255, 255);
+                doc.text(texto.toUpperCase(), mL + 4, y + 5.5);
+                y += 12;
+            }
+            function subTituloBloque(texto) {
+                chk(7);
+                doc.setFont('helvetica', 'bolditalic');
+                doc.setFontSize(9.5);
+                doc.setTextColor(100, 100, 100);
+                doc.text(texto, mL + 1, y);
+                y += 6;
+            }
+            function unidadTexto(e) {
+                if (!e.reps) return '';
+                const u = (e.unit || 'Reps');
+                const uLow = u.toLowerCase() === 'reps' ? 'rep' : u.toLowerCase();
+                return e.reps + ' ' + uLow;
+            }
+
+            // Lista de ejercicios unificada a la derecha con un corchete "]"
+            // que agrupa el bloque entero e indica vueltas / tiempo / tabata / emom.
+            function listaConCorchete(items, label) {
+                if (!items.length) return;
+                const bracketReserve = 46;
+                const bx = pw - mR - bracketReserve + 6;
+                const lineH = 6.2;
+                chk(items.length * lineH + 8);
+                const yStart = y;
+                items.forEach(it => {
+                    doc.setFont('helvetica', it.bold ? 'bold' : 'normal');
+                    doc.setFontSize(it.bold ? 9.5 : 10);
+                    doc.setTextColor(25, 25, 25);
+                    doc.text(it.text, mL + 4 + (it.indent || 0), y + 4.2);
+                    y += lineH;
+                });
+                const yEnd = y - lineH + 4.2;
+                doc.setDrawColor(40, 40, 40);
+                doc.setLineWidth(0.5);
+                doc.line(bx, yStart + 1, bx, yEnd);
+                doc.line(bx, yStart + 1, bx + 3, yStart + 1);
+                doc.line(bx, yEnd, bx + 3, yEnd);
+                const midY = (yStart + 1 + yEnd) / 2;
+                doc.line(bx, midY, bx + 5, midY);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(9);
+                doc.setTextColor(25, 25, 25);
+                const labelLines = doc.splitTextToSize(label, pw - mR - (bx + 7));
+                let ly = midY - ((labelLines.length - 1) * 3.6) + 1.4;
+                labelLines.forEach(l => { doc.text(l, bx + 7, ly); ly += 4.3; });
+                y += 6;
+            }
+
+            // Tabla "Series y Repeticiones": Ejercicio | Series | Reps | Pausa
+            function tablaSeries(items) {
+                if (!items.length) return;
+                chk(9);
+                const colName   = mL + 2;
+                const colSeries = mL + cW * 0.55;
+                const colReps   = mL + cW * 0.72;
+                const colPausa  = mL + cW * 0.87;
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(8.5);
+                doc.setTextColor(110, 110, 110);
+                doc.text('EJERCICIO', colName, y);
+                doc.text('SERIES', colSeries, y);
+                doc.text('REPS', colReps, y);
+                doc.text('PAUSA', colPausa, y);
+                y += 2;
+                doc.setDrawColor(190, 190, 190);
+                doc.setLineWidth(0.3);
+                doc.line(mL, y, pw - mR, y);
+                y += 5.5;
+                items.forEach(e => {
+                    chk(7);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(10);
+                    doc.setTextColor(20, 20, 20);
+                    doc.text(e.nombre, colName, y);
+                    doc.text(e.series ? String(e.series) : '-', colSeries, y);
+                    doc.text(e.reps ? (e.reps + ((e.unit && e.unit !== 'Reps') ? (' ' + e.unit) : '')) : '-', colReps, y);
+                    doc.text(e.descanso ? (e.descanso + 's') : '-', colPausa, y);
+                    y += 6.6;
+                });
+                y += 3;
+            }
+
+            // ── Dispatcher según tipo de bloque ─────────────────────────
+            function renderBloqueTipo(ejercicios, tipoBloque, cfg) {
+                cfg = cfg || {};
+                const t = (tipoBloque || '').trim();
+                const list = toArray(ejercicios).map(normalizeEj).filter(e => e.nombre);
+
+                if (t === 'EMOM') {
+                    const emomCfg  = cfg.emom_config_por_minuto || cfg.minutos_ciclo || [];
+                    const totalMin = cfg.minutos_totales || emomCfg.length || 10;
+                    const items = [];
+                    if (emomCfg.length) {
+                        const ciclo   = _pfDetectarCicloEMOM(emomCfg);
+                        const mostrar = ciclo < emomCfg.length ? emomCfg.slice(0, ciclo) : emomCfg;
+                        mostrar.forEach((minCfg, mi) => {
+                            items.push({ text: 'MIN ' + (mi + 1), bold: true });
+                            toArray(minCfg.ejercicios).map(normalizeEj).forEach(e => {
+                                if (e.nombre) items.push({ text: e.nombre + (unidadTexto(e) ? '   ' + unidadTexto(e) : ''), indent: 4 });
+                            });
+                        });
+                        if (ciclo < emomCfg.length) {
+                            const veces = Math.ceil(emomCfg.length / ciclo);
+                            items.push({ text: '(repetir ciclo ' + veces + ' veces)', indent: 4 });
+                        }
+                    } else {
+                        list.forEach(e => items.push({ text: e.nombre + (unidadTexto(e) ? '   ' + unidadTexto(e) : '') }));
+                    }
+                    listaConCorchete(items, 'EMOM ' + totalMin + ' min');
+                    return;
+                }
+
+                if (!list.length) return;
+
+                if (t === 'Circuito') {
+                    const vueltas = cfg.vueltas || cfg.vueltas_bloque || 3;
+                    const items = list.map(e => ({ text: e.nombre + (unidadTexto(e) ? '   ' + unidadTexto(e) : '') }));
+                    listaConCorchete(items, vueltas + ' vueltas');
+                } else if (t === 'Circuito por Tiempo') {
+                    const min = cfg.duracion_min || cfg.tiempo_min || cfg.duracion_bloque || 5;
+                    const items = list.map(e => ({ text: e.nombre + (unidadTexto(e) ? '   ' + unidadTexto(e) : '') }));
+                    listaConCorchete(items, 'Circuito por tiempo ' + min + ' min');
+                } else if (t === 'Tabata') {
+                    const trabajo = cfg.trabajo || 20, pausa = cfg.pausa || 10, rondas = cfg.rondas || 1;
+                    const items = list.map(e => ({ text: e.nombre }));
+                    let label = 'Tabata ' + trabajo + ' seg act, x ' + pausa + ' seg pausa';
+                    if (rondas > 1) label += '  ·  ' + rondas + ' rondas';
+                    listaConCorchete(items, label);
+                } else if (t === 'Series' || t === 'Series/Reps') {
+                    tablaSeries(list);
+                } else if (t === 'Por Tiempo') {
+                    const vueltas = cfg.vueltas || 1;
+                    const items = list.map(e => ({ text: e.nombre + (unidadTexto(e) ? '   ' + unidadTexto(e) : '') }));
+                    listaConCorchete(items, vueltas + ' vueltas (cronómetro)');
+                } else if (t === 'Sumando Ejercicio') {
+                    const items = list.map(e => ({ text: e.nombre + (unidadTexto(e) ? '   ' + unidadTexto(e) : '') }));
+                    listaConCorchete(items, 'Sumando ejercicio');
+                } else {
+                    // Tipo desconocido: se muestra como tabla de series por defecto
+                    tablaSeries(list);
+                }
+            }
+
+            // ── Render de un día completo (calentamiento + bloque principal) ─
+            function renderDia(diaDatos, tipoDia) {
+                const wEjs     = toArray(diaDatos.warmup_ejercicios);
+                const wTipo    = diaDatos.warmup_tipo || '';
+                const wCfg     = diaDatos.warmup_config_detalle || {};
+                const wEmomCfg = wCfg.emom_config_por_minuto;
+                if (wEjs.length > 0 || (wTipo === 'EMOM' && wEmomCfg && wEmomCfg.length > 0)) {
+                    tituloSeccion('Entrada en calor');
+                    renderBloqueTipo(wEjs, wTipo, wCfg);
+                }
+
+                const bloques = toArray(diaDatos.bloques);
+                tituloSeccion('Bloque principal');
+                if (bloques.length > 0) {
+                    bloques.forEach((b, i) => {
+                        const ejsB  = toArray(b.ejercicios || b.datos || b.rutina || []);
+                        const bTipo = b.tipo || tipoDia;
+                        if (bloques.length > 1) subTituloBloque('Bloque ' + (i + 1) + ': ' + bTipo);
+                        renderBloqueTipo(ejsB, bTipo, b);
+                    });
+                } else {
+                    const flat = toArray(diaDatos.rutina || diaDatos.datos || diaDatos.ejercicios || []);
+                    if (flat.length && flat[0] && flat[0].ejercicios !== undefined) {
+                        flat.forEach((g, gi) => {
+                            const gTipo = g.tipo || tipoDia;
+                            if (flat.length > 1) subTituloBloque('Bloque ' + (gi + 1) + ': ' + gTipo);
+                            renderBloqueTipo(g.ejercicios, gTipo, Object.assign({}, diaDatos, g));
+                        });
+                    } else {
+                        renderBloqueTipo(flat, tipoDia, diaDatos);
+                    }
+                }
+            }
+
+            // ── MULTIDIA vs día único ────────────────────────────────────
+            if (tipo === 'MULTIDIA') {
+                const totalDias = r.total_dias || 0;
+                for (let di = 1; di <= totalDias; di++) {
+                    const diaData = r['dia_' + di];
+                    if (!diaData) continue;
+                    const diaTitulo = diaData.titulo || ('Día ' + di);
+                    const diaTipo   = diaData.tipo   || 'ENTRENAMIENTO';
+                    const diaDatosX = diaData.datos   || {};
+
+                    if (di > 1) { chk(14); doc.setDrawColor(255, 107, 53); doc.setLineWidth(0.6); doc.line(mL, y, pw - mR, y); y += 10; }
+
+                    chk(12);
+                    doc.setFillColor(200, 80, 0);
+                    doc.roundedRect(mL, y, cW, 9, 1.5, 1.5, 'F');
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(11);
+                    doc.setTextColor(255, 255, 255);
+                    doc.text(diaTitulo.toUpperCase() + '  —  ' + diaTipo, mL + 4, y + 6.2);
+                    y += 13;
+
+                    renderDia(diaDatosX, diaTipo);
+                }
+                doc.save(alumno.toUpperCase().replace(/[^A-Z0-9]/g, '_') + '_PLANILLA_MULTIDIA_' + codigo.toUpperCase() + '.pdf');
+                toast('Planilla descargada correctamente!');
+                return;
+            }
+
+            renderDia(datos, tipo);
+
+            // ── Footer ───────────────────────────────────────────────────
+            chk(12);
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.3);
+            doc.line(mL, y + 3, pw - mR, y + 3);
+            y += 9;
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(8.5);
+            doc.setTextColor(150, 150, 150);
+            doc.text('Generado por PONETE FIT   |   ' + fecha + '   |   ' + codigo.toUpperCase(), pw / 2, y, { align: 'center' });
+
+            doc.save(alumno.toUpperCase().replace(/[^A-Z0-9]/g, '_') + '_PLANILLA_' + codigo.toUpperCase() + '.pdf');
+            toast('Planilla descargada correctamente!');
+
+        } catch (err) {
+            console.error('Error generando planilla:', err);
+            toast('Error al generar planilla: ' + (err.message || 'desconocido'));
+        }
+    }
+
 
     // ====================================================================
     // DASHBOARD
