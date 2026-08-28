@@ -452,6 +452,7 @@ def guardar_ejercicio():
         musculo1 = body.get("musculo1", "").strip()
         musculo2 = body.get("musculo2", "").strip()
         sinergista = body.get("sinergista", "").strip()
+        sinergista2 = body.get("sinergista2", "").strip()
         con_carga = body.get("con_carga", False)
         if isinstance(con_carga, str):
             con_carga = con_carga.lower() == "true"
@@ -469,6 +470,8 @@ def guardar_ejercicio():
             ej_data["musculo2"] = musculo2
         if sinergista:
             ej_data["sinergista"] = sinergista
+        if sinergista2:
+            ej_data["sinergista2"] = sinergista2
         ej_data["con_carga"] = bool(con_carga)
         if tip1:
             ej_data["tip1"] = tip1
