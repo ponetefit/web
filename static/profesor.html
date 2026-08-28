@@ -1794,7 +1794,7 @@
     <header id="pf-main-header" class="bg-tarjeta border-b border-borde px-6 py-4">
         <div class="max-w-6xl mx-auto flex items-center justify-between flex-wrap gap-3">
             <div>
-                <h1 class="text-3xl font-black text-naranja glow-orange tracking-tight">PONETE FIT</h1>
+                <h1 onclick="_pfLogoClick()" class="text-3xl font-black text-naranja glow-orange tracking-tight sm:cursor-pointer" title="Ir al Dashboard">PONETE FIT</h1>
                 <p class="text-xs text-textoSuave tracking-[4px] uppercase">Panel del Profesor</p>
             </div>
             <a href="/alumno" target="_blank" class="text-sm text-azul hover:underline">Ver vista del alumno &rarr;</a>
@@ -5047,6 +5047,16 @@
             poblarElementosCheckAlumno();
             poblarDatalistEjerciciosAlumno();
             cargarPerfilesAlumnos();
+        }
+    }
+
+    // Click en el titulo "PONETE FIT" del header: lleva al Dashboard, pero
+    // solo en la version de escritorio (mismo umbral que el resto de la app
+    // usa para distinguir mobile/desktop). En mobile no hace nada, ya que
+    // ahi la navegacion es por la barra inferior de accesos rapidos.
+    function _pfLogoClick() {
+        if (window.innerWidth >= 640) {
+            showTab('dashboard');
         }
     }
 
@@ -11446,31 +11456,50 @@
                 chk(items.length * lineH + 8);
                 const yStart = y;
 
-                // 1) Medir el ancho maximo de texto para ubicar el corchete
-                //    pegado a la ultima letra del ejercicio mas largo.
-                let maxTextEndX = 0;
-                items.forEach(it => {
-                    doc.setFont('helvetica', it.bold ? 'bold' : 'normal');
-                    doc.setFontSize(it.bold ? 9.5 : 10);
-                    const textX = mL + 4 + (it.indent || 0);
-                    const w = doc.getTextWidth(it.text);
-                    if (textX + w > maxTextEndX) maxTextEndX = textX + w;
-                });
+                // 1) Medir el ancho maximo de texto al tamaño de fuente normal.
+                //    Reservamos un minimo para el corchete + etiqueta; si el
+                //    ejercicio mas largo no entra, achicamos la fuente del
+                //    grupo para que el corchete nunca pise el texto.
+                const minReserva = 34; // mm minimos para corchete + etiqueta
+                const maxTextWidthPermitido = cW - 4 - minReserva;
+                let fontNormal = 10, fontBold = 9.5;
+
+                function medirMax(fN, fB) {
+                    let max = 0;
+                    items.forEach(it => {
+                        doc.setFont('helvetica', it.bold ? 'bold' : 'normal');
+                        doc.setFontSize(it.bold ? fB : fN);
+                        const textX = 4 + (it.indent || 0);
+                        const w = doc.getTextWidth(it.text);
+                        if (textX + w > max) max = textX + w;
+                    });
+                    return max;
+                }
+
+                let maxTextEndXRel = medirMax(fontNormal, fontBold);
+                if (maxTextEndXRel > maxTextWidthPermitido) {
+                    // Reducimos la fuente proporcionalmente (con un piso legible de 7pt)
+                    const factor = Math.max(maxTextWidthPermitido / maxTextEndXRel, 0.72);
+                    fontNormal = Math.max(fontNormal * factor, 7);
+                    fontBold = Math.max(fontBold * factor, 7);
+                    maxTextEndXRel = medirMax(fontNormal, fontBold);
+                }
+                const maxTextEndX = mL + maxTextEndXRel;
 
                 // 2) Dibujar el texto de cada linea
                 items.forEach(it => {
                     doc.setFont('helvetica', it.bold ? 'bold' : 'normal');
-                    doc.setFontSize(it.bold ? 9.5 : 10);
+                    doc.setFontSize(it.bold ? fontBold : fontNormal);
                     doc.setTextColor(25, 25, 25);
                     doc.text(it.text, mL + 4 + (it.indent || 0), y + 4.2);
                     y += lineH;
                 });
                 const yEnd = y - lineH + 4.2;
 
-                // 3) Corchete pegado al texto (con tope para no chocar el margen
-                //    si el nombre del ejercicio es muy largo), puntas invertidas
-                //    (apuntando hacia el texto) y la seña central hacia la etiqueta.
-                const bx = Math.min(maxTextEndX + 5, pw - mR - 38);
+                // 3) Corchete pegado al texto real (el ancho ya fue acotado en el
+                //    paso 1, asi que el corchete nunca pisa el texto), con puntas
+                //    invertidas (apuntando hacia el texto) y la seña central hacia la etiqueta.
+                const bx = maxTextEndX + 5;
                 doc.setDrawColor(40, 40, 40);
                 doc.setLineWidth(0.5);
                 const yTop = yStart + 1;
