@@ -2335,8 +2335,14 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Sinergista <span class="text-textoSuave/60">(opcional)</span></label>
+                                <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Sinergista 1 <span class="text-textoSuave/60">(opcional)</span></label>
                                 <select id="ej-sinergista" class="w-full rounded-lg px-3 py-2.5 text-sm">
+                                    <option value="">-- Ninguno --</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Sinergista 2 <span class="text-textoSuave/60">(opcional)</span></label>
+                                <select id="ej-sinergista2" class="w-full rounded-lg px-3 py-2.5 text-sm">
                                     <option value="">-- Ninguno --</option>
                                 </select>
                             </div>
@@ -3872,7 +3878,7 @@
         if (catLower === '' || catLower === 'todo_cuerpo' || catLower === 'todo el cuerpo' || catLower === 'full body' || catLower === 'funcional' || catLower === 'completo') return 'todo_cuerpo';
         // Prioridad 2: categorias personalizadas (creadas por el profe) -> usar musculos
         // cargados como respaldo, igual que antes.
-        const musculos = [ej.musculo1, ej.musculo2, ej.sinergista].filter(Boolean).map(m => String(m).toLowerCase());
+        const musculos = [ej.musculo1, ej.musculo2, ej.sinergista, ej.sinergista2].filter(Boolean).map(m => String(m).toLowerCase());
         const zonasMatch = [];
         Object.keys(ZONA_MUSCULOS).forEach(zona => {
             const lista = ZONA_MUSCULOS[zona].map(m => m.toLowerCase());
@@ -4408,7 +4414,7 @@
 
     // Tambien colorear elementos con class hm-trapecio (duplicado frontal)
     function poblarSelectsMusculos() {
-        ['ej-musculo1','ej-musculo2','ej-sinergista'].forEach(id => {
+        ['ej-musculo1','ej-musculo2','ej-sinergista','ej-sinergista2'].forEach(id => {
             const sel = document.getElementById(id);
             if (!sel) return;
             const isOptional = (id !== 'ej-musculo1');
@@ -5354,7 +5360,8 @@
                     const m1 = (ej.musculo1 || '').toLowerCase();
                     const m2 = (ej.musculo2 || '').toLowerCase();
                     const sin = (ej.sinergista || '').toLowerCase();
-                    if (!zonaMuscs.some(zm => m1 === zm || m2 === zm || sin === zm)) return false;
+                    const sin2 = (ej.sinergista2 || '').toLowerCase();
+                    if (!zonaMuscs.some(zm => m1 === zm || m2 === zm || sin === zm || sin2 === zm)) return false;
                 }
                 return true;
             });
@@ -5390,17 +5397,18 @@
             const m1 = ej.musculo1 || '';
             const m2 = ej.musculo2 || '';
             const sin = ej.sinergista || '';
+            const sin2 = ej.sinergista2 || '';
             const elemento = ej.elemento || '';
             const con_carga = ej.con_carga === true || ej.con_carga === 'true';
             const tip1 = ej.tip1 || '';
             const tip2 = ej.tip2 || '';
             const catActual = cat || '';
             const muscBadges = [m1, m2].filter(Boolean).map(m => '<span class="text-[10px] bg-naranja/20 text-naranja px-1.5 py-0.5 rounded font-bold">' + m + '</span>').join(' ') +
-                (sin ? ' <span class="text-[10px] bg-azul/20 text-azul px-1.5 py-0.5 rounded font-bold">S: ' + sin + '</span>' : '') +
+                [sin, sin2].filter(Boolean).map(s => ' <span class="text-[10px] bg-azul/20 text-azul px-1.5 py-0.5 rounded font-bold">S: ' + s + '</span>').join('') +
                 (elemento ? ' <span class="text-[10px] bg-amarillo/20 text-amarillo px-1.5 py-0.5 rounded font-bold">🔧 ' + elemento + '</span>' : '') +
                 (con_carga ? ' <span class="text-[10px] bg-verde/20 text-verde px-1.5 py-0.5 rounded font-bold">🏋️ CARGA</span>' : '') +
                 (tip1 ? ' <span class="text-[10px] bg-purpura/20 text-purpura px-1.5 py-0.5 rounded font-bold">🎙️ TIP</span>' : '');
-            const ejJSON = JSON.stringify({nombre, link, m1, m2, sin, elemento, con_carga, tip1, tip2, cat: catActual}).replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+            const ejJSON = JSON.stringify({nombre, link, m1, m2, sin, sin2, elemento, con_carga, tip1, tip2, cat: catActual}).replace(/'/g, "&#39;").replace(/"/g, '&quot;');
             const linkEsc = link.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
             const nombreEsc = nombre.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
             return `<div class="bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50 hover:border-borde transition group">
@@ -5423,6 +5431,7 @@
         set('ej-musculo1', '');
         set('ej-musculo2', '');
         set('ej-sinergista', '');
+        set('ej-sinergista2', '');
         const statusEl = document.getElementById('status-ej');
         if (statusEl) statusEl.innerText = 'Editando: ' + nombre;
     }
@@ -5434,6 +5443,7 @@
         set('ej-musculo1', data.m1 || '');
         set('ej-musculo2', data.m2 || '');
         set('ej-sinergista', data.sin || '');
+        set('ej-sinergista2', data.sin2 || '');
         set('ej-elemento', data.elemento || '');
         set('ej-tip1', data.tip1 || '');
         set('ej-tip2', data.tip2 || '');
@@ -5454,6 +5464,7 @@
         const musculo1 = document.getElementById('ej-musculo1')?.value || '';
         const musculo2 = document.getElementById('ej-musculo2')?.value || '';
         const sinergista = document.getElementById('ej-sinergista')?.value || '';
+        const sinergista2 = document.getElementById('ej-sinergista2')?.value || '';
         const elemento = document.getElementById('ej-elemento')?.value || '';
         const con_carga = document.getElementById('ej-con-carga')?.checked || false;
         const tip1 = (document.getElementById('ej-tip1')?.value || '').trim();
@@ -5466,7 +5477,7 @@
                 const res = await fetch(API_BASE + '/api/videoteca/ejercicio', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ categoria, nombre, link, musculo1, musculo2, sinergista, elemento, con_carga, tip1, tip2 })
+                    body: JSON.stringify({ categoria, nombre, link, musculo1, musculo2, sinergista, sinergista2, elemento, con_carga, tip1, tip2 })
                 });
                 const data = await res.json();
                 if (data.ok) { toast(data.mensaje); ok = true; }
@@ -5480,7 +5491,7 @@
                 if (!ejsActuales || !Array.isArray(ejsActuales)) ejsActuales = [];
                 // Agregar o actualizar ejercicio
                 const idx = ejsActuales.findIndex(e => (e.nombre || '').toUpperCase() === nombre.toUpperCase());
-                const ejObj = { nombre: nombre.toUpperCase(), link, musculo1, musculo2, sinergista, elemento, con_carga, tip1, tip2 };
+                const ejObj = { nombre: nombre.toUpperCase(), link, musculo1, musculo2, sinergista, sinergista2, elemento, con_carga, tip1, tip2 };
                 if (idx >= 0) ejsActuales[idx] = ejObj;
                 else ejsActuales.push(ejObj);
                 const resPut = await fetch(FIREBASE_BASE + '/videoteca/' + encodeURIComponent(categoria) + '.json', {
@@ -5492,7 +5503,7 @@
                 toast('Ejercicio guardado');
             }
 
-            ['ej-nombre','ej-link','ej-musculo1','ej-musculo2','ej-sinergista','ej-elemento','ej-tip1','ej-tip2'].forEach(id => {
+            ['ej-nombre','ej-link','ej-musculo1','ej-musculo2','ej-sinergista','ej-sinergista2','ej-elemento','ej-tip1','ej-tip2'].forEach(id => {
                 const el = document.getElementById(id); if (el) el.value = '';
             });
             const conCargaEl = document.getElementById('ej-con-carga'); if (conCargaEl) conCargaEl.checked = false;
@@ -12724,11 +12735,13 @@
                 registrar(ejData.musculo1);
                 registrar(ejData.musculo2);
                 registrar(ejData.sinergista);
+                registrar(ejData.sinergista2);
                 // Musculos principales: peso completo
                 if (ejData.musculo1) muscleCount[ejData.musculo1] = (muscleCount[ejData.musculo1] || 0) + veces;
                 if (ejData.musculo2) muscleCount[ejData.musculo2] = (muscleCount[ejData.musculo2] || 0) + veces;
-                // Sinergista: peso reducido (0.5)
+                // Sinergistas: peso reducido (0.5)
                 if (ejData.sinergista) muscleCount[ejData.sinergista] = (muscleCount[ejData.sinergista] || 0) + (veces * 0.5);
+                if (ejData.sinergista2) muscleCount[ejData.sinergista2] = (muscleCount[ejData.sinergista2] || 0) + (veces * 0.5);
             }
         });
         renderHeatMap(muscleCount);
@@ -12942,6 +12955,7 @@
                 if (ejData.musculo1) muscleCount[ejData.musculo1] = (muscleCount[ejData.musculo1] || 0) + 1;
                 if (ejData.musculo2) muscleCount[ejData.musculo2] = (muscleCount[ejData.musculo2] || 0) + 1;
                 if (ejData.sinergista) muscleCount[ejData.sinergista] = (muscleCount[ejData.sinergista] || 0) + 0.5;
+                if (ejData.sinergista2) muscleCount[ejData.sinergista2] = (muscleCount[ejData.sinergista2] || 0) + 0.5;
             }
         });
         return muscleCount;
@@ -13047,6 +13061,7 @@
                 if (ejData.musculo1) muscleCount[ejData.musculo1] = (muscleCount[ejData.musculo1] || 0) + 1;
                 if (ejData.musculo2) muscleCount[ejData.musculo2] = (muscleCount[ejData.musculo2] || 0) + 1;
                 if (ejData.sinergista) muscleCount[ejData.sinergista] = (muscleCount[ejData.sinergista] || 0) + 0.5;
+                if (ejData.sinergista2) muscleCount[ejData.sinergista2] = (muscleCount[ejData.sinergista2] || 0) + 0.5;
             }
         }
         (dia.warmupEjercicios || []).forEach(ej => contar(ej && ej.nombre));
@@ -16589,7 +16604,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         if(!link){sEl.textContent='⚠️ Link de video obligatorio';sEl.className='text-xs text-rojo text-center min-h-[1rem]';return;}
         if(!categoria){sEl.textContent='⚠️ Seleccioná categoría';sEl.className='text-xs text-rojo text-center min-h-[1rem]';return;}
         sEl.textContent='Guardando...';sEl.className='text-xs text-textoSuave text-center min-h-[1rem]';
-        const ids={'ej-nombre':nombre,'ej-link':link,'ej-musculo1':musculo1,'ej-musculo2':'','ej-sinergista':'','ej-elemento':elemento,'ej-tip1':'','ej-tip2':''};
+        const ids={'ej-nombre':nombre,'ej-link':link,'ej-musculo1':musculo1,'ej-musculo2':'','ej-sinergista':'','ej-sinergista2':'','ej-elemento':elemento,'ej-tip1':'','ej-tip2':''};
         const orig={};
         for(const[id,val]of Object.entries(ids)){const el=document.getElementById(id);if(el){orig[id]=el.value;el.value=val;}}
         const catEl=document.getElementById('ej-categoria'),catOrig=catEl?.value; if(catEl) catEl.value=categoria;
