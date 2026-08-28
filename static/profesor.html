@@ -11547,8 +11547,19 @@
                     doc.setTextColor(20, 20, 20);
                     doc.text(e.nombre, colName, y);
                     doc.text(e.series ? String(e.series) : '-', colSeries, y);
-                    doc.text(e.reps ? (e.reps + ((e.unit && e.unit !== 'Reps') ? (' ' + e.unit) : '')) : '-', colReps, y);
-                    doc.text(e.descanso ? (e.descanso + 's') : '-', colPausa, y);
+                    // Reps: si hay reps cargadas por serie (formato actual del bloque
+                    // "Series"), usar esas; si todas son iguales, mostrar un solo valor.
+                    const repsPorSerieVals = (e.reps_por_serie || []).filter(v => v !== '' && v !== undefined && v !== null);
+                    const repsUnicas = [...new Set(repsPorSerieVals.map(String))];
+                    const repsTxt = repsUnicas.length ? repsUnicas.join('/') : e.reps;
+                    doc.text(repsTxt ? (repsTxt + ((e.unit && e.unit !== 'Reps') ? (' ' + e.unit) : '')) : '-', colReps, y);
+                    // Pausa: el bloque "Series" guarda la pausa por serie en
+                    // pausa_por_serie (no en el viejo campo suelto "descanso"), por eso
+                    // antes esta columna casi siempre salía en blanco ("-").
+                    const pausaPorSerieVals = (e.pausa_por_serie || []).filter(v => v !== '' && v !== undefined && v !== null);
+                    const pausasUnicas = [...new Set(pausaPorSerieVals.map(String))];
+                    const pausaTxt = pausasUnicas.length ? pausasUnicas.join('/') : e.descanso;
+                    doc.text(pausaTxt ? (pausaTxt + 's') : '-', colPausa, y);
                     y += 6.6;
                 });
                 y += 3;
