@@ -1944,6 +1944,7 @@
                         </div>
                         <button onclick="dashCrearRutinaParaAlumno()" class="btn-primary px-4 py-2.5 rounded-xl text-white font-bold text-xs uppercase tracking-wider whitespace-nowrap">+ Crear rutina para este alumno</button>
                         <button onclick="exportarDashboardPDF()" class="px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider whitespace-nowrap" style="background:rgba(255,213,79,.15);color:#FFD54F;border:1px solid rgba(255,213,79,.3)" onmouseover="this.style.background='rgba(255,213,79,.25)'" onmouseout="this.style.background='rgba(255,213,79,.15)'">📄 Exportar PDF</button>
+                        <button onclick="enviarResumenDashboardPorMail()" class="px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider whitespace-nowrap" style="background:rgba(30,136,229,.15);color:#64B5F6;border:1px solid rgba(30,136,229,.3)" onmouseover="this.style.background='rgba(30,136,229,.25)'" onmouseout="this.style.background='rgba(30,136,229,.15)'">✉️ Enviar por mail</button>
                     </div>
                     <!-- Ficha del alumno (lesiones / ejercicios prohibidos), cargada desde "Crear Alumno" -->
                     <div id="dash-ficha-alumno" class="hidden mt-4 bg-fondoAlt rounded-xl border border-rojo/30 p-3">
@@ -3002,6 +3003,7 @@
                 </div>
                 <div class="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex flex-wrap gap-3 rounded-b-3xl">
                     <button onclick="descargarPDFDesdeModal()" class="btn-primary flex-1 py-3 rounded-xl text-white font-bold text-sm uppercase tracking-wider min-w-[140px]">Descargar PDF</button>
+                    <button onclick="enviarPDFPorMailDesdeModal()" class="flex-1 py-3 rounded-xl text-white font-bold text-sm uppercase tracking-wider min-w-[140px]" style="background:#1e88e5;">✉️ Enviar por mail</button>
                     <button onclick="mostrarPreviaPlanillaDesdeModal()" class="flex-1 py-3 rounded-xl text-white font-bold text-sm uppercase tracking-wider min-w-[140px]" style="background:#333;">📋 Planilla</button>
                     <button onclick="document.getElementById('modal-ver-rutina').classList.add('hidden')" class="flex-1 py-3 rounded-xl border border-gray-300 text-gray-500 text-sm font-bold hover:text-gray-700 transition min-w-[100px]">Cerrar</button>
                 </div>
@@ -3020,6 +3022,7 @@
                 </div>
                 <div class="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex flex-wrap gap-3 rounded-b-3xl">
                     <button onclick="descargarPlanillaActual()" class="btn-primary flex-1 py-3 rounded-xl text-white font-bold text-sm uppercase tracking-wider min-w-[140px]">⬇️ Descargar PDF</button>
+                    <button onclick="enviarPlanillaActualPorMail()" class="flex-1 py-3 rounded-xl text-white font-bold text-sm uppercase tracking-wider min-w-[140px]" style="background:#1e88e5;">✉️ Enviar por mail</button>
                     <button onclick="cerrarPreviaPlanilla()" class="flex-1 py-3 rounded-xl border border-gray-300 text-gray-500 text-sm font-bold hover:text-gray-700 transition min-w-[100px]">Cerrar</button>
                 </div>
             </div>
@@ -9672,6 +9675,10 @@
                         class="bg-naranja/20 text-naranja px-3 py-2 rounded-lg text-xs font-bold hover:bg-naranja/30 transition flex-1 min-w-[100px]">
                         Descargar PDF
                     </button>
+                    <button onclick="descargarPDF('${cod}','mail')"
+                        class="bg-azul/20 text-azul px-3 py-2 rounded-lg text-xs font-bold hover:bg-azul/30 transition flex-1 min-w-[100px]">
+                        ✉️ Enviar por mail
+                    </button>
                     <button onclick="eliminarRutinaHistorial('${cod}')" 
                         class="bg-rojo/20 text-rojo px-3 py-2 rounded-lg text-xs font-bold hover:bg-rojo/30 transition flex-1 min-w-[100px]">
                         Eliminar Rutina
@@ -10735,12 +10742,59 @@
     // PDF PROFESIONAL (ESTILO ALE-0002)
     // ====================================================================
 
-    function descargarPDFDesdeModal() {
-        if (!rutinaModalActual) { toast('No hay rutina seleccionada'); return; }
-        descargarPDF(rutinaModalActual.codigo);
+    // ====================================================================
+    // ENVIAR PDF POR MAIL (o descargarlo) — helper compartido por todos los
+    // exportadores de PDF (rutina, planilla, resumen del dashboard).
+    // Usa la Web Share API con archivos (navigator.share) cuando esta
+    // disponible: eso abre el panel nativo de "compartir" del dispositivo,
+    // donde el profesor puede elegir Gmail / Mail / etc. y el PDF ya va
+    // adjunto. Si el navegador no soporta compartir archivos (tipico en
+    // escritorio), como respaldo se descarga el PDF y se abre el cliente
+    // de mail (mailto:) para que el profesor lo adjunte a mano.
+    // ====================================================================
+    async function _pfCompartirOGuardarPDF(doc, filename, modo, opts) {
+        opts = opts || {};
+        if (modo === 'mail') {
+            try {
+                const blob = doc.output('blob');
+                const file = new File([blob], filename, { type: 'application/pdf' });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        files: [file],
+                        title: opts.titulo || filename,
+                        text: opts.mensaje || ('Te comparto "' + filename + '" generado desde PONETE FIT.')
+                    });
+                    toast('Listo, elegí la app de mail en el panel para enviarlo ✉️');
+                    return;
+                }
+            } catch (shareErr) {
+                if (shareErr && shareErr.name === 'AbortError') return; // el profesor cerro el panel, no hacemos nada mas
+                console.warn('No se pudo compartir el PDF, se descarga como respaldo:', shareErr);
+            }
+            // Respaldo sin Web Share API: descargamos el PDF y abrimos el mail
+            // ya redactado para que el profesor adjunte el archivo manualmente.
+            doc.save(filename);
+            toast('PDF descargado. Adjuntalo en el mail que se va a abrir ✉️');
+            setTimeout(() => {
+                const asunto = opts.titulo || filename.replace(/\.pdf$/i, '');
+                const cuerpo = (opts.mensaje || ('Adjunto "' + filename + '" generado desde PONETE FIT.')) + '\n\n(Recordá adjuntar el PDF que se acaba de descargar)';
+                window.location.href = 'mailto:' + (opts.destinatario || '') + '?subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(cuerpo);
+            }, 500);
+            return;
+        }
+        doc.save(filename);
     }
 
-    async function descargarPDF(codigo) {
+    function descargarPDFDesdeModal(modo) {
+        if (!rutinaModalActual) { toast('No hay rutina seleccionada'); return; }
+        descargarPDF(rutinaModalActual.codigo, modo);
+    }
+
+    function enviarPDFPorMailDesdeModal() {
+        descargarPDFDesdeModal('mail');
+    }
+
+    async function descargarPDF(codigo, modo) {
         // Detectar jsPDF (UMD expone window.jspdf, algunos builds window.jsPDF)
         const jsPDFLib = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
         if (!jsPDFLib) { toast('Libreria PDF no disponible, recarga la pagina'); return; }
@@ -11112,7 +11166,8 @@
                 chk(10);
                 doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(160,160,160);
                 doc.text('Generado por PONETE FIT  |  ' + (fecha||'') + '  |  ' + codigo.toUpperCase(), pw/2, y, {align:'center'});
-                doc.save(alumno.toUpperCase() + '_MULTIDIA_' + codigo.toUpperCase() + '.pdf');
+                await _pfCompartirOGuardarPDF(doc, alumno.toUpperCase() + '_MULTIDIA_' + codigo.toUpperCase() + '.pdf', modo, { titulo: 'Rutina ' + codigo.toUpperCase() });
+                if (modo !== 'mail') toast('PDF descargado correctamente!');
                 return;
             }
 
@@ -11387,8 +11442,8 @@
             doc.setTextColor(160, 160, 160);
             doc.text('Generado por PONETE FIT   |   ' + fecha + '   |   ' + codigo.toUpperCase(), pw / 2, y, { align: 'center' });
 
-            doc.save(codigo.toUpperCase() + '.pdf');
-            toast('PDF descargado correctamente!');
+            await _pfCompartirOGuardarPDF(doc, codigo.toUpperCase() + '.pdf', modo, { titulo: 'Rutina ' + codigo.toUpperCase() });
+            if (modo !== 'mail') toast('PDF descargado correctamente!');
 
         } catch (err) {
             console.error('Error generando PDF:', err);
@@ -11441,6 +11496,11 @@
         if (!_planillaPreviewActual) { toast('No hay planilla para descargar'); return; }
         _planillaPreviewActual.doc.save(_planillaPreviewActual.filename);
         toast('Planilla descargada correctamente!');
+    }
+
+    async function enviarPlanillaActualPorMail() {
+        if (!_planillaPreviewActual) { toast('No hay planilla para enviar'); return; }
+        await _pfCompartirOGuardarPDF(_planillaPreviewActual.doc, _planillaPreviewActual.filename, 'mail', { titulo: 'Planilla' });
     }
 
     // ====================================================================
@@ -11694,8 +11754,9 @@
 
                 if (t === 'Circuito') {
                     const vueltas = cfg.vueltas || cfg.vueltas_bloque || 3;
+                    const pausaVta = (cfg.pausa_vuelta !== undefined && cfg.pausa_vuelta !== null && cfg.pausa_vuelta !== '') ? cfg.pausa_vuelta : 60;
                     const items = list.map(e => ({ text: e.nombre + (unidadTexto(e) ? '   ' + unidadTexto(e) : '') }));
-                    listaConCorchete(items, vueltas + ' vueltas');
+                    listaConCorchete(items, vueltas + ' vueltas · Pausa: ' + pausaVta + 's');
                 } else if (t === 'Circuito por Tiempo') {
                     const min = cfg.duracion_min || cfg.tiempo_min || cfg.duracion_bloque || 5;
                     const items = list.map(e => ({ text: e.nombre + (unidadTexto(e) ? '   ' + unidadTexto(e) : '') }));
@@ -12308,7 +12369,7 @@
 
     // ── Exportar el dashboard del alumno a PDF: KPIs, ficha médica y top
     // ejercicios más/menos usados, para mandarle un resumen rápido. ──
-    async function exportarDashboardPDF() {
+    async function exportarDashboardPDF(modo) {
         if (!dashAlumnoActual) { toast('⚠️ Elegí un alumno primero'); return; }
         const jsPDFLib = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
         if (!jsPDFLib) { toast('Libreria PDF no disponible, recarga la pagina'); return; }
@@ -12595,8 +12656,12 @@
 
         const sufijoRango = rangoActivo ? '_' + dashRangoDesde.toUpperCase() + '-' + dashRangoHasta.toUpperCase() : '';
         const nombreArchivo = 'Resumen_' + (dashAlumnoActual||'alumno').replace(/[^a-zA-Z0-9]/g,'_') + sufijoRango + '.pdf';
-        doc.save(nombreArchivo);
-        toast('✅ PDF exportado');
+        await _pfCompartirOGuardarPDF(doc, nombreArchivo, modo, { titulo: 'Resumen de ' + (dashAlumnoActual||'alumno') });
+        if (modo !== 'mail') toast('✅ PDF exportado');
+    }
+
+    function enviarResumenDashboardPorMail() {
+        exportarDashboardPDF('mail');
     }
 
 
