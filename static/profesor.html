@@ -323,6 +323,29 @@
         .ej-hover-preview {
             cursor: pointer;
         }
+        /* Boton de lupa sobre el body map, solo tiene sentido en pantallas
+           chicas donde el SVG se achica demasiado para tocar musculos
+           pequeños (antebrazo, pantorrillas) con precision. En desktop el
+           mapa ya se ve grande, asi que el boton se oculta. */
+        .hm-zoom-btn {
+            display: none;
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 28px;
+            height: 28px;
+            align-items: center;
+            justify-content: center;
+            background: rgba(20,20,24,0.85);
+            border: 1px solid #2a2a35;
+            border-radius: 999px;
+            color: #FF6B35;
+            z-index: 2;
+        }
+        .hm-zoom-btn:active {
+            transform: scale(0.92);
+            background: rgba(255,107,53,0.2);
+        }
         /* ===== RESPONSIVE ===== */
         @media (max-width: 640px) {
             /* Header: antes se apilaba en columna y centrado (logo, subtitulo,
@@ -371,6 +394,7 @@
             #modal-bloque .flex.gap-3.pt-2 button { font-size: 0.8rem; padding: 0.6rem 0; }
             /* Body maps */
             #body-front, #body-back { width: 140px; height: 295px; }
+            .hm-zoom-btn { display: flex; }
             .flex.flex-col.lg\\:flex-row { gap: 1rem; }
             /* Videoteca */
             #sec-videoteca .grid.grid-cols-2 { grid-template-columns: 1fr; }
@@ -2029,7 +2053,11 @@
                         <!-- Vista Frontal -->
                         <div class="text-center">
                             <p class="text-xs text-textoSuave mb-2 uppercase tracking-wider">Vista Frontal</p>
-                            <svg id="body-front" viewBox="0 0 220 460" width="195" height="410" style="filter:drop-shadow(0 0 8px rgba(0,0,0,0.3));">
+                            <div class="relative inline-block">
+                                <button type="button" onclick="abrirZoomBodyMap('body-front','Vista Frontal')" class="hm-zoom-btn" aria-label="Ampliar vista frontal">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/><path d="M11 8v6M8 11h6"/></svg>
+                                </button>
+                                <svg id="body-front" viewBox="0 0 220 460" width="195" height="410" style="filter:drop-shadow(0 0 8px rgba(0,0,0,0.3));">
                                 <!-- Cabeza -->
                                 <ellipse cx="110" cy="28" rx="20" ry="24" fill="#2a2a35" stroke="#3a3a45" stroke-width="1"/>
                                 <!-- Cuello -->
@@ -2082,11 +2110,16 @@
                                 <text x="90" y="356" text-anchor="middle" fill="#8a8a9a" font-size="6" font-family="sans-serif">Pant.</text>
                                 <text x="130" y="356" text-anchor="middle" fill="#8a8a9a" font-size="6" font-family="sans-serif">Pant.</text>
                             </svg>
+                            </div>
                         </div>
                         <!-- Vista Posterior -->
                         <div class="text-center">
                             <p class="text-xs text-textoSuave mb-2 uppercase tracking-wider">Vista Posterior</p>
-                            <svg id="body-back" viewBox="0 0 220 460" width="195" height="410" style="filter:drop-shadow(0 0 8px rgba(0,0,0,0.3));">
+                            <div class="relative inline-block">
+                                <button type="button" onclick="abrirZoomBodyMap('body-back','Vista Posterior')" class="hm-zoom-btn" aria-label="Ampliar vista posterior">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/><path d="M11 8v6M8 11h6"/></svg>
+                                </button>
+                                <svg id="body-back" viewBox="0 0 220 460" width="195" height="410" style="filter:drop-shadow(0 0 8px rgba(0,0,0,0.3));">
                                 <!-- Cabeza -->
                                 <ellipse cx="110" cy="28" rx="20" ry="24" fill="#2a2a35" stroke="#3a3a45" stroke-width="1"/>
                                 <!-- Cuello -->
@@ -2138,6 +2171,7 @@
                                 <text x="90" y="356" text-anchor="middle" fill="#8a8a9a" font-size="6" font-family="sans-serif">Pant.</text>
                                 <text x="130" y="356" text-anchor="middle" fill="#8a8a9a" font-size="6" font-family="sans-serif">Pant.</text>
                             </svg>
+                            </div>
                         </div>
                         <!-- Leyenda -->
                         <div class="flex flex-col gap-2">
@@ -2234,6 +2268,20 @@
                 <p class="text-textoSuave text-sm">Selecciona un alumno del desplegable para ver su dashboard</p>
             </div>
         </section>
+
+        <!-- Modal Zoom Mapa de Calor (mobile): agranda el SVG activo del body map -->
+        <div id="modal-hm-zoom" class="hidden fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4" onclick="if(event.target===this) cerrarZoomBodyMap()">
+            <div class="modal-glass rounded-3xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
+                <div class="p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 id="modal-hm-zoom-titulo" class="text-sm font-bold text-naranja uppercase tracking-wider"></h3>
+                        <button onclick="cerrarZoomBodyMap()" class="text-textoSuave hover:text-texto text-2xl leading-none" aria-label="Cerrar">&times;</button>
+                    </div>
+                    <p class="text-[11px] text-textoSuave mb-3">Tocá un músculo para ver qué ejercicios lo trabajaron</p>
+                    <div id="modal-hm-zoom-slot" class="flex items-center justify-center"></div>
+                </div>
+            </div>
+        </div>
 
         <!-- Modal Dashboard Ver Rutina -->
         <div id="modal-dash-rutina" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 modal-bottom-sheet-mobile">
@@ -4387,6 +4435,10 @@
     // ====================================================================
     // GRUPOS MUSCULARES
     // ====================================================================
+    // Peso que aporta cada sinergista al mapa de calor, relativo al musculo
+    // principal (que siempre pesa 1). Un solo lugar para ajustarlo.
+    const PESO_SINERGISTA = 0.5;
+
     const GRUPOS_MUSCULARES = [
         'Pecho', 'Espalda', 'Hombros', 'Biceps', 'Triceps', 'Antebrazo',
         'Abdominales', 'Oblicuos', 'Trapecio', 'Lumbar',
@@ -5470,9 +5522,23 @@
         const tip1 = (document.getElementById('ej-tip1')?.value || '').trim();
         const tip2 = (document.getElementById('ej-tip2')?.value || '').trim();
         if (!nombre) { toast('Completa el nombre del ejercicio'); return; }
+        // La categoria es obligatoria: si queda vacia (ej: el select todavia
+        // no cargo sus opciones) el fallback de mas abajo podria terminar
+        // escribiendo en una ruta de Firebase equivocada. Cortamos antes.
+        if (!categoria) { toast('Selecciona una categoría'); return; }
+
+        // Evitar elegir el mismo grupo muscular en mas de un campo (duplica
+        // peso en el mapa de calor sin que se note).
+        const musculosElegidos = [musculo1, musculo2, sinergista, sinergista2].filter(Boolean);
+        const musculosUnicos = new Set(musculosElegidos);
+        if (musculosUnicos.size !== musculosElegidos.length) {
+            toast('No repitas el mismo grupo muscular en dos campos');
+            return;
+        }
 
         try {
             let ok = false;
+            let errorBackendValidado = null; // el backend respondio, pero rechazo el guardado (no es un problema de red)
             try {
                 const res = await fetch(API_BASE + '/api/videoteca/ejercicio', {
                     method: 'POST',
@@ -5480,10 +5546,24 @@
                     body: JSON.stringify({ categoria, nombre, link, musculo1, musculo2, sinergista, sinergista2, elemento, con_carga, tip1, tip2 })
                 });
                 const data = await res.json();
-                if (data.ok) { toast(data.mensaje); ok = true; }
-            } catch (e) { /* fallback */ }
+                if (data.ok) {
+                    toast(data.mensaje);
+                    ok = true;
+                } else {
+                    // El backend contesto pero RECHAZO el guardado (validacion).
+                    // No es un problema de conexion, asi que no tiene sentido
+                    // reintentar por Firebase: hay que avisar y frenar.
+                    errorBackendValidado = data.error || 'El servidor rechazo el ejercicio';
+                }
+            } catch (e) { /* fetch fallo de verdad (red/servidor caido): sigue al fallback */ }
 
-            // Fallback: escribir directamente en Firebase
+            if (errorBackendValidado) {
+                toast('No se guardo: ' + errorBackendValidado);
+                return;
+            }
+
+            // Fallback: escribir directamente en Firebase (solo si el fetch
+            // al backend fallo por un problema de conexion, no por rechazo).
             if (!ok) {
                 // Leer ejercicios actuales de esa categoría
                 const resGet = await fetch(FIREBASE_BASE + '/videoteca/' + encodeURIComponent(categoria) + '.json');
@@ -5507,7 +5587,11 @@
                 const el = document.getElementById(id); if (el) el.value = '';
             });
             const conCargaEl = document.getElementById('ej-con-carga'); if (conCargaEl) conCargaEl.checked = false;
-            const statusEl = document.getElementById('status-ej'); if (statusEl) statusEl.innerText = '';
+            const statusEl = document.getElementById('status-ej');
+            if (statusEl) statusEl.innerText = '✓ Ya disponible para usar en "Crear Rutina"';
+            // Refresca los datos globales (videotecaCache / VIDEOTECA_DATA):
+            // "Crear Rutina" lee de esas mismas variables en vivo, asi que en
+            // cuanto termina este await el ejercicio nuevo ya aparece ahi.
             await cargarVideoteca();
         } catch (e) {
             toast('Error al guardar el ejercicio');
@@ -12740,8 +12824,8 @@
                 if (ejData.musculo1) muscleCount[ejData.musculo1] = (muscleCount[ejData.musculo1] || 0) + veces;
                 if (ejData.musculo2) muscleCount[ejData.musculo2] = (muscleCount[ejData.musculo2] || 0) + veces;
                 // Sinergistas: peso reducido (0.5)
-                if (ejData.sinergista) muscleCount[ejData.sinergista] = (muscleCount[ejData.sinergista] || 0) + (veces * 0.5);
-                if (ejData.sinergista2) muscleCount[ejData.sinergista2] = (muscleCount[ejData.sinergista2] || 0) + (veces * 0.5);
+                if (ejData.sinergista) muscleCount[ejData.sinergista] = (muscleCount[ejData.sinergista] || 0) + (veces * PESO_SINERGISTA);
+                if (ejData.sinergista2) muscleCount[ejData.sinergista2] = (muscleCount[ejData.sinergista2] || 0) + (veces * PESO_SINERGISTA);
             }
         });
         renderHeatMap(muscleCount);
@@ -12877,6 +12961,50 @@
         }
     }
 
+    // Zoom del body map (mobile): mueve el SVG real (no una copia) al modal
+    // ampliado, para que conserve los colores del heatmap y los mismos
+    // handlers de click sin tener que duplicar/resincronizar nada. Al cerrar,
+    // se lo devuelve exactamente a su lugar original.
+    let _pfZoomOrigParent = null;
+    let _pfZoomOrigNext = null;
+    let _pfZoomSvgId = null;
+
+    function abrirZoomBodyMap(svgId, titulo) {
+        const svg = document.getElementById(svgId);
+        const slot = document.getElementById('modal-hm-zoom-slot');
+        const modal = document.getElementById('modal-hm-zoom');
+        const tituloEl = document.getElementById('modal-hm-zoom-titulo');
+        if (!svg || !slot || !modal) return;
+
+        _pfZoomOrigParent = svg.parentNode;
+        _pfZoomOrigNext = svg.nextSibling;
+        _pfZoomSvgId = svgId;
+
+        slot.appendChild(svg);
+        svg.style.width = '82vw';
+        svg.style.maxWidth = '320px';
+        svg.style.height = 'auto';
+
+        if (tituloEl) tituloEl.textContent = titulo || '';
+        modal.classList.remove('hidden');
+    }
+
+    function cerrarZoomBodyMap() {
+        const modal = document.getElementById('modal-hm-zoom');
+        if (!_pfZoomSvgId) { if (modal) modal.classList.add('hidden'); return; }
+        const svg = document.getElementById(_pfZoomSvgId);
+        if (svg && _pfZoomOrigParent) {
+            svg.style.width = '';
+            svg.style.maxWidth = '';
+            svg.style.height = '';
+            _pfZoomOrigParent.insertBefore(svg, _pfZoomOrigNext);
+        }
+        _pfZoomOrigParent = null;
+        _pfZoomOrigNext = null;
+        _pfZoomSvgId = null;
+        if (modal) modal.classList.add('hidden');
+    }
+
     // Muestra en un modal que ejercicios trabajaron un musculo especifico (click en el mapa de calor)
     function mostrarDetalleMusculo(musculo) {
         const modal = document.getElementById('modal-musculo-detalle');
@@ -12954,8 +13082,8 @@
             if (ejData) {
                 if (ejData.musculo1) muscleCount[ejData.musculo1] = (muscleCount[ejData.musculo1] || 0) + 1;
                 if (ejData.musculo2) muscleCount[ejData.musculo2] = (muscleCount[ejData.musculo2] || 0) + 1;
-                if (ejData.sinergista) muscleCount[ejData.sinergista] = (muscleCount[ejData.sinergista] || 0) + 0.5;
-                if (ejData.sinergista2) muscleCount[ejData.sinergista2] = (muscleCount[ejData.sinergista2] || 0) + 0.5;
+                if (ejData.sinergista) muscleCount[ejData.sinergista] = (muscleCount[ejData.sinergista] || 0) + PESO_SINERGISTA;
+                if (ejData.sinergista2) muscleCount[ejData.sinergista2] = (muscleCount[ejData.sinergista2] || 0) + PESO_SINERGISTA;
             }
         });
         return muscleCount;
@@ -13060,8 +13188,8 @@
             if (ejData) {
                 if (ejData.musculo1) muscleCount[ejData.musculo1] = (muscleCount[ejData.musculo1] || 0) + 1;
                 if (ejData.musculo2) muscleCount[ejData.musculo2] = (muscleCount[ejData.musculo2] || 0) + 1;
-                if (ejData.sinergista) muscleCount[ejData.sinergista] = (muscleCount[ejData.sinergista] || 0) + 0.5;
-                if (ejData.sinergista2) muscleCount[ejData.sinergista2] = (muscleCount[ejData.sinergista2] || 0) + 0.5;
+                if (ejData.sinergista) muscleCount[ejData.sinergista] = (muscleCount[ejData.sinergista] || 0) + PESO_SINERGISTA;
+                if (ejData.sinergista2) muscleCount[ejData.sinergista2] = (muscleCount[ejData.sinergista2] || 0) + PESO_SINERGISTA;
             }
         }
         (dia.warmupEjercicios || []).forEach(ej => contar(ej && ej.nombre));
