@@ -39,6 +39,13 @@ app.config["SESSION_COOKIE_SECURE"] = os.environ.get("FLASK_ENV") != "developmen
 #  VIDEOTECA - Datos por defecto
 # ──────────────────────────────────────────────────────────────
 
+# Debe coincidir exactamente con GRUPOS_MUSCULARES en profesor.html
+GRUPOS_MUSCULARES_VALIDOS = {
+    "Pecho", "Espalda", "Hombros", "Biceps", "Triceps", "Antebrazo",
+    "Abdominales", "Oblicuos", "Trapecio", "Lumbar",
+    "Cuadriceps", "Isquiotibiales", "Gluteos", "Aductores", "Pantorrillas",
+}
+
 VIDEOTECA_DEFAULTS = {
     "Todo el cuerpo": [
         {"nombre": "VITALIZACIONES", "link": "https://www.youtube.com/watch?v=vzx2lNOCIdQ"},
@@ -102,6 +109,61 @@ def db_ref(path):
     """Referencia Firebase en el proyecto de LA CUENTA LOGUEADA actualmente.
     Solo usar dentro de rutas protegidas con @auth.login_requerido."""
     return multi_firebase.get_db_ref(auth.account_id_actual(), path)
+
+
+def _actualizar_link_en_nodo(nodo, nombre_objetivo, nuevo_link):
+    """Camina recursivamente cualquier estructura (dict/list) de una rutina
+    buscando objetos de ejercicio ({'nombre': ..., 'link': ...}) y les
+    actualiza el link in-place si el nombre coincide (sin importar en que
+    nivel esten anidados: dia_N, bloques, warmup, semanas, EMOM, etc, ya
+    que el recorrido no depende de conocer esa forma de antemano).
+    Devuelve True si cambio algo en este nodo o en sus hijos."""
+    cambio = False
+    if isinstance(nodo, dict):
+        if "nombre" in nodo and "link" in nodo:
+            if str(nodo.get("nombre", "")).strip().upper() == nombre_objetivo and nodo.get("link") != nuevo_link:
+                nodo["link"] = nuevo_link
+                cambio = True
+        for v in nodo.values():
+            if _actualizar_link_en_nodo(v, nombre_objetivo, nuevo_link):
+                cambio = True
+    elif isinstance(nodo, list):
+        for item in nodo:
+            if _actualizar_link_en_nodo(item, nombre_objetivo, nuevo_link):
+                cambio = True
+    return cambio
+
+
+def sincronizar_link_ejercicio_en_rutinas(nombre_ejercicio, nuevo_link):
+    """Cuando se le agrega o cambia el video a un ejercicio en la videoteca,
+    las rutinas YA GUARDADAS habian copiado el link viejo (o vacio) en el
+    momento en que se armaron, asi que no se actualizan solas. Esta funcion
+    recorre todas las rutinas de la cuenta y les pone el video nuevo en
+    cualquier ejercicio que coincida por nombre, tanto si antes no tenia
+    video como si tenia uno distinto. Devuelve cuantas rutinas cambiaron."""
+    if not nuevo_link:
+        # Si el video queda vacio no tocamos nada: evita borrar por
+        # accidente un video que una rutina ya tenia guardado.
+        return 0
+
+    nombre_objetivo = nombre_ejercicio.strip().upper()
+    todas = db_ref("/rutinas").get() or {}
+    if not isinstance(todas, dict):
+        return 0
+
+    actualizadas = 0
+    for codigo, rutina in todas.items():
+        if not isinstance(rutina, dict):
+            continue
+        if _actualizar_link_en_nodo(rutina, nombre_objetivo, nuevo_link):
+            db_ref(f"/rutinas/{codigo}").set(rutina)
+            cache_clear(auth.account_id_actual(), f"/rutinas/{codigo}")
+            actualizadas += 1
+
+    if actualizadas:
+        cache_clear(auth.account_id_actual(), "/rutinas")
+
+    return actualizadas
 
 
 # ──────────────────────────────────────────────────────────────
@@ -460,8 +522,17 @@ def guardar_ejercicio():
         tip2 = body.get("tip2", "").strip()
         elemento = body.get("elemento", "").strip()
 
-        if not categoria or not nombre or not link:
-            return jsonify({"ok": False, "error": "Categoria, nombre y link son obligatorios"}), 400
+        if not categoria or not nombre:
+            return jsonify({"ok": False, "error": "Categoria y nombre son obligatorios"}), 400
+
+        musculos_elegidos = [m for m in (musculo1, musculo2, sinergista, sinergista2) if m]
+
+        for m in musculos_elegidos:
+            if m not in GRUPOS_MUSCULARES_VALIDOS:
+                return jsonify({"ok": False, "error": f"Grupo muscular invalido: {m}"}), 400
+
+        if len(musculos_elegidos) != len(set(musculos_elegidos)):
+            return jsonify({"ok": False, "error": "No se puede repetir el mismo grupo muscular en dos campos"}), 400
 
         ej_data = {"nombre": nombre, "link": link}
         if musculo1:
@@ -496,7 +567,20 @@ def guardar_ejercicio():
         ref.set(ejercicios)
         cache_clear(auth.account_id_actual(), "/videoteca")
         accion = "actualizado" if encontrado else "guardado"
-        return jsonify({"ok": True, "mensaje": f"Ejercicio {accion}: {nombre}", "accion": accion})
+
+        rutinas_actualizadas = sincronizar_link_ejercicio_en_rutinas(nombre, link)
+
+        mensaje = f"Ejercicio {accion}: {nombre}"
+        if rutinas_actualizadas:
+            plural = "rutina" if rutinas_actualizadas == 1 else "rutinas"
+            mensaje += f" · Video actualizado en {rutinas_actualizadas} {plural} ya guardadas"
+
+        return jsonify({
+            "ok": True,
+            "mensaje": mensaje,
+            "accion": accion,
+            "rutinas_actualizadas": rutinas_actualizadas,
+        })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
