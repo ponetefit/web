@@ -4365,13 +4365,20 @@
             document.addEventListener('visibilitychange', function() {
                 if (document.visibilityState === 'hidden') {
                     _bgHiddenAt = Date.now();
-                    // Intentar mantener AudioContext activo al ir a background
+                    // IMPORTANTE: NO hacemos fast-forward al volver al frente.
+                    // Los cronómetros basados en Date.now()/deadline ya descuentan
+                    // el tiempo real transcurrido. Si además ejecutamos _bgFastForward
+                    // aquí, el tiempo se descuenta dos veces y el cronómetro se acelera.
+                    // Al volver a visible, el tick normal sincroniza el reloj con
+                    // Date.now(). Si el navegador suspendió JS, se recupera igualmente.
                     try {
                         var ctx = getAudio();
                         if (ctx.state === 'suspended') ctx.resume().catch(function() {});
                     } catch (e) {}
                 } else if (document.visibilityState === 'visible') {
                     // ── VOLVIÓ AL FRENTE: reanudar todo ──
+                    // NO aplicar tiempo adicional: los deadlines ya son absolutos.
+                    _bgHiddenAt = 0;
                     // 1. Reanudar AudioContext inmediatamente
                     try {
                         var ctx2 = getAudio();
@@ -14451,6 +14458,109 @@
             var _sesionAutoSaveInterval = null;
             var _sesionRetomandose = false; // flag: estamos restaurando una sesión
 
+            // ─── SNAPSHOT PERSISTENTE DE CRONÓMETROS ─────────────────────────
+            // Se guarda el estado mínimo necesario para recuperar un cronómetro
+            // que estaba corriendo cuando el navegador/página fue suspendido.
+            // Los deadlines se expresan como "segundos restantes" + timestamp de
+            // guardado, por lo que también funcionan si el teléfono estuvo apagado.
+            function _capturarTimersActivos() {
+                var snap = { timestamp: Date.now(), timers: [] };
+                try {
+                    // Circuito por Tiempo: un deadline por bloque.
+                    for (var tid in _btDeadlines) {
+                        var bel = document.getElementById(tid);
+                        var bbtn = bel ? document.getElementById(bel.id.replace('clock','btn')) : null;
+                        var running = bbtn && bbtn.dataset && bbtn.dataset.running === '1';
+                        if (!running && !bloqueTiempoPausado[tid]) continue;
+                        var rem = bloqueTiempoPausado[tid] && _btRems[tid] !== undefined
+                            ? Number(_btRems[tid])
+                            : Math.max(0, Math.round((_btDeadlines[tid] - Date.now()) / 1000));
+                        snap.timers.push({
+                            kind: 'bloqueTiempo', timerId: tid, remaining: rem,
+                            paused: !!bloqueTiempoPausado[tid]
+                        });
+                    }
+                } catch (e) {}
+
+                try {
+                    // Circuito por vuelta.
+                    for (var cid in _circTimers) {
+                        var ct = _circTimers[cid];
+                        if (!ct) continue;
+                        var remc = ct.pausado ? Number(ct.rem) :
+                            Math.max(0, Math.round((ct.deadline - Date.now()) / 1000));
+                        var cactive = !!ct.pausado || remc > 0;
+                        if (cactive) {
+                            snap.timers.push({
+                                kind: 'circuito', clockId: cid,
+                                remaining: remc, paused: !!ct.pausado
+                            });
+                        }
+                    }
+                } catch (e) {}
+
+                // Cronómetro genérico (Tabata/Circuito por tiempo standalone).
+                try {
+                    if (typeof timerActivo !== 'undefined' && timerActivo) {
+                        snap.generic = {
+                            kind: 'cronometro', remaining: Number(tSegs) || 0,
+                            fase: tFase, indice: tIdx, ronda: tRonda,
+                            paused: !!timerPausado
+                        };
+                    }
+                } catch (e) {}
+
+                // EMOM principal.
+                try {
+                    if (typeof emomRunning !== 'undefined' && emomRunning) {
+                        snap.emom = {
+                            kind: 'emom', remaining: Number(emomSegs) || 0,
+                            fase: emomFase, minuto: emomMinActual,
+                            paused: !!emomPausado
+                        };
+                    }
+                } catch (e) {}
+
+                // Warmup por tiempo.
+                try {
+                    if (typeof _wPorTiempoRunning !== 'undefined' && _wPorTiempoRunning) {
+                        snap.warmupPorTiempo = {
+                            kind: 'warmupPorTiempo',
+                            vueltas: Number(_wPorTiempoVueltas) || 0,
+                            total: Number(_wPorTiempoTotal) || 0
+                        };
+                    }
+                } catch (e) {}
+
+                return snap;
+            }
+
+            function _aplicarSnapshotTimersGuardado(snap) {
+                if (!snap || !snap.timers) return;
+                // Este flag evita que el flujo de retomar vuelva a considerar que
+                // el bloque debe arrancar desde cero.
+                try {
+                    snap.timers.forEach(function(t) {
+                        if (t.kind === 'bloqueTiempo') {
+                            var el = document.getElementById(t.timerId);
+                            if (el && t.remaining > 0) {
+                                el.innerText = Math.floor(t.remaining / 60) + ':' +
+                                    (t.remaining % 60 < 10 ? '0' : '') + (t.remaining % 60);
+                                el.dataset.pfRestoredRemaining = String(t.remaining);
+                                el.dataset.pfRestoredPaused = t.paused ? '1' : '0';
+                            }
+                        } else if (t.kind === 'circuito') {
+                            var cel = document.getElementById(t.clockId);
+                            if (cel && t.remaining > 0) {
+                                cel.innerText = String(t.remaining);
+                                cel.dataset.pfRestoredRemaining = String(t.remaining);
+                                cel.dataset.pfRestoredPaused = t.paused ? '1' : '0';
+                            }
+                        }
+                    });
+                } catch (e) {}
+            }
+
             // ─── GUARDAR ESTADO ───
             function _guardarSesion() {
                 if (!currentCode || !dataGlobal) return;
@@ -14472,6 +14582,7 @@
                         tipoEntrenamientoGlobal: _tipoEntrenamientoGlobal,
                         tiempoInicioEntrenamiento: _tiempoInicioEntrenamiento,
                         bloquesMixGuardados: bloquesMix,
+                        timerSnapshot: _capturarTimersActivos(),
                         timestamp: Date.now()
                     };
                     // Guardar valores de peso inputs
@@ -14539,7 +14650,7 @@
                 _detenerAutoSave();
                 _sesionAutoSaveInterval = setInterval(function() {
                     _guardarSesion();
-                }, 15000); // cada 15 segundos
+                }, 2000); // cada 2 segundos: minimiza la ventana de pérdida al bloquear/apagar el teléfono
             }
 
             function _detenerAutoSave() {
@@ -14771,32 +14882,10 @@
                     _progresoSegmentos = estado.progresoSegmentos;
                     _progresoSegActual = estado.progresoSegActual || 0;
 
-                    // ─── Sincronizar la barra con lo que realmente se puede
-                    // restaurar ───
-                    // Solo persistimos el estado interno de dos tipos de bloque:
-                    // "Series" (seriesRestantes) y "Circuito" simple con vueltas
-                    // (circVueltasRestantes). El resto de los tipos (Tabata,
-                    // EMOM, Circuito por Tiempo, Por Tiempo, Sumando Ejercicio y
-                    // el Calentamiento en general) tienen su propio motor de
-                    // cronómetro/rondas que arranca siempre de cero al recargar
-                    // la página, porque no guardamos en qué vuelta/ronda exacta
-                    // iban. Antes de este ajuste, la barra de progreso mostraba
-                    // el % de avance guardado (ej: 45%) mientras el bloque en
-                    // pantalla aparecía sin ningún avance (arrancando de nuevo),
-                    // lo que se veía como "no sale el progreso" y a veces
-                    // generaba botones de pausa/inicio inconsistentes. Ahora, si
-                    // el bloque donde se interrumpió la sesión es de un tipo no
-                    // restaurable, bajamos el "completados" de ESE segmento a 0
-                    // (los segmentos anteriores ya completados se mantienen
-                    // intactos) para que el número de la barra y lo que se ve en
-                    // pantalla coincidan siempre.
-                    var _segRetomado = _progresoSegmentos[_progresoSegActual];
-                    var _tiposNoRestaurables = ['Tabata', 'EMOM', 'Circuito por Tiempo', 'Por Tiempo', 'Sumando Ejercicio', 'Calentamiento'];
-                    if (_segRetomado && _tiposNoRestaurables.indexOf(_segRetomado.nombre) !== -1 && _segRetomado.completados > 0) {
-                        _segRetomado.completados = 0;
-                        _huboAjusteBloqueNoRestaurable = true;
-                    }
-
+                    // ─── Sincronizar la barra ───
+                    // El estado del entrenamiento se conserva. Los cronómetros
+                    // activos se recuperan desde timerSnapshot cuando el navegador
+                    // vuelve a cargar la página; no borrar "completados" del bloque.
                     actualizarProgresoUI();
                 }
 
@@ -14812,10 +14901,14 @@
 
                 // Avisar si un bloque tuvo que reiniciarse por no poder
                 // restaurar su cronómetro/rondas exactas (ver ajuste arriba)
-                if (_huboAjusteBloqueNoRestaurable) {
-                    setTimeout(function() {
-                        mostrarToast('El bloque donde estabas se reinicia; tu progreso anterior quedó guardado');
-                    }, 3200);
+                // No se reinicia el bloque al retomar: el snapshot conserva el
+                // cronómetro/progreso que se pudo capturar antes de suspenderse.
+
+                // Recuperar la lectura del cronómetro que estaba activo.
+                // No aplicamos "fast-forward": si el teléfono estuvo bloqueado/apagado,
+                // al reanudar se calcula el tiempo real transcurrido una sola vez.
+                if (estado.timerSnapshot) {
+                    _aplicarSnapshotTimersGuardado(estado.timerSnapshot);
                 }
 
                 // Mostrar modal de rutina
@@ -14859,6 +14952,9 @@
 
             // Guardar antes de cerrar la página
             window.addEventListener('beforeunload', function() {
+                _guardarSesion();
+            });
+            window.addEventListener('pagehide', function() {
                 _guardarSesion();
             });
 
