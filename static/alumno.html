@@ -5432,7 +5432,12 @@
             // sabemos en todo momento si "debería" haber pantalla encendida,
             // más allá de cuál de los muchos timers de la app sea el que está
             // corriendo ahora mismo.
-            let _wakeLockDeseado = false;
+            // La pantalla de la app se mantiene encendida mientras la página
+            // está visible. Esto NO impide que el alumno apague manualmente la
+            // pantalla: al volver a encenderla, visibilitychange vuelve a pedir
+            // el Wake Lock automáticamente.
+            const _pantallaSiempreActiva = true;
+            let _wakeLockDeseado = true;
 
             // Fallback: video invisible en loop para mantener pantalla encendida en Safari iOS
             function _activarVideoFallback() {
@@ -5470,7 +5475,19 @@
             }
 
             async function liberarWakeLock() {
-                _wakeLockDeseado = false;
+                // La pantalla permanece activa mientras la app está visible,
+                // incluso cuando termina un timer. Si el alumno apaga la
+                // pantalla manualmente, el sistema libera el Wake Lock; al
+                // volver a encenderla visibilitychange lo recupera.
+                _wakeLockDeseado = _pantallaSiempreActiva;
+
+                // Si la página está visible, no liberar físicamente el Wake Lock:
+                // la regla global de la app es mantener la pantalla encendida.
+                if (document.visibilityState === 'visible' && _pantallaSiempreActiva) {
+                    await solicitarWakeLock();
+                    return;
+                }
+
                 if (wakeLock) {
                     try {
                         await wakeLock.release();
@@ -5478,7 +5495,8 @@
                     wakeLock = null;
                 }
                 _desactivarVideoFallback();
-                document.getElementById('wakelock-indicator').classList.remove('active');
+                var _wi = document.getElementById('wakelock-indicator');
+                if (_wi) _wi.classList.remove('active');
             }
 
             // Re-solicitar WakeLock si la pestaña vuelve a ganar foco (ej: se
@@ -5498,10 +5516,18 @@
             // con cualquier solicitarWakeLock()/liberarWakeLock() sin importar
             // de qué motor venga.
             document.addEventListener('visibilitychange', async() => {
-                if (document.visibilityState === 'visible' && _wakeLockDeseado) {
+                if (document.visibilityState === 'visible' && (_wakeLockDeseado || _pantallaSiempreActiva)) {
+                    _wakeLockDeseado = true;
                     await solicitarWakeLock();
                 }
             });
+
+            // Al abrir/recargar la app, solicitar inmediatamente que la
+            // pantalla permanezca encendida. No hace falta que exista un timer.
+            // El Wake Lock solo puede mantenerse mientras la página está visible.
+            if (document.visibilityState === 'visible' && _pantallaSiempreActiva) {
+                setTimeout(() => solicitarWakeLock(), 0);
+            }
 
             // ─── ESTADO GLOBAL ───
             let nombreUsuario = "";
