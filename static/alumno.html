@@ -3830,6 +3830,449 @@
             }
         }
     </style>
+<style>
+
+/* ============================================================
+   PONETE FIT — REDISEÑO VISUAL COMPLETO v23
+   1) Timer protagonista  2) colores por estado
+   3) progreso reforzado  4) cards de ejercicios
+   5) descanso visual     6) final premium
+   7) home mejorada       8) microinteracciones
+   9) modo entrenamiento  10) indicador pantalla activa
+   ============================================================ */
+
+:root{
+  --pf-acento:var(--naranja);
+  --pf-acento-glow:var(--naranja-glow);
+  --pf-estado:var(--verde);
+  --pf-estado-glow:var(--verde-glow);
+  --pf-soft:rgba(255,255,255,.055);
+  --pf-soft2:rgba(255,255,255,.025);
+}
+
+/* ---------- 10. PANTALLA SIEMPRE ACTIVA ---------- */
+#pf-always-on-badge{
+  position:fixed;
+  top:max(10px,env(safe-area-inset-top));
+  left:50%;
+  transform:translate(-50%,-150%);
+  z-index:10001;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:7px 12px;
+  border:1px solid rgba(105,240,174,.28);
+  background:rgba(8,16,12,.88);
+  color:var(--verde);
+  border-radius:999px;
+  font:800 10px/1 Roboto,Arial,sans-serif;
+  letter-spacing:1.2px;
+  text-transform:uppercase;
+  backdrop-filter:blur(12px);
+  box-shadow:0 8px 24px rgba(0,0,0,.28);
+  transition:transform .35s ease,opacity .25s ease;
+  pointer-events:none;
+}
+#pf-always-on-badge::before{
+  content:"";
+  width:7px;height:7px;border-radius:50%;
+  background:var(--verde);
+  box-shadow:0 0 12px var(--verde-glow);
+  animation:pfPulse 1.8s ease-in-out infinite;
+}
+body.pf-app-visible #pf-always-on-badge{transform:translate(-50%,0);}
+
+/* ---------- 9. MODO ENTRENAMIENTO ---------- */
+#pf-focus-toggle{
+  position:fixed;
+  right:14px;
+  bottom:18px;
+  z-index:9998;
+  border:1px solid rgba(255,255,255,.13);
+  background:rgba(18,18,22,.92);
+  color:var(--texto);
+  border-radius:999px;
+  padding:10px 13px;
+  font:800 10px/1 Roboto,Arial,sans-serif;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  box-shadow:0 8px 25px rgba(0,0,0,.35);
+  backdrop-filter:blur(12px);
+  cursor:pointer;
+  transition:transform .15s ease,background .2s ease,border-color .2s ease;
+}
+#pf-focus-toggle:active{transform:scale(.95);}
+body.pf-focus-mode #pf-focus-toggle{
+  background:var(--naranja);
+  color:#000;
+  border-color:var(--naranja);
+}
+body.pf-focus-mode #btn-coach-toggle{opacity:.25;}
+body.pf-focus-mode .header-rutina,
+body.pf-focus-mode #btn-scroll-top,
+body.pf-focus-mode #btn-semana-bar{opacity:.12;transition:opacity .2s;}
+body.pf-focus-mode #modal-scroll{scrollbar-width:none;}
+body.pf-focus-mode .seccion-card:not(#sec-principal),
+body.pf-focus-mode #sec-rutina-lista > .seccion-card:not(#sec-principal){filter:brightness(.78);}
+
+/* ---------- 1. TIMER PROTAGONISTA ---------- */
+#timer-box,#emom-box{
+  position:relative;
+  overflow:hidden;
+  border-radius:28px !important;
+  border:1px solid rgba(255,255,255,.10) !important;
+  background:
+    radial-gradient(circle at 50% 32%,rgba(255,255,255,.065),transparent 42%),
+    linear-gradient(145deg,rgba(255,255,255,.035),rgba(255,255,255,.012)) !important;
+  box-shadow:0 20px 60px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.05) !important;
+  padding:clamp(16px,4vw,30px) !important;
+  transition:border-color .25s,box-shadow .25s,transform .25s;
+}
+#timer-box::before,#emom-box::before{
+  content:"";
+  position:absolute;
+  width:260px;height:260px;
+  border-radius:50%;
+  left:50%;top:38%;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle,var(--pf-estado-glow),transparent 68%);
+  opacity:.16;
+  pointer-events:none;
+}
+#timer-box > *,#emom-box > *{position:relative;z-index:1;}
+#t-status,#emom-status{
+  display:inline-flex !important;
+  align-items:center;
+  justify-content:center;
+  min-height:28px;
+  padding:6px 12px;
+  border-radius:999px;
+  background:rgba(105,240,174,.10);
+  border:1px solid rgba(105,240,174,.22);
+  color:var(--pf-estado) !important;
+  font-size:11px !important;
+  letter-spacing:2.2px !important;
+  font-weight:900 !important;
+}
+#t-ejercicio-nombre,#emom-ejercicio-nombre{
+  font-size:clamp(1.15rem,5vw,1.8rem) !important;
+  font-weight:900 !important;
+  line-height:1.12 !important;
+  margin:10px auto 4px !important;
+  max-width:600px;
+}
+#t-ej-restantes,#emom-minuto{
+  color:var(--texto-suave) !important;
+  font-weight:700 !important;
+}
+#clock,#emom-clock{
+  font-family:"Roboto Mono",monospace !important;
+  font-size:clamp(5rem,25vw,9rem) !important;
+  font-weight:900 !important;
+  line-height:.92 !important;
+  letter-spacing:-.08em !important;
+  text-shadow:0 0 45px var(--pf-estado-glow) !important;
+  min-width:2.6ch;
+  text-align:center;
+}
+#clock-ring-wrap,#emom-clock-ring-wrap{
+  width:clamp(230px,74vw,390px) !important;
+  margin:12px auto 18px !important;
+}
+#clock-ring-fill,#emom-clock-ring-fill{
+  stroke:var(--pf-estado) !important;
+  filter:drop-shadow(0 0 7px var(--pf-estado-glow));
+}
+body.pf-timer-active #timer-box,
+body.pf-timer-active #emom-box{
+  border-color:color-mix(in srgb,var(--pf-estado) 35%,transparent) !important;
+  box-shadow:0 22px 70px rgba(0,0,0,.5),0 0 35px var(--pf-estado-glow) !important;
+}
+body.pf-timer-active #clock,
+body.pf-timer-active #emom-clock{
+  animation:pfTimerBreath 1.8s ease-in-out infinite;
+}
+#timer-progress-fill,#emom-progress-fill{
+  background:linear-gradient(90deg,var(--pf-estado),#fff) !important;
+  box-shadow:0 0 12px var(--pf-estado-glow);
+}
+#next-ej-container{
+  padding:10px 14px;
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:14px;
+  background:rgba(255,255,255,.035);
+}
+
+/* ---------- 2. IDENTIDAD POR ESTADO ---------- */
+body.pf-state-work{--pf-estado:var(--verde);--pf-estado-glow:var(--verde-glow);}
+body.pf-state-rest{--pf-estado:var(--azul);--pf-estado-glow:rgba(79,195,247,.35);}
+body.pf-state-prep{--pf-estado:var(--amarillo);--pf-estado-glow:var(--amarillo-glow);}
+body.pf-state-danger{--pf-estado:var(--rojo);--pf-estado-glow:rgba(239,83,80,.35);}
+body.pf-state-emom{--pf-estado:var(--purpura);--pf-estado-glow:rgba(206,147,216,.35);}
+body.pf-state-tabata{--pf-estado:var(--naranja);--pf-estado-glow:var(--naranja-glow);}
+body.pf-state-done{--pf-estado:var(--verde);--pf-estado-glow:var(--verde-glow);}
+body.pf-state-rest #t-status,body.pf-state-rest #emom-status{
+  background:rgba(79,195,247,.10);border-color:rgba(79,195,247,.28);
+}
+body.pf-state-prep #t-status,body.pf-state-prep #emom-status{
+  background:rgba(255,213,79,.10);border-color:rgba(255,213,79,.28);
+}
+body.pf-state-danger #t-status,body.pf-state-danger #emom-status{
+  background:rgba(239,83,80,.10);border-color:rgba(239,83,80,.28);
+}
+
+/* ---------- 3. PROGRESO ---------- */
+.rutina-progress-container{
+  padding:11px 16px 13px !important;
+  background:rgba(0,0,0,.84) !important;
+  border-bottom:1px solid rgba(255,255,255,.07);
+  backdrop-filter:blur(12px);
+}
+.rutina-progress-label{
+  font-size:10px !important;
+  letter-spacing:1.6px !important;
+  font-weight:900 !important;
+}
+.rutina-progress-label .pct{
+  font-family:"Roboto Mono",monospace;
+  font-size:13px !important;
+  color:var(--verde) !important;
+}
+.rutina-progress-track{
+  height:9px !important;
+  margin-top:7px !important;
+  border-radius:999px !important;
+  background:rgba(255,255,255,.08) !important;
+  overflow:hidden;
+}
+.rutina-progress-fill{
+  border-radius:999px !important;
+  background:linear-gradient(90deg,var(--naranja),var(--amarillo),var(--verde)) !important;
+  box-shadow:0 0 16px rgba(105,240,174,.28);
+  transition:width .55s cubic-bezier(.2,.8,.2,1) !important;
+}
+#pf-progress-step{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  margin-top:6px;
+  color:var(--texto-suave);
+  font:700 9px/1.2 Roboto,Arial,sans-serif;
+  letter-spacing:.8px;
+  text-transform:uppercase;
+}
+#pf-progress-step strong{color:var(--texto);}
+
+/* ---------- 4. TARJETAS DE EJERCICIOS ---------- */
+.card-ejercicio,.serie-card{
+  border-radius:20px !important;
+  border-color:rgba(255,255,255,.085) !important;
+  box-shadow:0 10px 28px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.035) !important;
+  transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease,opacity .2s;
+}
+.card-ejercicio:has(.btn-completar.active),
+.serie-card:has(.btn-completar.active){
+  border-color:rgba(105,240,174,.32) !important;
+}
+.card-ej-header,.serie-header{
+  min-height:72px;
+  border-radius:20px 20px 0 0;
+}
+.card-ejercicio-nombre,.serie-nombre,.card-numero-nombre{
+  font-weight:900 !important;
+  letter-spacing:.1px;
+}
+.card-ejercicio-meta,.serie-meta,.card-ejercicio-meta-inline{
+  gap:8px !important;
+}
+.card-elemento-badge,.card-min-badge,.card-seg-badge{
+  border-radius:999px !important;
+  font-weight:900 !important;
+}
+.card-thumb{
+  border-radius:16px !important;
+  box-shadow:0 8px 20px rgba(0,0,0,.28);
+  transition:transform .25s ease,filter .25s ease;
+}
+.card-ejercicio:hover .card-thumb{transform:scale(1.015);filter:saturate(1.08);}
+.vueltas-grid{
+  gap:7px !important;
+}
+.vuelta-item,.vuelta-reps,.peso-row{
+  border-radius:13px !important;
+}
+
+/* ---------- 5. DESCANSO ---------- */
+#overlay-descanso,#overlay-pausa-ronda{
+  background:
+    radial-gradient(circle at 50% 38%,rgba(79,195,247,.18),transparent 42%),
+    rgba(3,8,14,.97) !important;
+  backdrop-filter:blur(18px) !important;
+}
+#overlay-descanso .overlay-titulo,
+#overlay-pausa-ronda .overlay-titulo{
+  font-size:12px !important;
+  letter-spacing:3px !important;
+  font-weight:900 !important;
+}
+#descanso-clock,#sp-clock{
+  font-family:"Roboto Mono",monospace !important;
+  font-size:clamp(6rem,30vw,10rem) !important;
+  font-weight:900 !important;
+  line-height:.9 !important;
+  text-shadow:0 0 50px rgba(79,195,247,.35);
+}
+#descanso-progress,#sp-progress{
+  height:8px !important;
+  border-radius:999px !important;
+  background:linear-gradient(90deg,var(--azul),var(--purpura)) !important;
+}
+#sp-carga-info{
+  padding:8px 12px;
+  border-radius:999px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.08);
+}
+
+/* ---------- 6. FINAL ---------- */
+#pantalla-fin{
+  background:
+    radial-gradient(circle at 50% 24%,rgba(105,240,174,.16),transparent 30%),
+    radial-gradient(circle at 20% 80%,rgba(255,107,53,.10),transparent 28%),
+    #020302 !important;
+}
+#pantalla-fin .fin-emoji{
+  filter:drop-shadow(0 15px 30px rgba(105,240,174,.2));
+}
+#pantalla-fin .fin-titulo{
+  letter-spacing:-1px;
+}
+#pantalla-fin .fin-tiempo{
+  min-width:min(360px,90vw);
+  padding:17px 22px !important;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:20px !important;
+  background:rgba(255,255,255,.045);
+  box-shadow:0 14px 35px rgba(0,0,0,.28);
+}
+#pantalla-fin .fin-tiempo-valor{
+  font-size:clamp(2.4rem,12vw,4rem) !important;
+  font-family:"Roboto Mono",monospace !important;
+}
+#pantalla-fin .fin-stats{
+  gap:10px !important;
+}
+#pantalla-fin .fin-stat-box{
+  border-radius:18px !important;
+  border:1px solid rgba(255,255,255,.09) !important;
+  background:rgba(255,255,255,.035) !important;
+}
+
+/* ---------- 7. HOME ---------- */
+#view-home{
+  background:
+    radial-gradient(circle at 50% 8%,rgba(255,107,53,.12),transparent 27%),
+    radial-gradient(circle at 85% 90%,rgba(105,240,174,.055),transparent 30%);
+}
+#view-home .home-logo h1{
+  font-size:clamp(2.8rem,13vw,5.4rem) !important;
+  letter-spacing:-.055em !important;
+  text-shadow:0 0 35px var(--naranja-glow);
+}
+#view-home .home-logo h2{
+  letter-spacing:6px !important;
+  opacity:.72;
+}
+#view-home .search-box{
+  border:1px solid rgba(255,255,255,.09) !important;
+  background:rgba(18,18,22,.78) !important;
+  box-shadow:0 25px 70px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.04) !important;
+  backdrop-filter:blur(18px);
+}
+#view-home #codigoInput{
+  border-radius:16px !important;
+  min-height:54px;
+  font-family:"Roboto Mono",monospace;
+  letter-spacing:2px;
+}
+#view-home .btn-principal{
+  min-height:56px;
+  border-radius:16px !important;
+  font-size:13px !important;
+  letter-spacing:1.5px;
+  box-shadow:0 10px 28px var(--naranja-glow);
+}
+#pf-last-session{
+  margin:16px auto 0;
+  width:min(420px,100%);
+  padding:13px 15px;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:16px;
+  background:rgba(255,255,255,.035);
+  text-align:left;
+}
+#pf-last-session .pf-ls-kicker{
+  color:var(--naranja);
+  font:900 9px/1 Roboto,Arial,sans-serif;
+  letter-spacing:1.7px;
+  text-transform:uppercase;
+}
+#pf-last-session .pf-ls-main{
+  margin-top:6px;
+  font-size:14px;
+  font-weight:900;
+}
+#pf-last-session .pf-ls-meta{
+  margin-top:4px;
+  color:var(--texto-suave);
+  font-size:11px;
+}
+
+/* ---------- 8. MICROINTERACCIONES ---------- */
+button,.card-ej-header,.serie-header,.card-numero-header{
+  -webkit-tap-highlight-color:transparent;
+}
+button:not(:disabled):active{
+  transform:translateY(1px) scale(.985);
+}
+.btn-principal,.btn-rest,.btn-pausa,.btn-fullscreen,.fin-btn-salir{
+  transition:transform .15s ease,filter .15s ease,box-shadow .2s ease !important;
+}
+.btn-principal:hover,.btn-rest:hover,.btn-pausa:hover,.btn-fullscreen:hover{
+  filter:brightness(1.06);
+}
+.pf-complete-pop{
+  animation:pfCompletePop .55s cubic-bezier(.2,1.4,.4,1);
+}
+@keyframes pfCompletePop{
+  0%{transform:scale(.92);opacity:.4}
+  60%{transform:scale(1.05)}
+  100%{transform:scale(1);opacity:1}
+}
+@keyframes pfTimerBreath{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.012)}
+}
+@keyframes pfPulse{
+  0%,100%{opacity:.55;transform:scale(.9)}
+  50%{opacity:1;transform:scale(1.1)}
+}
+
+/* ---------- DESKTOP / MOBILE ---------- */
+@media (min-width:768px){
+  #timer-box,#emom-box{max-width:760px;margin:10px auto 24px;}
+  #pf-focus-toggle{bottom:24px;right:24px;}
+}
+@media (max-width:767px){
+  #pf-focus-toggle{bottom:max(16px,env(safe-area-inset-bottom));}
+  #timer-box,#emom-box{padding:16px 12px !important;}
+  #clock,#emom-clock{font-size:clamp(5rem,27vw,8rem) !important;}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;}
+}
+
+</style>
 </head>
 
 <body>
@@ -4172,7 +4615,7 @@
                     <span class="pct" id="rutina-progress-pct">0%</span>
                 </div>
                 <div class="rutina-progress-track">
-                    <div class="rutina-progress-fill" id="rutina-progress-fill"></div>
+                    <div class="rutina-progress-fill" id="rutina-progress-fill" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
                 </div>
             </div>
 
@@ -16433,6 +16876,241 @@
             }
         })();
     </script>
+
+<script>
+/* ============================================================
+   PONETE FIT — CAPA DE UX v23
+   No reemplaza funciones existentes: observa el DOM y mejora
+   presentación, feedback y navegación.
+   ============================================================ */
+(function(){
+  'use strict';
+
+  function pfReady(fn){
+    if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded',fn,{once:true});
+    else fn();
+  }
+
+  pfReady(function(){
+    /* 10. Indicador de pantalla activa */
+    if(!document.getElementById('pf-always-on-badge')){
+      var badge=document.createElement('div');
+      badge.id='pf-always-on-badge';
+      badge.innerHTML='<span>PANTALLA ACTIVA</span>';
+      document.body.appendChild(badge);
+    }
+
+    /* 9. Modo entrenamiento */
+    if(!document.getElementById('pf-focus-toggle')){
+      var focus=document.createElement('button');
+      focus.id='pf-focus-toggle';
+      focus.type='button';
+      focus.innerHTML='🎯 Modo entrenamiento';
+      focus.onclick=function(){
+        document.body.classList.toggle('pf-focus-mode');
+        var on=document.body.classList.contains('pf-focus-mode');
+        focus.innerHTML=on?'✕ Salir del modo':'🎯 Modo entrenamiento';
+        try{localStorage.setItem('pf-focus-mode',on?'1':'0');}catch(e){}
+      };
+      document.body.appendChild(focus);
+      try{
+        if(localStorage.getItem('pf-focus-mode')==='1'){
+          document.body.classList.add('pf-focus-mode');
+          focus.innerHTML='✕ Salir del modo';
+        }
+      }catch(e){}
+    }
+
+    /* 3. Indicador adicional de etapa del progreso */
+    var pc=document.getElementById('rutina-progress-container');
+    if(pc && !document.getElementById('pf-progress-step')){
+      var step=document.createElement('div');
+      step.id='pf-progress-step';
+      step.innerHTML='<span>ENTRENAMIENTO</span><strong>0% completado</strong>';
+      pc.appendChild(step);
+    }
+
+    function visible(el){
+      if(!el) return false;
+      var s=getComputedStyle(el);
+      return s.display!=='none' && s.visibility!=='hidden' && parseFloat(s.opacity||1)>0;
+    }
+
+    function textOf(id){
+      var e=document.getElementById(id);
+      return e ? (e.textContent||'').trim().toUpperCase() : '';
+    }
+
+    /* 2. Estado visual dinámico */
+    function updateState(){
+      document.body.classList.remove('pf-state-work','pf-state-rest','pf-state-prep','pf-state-danger','pf-state-emom','pf-state-tabata','pf-state-done');
+
+      var tStatus=textOf('t-status');
+      var eStatus=textOf('emom-status');
+      var wStatus=textOf('warmup-status');
+      var dStatus=textOf('descanso-clock');
+      var clock=textOf('clock');
+      var emomClock=textOf('emom-clock');
+
+      var state=(tStatus+' '+eStatus+' '+wStatus).toUpperCase();
+      var cls='pf-state-work';
+
+      if(visible(document.getElementById('sec-emom-ui'))) cls='pf-state-emom';
+      if(/TABATA/.test(state) || visible(document.getElementById('sec-timer-ui'))) cls='pf-state-tabata';
+      if(/DESCANS|PAUSA|REST/.test(state) || visible(document.getElementById('overlay-descanso'))) cls='pf-state-rest';
+      if(/PREPAR|LISTO|CALENT/.test(state) || /PREPAR/.test(wStatus)) cls='pf-state-prep';
+      if(/00$|COMPLET|FIN/.test(state) && !/LISTO/.test(state)) cls='pf-state-done';
+      if(/0[0-9]$/.test(clock) || /0[0-9]$/.test(emomClock)) cls='pf-state-danger';
+
+      document.body.classList.add(cls);
+    }
+
+    /* 1 + 2. Detectar timer activo sin tocar su lógica */
+    function updateTimerActive(){
+      var active=false;
+      var ids=['btnPausaTimer','btnPausaEmom','warmup-btn'];
+      ids.forEach(function(id){
+        var b=document.getElementById(id);
+        if(b && visible(b) && !b.disabled && /PAUS|PAUSAR|DETENER|STOP/i.test(b.textContent||'')) active=true;
+      });
+
+      ['clock','emom-clock','warmup-clock'].forEach(function(id){
+        var e=document.getElementById(id);
+        if(e && visible(e)){
+          var v=(e.textContent||'').trim();
+          if(v && v!=='--' && v!=='00' && v!=='0') active=true;
+        }
+      });
+
+      document.body.classList.toggle('pf-timer-active',active);
+      if(active) document.body.classList.add('pf-app-visible');
+    }
+
+    /* 3. Progreso y etapa */
+    function updateProgress(){
+      var pctEl=document.getElementById('rutina-progress-pct');
+      var fill=document.getElementById('rutina-progress-fill');
+      var step=document.getElementById('pf-progress-step');
+      if(!pctEl) return;
+
+      var raw=parseInt((pctEl.textContent||'0').replace(/\D/g,''),10);
+      if(isNaN(raw)) raw=0;
+      raw=Math.max(0,Math.min(100,raw));
+      if(fill) fill.setAttribute('aria-valuenow',String(raw));
+      if(step){
+        var activeCards=document.querySelectorAll('#principal-lista .card-ejercicio, #principal-lista .serie-card');
+        var done=document.querySelectorAll('#principal-lista .btn-completar.active, #principal-lista button[disabled]');
+        step.innerHTML='<span>'+ (raw>=100?'ENTRENAMIENTO COMPLETO':'ENTRENAMIENTO') +'</span><strong>'+raw+'% completado</strong>';
+        if(raw>=100) step.classList.add('pf-complete-pop'); else step.classList.remove('pf-complete-pop');
+      }
+    }
+
+    /* 7. Última sesión en home */
+    function updateLastSession(){
+      var home=document.getElementById('view-home');
+      if(!home || document.getElementById('pf-last-session')) return;
+      var saved=null;
+      try{
+        var raw=localStorage.getItem('pf-sesion-activa');
+        if(raw) saved=JSON.parse(raw);
+      }catch(e){}
+      if(!saved) return;
+
+      var wrap=document.createElement('div');
+      wrap.id='pf-last-session';
+      var pct=0;
+      try{
+        if(typeof _calcularProgresoGuardado==='function') pct=_calcularProgresoGuardado(saved);
+      }catch(e){}
+      if(!pct && saved.progresoSegActual!=null) pct='—';
+      var nombre=saved.nombreUsuario || 'Tu entrenamiento';
+      var modo=saved.codigo || saved.codigoRutina || 'Sesión guardada';
+      wrap.innerHTML='<div class="pf-ls-kicker">↻ ÚLTIMA SESIÓN GUARDADA</div>'+
+        '<div class="pf-ls-main">'+String(nombre).replace(/[<>]/g,'')+'</div>'+
+        '<div class="pf-ls-meta">'+String(modo).replace(/[<>]/g,'')+' · '+(pct==='—'?'en curso':pct+'% avanzado')+'</div>';
+      var record=document.getElementById('home-record-container');
+      if(record && record.parentNode) record.parentNode.insertBefore(wrap,record);
+      else {
+        var sb=home.querySelector('.search-box');
+        if(sb) sb.appendChild(wrap);
+      }
+    }
+
+    /* 4 + 8. Feedback al completar tarjetas */
+    function markCompletedCards(){
+      var buttons=document.querySelectorAll('button');
+      buttons.forEach(function(btn){
+        var txt=(btn.textContent||'').toUpperCase();
+        if(/COMPLETADO|✓ COMPLET|✓ HECHO|LISTO/.test(txt)){
+          var card=btn.closest('.card-ejercicio,.serie-card,.card-numero,.mix-seccion');
+          if(card){
+            card.classList.add('pf-complete-pop');
+            setTimeout(function(){card.classList.remove('pf-complete-pop');},650);
+          }
+        }
+      });
+    }
+
+    /* 5. Mejorar overlays de descanso en tiempo real */
+    function updateRest(){
+      var overlay=document.getElementById('overlay-descanso');
+      var clock=document.getElementById('descanso-clock');
+      if(overlay && visible(overlay)) overlay.classList.add('pf-rest-active');
+      else if(overlay) overlay.classList.remove('pf-rest-active');
+      if(clock && visible(overlay)){
+        var n=parseInt((clock.textContent||'').replace(/\D/g,''),10);
+        if(!isNaN(n) && n<=5) clock.classList.add('pf-complete-pop');
+        else clock.classList.remove('pf-complete-pop');
+      }
+    }
+
+    /* 6. Detectar pantalla final para limpiar modo foco */
+    function updateFinish(){
+      var fin=document.getElementById('pantalla-fin');
+      if(fin && fin.classList.contains('visible')){
+        document.body.classList.remove('pf-timer-active');
+        document.body.classList.add('pf-state-done');
+        document.body.classList.remove('pf-focus-mode');
+      }
+    }
+
+    var mo=new MutationObserver(function(){
+      updateState();
+      updateTimerActive();
+      updateProgress();
+      updateRest();
+      updateFinish();
+      markCompletedCards();
+    });
+    mo.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['style','class','disabled']});
+
+    document.addEventListener('visibilitychange',function(){
+      document.body.classList.toggle('pf-app-visible',document.visibilityState==='visible');
+    });
+
+    /* Pantalla activa: el Wake Lock existente se mantiene/reintenta */
+    document.body.classList.add('pf-app-visible');
+
+    /* Primer render */
+    updateState();
+    updateTimerActive();
+    updateProgress();
+    updateRest();
+    updateFinish();
+    updateLastSession();
+
+    /* Actualización suave sin intervalos agresivos */
+    setInterval(function(){
+      updateState();
+      updateTimerActive();
+      updateProgress();
+      updateRest();
+      updateFinish();
+    },1000);
+  });
+})();
+</script>
+
 </body>
 
 </html>
