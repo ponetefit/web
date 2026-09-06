@@ -3681,26 +3681,129 @@
             transform: scale(0.97);
             box-shadow: 0 4px 12px var(--naranja-glow);
         }
-        /* ─── MODAL RETOMAR SESIÓN ─── */
-        
+        /* ─── MODAL RETOMAR SESIÓN — PONETE FIT EN CASA ─── */
+
         #modal-retomar {
             display: none;
             position: fixed;
             inset: 0;
-            background: rgba(10, 10, 12, 0.92);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
+            width: 100vw;
+            height: 100dvh;
+            min-height: 100vh;
+            box-sizing: border-box;
+            background:
+                radial-gradient(circle at 50% 18%, rgba(255, 94, 26, 0.16), transparent 34%),
+                linear-gradient(145deg, #070708 0%, #0b0b0d 55%, #050506 100%);
             z-index: 8000;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             text-align: center;
-            padding: 30px 24px;
+            padding: max(28px, env(safe-area-inset-top)) 22px max(28px, env(safe-area-inset-bottom));
+            overflow-y: auto;
             animation: overlayIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        
+
         #modal-retomar.visible {
             display: flex;
+        }
+
+        /* La tarjeta deja de ser una tarjeta: el modal ocupa toda la pantalla. */
+        #modal-retomar .retomar-card {
+            width: 100%;
+            max-width: 680px;
+            min-height: 100%;
+            box-sizing: border-box;
+            background: transparent;
+            border: 0;
+            border-radius: 0;
+            padding: 20px 4px;
+            box-shadow: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #modal-retomar .retomar-emoji {
+            font-size: clamp(4rem, 18vw, 7rem);
+            line-height: 1;
+            margin-bottom: 22px;
+            filter: drop-shadow(0 0 22px rgba(255, 94, 26, 0.45));
+        }
+
+        #modal-retomar .retomar-titulo {
+            width: 100%;
+            font-size: clamp(2rem, 9vw, 4.5rem);
+            line-height: 1.02;
+            font-weight: 950;
+            letter-spacing: -1px;
+            text-transform: uppercase;
+            color: #fff;
+            margin-bottom: 18px;
+        }
+
+        #modal-retomar .retomar-msg {
+            width: 100%;
+            max-width: 570px;
+            font-size: clamp(1rem, 4.2vw, 1.45rem);
+            line-height: 1.5;
+            color: #a7a7b0;
+            margin-bottom: 22px;
+        }
+
+        #modal-retomar .retomar-progreso {
+            font-size: clamp(1.2rem, 5vw, 2rem);
+            font-weight: 950;
+            color: var(--naranja);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        #modal-retomar .retomar-tiempo {
+            font-size: clamp(0.95rem, 3.8vw, 1.35rem);
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 28px;
+        }
+
+        #modal-retomar .retomar-btns {
+            width: 100%;
+            max-width: 570px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        #modal-retomar .retomar-btns button {
+            width: 100%;
+            min-height: 68px;
+            padding: 16px 22px;
+            border-radius: 16px;
+            font-size: clamp(1rem, 4.2vw, 1.3rem);
+            font-weight: 950;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        #modal-retomar .btn-retomar-si {
+            background: linear-gradient(135deg, #ff6a00, #ff3d00);
+            color: #fff;
+            border: 0;
+            box-shadow: 0 10px 35px rgba(255, 94, 26, 0.38);
+        }
+
+        #modal-retomar .btn-retomar-no {
+            background: rgba(255,255,255,0.03);
+            color: #8e8e98;
+            border: 1px solid #303039;
+        }
+
+        @media (max-width: 480px) {
+            #modal-retomar {
+                padding-left: 18px;
+                padding-right: 18px;
+            }
         }
 
         #modal-confirmar-generico {
@@ -3974,7 +4077,7 @@
     <div id="modal-retomar">
         <div class="retomar-card">
             <div class="retomar-emoji">💪</div>
-            <div class="retomar-titulo">¡Tenés un entrenamiento en curso!</div>
+            <div class="retomar-titulo" id="retomar-titulo">TENÉS UN ENTRENAMIENTO EN CURSO</div>
             <div class="retomar-msg">Se encontró una sesión guardada.<br>¿Querés retomar tu entrenamiento donde lo dejaste?</div>
             <div class="retomar-progreso" id="retomar-progreso-pct"></div>
             <div class="retomar-tiempo" id="retomar-tiempo-info"></div>
@@ -14874,10 +14977,17 @@
                 var tiempo = _formatearTiempoGuardado(estado);
                 var nombre = estado.nombreUsuario || '';
 
-                document.getElementById('retomar-progreso-pct').innerText = 'Progreso: ' + pct + '%';
+                var tituloRetomar = document.getElementById('retomar-titulo');
+                if (tituloRetomar) {
+                    tituloRetomar.innerText = nombre
+                        ? nombre.toUpperCase() + ' — TENÉS UN ENTRENAMIENTO EN CURSO'
+                        : 'TENÉS UN ENTRENAMIENTO EN CURSO';
+                }
+
+                document.getElementById('retomar-progreso-pct').innerText = 'PROGRESO: ' + pct + '%';
                 var tiempoInfo = '';
-                if (tiempo) tiempoInfo = 'Tiempo transcurrido: ' + tiempo;
-                if (nombre) tiempoInfo = (tiempoInfo ? tiempoInfo + ' — ' : '') + nombre;
+                if (tiempo) tiempoInfo = 'TIEMPO TRANSCURRIDO: ' + tiempo;
+                if (nombre) tiempoInfo = (tiempoInfo ? tiempoInfo + ' — ' : '') + nombre.toUpperCase();
                 document.getElementById('retomar-tiempo-info').innerText = tiempoInfo;
 
                 document.getElementById('modal-retomar').classList.add('visible');
