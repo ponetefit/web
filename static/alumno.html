@@ -243,12 +243,12 @@
 
         .home-frase {
             text-align: center;
-            font-size: var(--fs-xs);
+            font-size: clamp(1.25rem, 5.5vw, 1.7rem);
             color: var(--texto-suave);
             font-style: italic;
             margin: 14px 0 0;
-            line-height: 1.4;
-            min-height: 1.4em;
+            line-height: 1.3;
+            min-height: 1.3em;
             transition: opacity 0.25s ease;
         }
         
@@ -321,6 +321,7 @@
             transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s;
             box-shadow: 0 8px 24px var(--naranja-glow);
             min-height: 56px;
+            margin-top: 28px;
         }
         
         .btn-principal:active {
@@ -524,6 +525,31 @@
             text-transform: uppercase;
             letter-spacing: 3px;
             text-align: center;
+        }
+
+        /* ─── HEADER DESPLEGABLE DE SECCIÓN (Calentamiento / Bloque principal) ─── */
+        .seccion-header-row {
+            position: relative;
+            cursor: pointer;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .seccion-header-row .seccion-toggle-btn {
+            position: absolute;
+            top: 50%;
+            right: 0;
+            transform: translateY(-50%);
+        }
+
+        .seccion-header-row .seccion-toggle-btn.activo {
+            background: var(--naranja);
+            border-color: var(--naranja);
+            color: #000;
+        }
+
+        .seccion-contenido.colapsada {
+            display: none;
         }
         
         #warmup-titulo {
@@ -4388,19 +4414,6 @@
         <div class="home-corner home-corner-bl"></div>
         <div class="home-corner home-corner-br"></div>
         <div class="home-logo">
-            <div class="home-logo-icon">
-                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="pfLogoGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" stop-color="#ffffff"/>
-                            <stop offset="60%" stop-color="#ffffff"/>
-                            <stop offset="100%" stop-color="#FF5E1A"/>
-                        </linearGradient>
-                    </defs>
-                    <path d="M18 90 C 16 76, 24 64, 34 54 C 40 48, 42 42, 39 38 C 36 34, 31 37, 28 42 C 24 49, 22 56, 22 62 L 13 62 C 13 50, 18 38, 28 28 C 34 22, 42 19, 47 22 C 53 26, 52 35, 46 43 C 40 51, 30 58, 26 68 C 23 75, 23 82, 26 90 Z" fill="var(--naranja)"/>
-                    <text x="54" y="80" font-family="Roboto, Arial, sans-serif" font-weight="900" font-size="82" fill="url(#pfLogoGrad)" text-anchor="middle">P</text>
-                </svg>
-            </div>
             <h1>PONETE <span>FIT</span></h1>
             <h2>En Casa</h2>
         </div>
@@ -4476,22 +4489,32 @@
 
             <div class="container-scroll" id="modal-scroll">
                 <div id="sec-warmup" class="seccion-card">
-                    <div id="warmup-titulo" class="seccion-titulo" style="color:var(--azul);">Calentamiento</div>
-                    <div id="warmup-meta" style="color:var(--amarillo); font-weight:700; margin-bottom:14px; font-size:var(--fs-sm); text-align:center;"></div>
-                    <div id="warmup-lista"></div>
-                    <div id="warmup-timer-box" style="display:none;">
-                        <div id="warmup-status"></div>
-                        <div id="warmup-ej"></div>
-                        <div id="warmup-clock">--</div>
-                        <button class="btn-rest" id="warmup-btn" onclick="iniciarWarmupTimer()" style="background:linear-gradient(135deg,var(--azul),#0288d1); color:#000; max-width:300px; margin:0 auto;">Iniciar Calentamiento</button>
-                        <button class="btn-fullscreen" id="warmup-fs-btn" style="display:none;" onclick="entrarFullscreen('warmup')">⛶ PANTALLA COMPLETA</button>
+                    <div class="seccion-header-row" onclick="toggleSeccionColapsable('warmup')">
+                        <div id="warmup-titulo" class="seccion-titulo" style="color:var(--azul);">Calentamiento</div>
+                        <span class="card-toggle-btn seccion-toggle-btn activo" id="warmup-seccion-toggle" aria-label="Ocultar calentamiento">−</span>
+                    </div>
+                    <div id="warmup-seccion-contenido" class="seccion-contenido">
+                        <div id="warmup-meta" style="color:var(--amarillo); font-weight:700; margin-bottom:14px; font-size:var(--fs-sm); text-align:center;"></div>
+                        <div id="warmup-lista"></div>
+                        <div id="warmup-timer-box" style="display:none;">
+                            <div id="warmup-status"></div>
+                            <div id="warmup-ej"></div>
+                            <div id="warmup-clock">--</div>
+                            <button class="btn-rest" id="warmup-btn" onclick="iniciarWarmupTimer()" style="background:linear-gradient(135deg,var(--azul),#0288d1); color:#000; max-width:300px; margin:0 auto;">Iniciar Calentamiento</button>
+                            <button class="btn-fullscreen" id="warmup-fs-btn" style="display:none;" onclick="entrarFullscreen('warmup')">⛶ PANTALLA COMPLETA</button>
+                        </div>
                     </div>
                 </div>
 
                 <div id="sec-rutina-lista">
                     <div id="sec-principal" class="seccion-card">
-                        <div id="principal-titulo" class="seccion-titulo" style="color:var(--verde);">Entrenamiento</div>
-                        <div id="principal-lista"></div>
+                        <div class="seccion-header-row" onclick="toggleSeccionColapsable('principal')">
+                            <div id="principal-titulo" class="seccion-titulo" style="color:var(--verde);">Entrenamiento</div>
+                            <span class="card-toggle-btn seccion-toggle-btn activo" id="principal-seccion-toggle" aria-label="Ocultar bloque principal">−</span>
+                        </div>
+                        <div id="principal-seccion-contenido" class="seccion-contenido">
+                            <div id="principal-lista"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -8209,6 +8232,33 @@
                     '</div>' +
                     (afterHeaderHtml || '') +
                     '<div id="' + id + '" class="card-video-wrap">' + contenidoHtml + '</div>';
+            }
+
+            // Despliega/colapsa una sección completa (Calentamiento o Bloque Principal)
+            // usando el mismo botón +/- que ya usa cada tarjeta de ejercicio.
+            // Funciona igual para rutinas de un día y de multi día, ya que ambas
+            // reutilizan los mismos contenedores #warmup-seccion-contenido y
+            // #principal-seccion-contenido.
+            function toggleSeccionColapsable(prefix) {
+                var contenido = document.getElementById(prefix + '-seccion-contenido');
+                var btn = document.getElementById(prefix + '-seccion-toggle');
+                if (!contenido) return;
+                var abierto = !contenido.classList.contains('colapsada');
+                if (abierto) {
+                    contenido.classList.add('colapsada');
+                    if (btn) {
+                        btn.innerHTML = '+';
+                        btn.classList.remove('activo');
+                        btn.setAttribute('aria-label', 'Mostrar ' + (prefix === 'warmup' ? 'calentamiento' : 'bloque principal'));
+                    }
+                } else {
+                    contenido.classList.remove('colapsada');
+                    if (btn) {
+                        btn.innerHTML = '−';
+                        btn.classList.add('activo');
+                        btn.setAttribute('aria-label', 'Ocultar ' + (prefix === 'warmup' ? 'calentamiento' : 'bloque principal'));
+                    }
+                }
             }
 
             function toggleCardVideo(id, btn) {
