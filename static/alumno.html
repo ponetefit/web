@@ -7094,7 +7094,7 @@
                 mostrarToast('Rutina cargada');
             }
 
-            function _bvMostrar(data, cod) {
+            function _bvMostrar(data, cod, _modoRetomar) {
                 _bvDataPendiente = data;
                 // Nombre del atleta: si el código tiene formato RAFA-0001,
                 // consultarRutina() ya guardó "Rafa" en nombreUsuario.
@@ -7112,10 +7112,10 @@
                 var _bvBtnInicio = document.getElementById('bv-btn-empezar');
                 var _bvSesion = null;
                 try { _bvSesion = _obtenerSesionGuardada(); } catch (e) {}
-                var _bvPuedeContinuar = !!(_bvSesion && String(_bvSesion.codigo || '').toLowerCase() === String(cod || '').toLowerCase());
+                var _bvPuedeContinuar = !!(_modoRetomar || (_bvSesion && String(_bvSesion.codigo || '').toLowerCase() === String(cod || '').toLowerCase()));
                 if (_bvBtnInicio) {
                     _bvBtnInicio.innerText = _bvPuedeContinuar ? 'CONTINUAR ENTRENAMIENTO' : 'VER ENTRENAMIENTO';
-                    _bvBtnInicio.onclick = _bvPuedeContinuar ? _retomarSesionGuardada : _pfEmpezarNormal;
+                    _bvBtnInicio.onclick = _bvPuedeContinuar ? _continuarSesionGuardada : _pfEmpezarNormal;
                 }
                 // Tipo tag
                 var tipo = (data.tipo || 'ENTRENAMIENTO').toUpperCase();
@@ -14994,8 +14994,38 @@
             }
 
             // ─── RETOMAR SESIÓN GUARDADA ───
+            // Primer paso: desde el modal de sesión guardada volvemos a la
+            // pantalla de bienvenida personalizada. El entrenamiento NO se
+            // restaura todavía; eso ocurre cuando el alumno pulsa
+            // "CONTINUAR ENTRENAMIENTO" en esa pantalla.
             function _retomarSesionGuardada() {
                 document.getElementById('modal-retomar').classList.remove('visible');
+                var estado = _obtenerSesionGuardada();
+                if (!estado) return;
+
+                currentCode = estado.codigo;
+                nombreUsuario = estado.nombreUsuario || '';
+                dataGlobal = estado.dataGlobal;
+                esMultidia = estado.esMultidia || (dataGlobal && dataGlobal.es_multidia === true && (dataGlobal.total_dias || 1) > 1);
+                diaActivo = estado.diaActivo || 0;
+
+                // La bienvenida recibe SIEMPRE la raíz dataGlobal para que el
+                // modo multi-día sea detectado correctamente y pueda mostrar
+                // su mismo mapa/estructura de bienvenida.
+                if (typeof _bvMostrar === 'function') {
+                    _bvMostrar(dataGlobal, currentCode, true);
+                }
+
+                var rutinaModal = document.getElementById('rutina-modal');
+                if (rutinaModal) rutinaModal.classList.add('visible');
+                var modalScroll = document.getElementById('modal-scroll');
+                if (modalScroll) modalScroll.scrollTop = 0;
+            }
+
+            // Segundo paso: restauración REAL de la sesión guardada.
+            // Se ejecuta únicamente desde el botón CONTINUAR de la bienvenida.
+            function _continuarSesionGuardada() {
+                document.getElementById('overlay-bienvenida').classList.remove('visible');
                 var estado = _obtenerSesionGuardada();
                 if (!estado) return;
 
