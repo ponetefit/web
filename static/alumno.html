@@ -7212,7 +7212,7 @@
                 if (_subBv) _subBv.innerText = 'Tu disciplina, tu mejor versión.';
 
                 var _tagBv = document.getElementById('bv-tipo-tag');
-                if (_tagBv) _tagBv.innerText = _retomarBv ? 'ENTRENAMIENTO EN CURSO' : 'PONETE FIT · EN CASA';
+                if (_tagBv) _tagBv.innerText = 'PONETE FIT · EN CASA';
 
                 var _btnMainBv = document.getElementById('bv-btn-empezar');
                 if (_btnMainBv) {
@@ -7229,7 +7229,17 @@
                 // lo que podía tildar la pantalla. Se oculta y el botón
                 // "EMPEZAR" pasa a ocupar todo el ancho.
                 var _btnLecturaBv = document.getElementById('bv-btn-lectura');
-                if (_btnLecturaBv) _btnLecturaBv.style.display = esMultidiaLocal ? 'none' : '';
+                if (_btnLecturaBv) {
+                    if (_retomarBv) {
+                        _btnLecturaBv.style.display = '';
+                        _btnLecturaBv.innerHTML = 'EMPEZAR DE CERO';
+                        _btnLecturaBv.onclick = _empezarDeCeroDesdeBienvenida;
+                    } else {
+                        _btnLecturaBv.style.display = esMultidiaLocal ? 'none' : '';
+                        _btnLecturaBv.innerHTML = '&#128065; MODO LECTURA';
+                        _btnLecturaBv.onclick = _pfEmpezarLectura;
+                    }
+                }
                 if (esMultidiaLocal && diasNormLocal.length) {
                     // Mostrar duración del primer día como referencia
                     var durDia = _bvCalcDuracion(diasNormLocal[0]);
@@ -15115,28 +15125,12 @@
                 return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
             }
 
-            // ─── MOSTRAR MODAL DE RETOMAR ───
-            function _mostrarModalRetomar(estado) {
-                var pct = _calcularProgresoGuardado(estado);
-                var tiempo = _formatearTiempoGuardado(estado);
-                var nombre = estado.nombreUsuario || '';
-
-                document.getElementById('retomar-progreso-pct').innerText = 'Progreso: ' + pct + '%';
-                var tiempoInfo = '';
-                if (tiempo) tiempoInfo = 'Tiempo transcurrido: ' + tiempo;
-                if (nombre) tiempoInfo = (tiempoInfo ? tiempoInfo + ' — ' : '') + nombre;
-                document.getElementById('retomar-tiempo-info').innerText = tiempoInfo;
-
-                document.getElementById('modal-retomar').classList.add('visible');
-            }
-
-            // ─── RETOMAR SESIÓN GUARDADA ───
-            // ─── RETOMAR: primero la misma bienvenida con mapa ───
-            function _retomarSesionGuardada() {
-                document.getElementById('modal-retomar').classList.remove('visible');
-                var estado = _obtenerSesionGuardada();
-                if (!estado) return;
-
+            // ─── PREPARAR PANTALLA DE RETOMAR ───
+            // Deja el estado en memoria como estaba guardado y muestra DIRECTAMENTE
+            // la pantalla de bienvenida (nombre + mapa de calor + continuar/empezar
+            // de cero). Ya no pasa primero por un modal aparte: esta es la única
+            // pantalla de "tenés un entrenamiento en curso".
+            function _prepararPantallaRetomar(estado) {
                 _sesionRetomarPendiente = estado;
                 currentCode = estado.codigo;
                 nombreUsuario = estado.nombreUsuario || '';
@@ -15144,8 +15138,40 @@
                 esMultidia = !!estado.esMultidia || (dataGlobal && dataGlobal.es_multidia === true && (dataGlobal.total_dias || 1) > 1);
                 diaActivo = estado.diaActivo || 0;
 
-                // Una sola pantalla: nombre + mapa de calor + continuar/modo lectura.
+                // Traer la videoteca de este código ANTES de pintar el mapa de
+                // calor: sin esto, _bvCalcMuscleCount no encuentra musculo1/
+                // musculo2/sinergista de ningún ejercicio y el mapa queda vacío
+                // (igual que en el flujo normal, donde se llama justo antes de
+                // _bvMostrar).
+                _cargarVideotecaTips();
+
+                // Una sola pantalla: nombre + mapa de calor + continuar/empezar de cero.
                 _bvMostrar(dataGlobal, currentCode, true);
+            }
+
+            // ─── RETOMAR SESIÓN GUARDADA ───
+            function _retomarSesionGuardada() {
+                var estado = _obtenerSesionGuardada();
+                if (!estado) return;
+                _prepararPantallaRetomar(estado);
+            }
+
+            // ─── EMPEZAR DE CERO (descarta la sesión guardada y vuelve a la
+            // pantalla de ingresar código) ───
+            function _empezarDeCeroDesdeBienvenida() {
+                document.getElementById('overlay-bienvenida').classList.remove('visible');
+                _sesionRetomarPendiente = null;
+                _limpiarSesionGuardada();
+                currentCode = "";
+                nombreUsuario = "";
+                dataGlobal = null;
+                esMultidia = false;
+                diaActivo = 0;
+                var _inputCod = document.getElementById('codigoInput');
+                if (_inputCod) {
+                    _inputCod.value = '';
+                    setTimeout(function() { _inputCod.focus(); }, 50);
+                }
             }
 
             function _continuarSesionGuardadaDesdeBienvenida() {
@@ -15453,7 +15479,7 @@
             (function _checkSesionAlCargar() {
                 var estado = _obtenerSesionGuardada();
                 if (estado) {
-                    _mostrarModalRetomar(estado);
+                    _prepararPantallaRetomar(estado);
                 }
             })();
         </script>
