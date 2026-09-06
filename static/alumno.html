@@ -15162,212 +15162,236 @@
                 if (!estado) return;
 
                 _sesionRetomandose = true;
+                var _huboErrorRestaurando = false;
+                var _dataParaRetomar = null;
 
-                // Volver a pedir la videoteca (musculo1/musculo2/sinergista por
-                // ejercicio): normalmente se carga en consultarRutina(), pero al
-                // retomar una sesión guardada (cerrar y reabrir la app) ese paso
-                // nunca se ejecuta, así que _videotecaTips queda vacío para
-                // siempre y los mapas de calor de los días (y el de bienvenida)
-                // se quedan en gris/sin pintar apenas se cierran los 20 reintentos.
-                // Se dispara acá, en paralelo, para que esté lista cuando
-                // renderMultidia() pinte los mapas de cada día más abajo. Si
-                // aun así tarda más de lo que esperan los reintentos internos,
-                // el callback vuelve a pintar todo una vez que llega.
-                _cargarVideotecaTips(_mdRecolorearTodosLosDias);
+                // Todo lo que sigue son datos guardados (posiblemente viejos o
+                // incompletos): si algo falla acá adentro, NO queremos que el
+                // alumno quede tirado de vuelta en la pantalla de ingresar
+                // código. Por eso todo el detalle de la restauración queda
+                // en un try/catch y el "mostrar el entrenamiento" de más abajo
+                // se ejecuta pase lo que pase.
+                try {
+                    // Volver a pedir la videoteca (musculo1/musculo2/sinergista por
+                    // ejercicio): normalmente se carga en consultarRutina(), pero al
+                    // retomar una sesión guardada (cerrar y reabrir la app) ese paso
+                    // nunca se ejecuta, así que _videotecaTips queda vacío para
+                    // siempre y los mapas de calor de los días (y el de bienvenida)
+                    // se quedan en gris/sin pintar apenas se cierran los 20 reintentos.
+                    // Se dispara acá, en paralelo, para que esté lista cuando
+                    // renderMultidia() pinte los mapas de cada día más abajo. Si
+                    // aun así tarda más de lo que esperan los reintentos internos,
+                    // el callback vuelve a pintar todo una vez que llega.
+                    _cargarVideotecaTips(_mdRecolorearTodosLosDias);
 
-                // Restaurar estado global
-                currentCode = estado.codigo;
-                nombreUsuario = estado.nombreUsuario || '';
-                dataGlobal = estado.dataGlobal;
-                esMultidia = estado.esMultidia || false;
-                diaActivo = estado.diaActivo || 0;
-                _tipoEntrenamientoGlobal = estado.tipoEntrenamientoGlobal || '';
-                _tiempoInicioEntrenamiento = estado.tiempoInicioEntrenamiento || Date.now();
-                bloquesMix = estado.bloquesMixGuardados || [];
-                // IMPORTANTE: usar los datos REALMENTE renderizados (día activo en
-                // multi-día), no el objeto raíz dataGlobal, que en rutinas multi-día
-                // no tiene "tipo"/"rutina" propios y hacía que solo aparecieran
-                // algunos ejercicios sueltos en lugar del entrenamiento completo.
-                var _dataParaRetomar = estado.dataRenderActual || dataGlobal;
+                    // Restaurar estado global
+                    currentCode = estado.codigo;
+                    nombreUsuario = estado.nombreUsuario || '';
+                    dataGlobal = estado.dataGlobal;
+                    esMultidia = estado.esMultidia || false;
+                    diaActivo = estado.diaActivo || 0;
+                    _tipoEntrenamientoGlobal = estado.tipoEntrenamientoGlobal || '';
+                    _tiempoInicioEntrenamiento = estado.tiempoInicioEntrenamiento || Date.now();
+                    bloquesMix = estado.bloquesMixGuardados || [];
+                    // IMPORTANTE: usar los datos REALMENTE renderizados (día activo en
+                    // multi-día), no el objeto raíz dataGlobal, que en rutinas multi-día
+                    // no tiene "tipo"/"rutina" propios y hacía que solo aparecieran
+                    // algunos ejercicios sueltos en lugar del entrenamiento completo.
+                    _dataParaRetomar = estado.dataRenderActual || dataGlobal;
 
-                // ─── Reconstruir la pantalla de selección de días ANTES de entrar
-                // al entrenamiento. Al retomar una sesión tras cerrar/recargar la
-                // app, "multidia-container" nunca se llega a crear (ese paso solo
-                // ocurría en el flujo normal al cargar la rutina). Sin esto, el
-                // botón "Días" luego no tiene nada que mostrar (pantalla negra) o
-                // muestra contenido desactualizado. Se construye igual que en el
-                // flujo normal (_bvEmpezar) y luego se oculta, porque entramos
-                // directo al entrenamiento del día guardado. ───
-                if (esMultidia) {
-                    cargarProgresoLocal(currentCode);
-                    renderMultidia(dataGlobal, currentCode);
-                }
-
-                // Configurar header
-                var cod = currentCode;
-                if (cod.includes('-')) {
-                    var partes = cod.split('-');
-                    var nombre = partes[0].charAt(0).toUpperCase() + partes[0].slice(1);
-                    document.title = 'PONETEFIT | Entrenamiento para ' + nombre;
-                    document.getElementById('alumno-nombre-display').innerText = nombre.toUpperCase();
-                    document.getElementById('id-display').innerText = 'RUTINA ' + partes.slice(1).join('-').toUpperCase();
-                    // Mostrar botón "Rutinas": en consultarRutina() esto se hace
-                    // al cargar la rutina, pero ese paso nunca se ejecuta al
-                    // retomar una sesión guardada (cerrar y reabrir la app), así
-                    // que el botón quedaba oculto para siempre en ese caso.
-                    var _btnMisRutinasRet = document.getElementById('btn-mis-rutinas-header');
-                    if (_btnMisRutinasRet) _btnMisRutinasRet.style.display = 'flex';
-                } else {
-                    document.getElementById('alumno-nombre-display').innerText = 'ENTRENAMIENTO';
-                    document.getElementById('id-display').innerText = cod.toUpperCase();
-                    var _btnMisRutinasRet2 = document.getElementById('btn-mis-rutinas-header');
-                    if (_btnMisRutinasRet2) _btnMisRutinasRet2.style.display = 'none';
-                }
-                _pfActualizarBotonSemanas();
-
-                // Configurar tipo tag en header
-                if (esMultidia) {
-                    // En multi-día usamos los datos/título del día activo, igual que iniciarDia()
-                    var _tituloDiaRetomar = _dataParaRetomar.titulo || ('Dia ' + (diaActivo + 1));
-                    document.getElementById('tipo-tag').innerText = _tituloDiaRetomar.toUpperCase();
-                    var _metodosStrRetomar = 'ENTRENAMIENTO';
-                    if (_dataParaRetomar.bloques && _dataParaRetomar.bloques.length > 0) {
-                        var _tiposRetomar = [];
-                        _dataParaRetomar.bloques.forEach(function(b) {
-                            if (b.tipo && _tiposRetomar.indexOf(b.tipo.toUpperCase()) === -1) _tiposRetomar.push(b.tipo.toUpperCase());
-                        });
-                        _metodosStrRetomar = _tiposRetomar.join(' + ');
-                    } else if (_dataParaRetomar.tipo && _dataParaRetomar.tipo !== 'ENTRENAMIENTO') {
-                        _metodosStrRetomar = _dataParaRetomar.tipo.toUpperCase();
+                    // ─── Reconstruir la pantalla de selección de días ANTES de entrar
+                    // al entrenamiento. Al retomar una sesión tras cerrar/recargar la
+                    // app, "multidia-container" nunca se llega a crear (ese paso solo
+                    // ocurría en el flujo normal al cargar la rutina). Sin esto, el
+                    // botón "Días" luego no tiene nada que mostrar (pantalla negra) o
+                    // muestra contenido desactualizado. Se construye igual que en el
+                    // flujo normal (_bvEmpezar) y luego se oculta, porque entramos
+                    // directo al entrenamiento del día guardado. ───
+                    if (esMultidia) {
+                        cargarProgresoLocal(currentCode);
+                        renderMultidia(dataGlobal, currentCode);
                     }
-                    document.getElementById('id-display').innerText = _metodosStrRetomar;
-                    // Mostrar botón "Días" en el header, como hace iniciarDia()
-                    var _btnVolverHeaderRetomar = document.getElementById('btn-volver-dias-header');
-                    if (_btnVolverHeaderRetomar) _btnVolverHeaderRetomar.style.display = 'block';
-                } else if (dataGlobal.tipo && dataGlobal.tipo.toUpperCase() === 'ENTRENAMIENTO' && dataGlobal.bloques && dataGlobal.bloques.length > 0) {
-                    var _modosHeader = [];
-                    for (var _mh = 0; _mh < dataGlobal.bloques.length; _mh++) {
-                        var _modoH = (dataGlobal.bloques[_mh].tipo || '').toUpperCase();
-                        if (_modoH && _modosHeader.indexOf(_modoH) === -1) _modosHeader.push(_modoH);
-                    }
-                    if (_modosHeader.length > 0) {
-                        document.getElementById('tipo-tag').innerText = 'MÉTODOS';
-                        document.getElementById('id-display').innerText = _modosHeader.join(' + ');
+
+                    // Configurar header
+                    var cod = currentCode;
+                    if (cod.includes('-')) {
+                        var partes = cod.split('-');
+                        var nombre = partes[0].charAt(0).toUpperCase() + partes[0].slice(1);
+                        document.title = 'PONETEFIT | Entrenamiento para ' + nombre;
+                        document.getElementById('alumno-nombre-display').innerText = nombre.toUpperCase();
+                        document.getElementById('id-display').innerText = 'RUTINA ' + partes.slice(1).join('-').toUpperCase();
+                        // Mostrar botón "Rutinas": en consultarRutina() esto se hace
+                        // al cargar la rutina, pero ese paso nunca se ejecuta al
+                        // retomar una sesión guardada (cerrar y reabrir la app), así
+                        // que el botón quedaba oculto para siempre en ese caso.
+                        var _btnMisRutinasRet = document.getElementById('btn-mis-rutinas-header');
+                        if (_btnMisRutinasRet) _btnMisRutinasRet.style.display = 'flex';
                     } else {
-                        document.getElementById('tipo-tag').innerText = dataGlobal.tipo.toUpperCase();
+                        document.getElementById('alumno-nombre-display').innerText = 'ENTRENAMIENTO';
+                        document.getElementById('id-display').innerText = cod.toUpperCase();
+                        var _btnMisRutinasRet2 = document.getElementById('btn-mis-rutinas-header');
+                        if (_btnMisRutinasRet2) _btnMisRutinasRet2.style.display = 'none';
                     }
-                } else {
-                    document.getElementById('tipo-tag').innerText = (dataGlobal.tipo || 'ENTRENAMIENTO').toUpperCase();
-                }
+                    _pfActualizarBotonSemanas();
 
-                // Renderizar la rutina (usando los datos del día activo si es multi-día)
-                _pantallaFinMostrada = false;
-                render(_dataParaRetomar);
+                    // Configurar tipo tag en header
+                    if (esMultidia) {
+                        // En multi-día usamos los datos/título del día activo, igual que iniciarDia()
+                        var _tituloDiaRetomar = _dataParaRetomar.titulo || ('Dia ' + (diaActivo + 1));
+                        document.getElementById('tipo-tag').innerText = _tituloDiaRetomar.toUpperCase();
+                        var _metodosStrRetomar = 'ENTRENAMIENTO';
+                        if (_dataParaRetomar.bloques && _dataParaRetomar.bloques.length > 0) {
+                            var _tiposRetomar = [];
+                            _dataParaRetomar.bloques.forEach(function(b) {
+                                if (b.tipo && _tiposRetomar.indexOf(b.tipo.toUpperCase()) === -1) _tiposRetomar.push(b.tipo.toUpperCase());
+                            });
+                            _metodosStrRetomar = _tiposRetomar.join(' + ');
+                        } else if (_dataParaRetomar.tipo && _dataParaRetomar.tipo !== 'ENTRENAMIENTO') {
+                            _metodosStrRetomar = _dataParaRetomar.tipo.toUpperCase();
+                        }
+                        document.getElementById('id-display').innerText = _metodosStrRetomar;
+                        // Mostrar botón "Días" en el header, como hace iniciarDia()
+                        var _btnVolverHeaderRetomar = document.getElementById('btn-volver-dias-header');
+                        if (_btnVolverHeaderRetomar) _btnVolverHeaderRetomar.style.display = 'block';
+                    } else if (dataGlobal.tipo && dataGlobal.tipo.toUpperCase() === 'ENTRENAMIENTO' && dataGlobal.bloques && dataGlobal.bloques.length > 0) {
+                        var _modosHeader = [];
+                        for (var _mh = 0; _mh < dataGlobal.bloques.length; _mh++) {
+                            var _modoH = (dataGlobal.bloques[_mh].tipo || '').toUpperCase();
+                            if (_modoH && _modosHeader.indexOf(_modoH) === -1) _modosHeader.push(_modoH);
+                        }
+                        if (_modosHeader.length > 0) {
+                            document.getElementById('tipo-tag').innerText = 'MÉTODOS';
+                            document.getElementById('id-display').innerText = _modosHeader.join(' + ');
+                        } else {
+                            document.getElementById('tipo-tag').innerText = dataGlobal.tipo.toUpperCase();
+                        }
+                    } else {
+                        document.getElementById('tipo-tag').innerText = (dataGlobal.tipo || 'ENTRENAMIENTO').toUpperCase();
+                    }
 
-                // ─── Asegurar visibilidad correcta de las secciones, sea multi-día
-                // o no. renderMultidia() (arriba) oculta calentamiento/entrenamiento
-                // y muestra la lista de días; ahora que ya elegimos el día guardado,
-                // se invierte: se muestra el entrenamiento y se oculta la lista. ───
-                var _secWarmupRet = document.getElementById('sec-warmup');
-                var _secPrincipalRet = document.getElementById('sec-principal');
-                if (_secWarmupRet) _secWarmupRet.style.display = '';
-                if (_secPrincipalRet) _secPrincipalRet.style.display = '';
-                var _mdContainerRet = document.getElementById('multidia-container');
-                if (_mdContainerRet) _mdContainerRet.style.display = 'none';
+                    // Renderizar la rutina (usando los datos del día activo si es multi-día).
+                    // Si los datos guardados del día activo están corruptos/incompletos,
+                    // reintentamos con el objeto raíz antes de darnos por vencidos.
+                    _pantallaFinMostrada = false;
+                    try {
+                        render(_dataParaRetomar);
+                    } catch (eRenderRetomar) {
+                        render(dataGlobal);
+                    }
 
-                // Si es multi-día, restaurar también el callback de "día completado"
-                // (igual que hace iniciarDia()), para que al terminar se marque el día.
-                if (esMultidia) {
-                    (function() {
-                        var _tituloDiaCb = _dataParaRetomar.titulo || ('Dia ' + (diaActivo + 1));
-                        _onEntrenamientoCompletadoMultidia = function() {
-                            marcarDiaCompletado(currentCode, diaActivo);
-                            mostrarToast('!' + _tituloDiaCb + ' completado! Excelente trabajo!');
-                        };
-                    })();
-                }
+                    // ─── Asegurar visibilidad correcta de las secciones, sea multi-día
+                    // o no. renderMultidia() (arriba) oculta calentamiento/entrenamiento
+                    // y muestra la lista de días; ahora que ya elegimos el día guardado,
+                    // se invierte: se muestra el entrenamiento y se oculta la lista. ───
+                    var _secWarmupRet = document.getElementById('sec-warmup');
+                    var _secPrincipalRet = document.getElementById('sec-principal');
+                    if (_secWarmupRet) _secWarmupRet.style.display = '';
+                    if (_secPrincipalRet) _secPrincipalRet.style.display = '';
+                    var _mdContainerRet = document.getElementById('multidia-container');
+                    if (_mdContainerRet) _mdContainerRet.style.display = 'none';
 
-                // Restaurar seriesRestantes (sobreescribir los valores del render fresco)
-                if (estado.seriesRestantes) {
-                    for (var k in estado.seriesRestantes) {
-                        seriesRestantes[k] = estado.seriesRestantes[k];
-                        // Actualizar UI del contador de series
-                        var sValEl = document.getElementById('s-val-' + k);
-                        if (sValEl) sValEl.innerText = estado.seriesRestantes[k];
-                        // Actualizar texto del botón
-                        var btnEl = document.getElementById('btn-' + k);
-                        if (btnEl && estado.seriesRestantes[k] > 0) {
-                            var totalOriginal = 0;
-                            var ejercicios = _dataParaRetomar.rutina || _dataParaRetomar.datos || [];
-                            if (ejercicios[k]) totalOriginal = parseInt(ejercicios[k].series) || 0;
-                            if (estado.seriesRestantes[k] < totalOriginal) {
-                                btnEl.innerText = 'Marcar Serie (' + estado.seriesRestantes[k] + ' rest.)';
+                    // Si es multi-día, restaurar también el callback de "día completado"
+                    // (igual que hace iniciarDia()), para que al terminar se marque el día.
+                    if (esMultidia) {
+                        (function() {
+                            var _tituloDiaCb = _dataParaRetomar.titulo || ('Dia ' + (diaActivo + 1));
+                            _onEntrenamientoCompletadoMultidia = function() {
+                                marcarDiaCompletado(currentCode, diaActivo);
+                                mostrarToast('!' + _tituloDiaCb + ' completado! Excelente trabajo!');
+                            };
+                        })();
+                    }
+
+                    // Restaurar seriesRestantes (sobreescribir los valores del render fresco)
+                    if (estado.seriesRestantes) {
+                        for (var k in estado.seriesRestantes) {
+                            seriesRestantes[k] = estado.seriesRestantes[k];
+                            // Actualizar UI del contador de series
+                            var sValEl = document.getElementById('s-val-' + k);
+                            if (sValEl) sValEl.innerText = estado.seriesRestantes[k];
+                            // Actualizar texto del botón
+                            var btnEl = document.getElementById('btn-' + k);
+                            if (btnEl && estado.seriesRestantes[k] > 0) {
+                                var totalOriginal = 0;
+                                var ejercicios = _dataParaRetomar.rutina || _dataParaRetomar.datos || [];
+                                if (ejercicios[k]) totalOriginal = parseInt(ejercicios[k].series) || 0;
+                                if (estado.seriesRestantes[k] < totalOriginal) {
+                                    btnEl.innerText = 'Marcar Serie (' + estado.seriesRestantes[k] + ' rest.)';
+                                }
+                            }
+                            // Si series = 0, marcar como completado
+                            if (estado.seriesRestantes[k] <= 0) {
+                                var btnDone = document.getElementById('btn-' + k);
+                                if (btnDone) {
+                                    btnDone.disabled = true;
+                                    btnDone.classList.add('active');
+                                    btnDone.innerText = 'Completado';
+                                }
                             }
                         }
-                        // Si series = 0, marcar como completado
-                        if (estado.seriesRestantes[k] <= 0) {
-                            var btnDone = document.getElementById('btn-' + k);
-                            if (btnDone) {
-                                btnDone.disabled = true;
-                                btnDone.classList.add('active');
-                                btnDone.innerText = 'Completado';
+                    }
+
+                    // Restaurar circVueltasRestantes
+                    if (estado.circVueltasRestantes > 0) {
+                        circVueltasRestantes = estado.circVueltasRestantes;
+                        // Buscar el contador de vueltas en el DOM y actualizarlo
+                        var vCountEls = document.querySelectorAll('[id$="-vcount"], #circ-vueltas-counter');
+                        vCountEls.forEach(function(el) {
+                            el.innerText = 'Vueltas restantes: ' + circVueltasRestantes;
+                        });
+                    }
+
+                    // Restaurar progreso
+                    if (estado.progresoSegmentos && estado.progresoSegmentos.length > 0) {
+                        _progresoSegmentos = estado.progresoSegmentos;
+                        _progresoSegActual = estado.progresoSegActual || 0;
+
+                        // ─── Sincronizar la barra ───
+                        // El estado del entrenamiento se conserva. Los cronómetros
+                        // activos se recuperan desde timerSnapshot cuando el navegador
+                        // vuelve a cargar la página; no borrar "completados" del bloque.
+                        actualizarProgresoUI();
+                    }
+
+                    // Restaurar valores de peso
+                    if (estado.pesosActuales) {
+                        setTimeout(function() {
+                            for (var pid in estado.pesosActuales) {
+                                var pesoInput = document.getElementById(pid);
+                                if (pesoInput) pesoInput.value = estado.pesosActuales[pid];
                             }
-                        }
+                        }, 100);
+                    }
+
+                    // Recuperar la lectura del cronómetro que estaba activo.
+                    // No aplicamos "fast-forward": si el teléfono estuvo bloqueado/apagado,
+                    // al reanudar se calcula el tiempo real transcurrido una sola vez.
+                    if (estado.timerSnapshot) {
+                        _aplicarSnapshotTimersGuardado(estado.timerSnapshot);
+                    }
+                } catch (e) {
+                    _huboErrorRestaurando = true;
+                    // Si ni siquiera pudimos renderizar nada (falló todo lo de
+                    // arriba antes de llegar al render), intentamos como último
+                    // recurso mostrar la rutina completa sin detalle de progreso,
+                    // en vez de dejar al alumno de vuelta en la pantalla de código.
+                    if (dataGlobal) {
+                        try {
+                            render(dataGlobal);
+                        } catch (e2) {}
                     }
                 }
 
-                // Restaurar circVueltasRestantes
-                if (estado.circVueltasRestantes > 0) {
-                    circVueltasRestantes = estado.circVueltasRestantes;
-                    // Buscar el contador de vueltas en el DOM y actualizarlo
-                    var vCountEls = document.querySelectorAll('[id$="-vcount"], #circ-vueltas-counter');
-                    vCountEls.forEach(function(el) {
-                        el.innerText = 'Vueltas restantes: ' + circVueltasRestantes;
-                    });
-                }
-
-                // Restaurar progreso
-                var _huboAjusteBloqueNoRestaurable = false;
-                if (estado.progresoSegmentos && estado.progresoSegmentos.length > 0) {
-                    _progresoSegmentos = estado.progresoSegmentos;
-                    _progresoSegActual = estado.progresoSegActual || 0;
-
-                    // ─── Sincronizar la barra ───
-                    // El estado del entrenamiento se conserva. Los cronómetros
-                    // activos se recuperan desde timerSnapshot cuando el navegador
-                    // vuelve a cargar la página; no borrar "completados" del bloque.
-                    actualizarProgresoUI();
-                }
-
-                // Restaurar valores de peso
-                if (estado.pesosActuales) {
-                    setTimeout(function() {
-                        for (var pid in estado.pesosActuales) {
-                            var pesoInput = document.getElementById(pid);
-                            if (pesoInput) pesoInput.value = estado.pesosActuales[pid];
-                        }
-                    }, 100);
-                }
-
-                // Avisar si un bloque tuvo que reiniciarse por no poder
-                // restaurar su cronómetro/rondas exactas (ver ajuste arriba)
-                // No se reinicia el bloque al retomar: el snapshot conserva el
-                // cronómetro/progreso que se pudo capturar antes de suspenderse.
-
-                // Recuperar la lectura del cronómetro que estaba activo.
-                // No aplicamos "fast-forward": si el teléfono estuvo bloqueado/apagado,
-                // al reanudar se calcula el tiempo real transcurrido una sola vez.
-                if (estado.timerSnapshot) {
-                    _aplicarSnapshotTimersGuardado(estado.timerSnapshot);
-                }
-
-                // Mostrar modal de rutina
+                // Mostrar el entrenamiento SIEMPRE, haya o no fallado algún
+                // detalle de la restauración de arriba: nunca dejamos al
+                // alumno de vuelta en la pantalla de ingresar código después
+                // de elegir "Retomar Entrenamiento".
                 document.getElementById('rutina-modal').classList.add('visible');
                 var _msTop = document.getElementById('modal-scroll');
                 if (_msTop) _msTop.scrollTop = 0;
                 var _btnTopReset = document.getElementById('btn-scroll-top');
                 if (_btnTopReset) _btnTopReset.classList.remove('visible');
-                mostrarToast('Sesión retomada');
+                mostrarToast(_huboErrorRestaurando ? 'Entrenamiento recuperado' : 'Sesión retomada');
 
                 // Iniciar auto-save
                 _iniciarAutoSave();
