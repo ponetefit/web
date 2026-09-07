@@ -151,6 +151,56 @@
                 flex: 1 1 0%;
                 min-width: 0;
             }
+            #pf-tabs-nav {
+                transition: width 0.2s ease;
+            }
+            #pf-tabs-nav.pf-sidebar-collapsed {
+                width: 68px;
+            }
+            #pf-tabs-nav.pf-sidebar-collapsed .pf-tab-label {
+                display: none;
+            }
+            #pf-tabs-nav.pf-sidebar-collapsed .pf-tabs-desktop button {
+                justify-content: center;
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+                gap: 0;
+            }
+            #pf-tabs-nav.pf-sidebar-collapsed .pf-tab-ico {
+                font-size: 1.15rem;
+                opacity: 1;
+            }
+        }
+        /* Botón flecha para colapsar/expandir el sidebar (solo escritorio,
+           "hidden sm:flex" en el propio botón se encarga de ocultarlo en mobile) */
+        #pf-sidebar-toggle {
+            position: absolute;
+            top: 16px;
+            right: -13px;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: #1a1a20;
+            border: 1px solid #2a2a35;
+            color: #f0f0f5;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 25;
+            font-size: 13px;
+            line-height: 1;
+            padding: 0;
+        }
+        #pf-sidebar-toggle:hover {
+            border-color: #FF6B35;
+            color: #FF6B35;
+        }
+        #pf-sidebar-toggle-ico {
+            display: inline-block;
+            transition: transform 0.2s ease;
+        }
+        #pf-tabs-nav.pf-sidebar-collapsed #pf-sidebar-toggle-ico {
+            transform: rotate(180deg);
         }
         html.pf-high-contrast #pf-tabs-nav {
             border-right-color: #fff;
@@ -1917,14 +1967,18 @@
     <div id="pf-shell" class="sm:flex sm:items-start">
     <!-- TABS -->
     <nav id="pf-tabs-nav" class="bg-tarjeta border-b border-borde relative">
+        <!-- Flecha para colapsar/expandir el sidebar (solo escritorio) -->
+        <button id="pf-sidebar-toggle" onclick="_pfToggleSidebar()" class="hidden sm:flex" aria-label="Colapsar o expandir el menú" title="Colapsar/expandir menú">
+            <span id="pf-sidebar-toggle-ico">‹</span>
+        </button>
         <!-- DESKTOP: tabs normales (ocultas en mobile) -->
         <div class="pf-tabs-desktop max-w-6xl mx-auto hidden sm:flex gap-0">
-            <button onclick="showTab('dashboard')" id="tab-dashboard" class="tab-active px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">🏠</span>Dashboard</button>
-            <button onclick="showTab('rutina')" id="tab-rutina" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">🏋️</span>Crear Rutina</button>
-            <button onclick="showTab('repositorio')" id="tab-repositorio" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">📁</span>Repositorio</button>
-            <button onclick="showTab('videoteca')" id="tab-videoteca" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">▶</span>Videoteca</button>
-            <button onclick="showTab('crear-alumno')" id="tab-crear-alumno" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">🧑‍🎓</span>Crear Alumno</button>
-            <button onclick="showTab('historial')" id="tab-historial" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">🕓</span>Historial</button>
+            <button onclick="showTab('dashboard')" id="tab-dashboard" class="tab-active px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">🏠</span><span class="pf-tab-label">Dashboard</span></button>
+            <button onclick="showTab('rutina')" id="tab-rutina" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">🏋️</span><span class="pf-tab-label">Crear Rutina</span></button>
+            <button onclick="showTab('repositorio')" id="tab-repositorio" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">📁</span><span class="pf-tab-label">Repositorio</span></button>
+            <button onclick="showTab('videoteca')" id="tab-videoteca" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">▶</span><span class="pf-tab-label">Videoteca</span></button>
+            <button onclick="showTab('crear-alumno')" id="tab-crear-alumno" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">🧑‍🎓</span><span class="pf-tab-label">Crear Alumno</span></button>
+            <button onclick="showTab('historial')" id="tab-historial" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">🕓</span><span class="pf-tab-label">Historial</span></button>
         </div>
 
         <!-- MOBILE: botón hamburguesa + nombre sección activa (visible solo en mobile) -->
@@ -3097,6 +3151,28 @@
     </main>
     </div>
     <!-- fin #pf-shell (sidebar de escritorio + contenido) -->
+
+    <!-- Colapsar/expandir sidebar de escritorio: aislado, no toca showTab() ni nada mas -->
+    <script>
+        function _pfToggleSidebar() {
+            var nav = document.getElementById('pf-tabs-nav');
+            var ico = document.getElementById('pf-sidebar-toggle-ico');
+            if (!nav) return;
+            var colapsado = nav.classList.toggle('pf-sidebar-collapsed');
+            if (ico) ico.textContent = colapsado ? '›' : '‹';
+            try { localStorage.setItem('pf_sidebar_collapsed', colapsado ? '1' : '0'); } catch (e) {}
+        }
+        (function _pfRestaurarSidebar() {
+            try {
+                if (localStorage.getItem('pf_sidebar_collapsed') === '1') {
+                    var nav = document.getElementById('pf-tabs-nav');
+                    var ico = document.getElementById('pf-sidebar-toggle-ico');
+                    if (nav) nav.classList.add('pf-sidebar-collapsed');
+                    if (ico) ico.textContent = '›';
+                }
+            } catch (e) {}
+        })();
+    </script>
 
     <!-- Modal: Guardar en Videoteca desde Pizarra -->
     <div id="modal-piz-vt" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
