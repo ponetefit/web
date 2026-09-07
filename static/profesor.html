@@ -1794,6 +1794,248 @@
             outline: 2px solid #4FC3F7;
             outline-offset: 2px;
         }
+    /* ================================================================
+       PONETE FIT — REDISEÑO VISUAL DESKTOP
+       Solo >= 640px: no altera la experiencia mobile ni la lógica JS.
+       ================================================================ */
+    @media (min-width: 640px) {
+        :root {
+            --pf-sidebar: 224px;
+            --pf-topbar: 72px;
+            --pf-bg: #070a0f;
+            --pf-panel: #0d1219;
+            --pf-panel-2: #111823;
+            --pf-line: rgba(255,255,255,.075);
+            --pf-line-strong: rgba(255,107,53,.22);
+        }
+
+        body {
+            background:
+                radial-gradient(circle at 82% 0%, rgba(255,107,53,.075), transparent 28%),
+                radial-gradient(circle at 15% 70%, rgba(79,195,247,.035), transparent 25%),
+                #070a0f !important;
+            overflow-x: hidden;
+        }
+
+        /* Header superior: más parecido a una app SaaS profesional */
+        #pf-main-header {
+            position: sticky;
+            top: 0;
+            z-index: 40;
+            height: var(--pf-topbar);
+            padding: 0 28px !important;
+            background: rgba(7,10,15,.94) !important;
+            border-bottom: 1px solid var(--pf-line) !important;
+            backdrop-filter: blur(18px);
+            box-shadow: 0 8px 30px rgba(0,0,0,.22);
+        }
+        #pf-main-header > div {
+            max-width: none !important;
+            height: 100%;
+            margin: 0 !important;
+        }
+        #pf-main-header h1 {
+            font-size: 1.45rem !important;
+            letter-spacing: -.02em !important;
+            line-height: 1;
+        }
+        #pf-main-header p { margin-top: 4px; opacity: .75; }
+        #pf-main-header a {
+            padding: 9px 13px;
+            border: 1px solid rgba(79,195,247,.18);
+            border-radius: 10px;
+            background: rgba(79,195,247,.06);
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 12px;
+        }
+
+        /* Navegación desktop -> sidebar fija */
+        body > nav:not(#mob-bottom-nav) {
+            position: fixed;
+            left: 0;
+            top: var(--pf-topbar);
+            bottom: 0;
+            width: var(--pf-sidebar);
+            z-index: 30;
+            padding: 18px 12px !important;
+            background: linear-gradient(180deg,#0a0f16 0%,#080c12 100%) !important;
+            border-right: 1px solid var(--pf-line) !important;
+            border-bottom: 0 !important;
+            box-shadow: 12px 0 35px rgba(0,0,0,.18);
+        }
+        body > nav:not(#mob-bottom-nav) > div.max-w-6xl {
+            display: flex !important;
+            flex-direction: column;
+            gap: 6px !important;
+            max-width: none !important;
+            width: 100%;
+        }
+        body > nav:not(#mob-bottom-nav) button {
+            position: relative;
+            width: 100%;
+            height: 44px;
+            padding: 0 14px !important;
+            border: 1px solid transparent !important;
+            border-radius: 11px;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            font-size: 11px !important;
+            letter-spacing: .08em !important;
+            transition: background .18s ease, color .18s ease, border-color .18s ease, transform .18s ease;
+        }
+        body > nav:not(#mob-bottom-nav) button::before {
+            content: '';
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            margin-right: 11px;
+            background: currentColor;
+            opacity: .65;
+            box-shadow: 0 0 0 4px rgba(255,255,255,.025);
+        }
+        body > nav:not(#mob-bottom-nav) .tab-inactive:hover {
+            color: #fff !important;
+            background: rgba(255,255,255,.045);
+            border-color: var(--pf-line) !important;
+            transform: translateX(2px);
+        }
+        body > nav:not(#mob-bottom-nav) .tab-active {
+            color: #fff !important;
+            background: linear-gradient(90deg,rgba(255,107,53,.18),rgba(255,107,53,.055)) !important;
+            border: 1px solid rgba(255,107,53,.22) !important;
+            border-bottom: 1px solid rgba(255,107,53,.22) !important;
+            box-shadow: inset 3px 0 0 #FF6B35, 0 8px 20px rgba(255,107,53,.06);
+        }
+        body > nav:not(#mob-bottom-nav) .tab-active::before { color: #FF6B35; opacity: 1; }
+
+        /* Main: ocupa todo el escritorio disponible */
+        body > main.max-w-6xl {
+            max-width: none !important;
+            width: calc(100% - var(--pf-sidebar)) !important;
+            margin-left: var(--pf-sidebar) !important;
+            margin-right: 0 !important;
+            padding: 28px 32px 60px !important;
+        }
+
+        /* Títulos de sección */
+        .pf-seccion-h1,
+        #sec-dashboard h2.pf-seccion-h1,
+        #sec-rutina h2,
+        #sec-repositorio h2,
+        #sec-crear-alumno h2,
+        #sec-historial h2 {
+            font-size: 1.05rem !important;
+            letter-spacing: .06em !important;
+        }
+
+        /* Paneles: menos "bloque pesado", más jerarquía */
+        #sec-dashboard .bg-tarjeta,
+        #sec-rutina .bg-tarjeta,
+        #sec-repositorio .bg-tarjeta,
+        #sec-videoteca .bg-tarjeta,
+        #sec-crear-alumno .bg-tarjeta,
+        #sec-historial .bg-tarjeta {
+            background: linear-gradient(145deg,rgba(16,22,31,.98),rgba(10,14,20,.98)) !important;
+            border-color: var(--pf-line) !important;
+            box-shadow: 0 12px 32px rgba(0,0,0,.16);
+        }
+        #sec-dashboard > div:first-child {
+            background:
+                radial-gradient(circle at 85% 15%,rgba(255,107,53,.10),transparent 24%),
+                linear-gradient(145deg,#101720,#0c1118) !important;
+            border-color: rgba(255,107,53,.13) !important;
+        }
+
+        /* Dashboard: KPIs más visuales */
+        #sec-dashboard .kpi-card {
+            min-height: 108px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            background: linear-gradient(145deg,#111a24,#0c121a) !important;
+            border: 1px solid var(--pf-line) !important;
+            border-radius: 16px !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.025), 0 10px 25px rgba(0,0,0,.12);
+            transition: transform .18s ease,border-color .18s ease;
+        }
+        #sec-dashboard .kpi-card:hover { transform: translateY(-2px); border-color: rgba(255,107,53,.18) !important; }
+        #sec-dashboard .kpi-card p:first-child { text-shadow: 0 0 22px currentColor; }
+
+        /* Controles superiores */
+        #dash-select-alumno,
+        #repo-buscador,
+        #sec-dashboard select,
+        #sec-repositorio select,
+        #sec-historial select,
+        #sec-historial input {
+            min-height: 40px;
+            border-radius: 10px !important;
+            background: #090e15 !important;
+            border-color: rgba(255,255,255,.10) !important;
+        }
+
+        /* Crear rutina: sensación de constructor */
+        #sec-rutina > * { margin-bottom: 18px; }
+        #sec-rutina .pf-subseccion-row,
+        #sec-rutina .dia-card,
+        #sec-rutina .pf-card-resumen {
+            background: linear-gradient(145deg,rgba(18,24,34,.98),rgba(10,14,20,.98));
+            border-color: var(--pf-line) !important;
+        }
+        #sec-rutina .pf-card-resumen:hover,
+        #sec-rutina .dia-card:hover { border-color: rgba(255,107,53,.18) !important; }
+        #sec-rutina .btn-primary { box-shadow: 0 8px 22px rgba(255,107,53,.20); }
+
+        /* Repositorio y Videoteca: tarjetas más grandes y ordenadas */
+        #sec-repositorio .grid,
+        #sec-videoteca .grid { gap: 14px !important; }
+        #sec-repositorio .bg-tarjeta:hover,
+        #sec-videoteca .bg-tarjeta:hover {
+            border-color: rgba(255,107,53,.20) !important;
+            transform: translateY(-2px);
+        }
+        #sec-repositorio .bg-tarjeta,
+        #sec-videoteca .bg-tarjeta { transition: transform .18s ease,border-color .18s ease,box-shadow .18s ease; }
+        #sec-videoteca img { border-radius: 11px !important; }
+
+        /* Crear alumno: formulario + lista con apariencia de panel profesional */
+        #sec-crear-alumno .grid.md\:grid-cols-2 { gap: 14px !important; }
+        #sec-crear-alumno label { font-weight: 700; letter-spacing: .05em; }
+        #sec-crear-alumno input,
+        #sec-crear-alumno textarea,
+        #sec-crear-alumno select { border-radius: 10px !important; }
+        #sec-crear-alumno .pf-acciones-crear { max-width: 520px; }
+
+        /* Historial: filas limpias, mejor lectura */
+        #sec-historial #historial-lista > * {
+            border-color: var(--pf-line) !important;
+            background: rgba(255,255,255,.018);
+        }
+        #sec-historial #historial-lista > *:hover { background: rgba(255,107,53,.035); }
+
+        /* Calendario y mapa corporal: destacar como módulos de analítica */
+        #sec-dashboard #cal-asistencia-content,
+        #sec-dashboard #dash-cal-grid,
+        #sec-dashboard #hm-alertas { border-radius: 12px; }
+        #sec-dashboard .hm-zoom-btn { box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+
+        /* Separador visual de cada página */
+        #sec-dashboard::before,
+        #sec-rutina::before,
+        #sec-repositorio::before,
+        #sec-videoteca::before,
+        #sec-crear-alumno::before,
+        #sec-historial::before {
+            content: '';
+            display: block;
+            height: 1px;
+            margin-bottom: 18px;
+            background: linear-gradient(90deg,rgba(255,107,53,.22),transparent 55%);
+        }
+    }
+
     </style>
 
     <!-- PWA: Inline Manifest + Service Worker + Icons -->
