@@ -92,6 +92,69 @@
         .tab-active { border-bottom: 3px solid #FF6B35; color: #FF6B35; }
         .tab-inactive { border-bottom: 3px solid transparent; color: #8a8a9a; }
         .tab-inactive:hover { color: #f0f0f5; }
+
+        /* ── Escritorio: navegación lateral (sidebar) en vez de tabs horizontales ──
+           Solo aplica desde 640px (mismo umbral que ya usa toda la app para
+           distinguir mobile/desktop, ej: "sm:hidden" del bottom-nav). No toca
+           ningún color de marca/entrenamiento (naranja/azul/verde/rojo/amarillo/
+           purpura), ni los ids ni la lógica de showTab(): solo reordena el
+           mismo nav y el mismo main dentro de un layout en flex. */
+        @media (min-width: 640px) {
+            #pf-shell {
+                display: flex;
+                align-items: flex-start;
+            }
+            #pf-tabs-nav {
+                border-bottom: none;
+                border-right: 1px solid #2a2a35;
+                flex-shrink: 0;
+                width: 220px;
+                min-height: 100vh;
+                position: sticky;
+                top: 0;
+                align-self: flex-start;
+            }
+            #pf-tabs-nav .pf-tabs-desktop {
+                max-width: none !important;
+                margin: 0 !important;
+                flex-direction: column !important;
+                width: 100%;
+                align-items: stretch;
+                gap: 2px;
+                padding: 20px 0;
+            }
+            #pf-tabs-nav .pf-tabs-desktop button {
+                justify-content: flex-start;
+                text-align: left;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 12px 22px !important;
+                border-bottom: 3px solid transparent !important;
+                border-left: 3px solid transparent;
+                text-transform: none;
+                letter-spacing: normal;
+                font-size: 0.8rem;
+            }
+            #pf-tabs-nav .pf-tabs-desktop button.tab-active {
+                border-left-color: #FF6B35;
+                background: rgba(255,107,53,0.08);
+            }
+            #pf-tabs-nav .pf-tabs-desktop .pf-tab-ico {
+                font-size: 1rem;
+                opacity: 0.75;
+            }
+            #pf-tabs-nav .pf-tabs-desktop button.tab-active .pf-tab-ico { opacity: 1; }
+            #pf-main-content {
+                max-width: none !important;
+                margin: 0 !important;
+                flex: 1 1 0%;
+                min-width: 0;
+            }
+        }
+        html.pf-high-contrast #pf-tabs-nav {
+            border-right-color: #fff;
+        }
         select, input, textarea {
             background-color: #0f0f13 !important;
             color: #f0f0f5;
@@ -1848,16 +1911,20 @@
         })();
     </script>
 
+    <!-- ═══ ESCRITORIO: contenedor flex que acomoda el sidebar de navegación
+         junto al contenido. En mobile (<640px) esto no hace nada (sigue
+         siendo un bloque normal, igual que antes). ═══ -->
+    <div id="pf-shell" class="sm:flex sm:items-start">
     <!-- TABS -->
-    <nav class="bg-tarjeta border-b border-borde relative">
+    <nav id="pf-tabs-nav" class="bg-tarjeta border-b border-borde relative">
         <!-- DESKTOP: tabs normales (ocultas en mobile) -->
-        <div class="max-w-6xl mx-auto hidden sm:flex gap-0">
-            <button onclick="showTab('dashboard')" id="tab-dashboard" class="tab-active px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Dashboard</button>
-            <button onclick="showTab('rutina')" id="tab-rutina" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Crear Rutina</button>
-            <button onclick="showTab('repositorio')" id="tab-repositorio" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Repositorio</button>
-            <button onclick="showTab('videoteca')" id="tab-videoteca" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Videoteca</button>
-            <button onclick="showTab('crear-alumno')" id="tab-crear-alumno" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Crear Alumno</button>
-            <button onclick="showTab('historial')" id="tab-historial" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors">Historial</button>
+        <div class="pf-tabs-desktop max-w-6xl mx-auto hidden sm:flex gap-0">
+            <button onclick="showTab('dashboard')" id="tab-dashboard" class="tab-active px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">🏠</span>Dashboard</button>
+            <button onclick="showTab('rutina')" id="tab-rutina" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">🏋️</span>Crear Rutina</button>
+            <button onclick="showTab('repositorio')" id="tab-repositorio" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">📁</span>Repositorio</button>
+            <button onclick="showTab('videoteca')" id="tab-videoteca" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">▶</span>Videoteca</button>
+            <button onclick="showTab('crear-alumno')" id="tab-crear-alumno" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">🧑‍🎓</span>Crear Alumno</button>
+            <button onclick="showTab('historial')" id="tab-historial" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">🕓</span>Historial</button>
         </div>
 
         <!-- MOBILE: botón hamburguesa + nombre sección activa (visible solo en mobile) -->
@@ -1913,7 +1980,7 @@
         <button type="button" class="pf-mobile-action-share" onclick="_pfMobileShareRoutine()" aria-label="Compartir rutina">Compartir</button>
     </div>
 
-    <main class="max-w-6xl mx-auto p-6">
+    <main id="pf-main-content" class="max-w-6xl mx-auto p-6">
 
         <!-- ═══════════════════════════════════════════ -->
         <!-- TAB: DASHBOARD -->
@@ -3028,6 +3095,8 @@
             </div>
         </div>
     </main>
+    </div>
+    <!-- fin #pf-shell (sidebar de escritorio + contenido) -->
 
     <!-- Modal: Guardar en Videoteca desde Pizarra -->
     <div id="modal-piz-vt" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
