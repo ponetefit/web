@@ -213,6 +213,16 @@
         html.pf-high-contrast #pf-tabs-nav {
             border-right-color: #fff;
         }
+        /* Pestañas Frente/Espalda del mapa de calor (comparación con rutina anterior),
+           mismo patrón visual que ya usa alumno.html (bv-tab-btn / bv-body-view) */
+        .pf-bm-tabs { display: flex; gap: 6px; justify-content: center; margin-bottom: 8px; }
+        .pf-bm-tab-btn { background: #1a1a20; color: #8a8a9a; border: 1px solid #2a2a35; border-radius: 8px; padding: 4px 12px; font-size: 11px; font-weight: 700; cursor: pointer; }
+        .pf-bm-tab-btn.active { background: #FF6B35; color: #0f0f13; border-color: #FF6B35; }
+        .pf-bm-view { display: none; }
+        .pf-bm-view.active { display: block; }
+        .pf-bm-legend { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 6px; }
+        .pf-bm-legend-item { display: flex; align-items: center; gap: 4px; font-size: 9px; color: #8a8a9a; }
+        .pf-bm-legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
         select, input, textarea {
             background-color: #0f0f13 !important;
             color: #f0f0f5;
@@ -2626,11 +2636,11 @@
                     <svg id="mapa-calor-vivo-chevron" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-textoSuave transition-transform duration-200 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </button>
                 <div id="mapa-calor-vivo-comparar-wrap" class="hidden mt-3 flex items-center justify-between gap-2 flex-wrap">
-                    <label class="flex items-center gap-2 text-xs text-textoSuave cursor-pointer select-none">
-                        <input type="checkbox" id="mapa-calor-comparar-check" onchange="_pfToggleCompararAnterior(this.checked)">
+                    <label class="flex items-center gap-3 text-textoSuave cursor-pointer select-none" style="font-size:15px;">
+                        <input type="checkbox" id="mapa-calor-comparar-check" onchange="_pfToggleCompararAnterior(this.checked)" style="width:22px;height:22px;accent-color:#FF6B35;flex-shrink:0;">
                         🔁 Comparar con la rutina anterior del alumno
                     </label>
-                    <span id="mapa-calor-comparar-info" class="text-[10px] text-textoSuave"></span>
+                    <span id="mapa-calor-comparar-info" class="text-xs text-textoSuave"></span>
                 </div>
                 <div id="mapa-calor-vivo-content" class="hidden mt-4">
                     <p class="text-textoSuave text-xs text-center py-4">Agregá ejercicios para ver el balance muscular</p>
@@ -13394,6 +13404,8 @@
     // ====================================================================
     let _mapaCalorVivoAbierto = false;
     let _mapaCalorCompararAnterior = false; // true = mostrar comparación con la rutina anterior del alumno
+    let _pfCompararDiaActualIdx = null;     // null = seguir el día que se está editando (diaActivoIdx)
+    let _pfCompararDiaAnteriorIdx = 0;      // índice del día elegido dentro de la rutina anterior
 
     function toggleMapaCalorVivo() {
         _mapaCalorVivoAbierto = !_mapaCalorVivoAbierto;
@@ -13412,6 +13424,16 @@
         actualizarMapaCalorEnVivo(typeof diaActivoIdx !== 'undefined' ? diaActivoIdx : 0);
     }
 
+    // El profe eligió manualmente qué día de CADA rutina comparar (dropdowns, solo aparecen si alguna es multi-día)
+    function _pfCambiarDiaComparacionActual(idx) {
+        _pfCompararDiaActualIdx = parseInt(idx, 10) || 0;
+        actualizarMapaCalorEnVivo(typeof diaActivoIdx !== 'undefined' ? diaActivoIdx : 0);
+    }
+    function _pfCambiarDiaComparacionAnterior(idx) {
+        _pfCompararDiaAnteriorIdx = parseInt(idx, 10) || 0;
+        actualizarMapaCalorEnVivo(typeof diaActivoIdx !== 'undefined' ? diaActivoIdx : 0);
+    }
+
     // Suma el musculo trabajado por TODOS los dias de la rutina en construccion (no solo el dia activo),
     // para poder comparar "rutina completa vs rutina completa" contra la anterior del alumno.
     function calcularMusculosTotalEnVivo() {
@@ -13423,14 +13445,81 @@
         return total;
     }
 
-    // Arma las filas comparativas (barra "antes" vs "ahora" + variación %) para el panel en vivo.
-    // No toca generarMiniHeatMapHTMLDark: es un bloque aparte que se agrega debajo.
-    function generarComparacionMuscularHTML(infoAnteriorTxt, muscleCountAnterior, muscleCountActual) {
+    // Devuelve el musculo trabajado día por día de una rutina ya guardada (formato historial, viene
+    // de _pfHistorialAlumnoCache). Sigue la MISMA convención que ya usa extraerEjerciciosDeRutina
+    // para detectar multi-día: r.tipo === 'MULTIDIA' con r.total_dias y r['dia_'+i] en el nivel
+    // superior de r (NO r.datos.es_multidia — esa es la convención de otra feature distinta,
+    // las "semanas" de _pfExtraerDiasDeShape, que no aplica a las rutinas del historial).
+    function calcularMusculosDeRutinaPorDia(r) {
+        const dias = [];
+        if (r && r.tipo === 'MULTIDIA') {
+            const total = r.total_dias || 0;
+            for (let di = 1; di <= total; di++) {
+                const diaData = r['dia_' + di];
+                if (!diaData) continue;
+                dias.push({ titulo: diaData.titulo || ('Día ' + di), datos: diaData.datos || {} });
+            }
+        }
+        if (dias.length === 0) {
+            // Rutina de un solo día: mismo mecanismo que calcularMusculosDeRutina (resolverDatos)
+            dias.push({ titulo: 'Día 1', datos: resolverDatos(r) });
+        }
+        return dias.map(d => {
+            const nombres = extraerEjerciciosDeRutina({ tipo: 'ENTRENAMIENTO' }, d.datos || {});
+            const muscleCount = {};
+            nombres.forEach(nombreUpper => {
+                const ejData = buscarEjEnVideoteca(nombreUpper);
+                if (!ejData) return;
+                if (ejData.musculo1) muscleCount[ejData.musculo1] = (muscleCount[ejData.musculo1] || 0) + 1;
+                if (ejData.musculo2) muscleCount[ejData.musculo2] = (muscleCount[ejData.musculo2] || 0) + 1;
+                if (ejData.sinergista) muscleCount[ejData.sinergista] = (muscleCount[ejData.sinergista] || 0) + PESO_SINERGISTA;
+                if (ejData.sinergista2) muscleCount[ejData.sinergista2] = (muscleCount[ejData.sinergista2] || 0) + PESO_SINERGISTA;
+            });
+            return { titulo: d.titulo, muscleCount };
+        });
+    }
+
+    // Alterna Frente/Espalda de un par de mapas de calor (mismo mecanismo que _mdTab en alumno.html)
+    function _pfBodyMapTab(pfx, tab) {
+        const tabF = document.getElementById(pfx + '-tab-frente');
+        const tabE = document.getElementById(pfx + '-tab-espalda');
+        const viewF = document.getElementById(pfx + '-view-frente');
+        const viewE = document.getElementById(pfx + '-view-espalda');
+        if (tabF) tabF.classList.toggle('active', tab === 'frente');
+        if (tabE) tabE.classList.toggle('active', tab === 'espalda');
+        if (viewF) viewF.classList.toggle('active', tab === 'frente');
+        if (viewE) viewE.classList.toggle('active', tab === 'espalda');
+    }
+
+    // Mapa de calor real (silueta) con pestañas Frente/Espalda + leyenda de intensidad,
+    // mismo patrón visual que ya usa alumno.html para las rutinas multi-día.
+    function generarBodyMapTabsHTML(pfx, muscleCount, titulo) {
+        return '<div style="text-align:center;">' +
+            (titulo ? '<p style="color:#8a8a9a;font-size:10px;text-transform:uppercase;letter-spacing:.5px;margin:0 0 6px;">' + titulo + '</p>' : '') +
+            '<div class="pf-bm-tabs">' +
+                '<button type="button" class="pf-bm-tab-btn active" id="' + pfx + '-tab-frente" onclick="_pfBodyMapTab(\'' + pfx + '\',\'frente\')">Frente</button>' +
+                '<button type="button" class="pf-bm-tab-btn" id="' + pfx + '-tab-espalda" onclick="_pfBodyMapTab(\'' + pfx + '\',\'espalda\')">Espalda</button>' +
+            '</div>' +
+            '<div class="pf-bm-view active" id="' + pfx + '-view-frente">' + generarBodyMapSVG(muscleCount, pfx + '-f', 'frontal') + '</div>' +
+            '<div class="pf-bm-view" id="' + pfx + '-view-espalda">' + generarBodyMapSVG(muscleCount, pfx + '-b', 'posterior') + '</div>' +
+            '<div class="pf-bm-legend">' +
+                '<div class="pf-bm-legend-item"><span class="pf-bm-legend-dot" style="background:#1a4a6e;"></span>Bajo</div>' +
+                '<div class="pf-bm-legend-item"><span class="pf-bm-legend-dot" style="background:#2d8f5e;"></span>Moderado</div>' +
+                '<div class="pf-bm-legend-item"><span class="pf-bm-legend-dot" style="background:#c4a820;"></span>Alto</div>' +
+                '<div class="pf-bm-legend-item"><span class="pf-bm-legend-dot" style="background:#d4541e;"></span>Muy alto</div>' +
+                '<div class="pf-bm-legend-item"><span class="pf-bm-legend-dot" style="background:#c41e1e;"></span>Máximo</div>' +
+            '</div>' +
+        '</div>';
+    }
+
+    // Arma las filas comparativas (barra "antes" vs "ahora" + variación %). Devuelve SOLO las filas
+    // (sin encabezado): el encabezado ahora lo pone generarPanelComparacionAnteriorHTML una sola vez.
+    function generarComparacionMuscularHTML(muscleCountAnterior, muscleCountActual) {
         const musculos = Array.from(new Set([...Object.keys(muscleCountAnterior), ...Object.keys(muscleCountActual)]));
-        if (musculos.length === 0) return '';
+        if (musculos.length === 0) return '<p class="text-textoSuave text-xs text-center py-2">Sin datos suficientes para comparar</p>';
         const maxVal = Math.max(1, ...Object.values(muscleCountAnterior), ...Object.values(muscleCountActual));
         musculos.sort((a, b) => Math.abs((muscleCountActual[b] || 0) - (muscleCountAnterior[b] || 0)) - Math.abs((muscleCountActual[a] || 0) - (muscleCountAnterior[a] || 0)));
-        const filas = musculos.map(m => {
+        return musculos.map(m => {
             const ant = muscleCountAnterior[m] || 0;
             const act = muscleCountActual[m] || 0;
             const wAnt = Math.max(3, Math.round((ant / maxVal) * 100));
@@ -13456,10 +13545,57 @@
                 '</div>' +
             '</div>';
         }).join('');
+    }
+
+    // Arma el panel completo de comparación: encabezado + selector de día (si alguna rutina es
+    // multi-día) + mapas de calor reales (Frente/Espalda) de ambos días + barras de variación %.
+    function generarPanelComparacionAnteriorHTML(rutinaAnterior) {
+        const diasActualArr = typeof diasData !== 'undefined' ? diasData : [];
+        const diasAnteriorInfo = calcularMusculosDeRutinaPorDia(rutinaAnterior);
+        if (diasActualArr.length === 0 || diasAnteriorInfo.length === 0) return '';
+
+        const diaActualIdxUsado = Math.min(
+            (_pfCompararDiaActualIdx !== null ? _pfCompararDiaActualIdx : (typeof diaActivoIdx !== 'undefined' ? diaActivoIdx : 0)),
+            diasActualArr.length - 1
+        );
+        const diaAnteriorIdxUsado = Math.min(_pfCompararDiaAnteriorIdx, diasAnteriorInfo.length - 1);
+
+        const muscleCountActualDia = calcularMusculosDiaEnVivo(diasActualArr[diaActualIdxUsado]);
+        const muscleCountAnteriorDia = diasAnteriorInfo[diaAnteriorIdxUsado].muscleCount;
+
+        const fecha = rutinaAnterior.timestamp ? new Date(rutinaAnterior.timestamp * 1000).toLocaleDateString('es-AR') : '';
+        const infoTxt = (rutinaAnterior.codigo ? rutinaAnterior.codigo.toUpperCase() : '') + (fecha ? ' · ' + fecha : '');
+
+        // Selector de día: solo se muestra si alguna de las dos rutinas tiene más de un día
+        let selectorHTML = '';
+        if (diasActualArr.length > 1 || diasAnteriorInfo.length > 1) {
+            const optsActual = diasActualArr.map((d, i) =>
+                '<option value="' + i + '"' + (i === diaActualIdxUsado ? ' selected' : '') + '>' + (d.titulo || ('Día ' + (i + 1))) + '</option>'
+            ).join('');
+            const optsAnterior = diasAnteriorInfo.map((d, i) =>
+                '<option value="' + i + '"' + (i === diaAnteriorIdxUsado ? ' selected' : '') + '>' + (d.titulo || ('Día ' + (i + 1))) + '</option>'
+            ).join('');
+            selectorHTML = '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:14px;">' +
+                '<label style="display:flex;flex-direction:column;gap:3px;color:#8a8a9a;font-size:11px;">Día de esta rutina' +
+                    '<select onchange="_pfCambiarDiaComparacionActual(this.value)" style="background:#0f0f13;border:1px solid #3a3a45;border-radius:6px;color:#f0f0f5;padding:5px 8px;font-size:12px;">' + optsActual + '</select>' +
+                '</label>' +
+                '<label style="display:flex;flex-direction:column;gap:3px;color:#8a8a9a;font-size:11px;">Día de la rutina anterior' +
+                    '<select onchange="_pfCambiarDiaComparacionAnterior(this.value)" style="background:#0f0f13;border:1px solid #3a3a45;border-radius:6px;color:#f0f0f5;padding:5px 8px;font-size:12px;">' + optsAnterior + '</select>' +
+                '</label>' +
+            '</div>';
+        }
+
         return '<div style="margin-top:16px;padding-top:14px;border-top:1px solid #2a2a35;">' +
             '<p class="text-xs text-textoSuave uppercase tracking-wider mb-2">🔁 Vs. rutina anterior' +
-            (infoAnteriorTxt ? ' <span class="normal-case font-normal" style="color:#8a8a9a;">(' + infoAnteriorTxt + ')</span>' : '') +
-            '</p>' + filas + '</div>';
+            (infoTxt ? ' <span class="normal-case font-normal" style="color:#8a8a9a;">(' + infoTxt + ')</span>' : '') +
+            '</p>' +
+            selectorHTML +
+            '<div style="display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin-bottom:14px;">' +
+                generarBodyMapTabsHTML('pf-cmp-ant', muscleCountAnteriorDia, 'Rutina anterior' + (diasAnteriorInfo.length > 1 ? ' · ' + diasAnteriorInfo[diaAnteriorIdxUsado].titulo : '')) +
+                generarBodyMapTabsHTML('pf-cmp-act', muscleCountActualDia, 'Esta rutina' + (diasActualArr.length > 1 ? ' · ' + (diasActualArr[diaActualIdxUsado].titulo || ('Día ' + (diaActualIdxUsado + 1))) : '')) +
+            '</div>' +
+            generarComparacionMuscularHTML(muscleCountAnteriorDia, muscleCountActualDia) +
+        '</div>';
     }
 
     // Calcula el musculo de un dia en edicion (formato interno diasData[i]) sin pasar por el backend
@@ -13538,12 +13674,7 @@
 
         if (_mapaCalorCompararAnterior && hayAnterior) {
             try {
-                const rutinaAnterior = _pfHistorialAlumnoCache[0];
-                const muscleCountAnterior = calcularMusculosDeRutina(rutinaAnterior);
-                const muscleCountActual = calcularMusculosTotalEnVivo();
-                const fecha = rutinaAnterior.timestamp ? new Date(rutinaAnterior.timestamp * 1000).toLocaleDateString('es-AR') : '';
-                const infoTxt = (rutinaAnterior.codigo ? rutinaAnterior.codigo.toUpperCase() : '') + (fecha ? ' · ' + fecha : '');
-                html += generarComparacionMuscularHTML(infoTxt, muscleCountAnterior, muscleCountActual);
+                html += generarPanelComparacionAnteriorHTML(_pfHistorialAlumnoCache[0]);
             } catch (e) { /* si algo falla en la comparacion, se muestra igual el mapa de calor normal */ }
         }
 
@@ -17158,6 +17289,8 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             if (data.ok && data.rutinas && Object.keys(data.rutinas).length > 0) {
                 const keys = Object.keys(data.rutinas).sort().reverse().slice(0, 30);
                 _pfHistorialAlumnoCache = keys.map(k => Object.assign({ codigo: k }, data.rutinas[k]));
+                _pfCompararDiaActualIdx = null;  // reset: volver a "seguir el dia activo" con el nuevo alumno
+                _pfCompararDiaAnteriorIdx = 0;
                 const cantEl = document.getElementById('historial-alumno-cant');
                 if (cantEl) cantEl.textContent = _pfHistorialAlumnoCache.length;
                 if (card) card.classList.remove('hidden');
