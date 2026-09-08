@@ -9688,6 +9688,20 @@
         return datos;
     }
 
+    // Normaliza el campo "datos" de UN día suelto (r['dia_'+i].datos) exactamente igual
+    // que resolverDatos() normaliza el "datos" de nivel superior: si el backend lo guardó
+    // como string JSON (pasa con algunas rutinas viejas/importadas), lo parsea; si ya es
+    // objeto, lo deja igual. Sin esto, un dia_N.datos en string hace que toArray(...) sobre
+    // sus propiedades (warmup_ejercicios, bloques, rutina, etc.) devuelva siempre [] de forma
+    // silenciosa -> 0 ejercicios detectados -> mapa de calor de ese día sale vacío (todo el
+    // cuerpo con el color por defecto) sin ningún error visible en consola.
+    function _pfNormalizarDatosDia(datos) {
+        if (typeof datos === 'string') {
+            try { return JSON.parse(datos) || {}; } catch (e) { return {}; }
+        }
+        return datos || {};
+    }
+
     // Normaliza cualquier formato de ejercicio a {nombre, link, reps, unit, series, descanso, nota_tecnica}
     function normalizeEj(ej) {
         if (!ej) return { nombre:'', link:'', reps:'', unit:'Reps', series:'', descanso:'', nota_tecnica:'' };
@@ -13457,7 +13471,7 @@
             for (let di = 1; di <= total; di++) {
                 const diaData = r['dia_' + di];
                 if (!diaData) continue;
-                dias.push({ titulo: diaData.titulo || ('Día ' + di), datos: diaData.datos || {} });
+                dias.push({ titulo: diaData.titulo || ('Día ' + di), datos: _pfNormalizarDatosDia(diaData.datos) });
             }
         }
         if (dias.length === 0) {
@@ -13469,12 +13483,20 @@
             const muscleCount = {};
             nombres.forEach(nombreUpper => {
                 const ejData = buscarEjEnVideoteca(nombreUpper);
-                if (!ejData) return;
+                if (!ejData) {
+                    console.warn('[comparar rutina anterior] "' + nombreUpper + '" no se encontró en la Videoteca (revisar nombre/músculo asignado)');
+                    return;
+                }
                 if (ejData.musculo1) muscleCount[ejData.musculo1] = (muscleCount[ejData.musculo1] || 0) + 1;
                 if (ejData.musculo2) muscleCount[ejData.musculo2] = (muscleCount[ejData.musculo2] || 0) + 1;
                 if (ejData.sinergista) muscleCount[ejData.sinergista] = (muscleCount[ejData.sinergista] || 0) + PESO_SINERGISTA;
                 if (ejData.sinergista2) muscleCount[ejData.sinergista2] = (muscleCount[ejData.sinergista2] || 0) + PESO_SINERGISTA;
             });
+            if (nombres.length > 0 && Object.keys(muscleCount).length === 0) {
+                console.warn('[comparar rutina anterior] Se encontraron ' + nombres.length + ' ejercicios en "' + d.titulo + '" pero ninguno coincidió con la Videoteca:', nombres);
+            } else if (nombres.length === 0) {
+                console.warn('[comparar rutina anterior] No se pudo extraer ningún ejercicio de "' + d.titulo + '". Datos crudos del día:', d.datos);
+            }
             return { titulo: d.titulo, muscleCount };
         });
     }
@@ -13494,8 +13516,13 @@
     // Mapa de calor real (silueta) con pestañas Frente/Espalda + leyenda de intensidad,
     // mismo patrón visual que ya usa alumno.html para las rutinas multi-día.
     function generarBodyMapTabsHTML(pfx, muscleCount, titulo) {
+        // Si no hay NADA que colorear, el cuerpo sale entero en el color por defecto
+        // (gris oscuro/negro) sin que se note por qué. Avisar explícitamente en vez de
+        // dejar que parezca un mapa de calor "roto" o vacío sin explicación.
+        const sinDatos = Object.keys(muscleCount || {}).length === 0;
         return '<div style="text-align:center;">' +
             (titulo ? '<p style="color:#8a8a9a;font-size:10px;text-transform:uppercase;letter-spacing:.5px;margin:0 0 6px;">' + titulo + '</p>' : '') +
+            (sinDatos ? '<p style="color:#EF5350;font-size:10px;margin:0 0 6px;">⚠️ No se detectaron ejercicios con músculo asignado</p>' : '') +
             '<div class="pf-bm-tabs">' +
                 '<button type="button" class="pf-bm-tab-btn active" id="' + pfx + '-tab-frente" onclick="_pfBodyMapTab(\'' + pfx + '\',\'frente\')">Frente</button>' +
                 '<button type="button" class="pf-bm-tab-btn" id="' + pfx + '-tab-espalda" onclick="_pfBodyMapTab(\'' + pfx + '\',\'espalda\')">Espalda</button>' +
@@ -13719,7 +13746,7 @@
             for (let di = 1; di <= total; di++) {
                 const diaData = r['dia_' + di];
                 if (!diaData || !diaData.datos) continue;
-                const diaDatos = diaData.datos;
+                const diaDatos = _pfNormalizarDatosDia(diaData.datos);
                 const dWEjs = toArray(diaDatos.warmup_ejercicios);
                 dWEjs.forEach(ej => { const e = normalizeEj(ej); if (e.nombre) nombres.push(e.nombre.toUpperCase()); });
                 const dBloques = toArray(diaDatos.bloques);
@@ -13734,7 +13761,11 @@
                         }
                     });
                 } else {
-                    const ejsFlat = toArray(diaDatos.rutina || diaDatos.datos || []);
+                    // Nota: se agrega diaDatos.ejercicios (faltaba acá) porque los días tipo
+                    // "Por Tiempo" guardan su lista de ejercicios en esa propiedad, no en
+                    // ".rutina" ni ".datos" — sin esto, esos días no aportaban nada al mapa
+                    // de calor agregado aunque sí tuvieran ejercicios cargados.
+                    const ejsFlat = toArray(diaDatos.rutina || diaDatos.datos || diaDatos.ejercicios || []);
                     ejsFlat.forEach(item => {
                         if (item && item.ejercicios) { toArray(item.ejercicios).forEach(ej => { const e = normalizeEj(ej); if (e.nombre) nombres.push(e.nombre.toUpperCase()); }); }
                         else { const e = normalizeEj(item); if (e.nombre) nombres.push(e.nombre.toUpperCase()); }
@@ -13805,7 +13836,7 @@
     function _pfEjerciciosDeUnDia(diaData) {
         const nombres = [];
         if (!diaData || !diaData.datos) return nombres;
-        const diaDatos = diaData.datos;
+        const diaDatos = _pfNormalizarDatosDia(diaData.datos);
         toArray(diaDatos.warmup_ejercicios).forEach(ej => { const e = normalizeEj(ej); if (e.nombre) nombres.push(e.nombre.toUpperCase()); });
         const dBloques = toArray(diaDatos.bloques);
         if (dBloques.length > 0) {
@@ -13819,7 +13850,7 @@
                 }
             });
         } else {
-            const ejsFlat = toArray(diaDatos.rutina || diaDatos.datos || []);
+            const ejsFlat = toArray(diaDatos.rutina || diaDatos.datos || diaDatos.ejercicios || []);
             ejsFlat.forEach(item => {
                 if (item && item.ejercicios) { toArray(item.ejercicios).forEach(ej => { const e = normalizeEj(ej); if (e.nombre) nombres.push(e.nombre.toUpperCase()); }); }
                 else { const e = normalizeEj(item); if (e.nombre) nombres.push(e.nombre.toUpperCase()); }
