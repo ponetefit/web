@@ -10383,11 +10383,15 @@
                         var diaData = data[diaKey];
                         if (!diaData) return;
                         var titulo = diaData.titulo || ('Dia ' + (idx + 1));
-                        var tipo = diaData.tipo || 'ENTRENAMIENTO';
+                        // BUGFIX: el tipo real del día vive en diaData.datos.tipo, no
+                        // en diaData.tipo (eso solía dar undefined y la tarjeta del
+                        // día mostraba siempre "ENTRENAMIENTO" aunque fuera, por
+                        // ejemplo, un día de Tabata o EMOM).
+                        var dd = diaData.datos || {};
+                        var tipo = dd.tipo || diaData.tipo || 'ENTRENAMIENTO';
 
                         // Extraer ejercicios para preview
                         var ejsPreview = [];
-                        var dd = diaData.datos || {};
                         if (dd.warmup_ejercicios) {
                             toArray(dd.warmup_ejercicios).slice(0, 3).forEach(function(e) {
                                 var n = Array.isArray(e) ? e[0] : (e.nombre || '');
@@ -10525,8 +10529,8 @@
                         if (b.tipo && _tipos.indexOf(b.tipo.toUpperCase()) === -1) _tipos.push(b.tipo.toUpperCase());
                     });
                     _metodosStr = _tipos.join(' + ');
-                } else if (diaData.tipo && diaData.tipo !== 'ENTRENAMIENTO') {
-                    _metodosStr = diaData.tipo.toUpperCase();
+                } else if (_dd2.tipo && _dd2.tipo !== 'ENTRENAMIENTO') {
+                    _metodosStr = _dd2.tipo.toUpperCase();
                 } else {
                     _metodosStr = 'ENTRENAMIENTO';
                 }
@@ -10538,7 +10542,13 @@
                 Object.keys(_dd).forEach(function(k) {
                     datosParaRender[k] = _dd[k];
                 });
-                datosParaRender.tipo = diaData.tipo || 'ENTRENAMIENTO';
+                // BUGFIX: acá se estaba usando diaData.tipo (el tipo vive DENTRO de
+                // diaData.datos.tipo, no en el objeto contenedor del día), así que
+                // esto casi siempre daba undefined y forzaba 'ENTRENAMIENTO' para
+                // CUALQUIER día de un multi-día, aunque fuera Series/Circuito/
+                // Tabata/EMOM/etc. Eso hacía que render() intentara dibujarlo como
+                // modo mix (sin bloques) y la pantalla quedara vacía/rota.
+                datosParaRender.tipo = _dd.tipo || diaData.tipo || 'ENTRENAMIENTO';
                 _pantallaFinMostrada = false;
                 render(datosParaRender);
 
