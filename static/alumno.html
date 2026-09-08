@@ -2861,7 +2861,7 @@
             font-weight: 900;
             letter-spacing: 1.5px;
             text-transform: uppercase;
-            color: #000000;
+            color: #000000 !important;
             white-space: normal;
             line-height: 1.35;
         }
@@ -4171,6 +4171,14 @@
   padding:5px 42px 8px 4px;
 }
 #principal-titulo{
+  font-size:12px!important;
+  letter-spacing:2.4px!important;
+}
+/* BUGFIX: "Calentamiento" y "Bloque Principal" usaban tamaños de letra
+   distintos (warmup-titulo no tenía este mismo !important y terminaba
+   heredando un tamaño mucho más grande). Se igualan para que ambos
+   títulos de sección se vean con la misma tipografía. */
+#warmup-titulo{
   font-size:12px!important;
   letter-spacing:2.4px!important;
 }
@@ -7128,6 +7136,36 @@
                 return arr;
             }
 
+            // ─── BUGFIX: multi-día con un solo día por semana ───
+            // Una rutina puede venir marcada con es_multidia:true pero tener en
+            // la práctica un solo día cargado (total_dias === 1, o "dias" con un
+            // único elemento). En ese caso NO conviene tratarla como multi-día
+            // (renderMultidia esperando varias tarjetas de día no tiene sentido
+            // con una sola), pero tampoco se puede pasar el objeto raíz tal cual
+            // a render(): los datos reales (tipo, rutina, warmup, etc.) están
+            // anidados adentro de dia_1/dias[0], no al nivel superior. Pasar el
+            // objeto raíz directo hacía que render() no encontrara nada (o
+            // rompiera con "Cannot read properties of undefined").
+            // Esta función devuelve los datos ya "aplanados" del único día,
+            // listos para pasarle a render() como si fuera una rutina normal de
+            // un solo día. Devuelve null si la rutina realmente tiene más de un
+            // día (ahí sí corresponde usar renderMultidia) o si no es multi-día.
+            function _pfAplanarSiUnDia(data) {
+                if (!data || data.es_multidia !== true) return null;
+                var totalDias = data.total_dias || (data.dias ? data.dias.length : 0) || 0;
+                if (totalDias > 1) return null;
+                var dias = _bvObtenerDiasNormalizados(data);
+                if (dias.length !== 1) return null;
+                var unico = dias[0] || {};
+                var plano = {};
+                for (var k in data) plano[k] = data[k];
+                for (var k2 in unico) plano[k2] = unico[k2];
+                plano.es_multidia = false;
+                delete plano.dias;
+                delete plano.total_dias;
+                return plano;
+            }
+
             // Pinta (o resetea, si muscleCount esta vacio) un mapa corporal cualquiera,
             // dado su diccionario de ids (muscleMap) y el selector CSS de sus trapecios.
             function _pintarMusculosEnMapa(muscleMap, trapecioSelector, muscleCount) {
@@ -7457,7 +7495,7 @@
                     cargarProgresoLocal(currentCode);
                     renderMultidia(data, currentCode);
                 } else {
-                    render(data);
+                    render(_pfAplanarSiUnDia(data) || data);
                 }
                 _pfActualizarBotonSemanas();
                 document.getElementById('rutina-modal').classList.add('visible');
@@ -7667,10 +7705,14 @@
                             document.getElementById('tipo-tag').innerText = 'MÉTODOS';
                             document.getElementById('id-display').innerText = _modosHeader.join(' + ');
                         } else {
-                            document.getElementById('tipo-tag').innerText = data.tipo.toUpperCase();
+                            document.getElementById('tipo-tag').innerText = (data.tipo || 'ENTRENAMIENTO').toUpperCase();
                         }
                     } else {
-                        document.getElementById('tipo-tag').innerText = data.tipo.toUpperCase();
+                        // BUGFIX: en rutinas multi-día (incluida la de un solo día
+                        // por semana) "tipo" vive dentro de cada día, no en la raíz
+                        // del objeto — sin este resguardo, data.tipo era undefined
+                        // acá y .toUpperCase() rompía la carga de la rutina.
+                        document.getElementById('tipo-tag').innerText = (data.tipo || 'ENTRENAMIENTO').toUpperCase();
                     }
                     _pantallaFinMostrada = false;
                     _cargarVideotecaTips();
@@ -8373,7 +8415,10 @@
             // Renglón de minutos EMOM: reemplaza al badge chico superpuesto por una
             // franja entera debajo del header, del mismo color que el bloque EMOM.
             function _crearMinStripHtml(label, color) {
-                return '<div class="card-min-strip" style="background:' + (color || 'var(--amarillo)') + ';">' + label + '</div>';
+                // color:#000 en el inline style además de la clase: refuerzo para
+                // que el texto del minuto EMOM siempre se vea en negro sobre el
+                // fondo amarillo/claro de la franja, nunca en blanco/invisible.
+                return '<div class="card-min-strip" style="background:' + (color || 'var(--amarillo)') + ';color:#000;">' + label + '</div>';
             }
 
             function _emomMinutoHtml(mi, minData) {
@@ -17070,7 +17115,7 @@
                         if (esMultidia) {
                             renderMultidia(data, currentCode);
                         } else {
-                            render(data);
+                            render(_pfAplanarSiUnDia(data) || data);
                         }
                     } catch (e) {
                         console.error('Error al renderizar la semana elegida:', e);
