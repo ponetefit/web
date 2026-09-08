@@ -4278,6 +4278,22 @@
   font-weight:900;
   margin-left:6px;
 }
+/* Calentamiento y Bloque Principal (cuando es un sistema único, no mix)
+   también se marcan en verde con "✓ COMPLETO" al terminarlos, igual que
+   cada bloque del modo mix. */
+#sec-warmup.seccion-completa,
+#sec-principal.seccion-completa{
+  border-color:rgba(0,200,120,.65)!important;
+}
+#sec-warmup.seccion-completa #warmup-titulo,
+#sec-principal.seccion-completa #principal-titulo{
+  color:var(--verde)!important;
+}
+.seccion-check{
+  color:var(--verde);
+  font-weight:900;
+  margin-left:8px;
+}
 .bloque-mix::after{
   content:'';
   position:absolute;
@@ -6567,7 +6583,7 @@
                         lanzarDestelloBloque();
                     } catch (e) {}
                     try {
-                        _pfMarcarSegmentoMixCompleto(segAntes);
+                        _pfMarcarSegmentoCompletado(segAntes);
                     } catch (e) {}
                 }
 
@@ -10812,6 +10828,12 @@
                 // "Activar" del reloj de segundos, sin depender de soporte de :has() en CSS.
                 document.querySelectorAll('.card-seg-badge').forEach(_actualizarPaddingHeaderSeg);
                 if (window._pfAplicarVisualSistema) window._pfAplicarVisualSistema(data);
+                // Repinta Calentamiento / Bloque Principal (y cada bloque del modo
+                // mix) en verde si ya estaban completados antes de este render
+                // (por ejemplo al retomar una sesión guardada).
+                try {
+                    _pfSincronizarProgresoVisual();
+                } catch (eSyncProgresoVisual) {}
             }
 
             // ─── MODO SERIES ───
@@ -11296,27 +11318,57 @@
 
             // ─── Marcar visualmente en verde el bloque del Bloque Principal que
             // el alumno acaba de terminar (título "BLOQUE N — TIPO ✓ COMPLETO",
-            // borde y fondo en verde). segIdx es el índice dentro de
-            // _progresoSegmentos que acaba de completarse; se traduce al id del
-            // bloque correspondiente ("blq-N") salteando el segmento de
-            // Calentamiento si existe. El caso del ÚLTIMO bloque no necesita
-            // lógica aparte acá: al quedar en verde, el flujo existente de
-            // incrementarProgreso ya continúa normalmente hacia la pantalla de
-            // "cómo te sentiste" (si la rutina la tiene) y luego la pantalla final.
-            // ─── Sincroniza el estado visual (verde/completo) de los bloques del
-            // Bloque Principal con el progreso real guardado. Necesario, por
-            // ejemplo, al retomar una sesión guardada: render() crea el HTML de
-            // los bloques desde cero (sin marcas de completado), así que hay que
-            // volver a pintar de verde los que ya estaban terminados antes de
-            // salir de la app.
-            function _pfSincronizarBloquesMixCompletos() {
-                if (_tipoEntrenamientoGlobal !== 'ENTRENAMIENTO') return;
+            // ─── Marcar visualmente en verde (borde/fondo/título con "✓ COMPLETO")
+            // cualquier tramo del entrenamiento que el alumno acaba de terminar:
+            // Calentamiento, el Bloque Principal completo (cuando es un solo
+            // sistema: Series, Circuito, Tabata, EMOM, Circuito por Tiempo, Por
+            // Tiempo o Sumando Ejercicio) o, si es modo mix ("ENTRENAMIENTO" con
+            // varios bloques), el bloque puntual que se completó dentro de él.
+            // segIdx es el índice dentro de _progresoSegmentos que se completó.
+            function _pfMarcarSegmentoCompletado(segIdx) {
+                if (!_progresoSegmentos || !_progresoSegmentos[segIdx]) return;
+                var seg = _progresoSegmentos[segIdx];
+                if (seg.nombre === 'Calentamiento') {
+                    _pfMarcarSeccionCompleta('warmup');
+                    return;
+                }
+                if (_tipoEntrenamientoGlobal === 'ENTRENAMIENTO') {
+                    _pfMarcarSegmentoMixCompleto(segIdx);
+                    return;
+                }
+                _pfMarcarSeccionCompleta('principal');
+            }
+
+            // Repinta en verde y agrega "✓ COMPLETO" al título de una sección
+            // completa (Calentamiento o Bloque Principal cuando es un sistema
+            // único, no mix). prefix: 'warmup' | 'principal'.
+            function _pfMarcarSeccionCompleta(prefix) {
+                var sec = document.getElementById('sec-' + prefix);
+                var titulo = document.getElementById(prefix + '-titulo');
+                if (!sec) return;
+                if (sec.classList.contains('seccion-completa')) return;
+                sec.classList.add('seccion-completa');
+                if (titulo && !titulo.querySelector('.seccion-check')) {
+                    var check = document.createElement('span');
+                    check.className = 'seccion-check';
+                    check.textContent = '✓ COMPLETO';
+                    titulo.appendChild(check);
+                }
+            }
+
+            // ─── Sincroniza el estado visual (verde/completo) de Calentamiento,
+            // Bloque Principal y cada bloque del modo mix con el progreso real
+            // guardado. Necesario, por ejemplo, al retomar una sesión guardada:
+            // render() crea el HTML desde cero (sin marcas de completado), así
+            // que hay que volver a pintar de verde lo que ya estaba terminado
+            // antes de salir de la app.
+            function _pfSincronizarProgresoVisual() {
                 if (!_progresoSegmentos || _progresoSegmentos.length === 0) return;
                 for (var i = 0; i < _progresoSegmentos.length; i++) {
                     var seg = _progresoSegmentos[i];
-                    if (!seg || seg.nombre === 'Calentamiento') continue;
+                    if (!seg) continue;
                     if (seg.totalItems > 0 && seg.completados >= seg.totalItems) {
-                        _pfMarcarSegmentoMixCompleto(i);
+                        _pfMarcarSegmentoCompletado(i);
                     }
                 }
             }
@@ -11355,7 +11407,6 @@
                         renderBloqueMix(pLista, bloque, idx + 1);
                     });
                     _pfHacerBloquesMixColapsables(pLista);
-                    _pfSincronizarBloquesMixCompletos();
                     return;
                 }
 
@@ -15926,10 +15977,11 @@
                         // activos se recuperan desde timerSnapshot cuando el navegador
                         // vuelve a cargar la página; no borrar "completados" del bloque.
                         actualizarProgresoUI();
-                        // Repintar en verde los bloques del Bloque Principal que ya
-                        // estaban completados antes de salir de la app.
+                        // Repintar en verde Calentamiento / Bloque Principal (y cada
+                        // bloque del modo mix) que ya estaban completados antes de
+                        // salir de la app.
                         try {
-                            _pfSincronizarBloquesMixCompletos();
+                            _pfSincronizarProgresoVisual();
                         } catch (eSyncBloques) {}
                     }
 
