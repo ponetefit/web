@@ -2421,6 +2421,25 @@
             margin-bottom: 14px;
             text-align: center;
             line-height: 1.2;
+            /* Header desplegable: cada bloque del Bloque Principal se puede
+               abrir/cerrar tocando el título (o el botón +/-), igual que las
+               tarjetas de ejercicio y las secciones de Calentamiento/Bloque
+               Principal. */
+            position: relative;
+            cursor: pointer;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .bloque-mix-toggle {
+            position: absolute;
+            top: 50%;
+            right: 4px;
+            transform: translateY(-50%);
+        }
+
+        .bloque-mix-contenido.colapsado {
+            display: none;
         }
         /* ─── TOAST ─── */
         
@@ -4236,7 +4255,7 @@
   box-shadow:0 0 16px color-mix(in srgb,var(--card-color,var(--naranja)) 55%,transparent);
 }
 .bloque-mix-titulo{
-  padding:6px 4px 10px;
+  padding:6px 40px 10px;
   margin-bottom:10px!important;
   font-size:15px!important;
   letter-spacing:.7px!important;
@@ -11171,6 +11190,75 @@
             // ─── MODO MIX ───
             var bloquesMix = [];
 
+            // ─── BLOQUES DEL BLOQUE PRINCIPAL: cada uno con su propio desplegable ───
+            // Cada bloque (Circuito, Tabata, EMOM, etc.) del Bloque Principal se
+            // muestra colapsado por defecto, mostrando solo su título ("BLOQUE 1 —
+            // EMOM — 30 min"); al tocar el botón +/- del título se despliega su
+            // contenido completo (descripción, ejercicios, timers). Funciona igual
+            // para todos los tipos de bloque, sin importar cómo cada uno arma su
+            // HTML interno: se procesa genéricamente después de insertarlos en el DOM.
+            var _pfMixToggleSeq = 0;
+
+            function _pfToggleBloqueMix(uid) {
+                var cont = document.getElementById(uid + '-contenido');
+                var btn = document.getElementById(uid + '-toggle');
+                if (!cont) return;
+                var abierto = !cont.classList.contains('colapsado');
+                if (abierto) {
+                    cont.classList.add('colapsado');
+                    if (btn) {
+                        btn.innerHTML = '+';
+                        btn.classList.remove('activo');
+                        btn.setAttribute('aria-label', 'Mostrar bloque');
+                    }
+                } else {
+                    cont.classList.remove('colapsado');
+                    if (btn) {
+                        btn.innerHTML = '−';
+                        btn.classList.add('activo');
+                        btn.setAttribute('aria-label', 'Ocultar bloque');
+                    }
+                }
+            }
+            window._pfToggleBloqueMix = _pfToggleBloqueMix;
+
+            function _pfHacerBloquesMixColapsables(pLista) {
+                if (!pLista) return;
+                var bloques = pLista.querySelectorAll('.bloque-mix');
+                bloques.forEach(function(blq) {
+                    if (blq.dataset && blq.dataset.pfColapsable === '1') return; // ya procesado
+                    var titulo = blq.querySelector('.bloque-mix-titulo');
+                    if (!titulo) return;
+                    var uid = blq.id;
+                    if (!uid) {
+                        uid = 'pfmix-' + (_pfMixToggleSeq++);
+                        blq.id = uid;
+                    }
+                    // Mover todo el contenido (menos el título) a un contenedor
+                    // colapsable, arrancando cerrado.
+                    var contenedor = document.createElement('div');
+                    contenedor.className = 'bloque-mix-contenido colapsado';
+                    contenedor.id = uid + '-contenido';
+                    var resto = [];
+                    Array.prototype.forEach.call(blq.childNodes, function(node) {
+                        if (node !== titulo) resto.push(node);
+                    });
+                    resto.forEach(function(node) { contenedor.appendChild(node); });
+                    blq.appendChild(contenedor);
+                    // Botón +/- dentro del título (mismo estilo que el resto de la app)
+                    var btn = document.createElement('span');
+                    btn.className = 'card-toggle-btn bloque-mix-toggle';
+                    btn.id = uid + '-toggle';
+                    btn.setAttribute('aria-label', 'Mostrar bloque');
+                    btn.textContent = '+';
+                    titulo.appendChild(btn);
+                    titulo.addEventListener('click', function() {
+                        _pfToggleBloqueMix(uid);
+                    });
+                    if (blq.dataset) blq.dataset.pfColapsable = '1';
+                });
+            }
+
             function renderMix(data, pTitulo, pLista) {
                 pTitulo.innerText = "BLOQUE PRINCIPAL";
                 _tipoEntrenamientoGlobal = 'ENTRENAMIENTO';
@@ -11181,6 +11269,7 @@
                     bloques.forEach(function(bloque, idx) {
                         renderBloqueMix(pLista, bloque, idx + 1);
                     });
+                    _pfHacerBloquesMixColapsables(pLista);
                     return;
                 }
 
@@ -11261,6 +11350,7 @@
                 if (data.series && data.series.length > 0 && modos.indexOf("series") !== -1) {
                     renderSeriesMixInline(pLista, data.series, 9000, data.descripcion || "");
                 }
+                _pfHacerBloquesMixColapsables(pLista);
             }
 
             const mixOldCircVueltas = {};
@@ -11547,7 +11637,7 @@
 
                 } else if (tipo === "Series") {
                     const serialOffset = idx * 100;
-                    renderSeriesMixInline(pLista, bloque.rutina || bloque.ejercicios || [], serialOffset, bloque.descripcion || "");
+                    renderSeriesMixInline(pLista, bloque.rutina || bloque.ejercicios || [], serialOffset, bloque.descripcion || "", idx, uid);
 
                 } else if (tipo === "Sumando Ejercicio") {
                     pLista.innerHTML += renderSumandoEjercicioHtml(bloque, uid, color, idx);
@@ -12453,10 +12543,12 @@
                 return html;
             }
 
-            function renderSeriesMixInline(pLista, rutina, offset, descripcion) {
+            function renderSeriesMixInline(pLista, rutina, offset, descripcion, idx, uid) {
                 offset = offset || 0;
-                let html = '<div class="bloque-mix" style="border-color:var(--verde);--card-color:var(--verde);">' +
-                    '<div class="bloque-mix-titulo" style="color:var(--verde);">BLOQUE — SERIES</div>';
+                var tituloTxt = idx ? ('BLOQUE ' + idx + ' — SERIES') : 'BLOQUE — SERIES';
+                var idAttr = uid ? (' id="' + uid + '"') : '';
+                let html = '<div class="bloque-mix"' + idAttr + ' style="border-color:var(--verde);--card-color:var(--verde);">' +
+                    '<div class="bloque-mix-titulo" style="color:var(--verde);">' + tituloTxt + '</div>';
                 if (descripcion) {
                     html += '<div class="bloque-descripcion">' + descripcion + '</div>';
                 }
