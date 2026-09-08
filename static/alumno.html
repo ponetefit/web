@@ -15829,6 +15829,16 @@
                     _tipoEntrenamientoGlobal = estado.tipoEntrenamientoGlobal || '';
                     _tiempoInicioEntrenamiento = estado.tiempoInicioEntrenamiento || Date.now();
                     bloquesMix = estado.bloquesMixGuardados || [];
+
+                    // BUGFIX: avisar al profesor y registrar asistencia también acá.
+                    // Antes esto SOLO pasaba en consultarRutina() (primer ingreso con
+                    // código), así que si el alumno cerraba la app y volvía a entrar
+                    // con un entrenamiento en curso, el profesor nunca se enteraba de
+                    // ese segundo ingreso. _avisarProfesorPorEmail ya tiene su propio
+                    // límite de 1 aviso cada 20 min por código, así que llamarla acá
+                    // también es seguro (no duplica mails).
+                    _registrarAsistencia(currentCode);
+                    _avisarProfesorPorEmail(currentCode, nombreUsuario || (dataGlobal && (dataGlobal.nombre || dataGlobal.titulo)) || '');
                     // IMPORTANTE: usar los datos REALMENTE renderizados (día activo en
                     // multi-día), no el objeto raíz dataGlobal, que en rutinas multi-día
                     // no tiene "tipo"/"rutina" propios y hacía que solo aparecieran
