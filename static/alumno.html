@@ -4532,6 +4532,16 @@
         #pf-bottom-nav.pf-nav-visible {
             display: flex;
         }
+        /* Cuando la nav inferior esta visible (adentro del entrenamiento),
+           subir el boton flotante de "Volver arriba" y el de silenciar el
+           coach de voz para que no queden tapados por la barra. */
+        body.pf-en-entrenamiento .btn-scroll-top,
+        body.pf-en-entrenamiento #btn-coach-toggle {
+            bottom: calc(78px + env(safe-area-inset-bottom, 0px)) !important;
+        }
+        body.pf-en-entrenamiento .btn-scroll-top {
+            z-index: 1650;
+        }
         #pf-bottom-nav .pf-nav-btn svg {
             width: 21px;
             height: 21px;
@@ -18327,6 +18337,7 @@
             function _pfActualizarVisibilidadNav() {
                 var enEntrenamiento = !!(_pfModalEl && _pfModalEl.classList.contains('visible'));
                 if (_pfNavEl) _pfNavEl.classList.toggle('pf-nav-visible', enEntrenamiento);
+                document.body.classList.toggle('pf-en-entrenamiento', enEntrenamiento);
                 if (!enEntrenamiento) {
                     // Al volver a la pantalla de código, resetear a la
                     // pestaña "Rutina activa" y ocultar los paneles.
