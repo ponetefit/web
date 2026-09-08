@@ -15748,6 +15748,19 @@
                 esMultidia = !!estado.esMultidia || (dataGlobal && dataGlobal.es_multidia === true && (dataGlobal.total_dias || 1) > 1);
                 diaActivo = estado.diaActivo || 0;
 
+                // BUGFIX: avisar al profesor y registrar asistencia YA, apenas se
+                // muestra esta pantalla (el alumno volvió a abrir la app) — no
+                // recién si llega a tocar "Continuar". Antes, si el alumno veía
+                // "Tenés un entrenamiento en curso" y no tocaba ese botón (cerraba
+                // la app, dudaba, entraba solo a mirar, etc.), el profesor nunca
+                // se enteraba de ese ingreso, y era una causa de mails "que a veces
+                // no llegan". _avisarProfesorPorEmail ya tiene su propio límite de
+                // 1 aviso cada 20 min por código, así que llamarla acá también es
+                // seguro (no duplica mails con la llamada que sigue existiendo en
+                // _restaurarSesionGuardadaOriginal al tocar "Continuar").
+                _registrarAsistencia(currentCode);
+                _avisarProfesorPorEmail(currentCode, nombreUsuario || (dataGlobal && (dataGlobal.nombre || dataGlobal.titulo)) || '');
+
                 // Traer la videoteca de este código ANTES de pintar el mapa de
                 // calor: sin esto, _bvCalcMuscleCount no encuentra musculo1/
                 // musculo2/sinergista de ningún ejercicio y el mapa queda vacío
