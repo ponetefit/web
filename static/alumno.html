@@ -8118,14 +8118,13 @@
             // confirmar una única vez; después de eso los avisos llegan automáticamente.
             // No bloquea nada si falla: es solo informativo.
             var _cacheEmailProfesor = {}; // cod -> email, para no pedirlo mas de una vez
-            var _ultimoAvisoEmail = {}; // evita mandar más de un mail por código cada pocos minutos
+            // Antes había un límite de 1 aviso cada 20 minutos por código para
+            // evitar spam. Se sacó a pedido: ahora se manda un mail SIEMPRE que
+            // se abre la app o se retoma una clase, sin importar cuán seguido pase.
             async function _avisarProfesorPorEmail(cod, nombre) {
                 if (!cod) return;
                 try {
                     var ahora = Date.now();
-                    // Evitar spam: si ya se avisó por este código en los últimos 20 minutos, no repetir.
-                    if (_ultimoAvisoEmail[cod] && (ahora - _ultimoAvisoEmail[cod]) < 20 * 60 * 1000) return;
-                    _ultimoAvisoEmail[cod] = ahora;
 
                     var emailProfesor = _cacheEmailProfesor[cod];
                     if (!emailProfesor) {
