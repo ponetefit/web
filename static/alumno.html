@@ -408,8 +408,20 @@
            el alto del header con margin-top (valor fijo, se recalcula solo
            por ResizeObserver, nunca durante el scroll) y cuando el header
            se oculta sube esa misma distancia con transform para ocupar
-           el lugar que dejó — así se libera espacio de verdad, sin que
-           el contenedor de scroll cambie de tamaño en ningún momento. */
+           el lugar que dejó.
+           OJO — bug corregido: un transform SOLO mueve la caja, no la
+           agranda. Como esta caja ya tenía altura fija (pantalla menos
+           header, por el margin-top + flex:1), al subirla con transform
+           su borde inferior subía exactamente lo mismo que el superior,
+           dejando un hueco negro del tamaño del header pegado abajo (el
+           espacio que se "liberaba" arriba reaparecía abajo). Por eso al
+           ocultarse también le sumamos ese alto a `height` — sin
+           transición, en el mismo instante en que se togglea la clase,
+           para no reintroducir el tironeo que se quería evitar al animar
+           layout — así el borde inferior de la caja se mantiene pegado
+           al fondo de la pantalla mientras sube, y el contenedor de
+           scroll (que es flex:1 adentro) crece para ocupar ese espacio
+           de verdad, en vez de solo desplazarse. */
         #pf-content-wrap {
             display: flex;
             flex-direction: column;
@@ -422,6 +434,7 @@
         }
 
         #pf-content-wrap.pf-hidden-scroll {
+            height: 100%;
             transform: translateY(calc(-1 * var(--pf-header-h, 64px)));
         }
         
