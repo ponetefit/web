@@ -11866,7 +11866,7 @@
                     '<div id="' + uid + '-se-clock" class="se-clock" style="color:' + color + ';">00:00</div>' +
                     '<div id="' + uid + '-se-info" class="se-info"></div>' +
                     '<button id="' + uid + '-se-btn" class="btn-rest" style="background:linear-gradient(135deg,' + color + ',#000);" onclick="iniciarSumandoEjercicio(\'' + uid + '\',' + totalRondas + ')">EMPEZAR</button>' +
-                    '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:10px;">' +
+                    '<div id="' + uid + '-se-marcar-wrap" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px;">' +
                     '<button id="' + uid + '-se-marcar" class="btn-rest" style="display:none;background:' + color + ';font-size:var(--fs-base);padding:18px 36px;" onclick="marcarRondaSumandoActiva(\'' + uid + '\')">✓ MARCAR VUELTA</button>' +
                     '</div>' +
                     '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:10px;">' +
@@ -11929,6 +11929,21 @@
                 }
             }
 
+            // Mueve el bloque del botón "MARCAR VUELTA" para que quede pegado
+            // justo debajo de la ronda activa, en vez de fijo al final de la
+            // tarjeta. Cuando se completa el bloque, queda debajo de la última
+            // ronda (la ronda final ya marcada).
+            function _moverBotonMarcarSumando(uid, indiceRonda) {
+                var wrapEl = document.getElementById(uid + '-se-marcar-wrap');
+                if (!wrapEl) return;
+                var st = _sumandoState[uid];
+                var total = st ? st.total : null;
+                var destinoIdx = (total != null && indiceRonda >= total) ? total - 1 : indiceRonda;
+                if (destinoIdx < 0) return;
+                var rondaEl = document.getElementById(uid + '-se-r' + destinoIdx);
+                if (rondaEl) rondaEl.insertAdjacentElement('afterend', wrapEl);
+            }
+
             function iniciarSumandoEjercicio(uid, totalRondas) {
                 if (_sumandoState[uid] && (_sumandoState[uid].running || _sumandoState[uid].preparando)) return;
                 if (hayTimerActivo()) return;
@@ -11986,6 +12001,7 @@
 
                 _actualizarMensajeSumando(uid);
                 _resaltarRondaActivaSumando(uid);
+                _moverBotonMarcarSumando(uid, 0);
                 _scrollARondaSumando(uid, 0);
                 hablarCoach('Arrancamos! Ronda 1, el ejercicio es ' + _nombreEjSumando(uid, 0));
             }
@@ -12042,6 +12058,7 @@
                     var pausaEl = document.getElementById(uid + '-se-pausa');
                     if (pausaEl) pausaEl.style.display = 'none';
 
+                    _moverBotonMarcarSumando(uid, st.cr);
                     _scrollARondaSumando(uid, st.cr);
                     hablarCoach('Genial! Terminaste el bloque.');
                     try {
@@ -12050,6 +12067,7 @@
                 } else {
                     _resaltarRondaActivaSumando(uid);
                     _actualizarMensajeSumando(uid);
+                    _moverBotonMarcarSumando(uid, st.cr);
                     _scrollARondaSumando(uid, st.cr);
                     var prox = _nombreEjSumando(uid, st.cr);
                     if (prox) hablarCoach('Sumá ' + prox);
@@ -12127,6 +12145,12 @@
                     pausaEl.innerText = '⏸ PAUSA';
                 }
                 if (reiniciarEl) reiniciarEl.style.display = 'none';
+
+                // Devolver el botón "MARCAR VUELTA" a su posición original en
+                // el panel de control (quedó pegado debajo de la última ronda
+                // usada en el intento anterior).
+                var marcarWrapEl = document.getElementById(uid + '-se-marcar-wrap');
+                if (marcarWrapEl && btnEl) btnEl.insertAdjacentElement('afterend', marcarWrapEl);
 
                 for (var i = 0; i < totalRondas; i++) {
                     var el = document.getElementById(uid + '-se-r' + i);
