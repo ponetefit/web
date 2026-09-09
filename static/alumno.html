@@ -375,28 +375,32 @@
             border-bottom: 1px solid var(--borde);
             flex-shrink: 0;
             z-index: 1000;
-            position: sticky;
-            top: 0;
         }
 
         /* ─── OCULTAR HEADER Y BARRA DE SEMANA AL SCROLLEAR ───
            Para que no ocupen espacio de pantalla mientras el alumno lee
-           la rutina, se colapsan (max-height a 0) al bajar y vuelven a
-           aparecer al subir. Ver IIFE de scroll más abajo en el JS. */
-        .header-rutina,
-        #btn-semana-bar {
-            overflow: hidden;
-            max-height: 160px;
-            transition: max-height 0.28s ease, padding 0.28s ease, opacity 0.22s ease, border-color 0.28s ease;
+           la rutina, se ocultan al bajar y vuelven a aparecer al subir.
+           Ver IIFE de scroll más abajo en el JS.
+           OJO: el wrapper #pf-header-wrap va con position:absolute y se
+           anima solo con transform/opacity (nunca max-height/padding),
+           para que ocultarlo NUNCA dispare reflow del contenedor de
+           scroll — eso era lo que causaba el tironeo/traba al scrollear
+           dentro de una rutina en dispositivos mobile. */
+        #pf-header-wrap {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            transform: translateY(0);
+            opacity: 1;
+            transition: transform 0.28s ease, opacity 0.22s ease;
+            will-change: transform;
         }
 
-        .header-rutina.pf-hidden-scroll,
-        #btn-semana-bar.pf-hidden-scroll {
-            max-height: 0 !important;
-            padding-top: 0 !important;
-            padding-bottom: 0 !important;
+        #pf-header-wrap.pf-hidden-scroll {
+            transform: translateY(-100%);
             opacity: 0;
-            border-bottom-color: transparent;
             pointer-events: none;
         }
         
@@ -4834,34 +4838,44 @@
 
         <!-- Modal de rutina -->
         <div id="rutina-modal">
-            <div class="header-rutina">
-                <div class="header-rutina-info">
-                    <span id="alumno-nombre-display">---</span>
-                    <div class="header-rutina-sub">
-                        <span class="tipo-tag" id="tipo-tag">MODO</span>
-                        <span id="id-display">---</span>
+            <!-- pf-header-wrap: agrupa header + barra de semana para poder
+                 ocultarlos juntos con un solo transform/opacity (ver CSS de
+                 #pf-header-wrap más arriba). Va position:absolute, así que
+                 NO ocupa espacio en el flujo del flex column — por eso
+                 _pfSyncTopOffset() (ver JS) le pone a quien venga justo
+                 debajo (rutina-progress-container o modal-scroll) un
+                 margen/padding igual a la altura real del header, para
+                 que nunca quede tapado. -->
+            <div id="pf-header-wrap">
+                <div class="header-rutina">
+                    <div class="header-rutina-info">
+                        <span id="alumno-nombre-display">---</span>
+                        <div class="header-rutina-sub">
+                            <span class="tipo-tag" id="tipo-tag">MODO</span>
+                            <span id="id-display">---</span>
+                        </div>
+                    </div>
+                    <div class="header-rutina-actions">
+                        <button id="btn-volver-dias-header" onclick="volverADias()" style="display:none;background:var(--tarjeta-alt);border:1px solid var(--borde);border-radius:var(--radius-md);padding:10px 14px;color:var(--texto-suave);font-size:var(--fs-xs);font-weight:700;cursor:pointer;letter-spacing:1px;white-space:nowrap;">&#8592; Días</button>
+                        <button id="btn-mis-rutinas-header" onclick="abrirMisRutinas()" style="display:none;background:var(--tarjeta-alt);border:1px solid var(--borde);border-radius:var(--radius-md);padding:10px 14px;color:var(--texto-suave);font-size:var(--fs-xs);font-weight:700;cursor:pointer;letter-spacing:1px;white-space:nowrap;align-items:center;gap:6px;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;vertical-align:-2px;"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+                            Rutinas
+                        </button>
+                        <button class="btn-header" onclick="cerrar()">Salir</button>
                     </div>
                 </div>
-                <div class="header-rutina-actions">
-                    <button id="btn-volver-dias-header" onclick="volverADias()" style="display:none;background:var(--tarjeta-alt);border:1px solid var(--borde);border-radius:var(--radius-md);padding:10px 14px;color:var(--texto-suave);font-size:var(--fs-xs);font-weight:700;cursor:pointer;letter-spacing:1px;white-space:nowrap;">&#8592; Días</button>
-                    <button id="btn-mis-rutinas-header" onclick="abrirMisRutinas()" style="display:none;background:var(--tarjeta-alt);border:1px solid var(--borde);border-radius:var(--radius-md);padding:10px 14px;color:var(--texto-suave);font-size:var(--fs-xs);font-weight:700;cursor:pointer;letter-spacing:1px;white-space:nowrap;align-items:center;gap:6px;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;vertical-align:-2px;"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-                        Rutinas
-                    </button>
-                    <button class="btn-header" onclick="cerrar()">Salir</button>
-                </div>
-            </div>
 
-            <!-- Barra de semana: fila propia, ancho completo, separada de los
-                 botones del header (Días/Rutinas/Salir) para que NUNCA quede
-                 tapada ni cortada, ni en mobile ni en escritorio. Solo
-                 aparece si la rutina tiene mas de una semana cargada
-                 (data.semanas). Ver _pfActualizarBotonSemanas() / _pfCambiarSemana(). -->
-            <button id="btn-semana-bar" onclick="_pfCambiarSemana()" style="display:none;width:100%;background:var(--naranja);border:none;border-bottom:1px solid var(--borde);padding:11px 16px;color:#fff;font-weight:800;font-size:var(--fs-sm);letter-spacing:0.5px;cursor:pointer;align-items:center;justify-content:center;gap:8px;flex-shrink:0;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;flex-shrink:0;"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>
-                <span id="btn-semana-bar-label">SEMANA 1</span>
-                <span style="opacity:.85;font-weight:700;text-transform:uppercase;font-size:var(--fs-xs);">· Cambiar</span>
-            </button>
+                <!-- Barra de semana: fila propia, ancho completo, separada de los
+                     botones del header (Días/Rutinas/Salir) para que NUNCA quede
+                     tapada ni cortada, ni en mobile ni en escritorio. Solo
+                     aparece si la rutina tiene mas de una semana cargada
+                     (data.semanas). Ver _pfActualizarBotonSemanas() / _pfCambiarSemana(). -->
+                <button id="btn-semana-bar" onclick="_pfCambiarSemana()" style="display:none;width:100%;background:var(--naranja);border:none;border-bottom:1px solid var(--borde);padding:11px 16px;color:#fff;font-weight:800;font-size:var(--fs-sm);letter-spacing:0.5px;cursor:pointer;align-items:center;justify-content:center;gap:8px;flex-shrink:0;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;flex-shrink:0;"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>
+                    <span id="btn-semana-bar-label">SEMANA 1</span>
+                    <span style="opacity:.85;font-weight:700;text-transform:uppercase;font-size:var(--fs-xs);">· Cambiar</span>
+                </button>
+            </div>
 
             <!-- Barra de progreso general de la rutina (fija, fuera del scroll) -->
             <div class="rutina-progress-container" id="rutina-progress-container" style="display:none;">
@@ -6425,6 +6439,7 @@
 
                 var container = document.getElementById('rutina-progress-container');
                 if (container) container.style.display = 'block';
+                if (typeof _pfSyncTopOffset === 'function') _pfSyncTopOffset();
 
                 // ── Detectar si hay calentamiento ──
                 // El warmup se almacena en data.warmup_ejercicios / data.warmup_tipo
@@ -10371,6 +10386,7 @@
                 // Ocultar barra de progreso en la pantalla de selección de días
                 var progContainer = document.getElementById('rutina-progress-container');
                 if (progContainer) progContainer.style.display = 'none';
+                if (typeof _pfSyncTopOffset === 'function') _pfSyncTopOffset();
 
                 var mdContainer = document.getElementById('multidia-container');
                 if (!mdContainer) {
@@ -10689,6 +10705,7 @@
                 if (_fsBtnEmomVD) _fsBtnEmomVD.style.display = 'none';
                 var progContainer = document.getElementById('rutina-progress-container');
                 if (progContainer) progContainer.style.display = 'none';
+                if (typeof _pfSyncTopOffset === 'function') _pfSyncTopOffset();
                 var mdContainer = document.getElementById('multidia-container');
                 if (esMultidia && (!mdContainer || !mdContainer.innerHTML.trim())) {
                     // El contenedor de días no existe o quedó vacío (por ejemplo,
@@ -15437,11 +15454,51 @@
             // vuelven a aparecer. No afecta la lógica que ya muestra u oculta
             // la barra de semana según si la rutina tiene semanas cargadas
             // (_pfActualizarBotonSemanas), solo se suma/quita una clase extra.
+            // ─── Mantener el contenido debajo del header SIEMPRE, sin usar
+            // max-height/padding animados (esa era la causa del tironeo al
+            // scrollear). #pf-header-wrap ahora es position:absolute (no
+            // ocupa espacio en el flujo), así que quien venga justo debajo
+            // (la barra de progreso si está visible, o si no directamente
+            // modal-scroll) necesita un margen/padding igual a la altura
+            // real del header para no quedar tapado. _pfSyncTopOffset()
+            // recalcula eso; se llama solo cuando cambia el tamaño del
+            // header (ResizeObserver) o cuando se muestra/oculta la barra
+            // de progreso — nunca en cada evento de scroll. */
+            function _pfSyncTopOffset() {
+                var _hw = document.getElementById('pf-header-wrap');
+                var _modal = document.getElementById('rutina-modal');
+                var _pc = document.getElementById('rutina-progress-container');
+                var _ms = document.getElementById('modal-scroll');
+                if (!_hw || !_modal || !_ms) return;
+                var _hh = _hw.offsetHeight;
+                _modal.style.setProperty('--pf-header-h', _hh + 'px');
+                var _pcVisible = !!(_pc && _pc.style.display !== 'none' && _pc.offsetParent !== null);
+                if (_pcVisible) {
+                    _pc.style.marginTop = _hh + 'px';
+                    _ms.style.paddingTop = '';
+                } else {
+                    if (_pc) _pc.style.marginTop = '';
+                    _ms.style.paddingTop = (_hh + 16) + 'px';
+                }
+            }
+            window._pfSyncTopOffset = _pfSyncTopOffset;
+
+            (function() {
+                var _wrap = document.getElementById('pf-header-wrap');
+                if (!_wrap || typeof ResizeObserver === 'undefined') {
+                    _pfSyncTopOffset();
+                    return;
+                }
+                var _ro = new ResizeObserver(function() {
+                    _pfSyncTopOffset();
+                });
+                _ro.observe(_wrap);
+            })();
+
             (function() {
                 var _scrollElHdr = document.getElementById('modal-scroll');
-                var _headerRutinaEl = document.querySelector('.header-rutina');
-                var _semanaBarEl = document.getElementById('btn-semana-bar');
-                if (!_scrollElHdr || !_headerRutinaEl) return;
+                var _headerWrapEl = document.getElementById('pf-header-wrap');
+                if (!_scrollElHdr || !_headerWrapEl) return;
                 var _ultimoScrollTop = _scrollElHdr.scrollTop;
                 var _oculto = false;
                 var _bloqueado = false; // pausa la deteccion mientras dura la propia transicion, para no reaccionar al reacomodo de layout que ella misma genera (causa del titileo)
@@ -15451,16 +15508,14 @@
                 function _ocultar() {
                     if (_oculto) return;
                     _oculto = true;
-                    _headerRutinaEl.classList.add('pf-hidden-scroll');
-                    if (_semanaBarEl) _semanaBarEl.classList.add('pf-hidden-scroll');
+                    _headerWrapEl.classList.add('pf-hidden-scroll');
                     _pausarDeteccion();
                 }
 
                 function _mostrar() {
                     if (!_oculto) return;
                     _oculto = false;
-                    _headerRutinaEl.classList.remove('pf-hidden-scroll');
-                    if (_semanaBarEl) _semanaBarEl.classList.remove('pf-hidden-scroll');
+                    _headerWrapEl.classList.remove('pf-hidden-scroll');
                     _pausarDeteccion();
                 }
 
@@ -15596,6 +15651,7 @@
                 }
                 var _progContainerC = document.getElementById('rutina-progress-container');
                 if (_progContainerC) _progContainerC.style.display = 'none';
+                if (typeof _pfSyncTopOffset === 'function') _pfSyncTopOffset();
                 // Cerrar overlay de pausa series
                 var _spOverlay = document.getElementById('overlay-series-pausa');
                 if (_spOverlay) _spOverlay.style.display = 'none';
@@ -17263,7 +17319,7 @@
 
             var style = document.createElement('style');
             style.textContent = [
-                '#pf-lectura-banner{display:none;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(135deg,#20321f,#12200f);border:1px solid #2f5a2a;border-radius:12px;padding:10px 14px;margin:10px 16px 0;color:#fff}',
+                '#pf-lectura-banner{display:none;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(135deg,#20321f,#12200f);border:1px solid #2f5a2a;border-radius:12px;padding:10px 14px;margin:calc(var(--pf-header-h, 64px) + 10px) 16px 0;color:#fff}',
                 '#pf-lectura-banner.visible{display:flex}',
                 '#pf-lectura-banner .pf-lectura-txt{font-size:11px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;color:#69f0ae;display:flex;align-items:center;gap:8px}',
                 '#pf-lectura-banner button{border:1px solid #3a3a48;background:#20202a;color:#fff;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;}',
@@ -17307,13 +17363,15 @@
 
             function _crearBanner() {
                 if (document.getElementById('pf-lectura-banner')) return;
-                var header = document.querySelector('.header-rutina');
-                if (!header || !header.parentNode) return;
+                // Se cuelga al lado de #pf-header-wrap (no adentro) para que
+                // el banner no se oculte junto con el header al scrollear.
+                var headerWrap = document.getElementById('pf-header-wrap');
+                if (!headerWrap || !headerWrap.parentNode) return;
                 var banner = document.createElement('div');
                 banner.id = 'pf-lectura-banner';
                 banner.innerHTML = '<span class="pf-lectura-txt">&#128065; Modo solo lectura &middot; repasando la rutina</span>' +
                     '<button type="button" id="pf-lectura-salir-btn">Salir del modo lectura</button>';
-                header.parentNode.insertBefore(banner, header.nextSibling);
+                headerWrap.parentNode.insertBefore(banner, headerWrap.nextSibling);
                 document.getElementById('pf-lectura-salir-btn').addEventListener('click', function() {
                     _setModoLectura(false);
                     if (typeof mostrarToast === 'function') mostrarToast('Modo solo lectura desactivado');
