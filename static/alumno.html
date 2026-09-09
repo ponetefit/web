@@ -3711,6 +3711,16 @@
             padding: 8px 16px 10px;
             border-bottom: 1px solid var(--borde);
             flex-shrink: 0;
+            transition: border-color 0.22s ease;
+        }
+
+        /* Cuando el header se oculta al scrollear, la barra de progreso
+           queda como primer elemento visible arriba de todo. Su
+           border-bottom quedaba flotando solo contra el fondo negro,
+           viéndose como un borde suelto — se lo ocultamos también en
+           ese estado. */
+        #pf-content-wrap.pf-hidden-scroll .rutina-progress-container {
+            border-bottom-color: transparent;
         }
         
         .rutina-progress-label {
@@ -16403,90 +16413,42 @@
                 var manifestLink = document.getElementById('pwa-manifest');
                 if (manifestLink) manifestLink.href = manifestURL;
 
-                // ─── SERVICE WORKER (inline via blob) ───
-                var swCode = `
-            var CACHE_NAME = 'ponetefit-v1';
-            var OFFLINE_URL = '/';
-
-            self.addEventListener('install', function(event) {
-                event.waitUntil(
-                    caches.open(CACHE_NAME).then(function(cache) {
-                        // Cache the current page and key resources
-                        return cache.addAll([
-                            self.registration.scope
-                        ]).catch(function() {
-                            // Silently fail if offline during install
-                        });
-                    })
-                );
-                self.skipWaiting();
-            });
-
-            self.addEventListener('activate', function(event) {
-                event.waitUntil(
-                    caches.keys().then(function(cacheNames) {
-                        return Promise.all(
-                            cacheNames.filter(function(name) {
-                                return name !== CACHE_NAME;
-                            }).map(function(name) {
-                                return caches.delete(name);
-                            })
-                        );
-                    })
-                );
-                self.clients.claim();
-            });
-
-            self.addEventListener('fetch', function(event) {
-                // Only handle GET requests
-                if (event.request.method !== 'GET') return;
-
-                event.respondWith(
-                    // Network first, fallback to cache
-                    fetch(event.request).then(function(response) {
-                        // Clone and cache the response
-                        if (response && response.status === 200) {
-                            var responseClone = response.clone();
-                            caches.open(CACHE_NAME).then(function(cache) {
-                                cache.put(event.request, responseClone);
-                            });
-                        }
-                        return response;
-                    }).catch(function() {
-                        // Network failed, try cache
-                        return caches.match(event.request).then(function(response) {
-                            return response || new Response('Offline — no hay cache disponible', {
-                                status: 503,
-                                headers: { 'Content-Type': 'text/plain' }
-                            });
-                        });
-                    })
-                );
-            });
-        `;
-
-                // Register service worker from blob
-                if ('serviceWorker' in navigator) {
-                    var swBlob = new Blob([swCode], {
-                        type: 'application/javascript'
-                    });
-                    var swURL = URL.createObjectURL(swBlob);
-                    navigator.serviceWorker.register(swURL, {
-                            scope: location.pathname.substring(0, location.pathname.lastIndexOf('/') + 1)
+                // ─── SERVICE WORKER ───
+                // OJO: un Service Worker NUNCA se puede registrar desde un
+                // blob: URL — el spec lo prohíbe explícitamente y todos los
+                // navegadores (Chrome, Firefox, Safari) tiran error al
+                // intentarlo ("Script URL's scheme is not 'http' or
+                // 'https'"). Antes se intentaba así acá y SIEMPRE fallaba en
+                // silencio: sin un Service Worker activo, Chrome/Android
+                // nunca considera la app "instalable" y jamás dispara el
+                // evento beforeinstallprompt, así que el botón "Instalar
+                // App" quedaba inerte. Por eso ahora se registra un archivo
+                // real (sw.js) que tiene que subirse al servidor, en la
+                // MISMA carpeta que este HTML.
+                if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+                    var _swDir = location.pathname.substring(0, location.pathname.lastIndexOf('/') + 1);
+                    navigator.serviceWorker.register(_swDir + 'sw.js', {
+                            scope: _swDir
                         })
                         .then(function(reg) {
                             console.log('[PWA] Service Worker registrado:', reg.scope);
                         })
                         .catch(function(err) {
-                            // Blob SW may not work in all browsers; try file-based fallback
-                            console.warn('[PWA] SW blob falló, intentando registro directo:', err);
-                            // Fallback: register as a file if served from a server
-                            if (location.protocol !== 'file:') {
-                                navigator.serviceWorker.register('sw.js', {
-                                    scope: '/'
-                                }).catch(function() {});
-                            }
+                            console.warn('[PWA] No se pudo registrar el Service Worker (¿subiste sw.js al servidor, en la misma carpeta que este HTML?):', err);
                         });
+                }
+
+                // ─── iOS: Safari no dispara beforeinstallprompt, JAMÁS ───
+                // En iPhone/iPad no existe ninguna API para lanzar el
+                // instalador desde JS: el único camino es que el usuario
+                // toque Compartir → "Agregar a pantalla de inicio" a mano.
+                // Por eso ahí mostramos el botón igual pero con instrucciones,
+                // en vez de esperar un evento que nunca va a llegar.
+                var _esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+                var _yaInstalada = (window.navigator.standalone === true) ||
+                    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+                if (_esIOS && !_yaInstalada) {
+                    _mostrarBotonInstalar();
                 }
 
                 // ─── INSTALL PROMPT ───
@@ -16516,6 +16478,10 @@
                 }
 
                 window._instalarPWA = function() {
+                    if (_esIOS) {
+                        alert('Para instalar la app:\n\n1. Tocá el botón "Compartir" ⬆️ (abajo o arriba del navegador)\n2. Elegí "Agregar a pantalla de inicio"\n3. Confirmá tocando "Agregar"\n\n(Safari no permite instalarla automáticamente, hay que hacerlo así.)');
+                        return;
+                    }
                     if (!_deferredPrompt) return;
                     _deferredPrompt.prompt();
                     _deferredPrompt.userChoice.then(function(result) {
