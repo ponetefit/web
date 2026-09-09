@@ -11867,7 +11867,7 @@
                     '<div id="' + uid + '-se-info" class="se-info"></div>' +
                     '<button id="' + uid + '-se-btn" class="btn-rest" style="background:linear-gradient(135deg,' + color + ',#000);" onclick="iniciarSumandoEjercicio(\'' + uid + '\',' + totalRondas + ')">EMPEZAR</button>' +
                     '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:10px;">' +
-                    '<button id="' + uid + '-se-marcar" class="btn-rest" style="display:none;background:' + color + ';font-size:var(--fs-base);padding:18px 36px;" onclick="marcarRondaSumandoActiva(\'' + uid + '\')">✓ MARCAR RONDA</button>' +
+                    '<button id="' + uid + '-se-marcar" class="btn-rest" style="display:none;background:' + color + ';font-size:var(--fs-base);padding:18px 36px;" onclick="marcarRondaSumandoActiva(\'' + uid + '\')">✓ MARCAR VUELTA</button>' +
                     '</div>' +
                     '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:10px;">' +
                     '<button id="' + uid + '-se-pausa" class="btn-pausa" style="display:none;" onclick="togglePausaSumando(\'' + uid + '\')">⏸ PAUSA</button>' +
@@ -11962,7 +11962,7 @@
                 if (marcarEl) {
                     marcarEl.style.display = 'inline-block';
                     marcarEl.disabled = false;
-                    marcarEl.innerText = '✓ MARCAR RONDA';
+                    marcarEl.innerText = '✓ MARCAR VUELTA';
                 }
                 if (pausaEl) {
                     pausaEl.style.display = 'inline-block';
@@ -11986,7 +11986,31 @@
 
                 _actualizarMensajeSumando(uid);
                 _resaltarRondaActivaSumando(uid);
+                _scrollARondaSumando(uid, 0);
                 hablarCoach('Arrancamos! Ronda 1, el ejercicio es ' + _nombreEjSumando(uid, 0));
+            }
+
+            // ─── Lleva el scroll de la app hasta la tarjeta de una ronda puntual
+            // de Sumando Ejercicio (o, si ya no quedan más rondas, hasta el panel
+            // de control donde se ve "BLOQUE COMPLETO"). Así el alumno no tiene
+            // que scrollear manualmente entre ronda y ronda cuando hay muchos
+            // ejercicios sumados. ───
+            function _scrollARondaSumando(uid, indiceRonda) {
+                var st = _sumandoState[uid];
+                var total = st ? st.total : null;
+                var destino = null;
+                if (total != null && indiceRonda >= total) {
+                    destino = document.getElementById(uid + '-se-status');
+                } else {
+                    destino = document.getElementById(uid + '-se-r' + indiceRonda);
+                }
+                if (!destino) return;
+                setTimeout(function() {
+                    destino.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }, 50);
             }
 
             function marcarRondaSumandoActiva(uid) {
@@ -12018,6 +12042,7 @@
                     var pausaEl = document.getElementById(uid + '-se-pausa');
                     if (pausaEl) pausaEl.style.display = 'none';
 
+                    _scrollARondaSumando(uid, st.cr);
                     hablarCoach('Genial! Terminaste el bloque.');
                     try {
                         lanzarDestelloBloque();
@@ -12025,6 +12050,7 @@
                 } else {
                     _resaltarRondaActivaSumando(uid);
                     _actualizarMensajeSumando(uid);
+                    _scrollARondaSumando(uid, st.cr);
                     var prox = _nombreEjSumando(uid, st.cr);
                     if (prox) hablarCoach('Sumá ' + prox);
                 }
@@ -12094,7 +12120,7 @@
                 if (marcarEl) {
                     marcarEl.style.display = 'none';
                     marcarEl.disabled = false;
-                    marcarEl.innerText = '✓ MARCAR RONDA';
+                    marcarEl.innerText = '✓ MARCAR VUELTA';
                 }
                 if (pausaEl) {
                     pausaEl.style.display = 'none';
