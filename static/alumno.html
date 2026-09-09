@@ -403,6 +403,27 @@
             opacity: 0;
             pointer-events: none;
         }
+
+        /* #pf-content-wrap agrupa progreso + ejercicios. Reserva SIEMPRE
+           el alto del header con margin-top (valor fijo, se recalcula solo
+           por ResizeObserver, nunca durante el scroll) y cuando el header
+           se oculta sube esa misma distancia con transform para ocupar
+           el lugar que dejó — así se libera espacio de verdad, sin que
+           el contenedor de scroll cambie de tamaño en ningún momento. */
+        #pf-content-wrap {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            margin-top: var(--pf-header-h, 64px);
+            transform: translateY(0);
+            transition: transform 0.28s ease;
+            will-change: transform;
+        }
+
+        #pf-content-wrap.pf-hidden-scroll {
+            transform: translateY(calc(-1 * var(--pf-header-h, 64px)));
+        }
         
         .header-rutina-info {
             display: flex;
@@ -4841,11 +4862,10 @@
             <!-- pf-header-wrap: agrupa header + barra de semana para poder
                  ocultarlos juntos con un solo transform/opacity (ver CSS de
                  #pf-header-wrap más arriba). Va position:absolute, así que
-                 NO ocupa espacio en el flujo del flex column — por eso
-                 _pfSyncTopOffset() (ver JS) le pone a quien venga justo
-                 debajo (rutina-progress-container o modal-scroll) un
-                 margen/padding igual a la altura real del header, para
-                 que nunca quede tapado. -->
+                 NO ocupa espacio en el flujo del flex column — #pf-content-wrap
+                 (más abajo) reserva ese espacio con margin-top y sube junto
+                 con el header cuando se oculta (ver CSS de #pf-content-wrap
+                 y _pfSyncTopOffset() en el JS). -->
             <div id="pf-header-wrap">
                 <div class="header-rutina">
                     <div class="header-rutina-info">
@@ -4877,6 +4897,10 @@
                 </button>
             </div>
 
+            <!-- pf-content-wrap: agrupa progreso + ejercicios para poder
+                 subir todo junto (transform) cuando el header se oculta,
+                 ver CSS de #pf-content-wrap. -->
+            <div id="pf-content-wrap">
             <!-- Barra de progreso general de la rutina (fija, fuera del scroll) -->
             <div class="rutina-progress-container" id="rutina-progress-container" style="display:none;">
                 <div class="rutina-progress-label">
@@ -4978,6 +5002,7 @@
             </div>
 
             <!-- Botón flotante: volver arriba del scroll de la rutina -->
+            </div><!-- /pf-content-wrap -->
             <button id="btn-scroll-top" class="btn-scroll-top" onclick="scrollRutinaArriba()" aria-label="Volver arriba" title="Volver arriba">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
             </button>
@@ -15454,32 +15479,22 @@
             // vuelven a aparecer. No afecta la lógica que ya muestra u oculta
             // la barra de semana según si la rutina tiene semanas cargadas
             // (_pfActualizarBotonSemanas), solo se suma/quita una clase extra.
-            // ─── Mantener el contenido debajo del header SIEMPRE, sin usar
-            // max-height/padding animados (esa era la causa del tironeo al
-            // scrollear). #pf-header-wrap ahora es position:absolute (no
-            // ocupa espacio en el flujo), así que quien venga justo debajo
-            // (la barra de progreso si está visible, o si no directamente
-            // modal-scroll) necesita un margen/padding igual a la altura
-            // real del header para no quedar tapado. _pfSyncTopOffset()
-            // recalcula eso; se llama solo cuando cambia el tamaño del
-            // header (ResizeObserver) o cuando se muestra/oculta la barra
-            // de progreso — nunca en cada evento de scroll. */
+            // ─── Cómo se libera el espacio del header sin trabar el scroll ───
+            // #pf-header-wrap es position:absolute (no ocupa espacio en el
+            // flujo). #pf-content-wrap (progreso + ejercicios) reserva ese
+            // espacio con un margin-top FIJO (se calcula una sola vez, no en
+            // cada scroll) y cuando el header se oculta, #pf-content-wrap
+            // sube exactamente esa distancia con transform: translateY —
+            // así el contenido realmente ocupa el lugar que dejó el header,
+            // pero todo el movimiento es solo transform/opacity (nunca
+            // margin/padding/max-height cambiando en vivo), que es lo único
+            // que el navegador puede animar sin recalcular el layout — eso
+            // era lo que causaba el tironeo al scrollear.
             function _pfSyncTopOffset() {
                 var _hw = document.getElementById('pf-header-wrap');
                 var _modal = document.getElementById('rutina-modal');
-                var _pc = document.getElementById('rutina-progress-container');
-                var _ms = document.getElementById('modal-scroll');
-                if (!_hw || !_modal || !_ms) return;
-                var _hh = _hw.offsetHeight;
-                _modal.style.setProperty('--pf-header-h', _hh + 'px');
-                var _pcVisible = !!(_pc && _pc.style.display !== 'none' && _pc.offsetParent !== null);
-                if (_pcVisible) {
-                    _pc.style.marginTop = _hh + 'px';
-                    _ms.style.paddingTop = '';
-                } else {
-                    if (_pc) _pc.style.marginTop = '';
-                    _ms.style.paddingTop = (_hh + 16) + 'px';
-                }
+                if (!_hw || !_modal) return;
+                _modal.style.setProperty('--pf-header-h', _hw.offsetHeight + 'px');
             }
             window._pfSyncTopOffset = _pfSyncTopOffset;
 
@@ -15498,7 +15513,8 @@
             (function() {
                 var _scrollElHdr = document.getElementById('modal-scroll');
                 var _headerWrapEl = document.getElementById('pf-header-wrap');
-                if (!_scrollElHdr || !_headerWrapEl) return;
+                var _contentWrapEl = document.getElementById('pf-content-wrap');
+                if (!_scrollElHdr || !_headerWrapEl || !_contentWrapEl) return;
                 var _ultimoScrollTop = _scrollElHdr.scrollTop;
                 var _oculto = false;
                 var _bloqueado = false; // pausa la deteccion mientras dura la propia transicion, para no reaccionar al reacomodo de layout que ella misma genera (causa del titileo)
@@ -15509,6 +15525,7 @@
                     if (_oculto) return;
                     _oculto = true;
                     _headerWrapEl.classList.add('pf-hidden-scroll');
+                    _contentWrapEl.classList.add('pf-hidden-scroll');
                     _pausarDeteccion();
                 }
 
@@ -15516,6 +15533,7 @@
                     if (!_oculto) return;
                     _oculto = false;
                     _headerWrapEl.classList.remove('pf-hidden-scroll');
+                    _contentWrapEl.classList.remove('pf-hidden-scroll');
                     _pausarDeteccion();
                 }
 
