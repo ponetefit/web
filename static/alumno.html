@@ -15380,18 +15380,50 @@
                 var _headerRutinaEl = document.querySelector('.header-rutina');
                 var _semanaBarEl = document.getElementById('btn-semana-bar');
                 if (!_scrollElHdr || !_headerRutinaEl) return;
-                var _ultimoScrollTop = 0;
-                var _umbralMovimiento = 8;
+                var _ultimoScrollTop = _scrollElHdr.scrollTop;
+                var _oculto = false;
+                var _bloqueado = false; // pausa la deteccion mientras dura la propia transicion, para no reaccionar al reacomodo de layout que ella misma genera (causa del titileo)
+                var _umbralMovimiento = 12;
+                var _umbralActivacion = 80; // no ocultar hasta bajar un poco, y siempre mostrar por debajo de este valor
+
+                function _ocultar() {
+                    if (_oculto) return;
+                    _oculto = true;
+                    _headerRutinaEl.classList.add('pf-hidden-scroll');
+                    if (_semanaBarEl) _semanaBarEl.classList.add('pf-hidden-scroll');
+                    _pausarDeteccion();
+                }
+
+                function _mostrar() {
+                    if (!_oculto) return;
+                    _oculto = false;
+                    _headerRutinaEl.classList.remove('pf-hidden-scroll');
+                    if (_semanaBarEl) _semanaBarEl.classList.remove('pf-hidden-scroll');
+                    _pausarDeteccion();
+                }
+
+                function _pausarDeteccion() {
+                    _bloqueado = true;
+                    setTimeout(function() {
+                        _bloqueado = false;
+                        _ultimoScrollTop = _scrollElHdr.scrollTop;
+                    }, 320);
+                }
+
                 _scrollElHdr.addEventListener('scroll', function() {
+                    if (_bloqueado) return;
                     var actual = _scrollElHdr.scrollTop;
+                    if (actual < _umbralActivacion) {
+                        _mostrar();
+                        _ultimoScrollTop = actual;
+                        return;
+                    }
                     var diferencia = actual - _ultimoScrollTop;
                     if (Math.abs(diferencia) < _umbralMovimiento) return;
-                    if (diferencia > 0 && actual > 40) {
-                        _headerRutinaEl.classList.add('pf-hidden-scroll');
-                        if (_semanaBarEl) _semanaBarEl.classList.add('pf-hidden-scroll');
+                    if (diferencia > 0) {
+                        _ocultar();
                     } else {
-                        _headerRutinaEl.classList.remove('pf-hidden-scroll');
-                        if (_semanaBarEl) _semanaBarEl.classList.remove('pf-hidden-scroll');
+                        _mostrar();
                     }
                     _ultimoScrollTop = actual;
                 }, {
