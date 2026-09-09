@@ -3711,16 +3711,6 @@
             padding: 8px 16px 10px;
             border-bottom: 1px solid var(--borde);
             flex-shrink: 0;
-            transition: border-color 0.22s ease;
-        }
-
-        /* Cuando el header se oculta al scrollear, la barra de progreso
-           queda como primer elemento visible arriba de todo. Su
-           border-bottom quedaba flotando solo contra el fondo negro,
-           viéndose como un borde suelto — se lo ocultamos también en
-           ese estado. */
-        #pf-content-wrap.pf-hidden-scroll .rutina-progress-container {
-            border-bottom-color: transparent;
         }
         
         .rutina-progress-label {
@@ -4905,22 +4895,31 @@
                     <span id="btn-semana-bar-label">SEMANA 1</span>
                     <span style="opacity:.85;font-weight:700;text-transform:uppercase;font-size:var(--fs-xs);">· Cambiar</span>
                 </button>
+
+                <!-- Barra de progreso general de la rutina. Va ACÁ adentro
+                     de pf-header-wrap (y no como hijo suelto de
+                     pf-content-wrap, donde estaba antes) para que se oculte
+                     y libere pantalla junto con el resto del header al
+                     scrollear, en vez de quedar fija ocupando una franja
+                     negra siempre visible. El código que la muestra/oculta
+                     ya llamaba a _pfSyncTopOffset() después de tocar su
+                     display — señal de que este era el lugar pensado
+                     para ella. -->
+                <div class="rutina-progress-container" id="rutina-progress-container" style="display:none;">
+                    <div class="rutina-progress-label">
+                        <span>PROGRESO DE RUTINA</span>
+                        <span class="pct" id="rutina-progress-pct">0%</span>
+                    </div>
+                    <div class="rutina-progress-track">
+                        <div class="rutina-progress-fill" id="rutina-progress-fill"></div>
+                    </div>
+                </div>
             </div>
 
-            <!-- pf-content-wrap: agrupa progreso + ejercicios para poder
-                 subir todo junto (transform) cuando el header se oculta,
-                 ver CSS de #pf-content-wrap. -->
+            <!-- pf-content-wrap: agrupa los ejercicios para poder subirlos
+                 junto (transform) cuando el header se oculta, ver CSS de
+                 #pf-content-wrap. -->
             <div id="pf-content-wrap">
-            <!-- Barra de progreso general de la rutina (fija, fuera del scroll) -->
-            <div class="rutina-progress-container" id="rutina-progress-container" style="display:none;">
-                <div class="rutina-progress-label">
-                    <span>PROGRESO DE RUTINA</span>
-                    <span class="pct" id="rutina-progress-pct">0%</span>
-                </div>
-                <div class="rutina-progress-track">
-                    <div class="rutina-progress-fill" id="rutina-progress-fill"></div>
-                </div>
-            </div>
 
             <div class="container-scroll" id="modal-scroll">
                 <div id="sec-warmup" class="seccion-card">
