@@ -566,13 +566,22 @@
             cursor: pointer;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .seccion-header-row .seccion-titulo {
+            margin-bottom: 0;
         }
 
         .seccion-header-row .seccion-toggle-btn {
-            position: absolute;
-            top: 50%;
-            right: 0;
-            transform: translateY(-50%);
+            position: static;
+            transform: none;
+            flex-shrink: 0;
         }
 
         .seccion-header-row .seccion-toggle-btn.activo {
@@ -2442,23 +2451,25 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-bottom: 14px;
-            text-align: center;
             line-height: 1.2;
             /* Header desplegable: cada bloque del Bloque Principal se puede
                abrir/cerrar tocando el título (o el botón +/-), igual que las
                tarjetas de ejercicio y las secciones de Calentamiento/Bloque
-               Principal. */
-            position: relative;
+               Principal. El botón queda al lado del texto, ambos centrados
+               como un solo grupo en el medio (no el texto centrado con el
+               botón pegado al costado). */
             cursor: pointer;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
         }
 
         .bloque-mix-toggle {
-            position: absolute;
-            top: 50%;
-            right: 4px;
-            transform: translateY(-50%);
+            flex-shrink: 0;
         }
 
         .bloque-mix-contenido.colapsado {
@@ -4211,7 +4222,7 @@
   border-width:1px;
 }
 #sec-principal > .seccion-header-row{
-  padding:5px 42px 8px 4px;
+  padding:5px 10px 8px;
 }
 #principal-titulo{
   font-size:12px!important;
@@ -4225,27 +4236,10 @@
   font-size:12px!important;
   letter-spacing:2.4px!important;
 }
-#sec-principal > .seccion-header-row::before{
-  content:'ENTRENAMIENTO';
-  display:inline-flex;
-  align-items:center;
-  gap:7px;
-  margin-bottom:7px;
-  font-size:9px;
-  font-weight:900;
-  letter-spacing:2px;
-  color:var(--pf-muted);
-}
-
-/* Identidad del sistema en la cabecera principal */
-#sec-principal.pf-mode-series > .seccion-header-row::before{content:'🟢 FUERZA · SERIES Y REPETICIONES';color:var(--verde)}
-#sec-principal.pf-mode-circuito > .seccion-header-row::before{content:'🔵 CIRCUITO · VUELTAS';color:var(--azul)}
-#sec-principal.pf-mode-circuito-tiempo > .seccion-header-row::before{content:'🩵 CIRCUITO · POR TIEMPO';color:#4fc3f7}
-#sec-principal.pf-mode-por-tiempo > .seccion-header-row::before{content:'🟣 POR TIEMPO · VUELTAS';color:var(--purpura)}
-#sec-principal.pf-mode-tabata > .seccion-header-row::before{content:'🟠 TABATA · TRABAJO / DESCANSO';color:var(--naranja)}
-#sec-principal.pf-mode-emom > .seccion-header-row::before{content:'🟡 EMOM · CADA MINUTO';color:var(--amarillo)}
-#sec-principal.pf-mode-sumando > .seccion-header-row::before{content:'🌸 SUMANDO · PROGRESIÓN';color:var(--rosa)}
-#sec-principal.pf-mode-mix > .seccion-header-row::before{content:'⚡ ENTRENAMIENTO · 7 SISTEMAS';color:var(--naranja)}
+/* BUGFIX: esta "etiqueta chica" arriba del título repetía lo mismo que ya
+   dice el título grande (ej: "SUMANDO · PROGRESIÓN" chico arriba y
+   "SUMANDO EJERCICIO" grande abajo) — se saca para que quede solo el
+   título grande y centrado, sin duplicar el nombre del sistema. */
 
 /* Calentamiento: etapa independiente y premium */
 #sec-warmup{
@@ -4324,7 +4318,7 @@
   box-shadow:0 0 16px color-mix(in srgb,var(--card-color,var(--naranja)) 55%,transparent);
 }
 .bloque-mix-titulo{
-  padding:6px 40px 10px;
+  padding:6px 10px 10px;
   margin-bottom:10px!important;
   font-size:15px!important;
   letter-spacing:.7px!important;
@@ -10854,6 +10848,25 @@
                         pLista.innerHTML += crearCard(n, l, "", cc);
                     });
                 }
+                // Mostrar/ocultar Bloque Principal según si realmente tiene contenido:
+                // si el profesor cargó una rutina de "solo Calentamiento" (sin Series,
+                // Circuito, Tabata, EMOM, Por Tiempo, Sumando Ejercicio ni Mix), no
+                // tiene sentido mostrar la tarjeta de Bloque Principal vacía. También
+                // nos aseguramos de volver a mostrarla si sí tiene contenido, por si
+                // una pantalla anterior (ej. selección de días multi-día) la había
+                // dejado oculta.
+                var _principalTieneContenido;
+                if (data.tipo === "EMOM") {
+                    _principalTieneContenido = toArray(data.rutina || []).length > 0;
+                } else if (data.tipo === "Por Tiempo") {
+                    _principalTieneContenido = toArray(data.ejercicios || []).length > 0;
+                } else if (data.tipo === "ENTRENAMIENTO") {
+                    _principalTieneContenido = toArray(data.bloques || []).length > 0;
+                } else {
+                    _principalTieneContenido = ejerciciosPrincipales.length > 0;
+                }
+                if (pSeccion) pSeccion.style.display = _principalTieneContenido ? '' : 'none';
+
                 // Asegura que el nombre del ejercicio nunca quede tapado por el botón
                 // "Activar" del reloj de segundos, sin depender de soporte de :has() en CSS.
                 document.querySelectorAll('.card-seg-badge').forEach(_actualizarPaddingHeaderSeg);
