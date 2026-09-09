@@ -404,37 +404,61 @@
             pointer-events: none;
         }
 
-        /* #pf-content-wrap agrupa progreso + ejercicios. Reserva SIEMPRE
-           el alto del header con margin-top (valor fijo, se recalcula solo
-           por ResizeObserver, nunca durante el scroll) y cuando el header
-           se oculta sube esa misma distancia con transform para ocupar
-           el lugar que dejó.
-           OJO — bug corregido: un transform SOLO mueve la caja, no la
-           agranda. Como esta caja ya tenía altura fija (pantalla menos
-           header, por el margin-top + flex:1), al subirla con transform
-           su borde inferior subía exactamente lo mismo que el superior,
-           dejando un hueco negro del tamaño del header pegado abajo (el
-           espacio que se "liberaba" arriba reaparecía abajo). Por eso al
-           ocultarse también le sumamos ese alto a `height` — sin
-           transición, en el mismo instante en que se togglea la clase,
-           para no reintroducir el tironeo que se quería evitar al animar
-           layout — así el borde inferior de la caja se mantiene pegado
-           al fondo de la pantalla mientras sube, y el contenedor de
-           scroll (que es flex:1 adentro) crece para ocupar ese espacio
-           de verdad, en vez de solo desplazarse. */
+        /* #pf-progress-wrap: la barra de progreso vive ACÁ, separada del
+           header, para que NUNCA se oculte al scrollear — solo se desliza
+           hacia arriba para pegarse al techo de la pantalla y ocupar el
+           lugar que deja el header al esconderse, pero se mantiene siempre
+           visible (nunca opacity:0, a diferencia de #pf-header-wrap). */
+        #pf-progress-wrap {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 999;
+            transform: translateY(var(--pf-header-h, 64px));
+            transition: transform 0.28s ease;
+            will-change: transform;
+        }
+
+        #pf-progress-wrap.pf-hidden-scroll {
+            transform: translateY(0);
+        }
+
+        /* #pf-content-wrap agrupa los ejercicios. Reserva SIEMPRE el alto
+           del header + la barra de progreso con margin-top (valor fijo,
+           se recalcula solo por ResizeObserver, nunca durante el scroll) y
+           cuando el header se oculta sube la distancia del header (sin
+           contar la barra de progreso, que se queda ocupando su lugar)
+           con transform para ocupar el espacio que dejó.
+           OJO — bug corregido: antes, además del transform, se togglaba
+           `height:100%` SOLO en el estado oculto. Un transform anima de
+           forma instantánea en cuanto a layout (no dispara reflow), pero
+           el cambio de `height` sí se aplicaba/quitaba de un salto exacto
+           en el mismo instante en que arrancaba la transición de 280ms del
+           transform. Como uno de los dos cambios era inmediato y el otro
+           tardaba 280ms en completarse, durante esos 280ms el borde
+           inferior de la caja quedaba MÁS ARRIBA que el fondo real de la
+           pantalla (sobre todo al volver a mostrar el header), dejando ver
+           por un instante el fondo negro del modal — el "rectángulo negro"
+           abajo. La solución es dejar `height:100%` FIJO siempre (no
+           condicionado a ninguna clase), así el tamaño de la caja no
+           cambia nunca de golpe: solo se anima el transform, y el borde
+           inferior de la caja siempre queda igual o más abajo que el
+           fondo de la pantalla (el excedente lo recorta el overflow:hidden
+           del modal), nunca más arriba. */
         #pf-content-wrap {
             display: flex;
             flex-direction: column;
             flex: 1;
             min-height: 0;
-            margin-top: var(--pf-header-h, 64px);
+            height: 100%;
+            margin-top: var(--pf-total-top, 64px);
             transform: translateY(0);
             transition: transform 0.28s ease;
             will-change: transform;
         }
 
         #pf-content-wrap.pf-hidden-scroll {
-            height: 100%;
             transform: translateY(calc(-1 * var(--pf-header-h, 64px)));
         }
         
@@ -4908,16 +4932,14 @@
                     <span id="btn-semana-bar-label">SEMANA 1</span>
                     <span style="opacity:.85;font-weight:700;text-transform:uppercase;font-size:var(--fs-xs);">· Cambiar</span>
                 </button>
+            </div>
 
-                <!-- Barra de progreso general de la rutina. Va ACÁ adentro
-                     de pf-header-wrap (y no como hijo suelto de
-                     pf-content-wrap, donde estaba antes) para que se oculte
-                     y libere pantalla junto con el resto del header al
-                     scrollear, en vez de quedar fija ocupando una franja
-                     negra siempre visible. El código que la muestra/oculta
-                     ya llamaba a _pfSyncTopOffset() después de tocar su
-                     display — señal de que este era el lugar pensado
-                     para ella. -->
+            <!-- pf-progress-wrap: la barra de progreso general de la rutina
+                 va ACÁ, separada de pf-header-wrap, para que se mantenga
+                 SIEMPRE VISIBLE al scrollear (no se esconde con el header,
+                 solo se desliza hacia arriba para ocupar el lugar que deja
+                 el header al ocultarse). Ver CSS de #pf-progress-wrap. -->
+            <div id="pf-progress-wrap">
                 <div class="rutina-progress-container" id="rutina-progress-container" style="display:none;">
                     <div class="rutina-progress-label">
                         <span>PROGRESO DE RUTINA</span>
@@ -15514,14 +15536,19 @@
             // era lo que causaba el tironeo al scrollear.
             function _pfSyncTopOffset() {
                 var _hw = document.getElementById('pf-header-wrap');
+                var _pw = document.getElementById('pf-progress-wrap');
                 var _modal = document.getElementById('rutina-modal');
                 if (!_hw || !_modal) return;
-                _modal.style.setProperty('--pf-header-h', _hw.offsetHeight + 'px');
+                var _hh = _hw.offsetHeight;
+                var _ph = _pw ? _pw.offsetHeight : 0;
+                _modal.style.setProperty('--pf-header-h', _hh + 'px');
+                _modal.style.setProperty('--pf-total-top', (_hh + _ph) + 'px');
             }
             window._pfSyncTopOffset = _pfSyncTopOffset;
 
             (function() {
                 var _wrap = document.getElementById('pf-header-wrap');
+                var _pwrap = document.getElementById('pf-progress-wrap');
                 if (!_wrap || typeof ResizeObserver === 'undefined') {
                     _pfSyncTopOffset();
                     return;
@@ -15530,11 +15557,13 @@
                     _pfSyncTopOffset();
                 });
                 _ro.observe(_wrap);
+                if (_pwrap) _ro.observe(_pwrap);
             })();
 
             (function() {
                 var _scrollElHdr = document.getElementById('modal-scroll');
                 var _headerWrapEl = document.getElementById('pf-header-wrap');
+                var _progressWrapEl = document.getElementById('pf-progress-wrap');
                 var _contentWrapEl = document.getElementById('pf-content-wrap');
                 if (!_scrollElHdr || !_headerWrapEl || !_contentWrapEl) return;
                 var _ultimoScrollTop = _scrollElHdr.scrollTop;
@@ -15547,6 +15576,7 @@
                     if (_oculto) return;
                     _oculto = true;
                     _headerWrapEl.classList.add('pf-hidden-scroll');
+                    if (_progressWrapEl) _progressWrapEl.classList.add('pf-hidden-scroll');
                     _contentWrapEl.classList.add('pf-hidden-scroll');
                     _pausarDeteccion();
                 }
@@ -15555,6 +15585,7 @@
                     if (!_oculto) return;
                     _oculto = false;
                     _headerWrapEl.classList.remove('pf-hidden-scroll');
+                    if (_progressWrapEl) _progressWrapEl.classList.remove('pf-hidden-scroll');
                     _contentWrapEl.classList.remove('pf-hidden-scroll');
                     _pausarDeteccion();
                 }
@@ -17315,7 +17346,7 @@
 
             var style = document.createElement('style');
             style.textContent = [
-                '#pf-lectura-banner{display:none;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(135deg,#20321f,#12200f);border:1px solid #2f5a2a;border-radius:12px;padding:10px 14px;margin:calc(var(--pf-header-h, 64px) + 10px) 16px 0;color:#fff}',
+                '#pf-lectura-banner{display:none;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(135deg,#20321f,#12200f);border:1px solid #2f5a2a;border-radius:12px;padding:10px 14px;margin:calc(var(--pf-total-top, 64px) + 10px) 16px 0;color:#fff}',
                 '#pf-lectura-banner.visible{display:flex}',
                 '#pf-lectura-banner .pf-lectura-txt{font-size:11px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;color:#69f0ae;display:flex;align-items:center;gap:8px}',
                 '#pf-lectura-banner button{border:1px solid #3a3a48;background:#20202a;color:#fff;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;}',
