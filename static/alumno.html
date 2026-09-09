@@ -378,6 +378,27 @@
             position: sticky;
             top: 0;
         }
+
+        /* ─── OCULTAR HEADER Y BARRA DE SEMANA AL SCROLLEAR ───
+           Para que no ocupen espacio de pantalla mientras el alumno lee
+           la rutina, se colapsan (max-height a 0) al bajar y vuelven a
+           aparecer al subir. Ver IIFE de scroll más abajo en el JS. */
+        .header-rutina,
+        #btn-semana-bar {
+            overflow: hidden;
+            max-height: 160px;
+            transition: max-height 0.28s ease, padding 0.28s ease, opacity 0.22s ease, border-color 0.28s ease;
+        }
+
+        .header-rutina.pf-hidden-scroll,
+        #btn-semana-bar.pf-hidden-scroll {
+            max-height: 0 !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            opacity: 0;
+            border-bottom-color: transparent;
+            pointer-events: none;
+        }
         
         .header-rutina-info {
             display: flex;
@@ -15343,6 +15364,36 @@
                     } else {
                         _btnTop.classList.remove('visible');
                     }
+                }, {
+                    passive: true
+                });
+            })();
+
+            // ─── OCULTAR HEADER Y BARRA DE SEMANA AL SCROLLEAR HACIA ABAJO ───
+            // Al bajar en la rutina se colapsan el header (nombre/Salir) y la
+            // barra de "Semana" para ganar espacio de pantalla; al subir
+            // vuelven a aparecer. No afecta la lógica que ya muestra u oculta
+            // la barra de semana según si la rutina tiene semanas cargadas
+            // (_pfActualizarBotonSemanas), solo se suma/quita una clase extra.
+            (function() {
+                var _scrollElHdr = document.getElementById('modal-scroll');
+                var _headerRutinaEl = document.querySelector('.header-rutina');
+                var _semanaBarEl = document.getElementById('btn-semana-bar');
+                if (!_scrollElHdr || !_headerRutinaEl) return;
+                var _ultimoScrollTop = 0;
+                var _umbralMovimiento = 8;
+                _scrollElHdr.addEventListener('scroll', function() {
+                    var actual = _scrollElHdr.scrollTop;
+                    var diferencia = actual - _ultimoScrollTop;
+                    if (Math.abs(diferencia) < _umbralMovimiento) return;
+                    if (diferencia > 0 && actual > 40) {
+                        _headerRutinaEl.classList.add('pf-hidden-scroll');
+                        if (_semanaBarEl) _semanaBarEl.classList.add('pf-hidden-scroll');
+                    } else {
+                        _headerRutinaEl.classList.remove('pf-hidden-scroll');
+                        if (_semanaBarEl) _semanaBarEl.classList.remove('pf-hidden-scroll');
+                    }
+                    _ultimoScrollTop = actual;
                 }, {
                     passive: true
                 });
