@@ -13420,6 +13420,8 @@
     let _mapaCalorCompararAnterior = false; // true = mostrar comparación con la rutina anterior del alumno
     let _pfCompararDiaActualIdx = null;     // null = seguir el día que se está editando (diaActivoIdx)
     let _pfCompararDiaAnteriorIdx = 0;      // índice del día elegido dentro de la rutina anterior
+    let _pfRutinaAnteriorCompletaCache = null; // rutina COMPLETA (con bloques) de _pfHistorialAlumnoCache[0], para el panel de comparacion
+    let _pfCargandoRutinaAnteriorCompleta = false;
 
     function toggleMapaCalorVivo() {
         _mapaCalorVivoAbierto = !_mapaCalorVivoAbierto;
@@ -13432,10 +13434,49 @@
         if (_mapaCalorVivoAbierto) actualizarMapaCalorEnVivo(typeof diaActivoIdx !== 'undefined' ? diaActivoIdx : 0);
     }
 
+    // _pfHistorialAlumnoCache (listado liviano de /api/rutinas/alumno) NO trae los bloques
+    // completos de cada rutina, solo un preview del calentamiento (mismo motivo por el que
+    // _pfVerInline hace un fetch completo aparte antes de mostrar el detalle). Para el panel
+    // de comparación necesitamos los ejercicios reales de los bloques, así que pedimos la
+    // rutina completa por /api/rutina/{codigo} antes de calcular el balance muscular "anterior".
+    // Sin esto, generarPanelComparacionAnteriorHTML() calculaba el balance casi vacío (solo con
+    // el calentamiento) y el cuerpito de "rutina anterior" salía sin ningún músculo coloreado.
+    async function _pfAsegurarRutinaAnteriorCompleta() {
+        const liviana = (typeof _pfHistorialAlumnoCache !== 'undefined' && _pfHistorialAlumnoCache.length > 0) ? _pfHistorialAlumnoCache[0] : null;
+        if (!liviana) { _pfRutinaAnteriorCompletaCache = null; return; }
+        const codigo = liviana.codigo;
+        if (_pfRutinaAnteriorCompletaCache && _pfRutinaAnteriorCompletaCache.codigo === codigo) return; // ya la tenemos
+        if (typeof historialRutinasCache !== 'undefined' && historialRutinasCache[codigo] && historialRutinasCache[codigo]._pfCompleta) {
+            _pfRutinaAnteriorCompletaCache = Object.assign({ codigo: codigo }, historialRutinasCache[codigo]);
+            return;
+        }
+        _pfCargandoRutinaAnteriorCompleta = true;
+        try {
+            const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+            const data = await res.json();
+            if (data.ok && data.rutina) {
+                data.rutina._pfCompleta = true;
+                if (typeof historialRutinasCache !== 'undefined') historialRutinasCache[codigo] = data.rutina;
+                _pfRutinaAnteriorCompletaCache = Object.assign({ codigo: codigo }, data.rutina);
+            } else {
+                _pfRutinaAnteriorCompletaCache = liviana; // fallback: mejor mostrar el preview que nada
+            }
+        } catch (e) {
+            _pfRutinaAnteriorCompletaCache = liviana; // sin conexion: idem, mostrar lo que haya
+        } finally {
+            _pfCargandoRutinaAnteriorCompleta = false;
+        }
+    }
+
     // Prende/apaga el modo "comparar con la rutina anterior" desde el checkbox del panel
     function _pfToggleCompararAnterior(activado) {
         _mapaCalorCompararAnterior = activado;
         actualizarMapaCalorEnVivo(typeof diaActivoIdx !== 'undefined' ? diaActivoIdx : 0);
+        if (activado) {
+            _pfAsegurarRutinaAnteriorCompleta().then(() => {
+                actualizarMapaCalorEnVivo(typeof diaActivoIdx !== 'undefined' ? diaActivoIdx : 0);
+            });
+        }
     }
 
     // El profe eligió manualmente qué día de CADA rutina comparar (dropdowns, solo aparecen si alguna es multi-día)
@@ -13701,7 +13742,16 @@
 
         if (_mapaCalorCompararAnterior && hayAnterior) {
             try {
-                html += generarPanelComparacionAnteriorHTML(_pfHistorialAlumnoCache[0]);
+                if (_pfCargandoRutinaAnteriorCompleta) {
+                    html += '<div style="margin-top:16px;padding-top:14px;border-top:1px solid #2a2a35;text-align:center;color:#8a8a9a;font-size:12px;">Cargando rutina anterior…</div>';
+                } else if (_pfRutinaAnteriorCompletaCache) {
+                    html += generarPanelComparacionAnteriorHTML(_pfRutinaAnteriorCompletaCache);
+                } else {
+                    // Todavia no se pidio la rutina completa (ej: se reabrió el panel ya con el
+                    // check tildado) -> dispararlo ahora y re-renderizar cuando llegue.
+                    html += '<div style="margin-top:16px;padding-top:14px;border-top:1px solid #2a2a35;text-align:center;color:#8a8a9a;font-size:12px;">Cargando rutina anterior…</div>';
+                    _pfAsegurarRutinaAnteriorCompleta().then(() => actualizarMapaCalorEnVivo(idx));
+                }
             } catch (e) { /* si algo falla en la comparacion, se muestra igual el mapa de calor normal */ }
         }
 
@@ -17313,6 +17363,9 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
     async function _pfChequearHistorialAlumno() {
         const nombre = (document.getElementById('alumno-nombre')?.value || '').trim();
         const card = document.getElementById('historial-alumno-card');
+        // Cambió el alumno tipeado: la rutina "completa" que teníamos cacheada para el panel de
+        // comparación (si había alguna) es de OTRO alumno, no sirve más.
+        _pfRutinaAnteriorCompletaCache = null;
         if (!nombre) { _pfHistorialAlumnoCache = []; if (card) card.classList.add('hidden'); return; }
         try {
             const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre));
@@ -17325,6 +17378,13 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
                 const cantEl = document.getElementById('historial-alumno-cant');
                 if (cantEl) cantEl.textContent = _pfHistorialAlumnoCache.length;
                 if (card) card.classList.remove('hidden');
+                // Si el check de "comparar" ya estaba tildado (el profe cambió de alumno sin
+                // destildarlo), traer de una la rutina completa del nuevo alumno.
+                if (_mapaCalorCompararAnterior) {
+                    _pfAsegurarRutinaAnteriorCompleta().then(() => {
+                        actualizarMapaCalorEnVivo(typeof diaActivoIdx !== 'undefined' ? diaActivoIdx : 0);
+                    });
+                }
             } else {
                 _pfHistorialAlumnoCache = [];
                 if (card) card.classList.add('hidden');
