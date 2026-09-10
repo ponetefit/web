@@ -7794,7 +7794,13 @@
             // Si todavía no tiene ninguna rutina, devuelve "rafael-0001".
             async function _sugerirProximoCodigo(nombre) {
                 var prefijo = nombre + '-';
-                var url = "/api/fb/" + encodeURIComponent(nombre) + "/rutinas.json?orderBy=" + encodeURIComponent('"$key"') +
+                // OJO: para que el backend pueda ubicar la cuenta del alumno hace
+                // falta pasarle un código con formato completo (nombre+número) en
+                // vez del nombre solo — por eso usamos un código "de mentira" acá
+                // (no importa si ese número existe o no, solo sirve para que
+                // identifique de qué cuenta estamos hablando).
+                var codigoParaResolverCuenta = prefijo + '0001';
+                var url = "/api/fb/" + encodeURIComponent(codigoParaResolverCuenta) + "/rutinas.json?orderBy=" + encodeURIComponent('"$key"') +
                     '&startAt=' + encodeURIComponent('"' + prefijo + '"') +
                     '&endAt=' + encodeURIComponent('"' + prefijo + '\uf8ff"');
                 var res = await fetch(url);
