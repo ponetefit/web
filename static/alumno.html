@@ -424,42 +424,46 @@
             transform: translateY(0);
         }
 
-        /* #pf-content-wrap agrupa los ejercicios. Reserva SIEMPRE el alto
-           del header + la barra de progreso con margin-top (valor fijo,
-           se recalcula solo por ResizeObserver, nunca durante el scroll) y
-           cuando el header se oculta sube la distancia del header (sin
-           contar la barra de progreso, que se queda ocupando su lugar)
-           con transform para ocupar el espacio que dejó.
-           OJO — bug corregido: antes, además del transform, se togglaba
-           `height:100%` SOLO en el estado oculto. Un transform anima de
-           forma instantánea en cuanto a layout (no dispara reflow), pero
-           el cambio de `height` sí se aplicaba/quitaba de un salto exacto
-           en el mismo instante en que arrancaba la transición de 280ms del
-           transform. Como uno de los dos cambios era inmediato y el otro
-           tardaba 280ms en completarse, durante esos 280ms el borde
-           inferior de la caja quedaba MÁS ARRIBA que el fondo real de la
-           pantalla (sobre todo al volver a mostrar el header), dejando ver
-           por un instante el fondo negro del modal — el "rectángulo negro"
-           abajo. La solución es dejar `height:100%` FIJO siempre (no
-           condicionado a ninguna clase), así el tamaño de la caja no
-           cambia nunca de golpe: solo se anima el transform, y el borde
-           inferior de la caja siempre queda igual o más abajo que el
-           fondo de la pantalla (el excedente lo recorta el overflow:hidden
-           del modal), nunca más arriba. */
+        /* #pf-content-wrap agrupa los ejercicios (con su propio scroll
+           interno, #modal-scroll). Va con position:absolute + bottom:0
+           SIEMPRE fijo al borde real de la pantalla, y `top` es lo único
+           que cambia entre estados (con transición) para reservar el
+           espacio del header + la barra de progreso, o liberarlo cuando
+           el header se esconde.
+           OJO — dos intentos anteriores fallaron:
+           1) margin-top + flex:1 + height:100%: con flex-basis:0% (lo que
+              trae "flex:1") el navegador IGNORA el height declarado y
+              recalcula el alto solo por flex-grow, así que el toggle de
+              height nunca hacía nada — la caja no llegaba al fondo real
+              al esconderse el header.
+           2) position:absolute con alto fijo en 100% de pantalla y offset
+              solo por transform: eso sí llega "visualmente" al fondo,
+              pero el alto REAL de la caja (y por lo tanto de #modal-scroll,
+              que es flex:1 adentro) queda fijo en el alto de toda la
+              pantalla, más grande que lo que en verdad se ve — el
+              contenedor de scroll piensa que tiene más espacio visible
+              del que tiene, y termina "perdiendo" al fondo un pedazo de
+              rutina real (queda recortado por el overflow:hidden del
+              modal en vez de mostrarse).
+           Con bottom:0 siempre fijo y `top` animado, el alto de la caja
+           (pantalla menos `top`) es EXACTAMENTE igual al espacio visible
+           real en todo momento — sin importar el estado — así el scroll
+           interno mide bien su propio contenedor y el entrenamiento se ve
+           de verdad hasta el fondo de la pantalla, sin rectángulo negro. */
         #pf-content-wrap {
+            position: absolute;
+            top: var(--pf-total-top, 64px);
+            left: 0;
+            right: 0;
+            bottom: 0;
             display: flex;
             flex-direction: column;
-            flex: 1;
             min-height: 0;
-            height: 100%;
-            margin-top: var(--pf-total-top, 64px);
-            transform: translateY(0);
-            transition: transform 0.28s ease;
-            will-change: transform;
+            transition: top 0.28s ease;
         }
 
         #pf-content-wrap.pf-hidden-scroll {
-            transform: translateY(calc(-1 * var(--pf-header-h, 64px)));
+            top: calc(var(--pf-total-top, 64px) - var(--pf-header-h, 64px));
         }
         
         .header-rutina-info {
