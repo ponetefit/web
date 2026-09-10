@@ -7811,32 +7811,47 @@
                 let cod = document.getElementById('codigoInput').value.trim().toLowerCase();
                 if (!cod) return;
                 const btn = document.querySelector('.btn-principal');
-                btn.innerText = 'Cargando...';
-                btn.disabled = true;
-                // Desbloquear audio en iOS aprovechando esta interacción real del usuario
-                _desbloquearAudioIOS();
-                try {
-                    let data;
-                    if (cod.includes('-')) {
-                        const res = await fetch("/api/fb/" + encodeURIComponent(cod) + "/rutinas/" + cod + ".json");
-                        data = await res.json();
-                        if (!data) {
-                            alert("Codigo no encontrado");
-                            return;
-                        }
-                    } else {
-                        // Escribiste solo el nombre (sin número): vamos directo a
-                        // la ÚLTIMA rutina que ya existe para ese nombre, no a un
-                        // número nuevo que todavía no fue creado.
+
+                // Si escribiste solo el nombre, sin número (ej: "rafa"), todavía
+                // no entramos a ninguna rutina: buscamos cuál es la última que
+                // existe y la dejamos escrita en el campo. Recién si volvés a
+                // tocar el botón (ahora con el código completo ya puesto) entra
+                // al entrenamiento.
+                if (!cod.includes('-')) {
+                    btn.innerText = 'Buscando...';
+                    btn.disabled = true;
+                    try {
                         var lista = await _buscarRutinasPorNombre(cod);
                         var codigosLista = lista ? Object.keys(lista).sort() : [];
                         if (codigosLista.length === 0) {
                             alert('No encontramos ninguna rutina para "' + cod + '"');
                             return;
                         }
-                        cod = codigosLista[codigosLista.length - 1];
-                        data = lista[cod];
-                        document.getElementById('codigoInput').value = cod;
+                        var ultimoCod = codigosLista[codigosLista.length - 1];
+                        var inputCod = document.getElementById('codigoInput');
+                        inputCod.value = ultimoCod;
+                        inputCod.focus();
+                        inputCod.select();
+                        mostrarToast('Última rutina: ' + ultimoCod.toUpperCase() + ' — tocá de nuevo para entrar');
+                    } catch (eBusq) {
+                        alert('No se pudo buscar la rutina.');
+                    } finally {
+                        btn.innerText = 'Entrar a Entrenar';
+                        btn.disabled = false;
+                    }
+                    return;
+                }
+
+                btn.innerText = 'Cargando...';
+                btn.disabled = true;
+                // Desbloquear audio en iOS aprovechando esta interacción real del usuario
+                _desbloquearAudioIOS();
+                try {
+                    const res = await fetch("/api/fb/" + encodeURIComponent(cod) + "/rutinas/" + cod + ".json");
+                    const data = await res.json();
+                    if (!data) {
+                        alert("Codigo no encontrado");
+                        return;
                     }
                     dataGlobal = data;
                     currentCode = cod;
