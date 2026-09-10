@@ -3782,6 +3782,23 @@
         </div>
     </div>
 
+    <!-- Modal: opciones de una rutina del Repositorio (mismo patron que el modal de historial
+         del alumno: Ver / Copiar toda la rutina / Ver dias y copiar por partes) -->
+    <div id="modal-repo-opciones" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start sm:items-center justify-center p-2 sm:p-6 overflow-y-auto modal-bottom-sheet-mobile">
+        <div class="bg-tarjeta rounded-2xl border border-borde p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto my-2 sm:my-0">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-bold text-naranja uppercase tracking-wider">📋 <span id="repo-opciones-nombre-modal"></span></h3>
+                <button onclick="document.getElementById('modal-repo-opciones').classList.add('hidden')" class="text-textoSuave hover:text-texto text-xl leading-none px-2">&times;</button>
+            </div>
+            <div class="flex flex-wrap gap-2 mb-2">
+                <button id="repo-opciones-btn-ver" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">👁 Ver</button>
+                <button id="repo-opciones-btn-copiar" class="bg-verde/20 text-verde px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-verde/30 transition">📋 Copiar toda la rutina</button>
+                <button id="repo-opciones-btn-desglosar" class="bg-purpura/20 text-purpura px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">Ver días y copiar por partes</button>
+            </div>
+            <div id="repo-opciones-desglose" class="hidden mt-2 space-y-2"></div>
+        </div>
+    </div>
+
     <!-- Modal: advertencia de ejercicio que el alumno no puede hacer -->
     <div id="modal-advertencia-ejercicio" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
         <div class="bg-tarjeta rounded-3xl border border-rojo p-6 max-w-md w-full">
@@ -15502,11 +15519,53 @@
                     </div>
                 </div>
                 <div class="pf-repo-card-actions flex gap-1.5 flex-shrink-0">
-                    <button onclick="verEntrenamientoRepo(${idxOriginal})" class="bg-purpura/20 text-purpura px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-purpura/30 transition whitespace-nowrap">Ver</button>
-                    <button onclick="cargarPlantillaEnCrear(${idxOriginal})" class="bg-naranja/20 text-naranja px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-naranja/30 transition whitespace-nowrap">Usar acá</button>
+                    <button onclick="abrirModalOpcionesRepo(${idxOriginal})" class="bg-naranja/20 text-naranja px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-naranja/30 transition whitespace-nowrap">📂 Opciones</button>
                 </div>
             </div>`;
         }).join('');
+    }
+
+    // Abre el modal de opciones de una rutina del Repositorio (mismo patrón que
+    // abrirModalHistorialAlumno): Ver / Copiar toda la rutina / Ver días y copiar por partes.
+    // A diferencia del historial del alumno, acá los datos ya están completos en el repositorio
+    // (no hace falta ningún fetch aparte al backend).
+    function abrirModalOpcionesRepo(idx) {
+        const repo = getRepositorio();
+        const r = repo[idx];
+        if (!r) return;
+        document.getElementById('repo-opciones-nombre-modal').textContent = (r.nombre || '').toUpperCase();
+        const desglose = document.getElementById('repo-opciones-desglose');
+        desglose.innerHTML = '';
+        desglose.classList.add('hidden');
+        document.getElementById('repo-opciones-btn-ver').onclick = () => {
+            document.getElementById('modal-repo-opciones').classList.add('hidden');
+            verEntrenamientoRepo(idx);
+        };
+        document.getElementById('repo-opciones-btn-copiar').onclick = () => {
+            document.getElementById('modal-repo-opciones').classList.add('hidden');
+            cargarPlantillaEnCrear(idx);
+        };
+        document.getElementById('repo-opciones-btn-desglosar').onclick = () => _pfDesglosarRepo(idx);
+        document.getElementById('modal-repo-opciones').classList.remove('hidden');
+    }
+
+    // Muestra (o esconde, si ya estaba mostrado) el desglose día por día de una rutina del
+    // Repositorio, con botones para copiar solo el calentamiento o solo un bloque específico
+    // a la rutina que se está armando en "Crear Rutina" — mismo mecanismo que ya usa
+    // _pfDesglosarHistorial para el historial del alumno (_pfHistorialParseado +
+    // abrirModalCopiarBloqueDesdeHistorial / abrirModalCopiarCalentamientoDesdeHistorial).
+    function _pfDesglosarRepo(idx) {
+        const cont = document.getElementById('repo-opciones-desglose');
+        if (!cont) return;
+        if (!cont.classList.contains('hidden')) { cont.classList.add('hidden'); return; }
+        const repo = getRepositorio();
+        const r = repo[idx];
+        if (!r) return;
+        const { obj } = convertirRepoARutinaFormat(r);
+        const dias = _pfParsearDiasHistorial(obj);
+        _pfHistorialParseado = dias;
+        cont.innerHTML = _pfGenerarHTMLCompacto(dias, true);
+        cont.classList.remove('hidden');
     }
 
     async function cargarPlantillaEnCrear(idx) {
@@ -17316,7 +17375,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
     // IDs de los contenedores modales reales (fixed inset-0), en el orden en que aparecen en el DOM.
     const MODAL_IDS = ['modal-pf-confirm', 'modal-dash-rutina', 'modal-codigo', 'modal-repo-guardar', 'modal-repo-editar',
         'modal-repo-copiar', 'modal-ver-rutina', 'modal-piz-vt', 'modal-ia-config', 'modal-ia-preview',
-        'modal-nueva-cat', 'modal-bloque', 'modal-copiar-destino', 'modal-historial-alumno', 'modal-vista-compacta-rutina',
+        'modal-nueva-cat', 'modal-bloque', 'modal-copiar-destino', 'modal-historial-alumno', 'modal-repo-opciones', 'modal-vista-compacta-rutina',
         'modal-advertencia-ejercicio', 'modal-advertencia-costoso', 'modal-musculo-detalle'];
 
     // Devuelve tambien los modales de calentamiento (uno por dia, id dinamico modal-calentamiento-N)
