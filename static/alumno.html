@@ -7787,12 +7787,10 @@
                 _intentarColorear(0);
             }
 
-            // ─── SUGERIR PRÓXIMO CÓDIGO LIBRE PARA UN NOMBRE ───
-            // Dado "rafael", busca todas sus rutinas existentes (rafael-0001,
-            // rafael-0002, ...) y devuelve el siguiente número libre
-            // (ej: si la última es rafael-0015, devuelve "rafael-0016").
-            // Si todavía no tiene ninguna rutina, devuelve "rafael-0001".
-            async function _sugerirProximoCodigo(nombre) {
+            // ─── BUSCAR TODAS LAS RUTINAS DE UN NOMBRE ───
+            // Dado "rafael", devuelve un objeto con TODAS sus rutinas existentes
+            // (rafael-0001, rafael-0002, ..., rafael-0005). Null si no hay ninguna.
+            async function _buscarRutinasPorNombre(nombre) {
                 var prefijo = nombre + '-';
                 // OJO: para que el backend pueda ubicar la cuenta del alumno hace
                 // falta pasarle un código con formato completo (nombre+número) en
@@ -7805,61 +7803,40 @@
                     '&endAt=' + encodeURIComponent('"' + prefijo + '\uf8ff"');
                 var res = await fetch(url);
                 var data = await res.json();
-                var codigos = data ? Object.keys(data).sort() : [];
-                var ancho = 4; // cantidad de dígitos si todavía no existe ninguna rutina
-                var siguiente = 1;
-                if (codigos.length > 0) {
-                    var ultimo = codigos[codigos.length - 1];
-                    var numStr = ultimo.slice(prefijo.length);
-                    var num = parseInt(numStr, 10);
-                    if (!isNaN(num)) {
-                        siguiente = num + 1;
-                        ancho = numStr.length;
-                    }
-                }
-                return prefijo + String(siguiente).padStart(ancho, '0');
+                return data || null;
             }
 
             // ─── CONSULTAR RUTINA ───
             async function consultarRutina() {
-                const cod = document.getElementById('codigoInput').value.trim().toLowerCase();
+                let cod = document.getElementById('codigoInput').value.trim().toLowerCase();
                 if (!cod) return;
                 const btn = document.querySelector('.btn-principal');
-
-                // Si escribiste solo el nombre, sin número (ej: "rafael"), no
-                // buscamos ninguna rutina todavía: calculamos cuál es el próximo
-                // número libre para ese nombre y lo dejamos escrito en el campo,
-                // para que lo confirmes tal cual o lo edites vos mismo (por
-                // ejemplo para revisar una rutina puntual como rafael-0005).
-                if (!cod.includes('-')) {
-                    btn.innerText = 'Buscando...';
-                    btn.disabled = true;
-                    try {
-                        var sugerido = await _sugerirProximoCodigo(cod);
-                        var inputCod = document.getElementById('codigoInput');
-                        inputCod.value = sugerido;
-                        inputCod.focus();
-                        inputCod.select();
-                        mostrarToast('Próximo código libre: ' + sugerido.toUpperCase());
-                    } catch (eSug) {
-                        alert('No se pudo calcular el próximo código.');
-                    } finally {
-                        btn.innerText = 'Entrar a Entrenar';
-                        btn.disabled = false;
-                    }
-                    return;
-                }
-
                 btn.innerText = 'Cargando...';
                 btn.disabled = true;
                 // Desbloquear audio en iOS aprovechando esta interacción real del usuario
                 _desbloquearAudioIOS();
                 try {
-                    const res = await fetch("/api/fb/" + encodeURIComponent(cod) + "/rutinas/" + cod + ".json");
-                    const data = await res.json();
-                    if (!data) {
-                        alert("Codigo no encontrado");
-                        return;
+                    let data;
+                    if (cod.includes('-')) {
+                        const res = await fetch("/api/fb/" + encodeURIComponent(cod) + "/rutinas/" + cod + ".json");
+                        data = await res.json();
+                        if (!data) {
+                            alert("Codigo no encontrado");
+                            return;
+                        }
+                    } else {
+                        // Escribiste solo el nombre (sin número): vamos directo a
+                        // la ÚLTIMA rutina que ya existe para ese nombre, no a un
+                        // número nuevo que todavía no fue creado.
+                        var lista = await _buscarRutinasPorNombre(cod);
+                        var codigosLista = lista ? Object.keys(lista).sort() : [];
+                        if (codigosLista.length === 0) {
+                            alert('No encontramos ninguna rutina para "' + cod + '"');
+                            return;
+                        }
+                        cod = codigosLista[codigosLista.length - 1];
+                        data = lista[cod];
+                        document.getElementById('codigoInput').value = cod;
                     }
                     dataGlobal = data;
                     currentCode = cod;
