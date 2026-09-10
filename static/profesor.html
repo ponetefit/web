@@ -15093,10 +15093,9 @@
                     ${usoInfo}
                 </div>
                 <div class="pf-repo-full-actions flex gap-2 flex-shrink-0 flex-wrap">
-                    <button onclick="verEntrenamientoRepo(${idx})" class="bg-purpura/20 text-purpura px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition whitespace-nowrap">Ver Entrenamiento</button>
+                    <button onclick="abrirModalOpcionesRepo(${idx})" class="bg-naranja/20 text-naranja px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition whitespace-nowrap">📂 Opciones</button>
                     <button onclick="copiarAAlumnoDesdeRepo(${idx})" class="bg-verde/20 text-verde px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-verde/30 transition whitespace-nowrap">Copiar a Alumno</button>
                     <button onclick="editarPlantilla(${idx})" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition whitespace-nowrap">Editar</button>
-                    <button onclick="cargarPlantillaEnCrear(${idx})" class="bg-naranja/20 text-naranja px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition whitespace-nowrap">Usar</button>
                     <button onclick="eliminarDelRepositorio(${idx})" class="bg-rojo/20 text-rojo px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition whitespace-nowrap">Eliminar</button>
                 </div>
             </div>`;
@@ -15554,6 +15553,8 @@
     // a la rutina que se está armando en "Crear Rutina" — mismo mecanismo que ya usa
     // _pfDesglosarHistorial para el historial del alumno (_pfHistorialParseado +
     // abrirModalCopiarBloqueDesdeHistorial / abrirModalCopiarCalentamientoDesdeHistorial).
+    let _pfDesgloseRepoCache = null; // { semanas, activa }, para poder cambiar de semana sin recalcular
+
     function _pfDesglosarRepo(idx) {
         const cont = document.getElementById('repo-opciones-desglose');
         if (!cont) return;
@@ -15562,10 +15563,27 @@
         const r = repo[idx];
         if (!r) return;
         const { obj } = convertirRepoARutinaFormat(r);
-        const dias = _pfParsearDiasHistorial(obj);
-        _pfHistorialParseado = dias;
-        cont.innerHTML = _pfGenerarHTMLCompacto(dias, true);
+        const semanas = _pfObtenerSemanasParaDesglose(obj);
+        _pfDesgloseRepoCache = { semanas, activa: semanas[semanas.length - 1].numero };
+        _pfRenderDesgloseRepo();
         cont.classList.remove('hidden');
+    }
+
+    function _pfRenderDesgloseRepo() {
+        const cont = document.getElementById('repo-opciones-desglose');
+        const cache = _pfDesgloseRepoCache;
+        if (!cont || !cache) return;
+        const semanaObj = cache.semanas.find(s => s.numero === cache.activa) || cache.semanas[0];
+        const dias = _pfParsearDiasHistorial(semanaObj.shape);
+        _pfHistorialParseado = dias;
+        const tabs = _pfRenderTabsSemanas(cache.semanas, cache.activa, '_pfCambiarSemanaDesgloseRepo(__N__)');
+        cont.innerHTML = tabs + _pfGenerarHTMLCompacto(dias, true);
+    }
+
+    function _pfCambiarSemanaDesgloseRepo(numero) {
+        if (!_pfDesgloseRepoCache) return;
+        _pfDesgloseRepoCache.activa = numero;
+        _pfRenderDesgloseRepo();
     }
 
     async function cargarPlantillaEnCrear(idx) {
@@ -17418,6 +17436,42 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
     let _pfHistorialAlumnoCache = [];   // ultimas (hasta 5) rutinas del alumno tipeado
     let _pfHistorialParseado = null;    // dias parseados de la rutina historica actualmente desglosada
 
+    // ── Soporte de progresión semanal en "Ver" y "Ver días y copiar por partes" ──
+    // Tanto una rutina del Historial (r.semanas = {"1":{...},"2":{...}}) como una
+    // plantilla del Repositorio ya convertida con convertirRepoARutinaFormat (mismo
+    // shape) pueden tener más de una semana guardada. Antes, todas las vistas de
+    // solo-desglose (a diferencia del modal "Ver Entrenamiento" completo, que ya
+    // soportaba pestañas de semana) ignoraban r.semanas y solo mostraban la última
+    // semana (la que queda "afuera", al nivel raíz de r). Estas dos funciones se
+    // reutilizan en todos esos lugares para poder elegir qué semana desglosar.
+    function _pfObtenerSemanasParaDesglose(r) {
+        if (r && r.semanas && typeof r.semanas === 'object' && !Array.isArray(r.semanas)) {
+            const nums = Object.keys(r.semanas)
+                .map(k => parseInt(k, 10))
+                .filter(n => !isNaN(n) && r.semanas[String(n)])
+                .sort((a, b) => a - b);
+            if (nums.length > 0) {
+                return nums.map(n => ({ numero: n, shape: r.semanas[String(n)] }));
+            }
+        }
+        return [{ numero: 1, shape: r }];
+    }
+
+    // Genera pestañas "📅 Semana N". onClickTpl debe contener el marcador __N__,
+    // que se reemplaza por el número de semana de cada botón. Si solo hay una
+    // semana no se muestra nada (no tiene sentido elegir entre una sola opción).
+    function _pfRenderTabsSemanas(semanas, activa, onClickTpl) {
+        if (!semanas || semanas.length <= 1) return '';
+        return '<div class="flex flex-wrap gap-1.5 mb-3">' +
+            semanas.map(s => {
+                const esActiva = s.numero === activa;
+                return '<button onclick="' + onClickTpl.replace('__N__', s.numero) + '" class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition ' +
+                    (esActiva ? 'bg-amarillo text-fondo' : 'bg-fondoAlt text-textoSuave border border-borde hover:text-texto') +
+                    '">📅 Semana ' + s.numero + '</button>';
+            }).join('') +
+        '</div>';
+    }
+
     // Chequea si el alumno tipeado tiene rutinas previas y muestra/oculta la tarjeta
     async function _pfChequearHistorialAlumno() {
         const nombre = (document.getElementById('alumno-nombre')?.value || '').trim();
@@ -17493,6 +17547,8 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
     // con botones para copiar solo el calentamiento o solo un bloque especifico.
     // "Ver" (solo lectura): se despliega hacia abajo dentro de la misma tarjeta, igual que
     // "Ver días y copiar por partes", para poder tener varias rutinas abiertas a la vez.
+    let _pfVerInlineCache = {}; // i -> { semanas, activa }, para poder cambiar de semana sin re-fetchear
+
     async function _pfVerInline(codigo, i) {
         // En PC/desktop: abrir el historial en una ventana nueva (listado a un costado +
         // vista compacta a la derecha). En mobile: se despliega inline dentro de la misma tarjeta.
@@ -17515,11 +17571,29 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             if (!data.ok) { cont.innerHTML = '<p class="text-xs text-rojo">Error al cargar</p>'; return; }
             const r = data.rutina;
             historialRutinasCache[codigo] = r;
-            const dias = _pfParsearDiasHistorial(r);
-            cont.innerHTML = _pfGenerarHTMLCompacto(dias, false);
+            const semanas = _pfObtenerSemanasParaDesglose(r);
+            _pfVerInlineCache[i] = { semanas, activa: semanas[semanas.length - 1].numero };
+            _pfRenderVerInline(i);
         } catch (e) {
             cont.innerHTML = '<p class="text-xs text-rojo">Error de conexión</p>';
         }
+    }
+
+    function _pfRenderVerInline(i) {
+        const cont = document.getElementById('historial-ver-inline-' + i);
+        const cache = _pfVerInlineCache[i];
+        if (!cont || !cache) return;
+        const semanaObj = cache.semanas.find(s => s.numero === cache.activa) || cache.semanas[0];
+        const dias = _pfParsearDiasHistorial(semanaObj.shape);
+        const tabs = _pfRenderTabsSemanas(cache.semanas, cache.activa, '_pfCambiarSemanaVerInline(' + i + ',__N__)');
+        cont.innerHTML = tabs + _pfGenerarHTMLCompacto(dias, false);
+    }
+
+    function _pfCambiarSemanaVerInline(i, numero) {
+        const cache = _pfVerInlineCache[i];
+        if (!cache) return;
+        cache.activa = numero;
+        _pfRenderVerInline(i);
     }
 
     // Abre el detalle de una rutina del historial en una ventana/pestaña nueva (solo desktop/PC),
@@ -17592,9 +17666,31 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
                 if (!data.ok) { if (!ventana.closed) cont.innerHTML = '<p style="color:#EF5350;font-size:0.85rem;">Error al cargar</p>'; return; }
                 const r = data.rutina;
                 historialRutinasCache[codigo] = r;
-                const dias = _pfParsearDiasHistorial(r);
-                const html = '<h1 style="font-size:1rem;font-weight:700;color:#FFD54F;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 16px;">' + codigo.toUpperCase() + '</h1>' + _pfGenerarHTMLCompacto(dias, false);
-                if (!ventana.closed) cont.innerHTML = html;
+                // Si la rutina tiene progresión semanal (r.semanas), armar pestañas
+                // "Semana 1", "Semana 2", etc. para poder ver/copiar cualquier semana,
+                // no solo la última (que es la que queda al nivel raíz de r).
+                const semanas = _pfObtenerSemanasParaDesglose(r);
+                let semanaActiva = semanas[semanas.length - 1].numero;
+                const renderSemana = () => {
+                    if (ventana.closed) return;
+                    const semanaObj = semanas.find(s => s.numero === semanaActiva) || semanas[0];
+                    const dias = _pfParsearDiasHistorial(semanaObj.shape);
+                    const tabsHtml = semanas.length > 1
+                        ? '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">' +
+                            semanas.map(s => '<button data-semana="' + s.numero + '" class="hv-semana-tab" style="padding:4px 10px;border-radius:8px;font-size:0.7rem;font-weight:700;cursor:pointer;border:1px solid ' +
+                                (s.numero === semanaActiva ? '#FFD54F' : '#2a2a35') + ';background:' + (s.numero === semanaActiva ? '#FFD54F' : 'transparent') +
+                                ';color:' + (s.numero === semanaActiva ? '#0a0a0c' : '#8a8a9a') + ';">📅 Semana ' + s.numero + '</button>').join('') +
+                          '</div>'
+                        : '';
+                    cont.innerHTML = '<h1 style="font-size:1rem;font-weight:700;color:#FFD54F;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 16px;">' + codigo.toUpperCase() + '</h1>' +
+                        tabsHtml + _pfGenerarHTMLCompacto(dias, false);
+                    if (semanas.length > 1) {
+                        cont.querySelectorAll('.hv-semana-tab').forEach(btn => {
+                            btn.onclick = () => { semanaActiva = parseInt(btn.dataset.semana, 10); renderSemana(); };
+                        });
+                    }
+                };
+                renderSemana();
             } catch (e) {
                 if (!ventana.closed) cont.innerHTML = '<p style="color:#EF5350;font-size:0.85rem;">Error de conexión</p>';
             }
@@ -17619,6 +17715,8 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         }
     }
 
+    let _pfDesgloseHistorialCache = {}; // i -> { semanas, activa }, para poder cambiar de semana sin re-fetchear
+
     async function _pfDesglosarHistorial(codigo, i) {
         const cont = document.getElementById('historial-dias-' + i);
         if (!cont) return;
@@ -17631,12 +17729,30 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             if (!data.ok) { cont.innerHTML = '<p class="text-xs text-rojo">Error al cargar</p>'; return; }
             const r = data.rutina;
             historialRutinasCache[codigo] = r;
-            const dias = _pfParsearDiasHistorial(r);
-            _pfHistorialParseado = dias;
-            cont.innerHTML = _pfGenerarHTMLCompacto(dias, true);
+            const semanas = _pfObtenerSemanasParaDesglose(r);
+            _pfDesgloseHistorialCache[i] = { semanas, activa: semanas[semanas.length - 1].numero };
+            _pfRenderDesgloseHistorial(i);
         } catch (e) {
             cont.innerHTML = '<p class="text-xs text-rojo">Error de conexión</p>';
         }
+    }
+
+    function _pfRenderDesgloseHistorial(i) {
+        const cont = document.getElementById('historial-dias-' + i);
+        const cache = _pfDesgloseHistorialCache[i];
+        if (!cont || !cache) return;
+        const semanaObj = cache.semanas.find(s => s.numero === cache.activa) || cache.semanas[0];
+        const dias = _pfParsearDiasHistorial(semanaObj.shape);
+        _pfHistorialParseado = dias;
+        const tabs = _pfRenderTabsSemanas(cache.semanas, cache.activa, '_pfCambiarSemanaDesgloseHistorial(' + i + ',__N__)');
+        cont.innerHTML = tabs + _pfGenerarHTMLCompacto(dias, true);
+    }
+
+    function _pfCambiarSemanaDesgloseHistorial(i, numero) {
+        const cache = _pfDesgloseHistorialCache[i];
+        if (!cache) return;
+        cache.activa = numero;
+        _pfRenderDesgloseHistorial(i);
     }
 
     // Abre el selector de dia destino para copiar un bloque especifico de una rutina historica
