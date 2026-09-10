@@ -16529,7 +16529,14 @@
                         alert('Para instalar la app:\n\n1. Tocá el botón "Compartir" ⬆️ (abajo o arriba del navegador)\n2. Elegí "Agregar a pantalla de inicio"\n3. Confirmá tocando "Agregar"\n\n(Safari no permite instalarla automáticamente, hay que hacerlo así.)');
                         return;
                     }
-                    if (!_deferredPrompt) return;
+                    if (!_deferredPrompt) {
+                        // El navegador todavía no marcó la app como instalable
+                        // (falta el Service Worker activo, o recién se subió y
+                        // hace falta recargar la página una vez más). En vez de
+                        // quedarse sin hacer nada, avisamos con instrucciones.
+                        alert('Todavía no se puede instalar automáticamente.\n\nEn Android/Chrome: probá cerrar y volver a abrir la página, o instalala manualmente desde el menú ⋮ del navegador → "Instalar app" / "Agregar a pantalla de inicio".');
+                        return;
+                    }
                     _deferredPrompt.prompt();
                     _deferredPrompt.userChoice.then(function(result) {
                         if (result.outcome === 'accepted') {
