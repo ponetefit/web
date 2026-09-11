@@ -15980,9 +15980,29 @@
                     }
                     estado.botonesEstado = botonesEstado;
 
-                    localStorage.setItem(_SESION_STORAGE_KEY, JSON.stringify(estado));
+                    var _estadoJSON = JSON.stringify(estado);
+                    try {
+                        localStorage.setItem(_SESION_STORAGE_KEY, _estadoJSON);
+                    } catch (eQuota) {
+                        // BUGFIX: si localStorage está lleno (típicamente por la copia
+                        // offline del HTML completo que se guarda en 'pf-offline-html',
+                        // que puede pesar ~1MB), el guardado de la sesión —lo único
+                        // realmente crítico para no perder el progreso del alumno—
+                        // fallaba en silencio y nunca se reintentaba. Acá liberamos
+                        // esa copia offline (es prescindible, se puede regenerar en la
+                        // próxima carga) y reintentamos UNA vez antes de rendirnos.
+                        try {
+                            localStorage.removeItem('pf-offline-html');
+                            localStorage.removeItem('pf-offline-timestamp');
+                            localStorage.setItem(_SESION_STORAGE_KEY, _estadoJSON);
+                        } catch (eRetry) {
+                            // Sigue sin entrar (celular realmente sin espacio): no hay
+                            // más margen para liberar sin perder otros datos del alumno
+                            // (récords, pesos guardados, etc.), así que se resigna acá.
+                        }
+                    }
                 } catch (e) {
-                    // localStorage lleno o no disponible — fallar silenciosamente
+                    // Error armando el objeto de estado — fallar silenciosamente
                 }
             }
 
@@ -16606,9 +16626,22 @@
                 }
 
                 // ─── CACHE OFFLINE: guardar el HTML completo en localStorage como fallback ───
+                // BUGFIX: esta copia es prescindible (solo un respaldo por si no hay
+                // conexión), pero pesa ~1MB y antes se guardaba siempre, sin importar
+                // cuánta cuota de localStorage quedaba libre. En celulares con poco
+                // margen, esto podía llenar la cuota y hacer fallar en silencio el
+                // guardado de la SESIÓN EN CURSO (eso sí crítico: es lo que evita que
+                // el alumno pierda el progreso si se le apaga la pantalla). Por eso
+                // ahora se evita pisar la sesión guardada si hay una activa: la
+                // prioridad es no perder el entrenamiento del alumno, no tener el
+                // respaldo offline actualizado.
                 try {
                     var _htmlCompleto = document.documentElement.outerHTML;
-                    if (_htmlCompleto.length < 5000000) { // Solo si cabe (< 5MB)
+                    var _haySesionActivaParaOffline = false;
+                    try {
+                        _haySesionActivaParaOffline = !!localStorage.getItem('pf-sesion-activa');
+                    } catch (eCheck) {}
+                    if (!_haySesionActivaParaOffline && _htmlCompleto.length < 5000000) { // Solo si cabe (< 5MB)
                         localStorage.setItem('pf-offline-html', _htmlCompleto);
                         localStorage.setItem('pf-offline-timestamp', Date.now().toString());
                     }
