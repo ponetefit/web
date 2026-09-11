@@ -16509,39 +16509,76 @@
                     theme_color: '#000000',
                     categories: ['fitness', 'health'],
                     icons: [{
-                        src: _generarIconoPWA(192),
+                        src: _generarIconoPWA(192, false),
                         sizes: '192x192',
                         type: 'image/png',
-                        purpose: 'any maskable'
+                        purpose: 'any'
                     }, {
-                        src: _generarIconoPWA(512),
+                        src: _generarIconoPWA(192, true),
+                        sizes: '192x192',
+                        type: 'image/png',
+                        purpose: 'maskable'
+                    }, {
+                        src: _generarIconoPWA(512, false),
                         sizes: '512x512',
                         type: 'image/png',
-                        purpose: 'any maskable'
+                        purpose: 'any'
+                    }, {
+                        src: _generarIconoPWA(512, true),
+                        sizes: '512x512',
+                        type: 'image/png',
+                        purpose: 'maskable'
                     }]
                 };
 
-                // Generar icono dinámico con canvas
-                function _generarIconoPWA(size) {
+                // Generar icono dinámico con canvas.
+                // BUGFIX: antes se usaba el MISMO ícono (texto grande, casi pegado
+                // al borde) para purpose "any" y "maskable" a la vez. Android
+                // recorta los íconos "maskable" en distintas formas según el
+                // fabricante (círculo, "squircle", cuadrado redondeado, etc.), y
+                // solo garantiza que se vea el contenido dentro de una "safe zone"
+                // central (~66% del ícono). Como "PONETE"/"FIT" ocupaba casi todo
+                // el ancho, al instalar la app en el celular el texto quedaba
+                // cortado por los bordes según el launcher del teléfono. Ahora se
+                // generan DOS versiones: "any" (como antes, para navegador/desktop,
+                // que no recorta nada) y "maskable" (con el texto reducido y
+                // centrado dentro de la safe zone, para que nunca se corte al
+                // instalarla en la pantalla de inicio).
+                function _generarIconoPWA(size, maskable) {
                     var c = document.createElement('canvas');
                     c.width = size;
                     c.height = size;
                     var ctx = c.getContext('2d');
-                    // Fondo oscuro con gradiente
+                    // Fondo oscuro con gradiente (el fondo sí puede llegar hasta el
+                    // borde: lo que hay que cuidar es el CONTENIDO/texto, no el fondo)
                     var grad = ctx.createRadialGradient(size / 2, size * 0.4, 0, size / 2, size / 2, size * 0.7);
                     grad.addColorStop(0, '#1a1a28');
                     grad.addColorStop(1, '#000000');
                     ctx.fillStyle = grad;
-                    ctx.beginPath();
-                    ctx.roundRect(0, 0, size, size, size * 0.18);
-                    ctx.fill();
-                    // Texto
-                    ctx.fillStyle = '#FF6B35';
-                    ctx.font = 'bold ' + Math.round(size * 0.22) + 'px Roboto, Arial, sans-serif';
+                    if (maskable) {
+                        ctx.fillRect(0, 0, size, size); // fondo cuadrado completo: lo que se vea "de más" lo recorta el launcher
+                    } else {
+                        ctx.beginPath();
+                        ctx.roundRect(0, 0, size, size, size * 0.18);
+                        ctx.fill();
+                    }
+                    // Texto: ancho máximo permitido para "PONETE" (la palabra más
+                    // larga). En maskable usamos un margen bien conservador (safe
+                    // zone) para que nunca se corte; en "any" se puede usar casi
+                    // todo el ancho porque ahí no hay recorte.
+                    var maxWidth = size * (maskable ? 0.60 : 0.85);
+                    var fontSize = size * 0.22;
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-                    ctx.fillText('PONETE', size / 2, size * 0.38);
-                    ctx.fillText('FIT', size / 2, size * 0.62);
+                    ctx.fillStyle = '#FF6B35';
+                    do {
+                        ctx.font = 'bold ' + Math.round(fontSize) + 'px Roboto, Arial, sans-serif';
+                        if (ctx.measureText('PONETE').width <= maxWidth) break;
+                        fontSize -= size * 0.01;
+                    } while (fontSize > size * 0.08);
+                    var lineGap = fontSize * 0.95;
+                    ctx.fillText('PONETE', size / 2, size / 2 - lineGap * 0.55);
+                    ctx.fillText('FIT', size / 2, size / 2 + lineGap * 0.55);
                     return c.toDataURL('image/png');
                 }
 
