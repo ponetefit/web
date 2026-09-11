@@ -3782,23 +3782,6 @@
         </div>
     </div>
 
-    <!-- Modal: opciones de una rutina del Repositorio (mismo patron que el modal de historial
-         del alumno: Ver / Copiar toda la rutina / Ver dias y copiar por partes) -->
-    <div id="modal-repo-opciones" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start sm:items-center justify-center p-2 sm:p-6 overflow-y-auto modal-bottom-sheet-mobile">
-        <div class="bg-tarjeta rounded-2xl border border-borde p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto my-2 sm:my-0">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-sm font-bold text-naranja uppercase tracking-wider">📋 <span id="repo-opciones-nombre-modal"></span></h3>
-                <button onclick="document.getElementById('modal-repo-opciones').classList.add('hidden')" class="text-textoSuave hover:text-texto text-xl leading-none px-2">&times;</button>
-            </div>
-            <div class="flex flex-wrap gap-2 mb-2">
-                <button id="repo-opciones-btn-ver" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">👁 Ver</button>
-                <button id="repo-opciones-btn-copiar" class="bg-verde/20 text-verde px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-verde/30 transition">📋 Copiar toda la rutina</button>
-                <button id="repo-opciones-btn-desglosar" class="bg-purpura/20 text-purpura px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">Ver días y copiar por partes</button>
-            </div>
-            <div id="repo-opciones-desglose" class="hidden mt-2 space-y-2"></div>
-        </div>
-    </div>
-
     <!-- Modal: advertencia de ejercicio que el alumno no puede hacer -->
     <div id="modal-advertencia-ejercicio" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
         <div class="bg-tarjeta rounded-3xl border border-rojo p-6 max-w-md w-full">
@@ -15076,28 +15059,34 @@
             }
 
             return `
-            <div class="pf-repo-full-card bg-fondoAlt rounded-xl border border-borde p-4 flex flex-col sm:flex-row sm:items-center gap-3">
-                <div class="pf-repo-full-info flex-1 min-w-0">
-                    <div class="pf-repo-full-title-row flex items-center gap-2 mb-1 flex-wrap">
-                        <span class="pf-repo-full-title font-bold text-texto text-sm truncate">${escapeHtml(r.nombre)}</span>
-                        <span class="text-xs text-textoSuave">${r.fecha || ''}</span>
+            <div class="pf-repo-full-card bg-fondoAlt rounded-xl border border-borde p-4">
+                <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div class="pf-repo-full-info flex-1 min-w-0">
+                        <div class="pf-repo-full-title-row flex items-center gap-2 mb-1 flex-wrap">
+                            <span class="pf-repo-full-title font-bold text-texto text-sm truncate">${escapeHtml(r.nombre)}</span>
+                            <span class="text-xs text-textoSuave">${r.fecha || ''}</span>
+                        </div>
+                        <div class="pf-repo-full-badges flex gap-2 flex-wrap items-center">
+                            ${totalDias > 0 ? `<span class="text-xs text-azul">${totalDias} día${totalDias !== 1 ? 's' : ''}</span>` : ''}
+                            ${totalSemanasRepo > 1 ? `<span class="text-xs font-bold text-amarillo">📅 ${totalSemanasRepo} semanas</span>` : ''}
+                            ${sistemasBadges}
+                            ${totalEjs > 0 ? `<span class="text-xs text-verde">${totalEjs} ejercicio${totalEjs !== 1 ? 's' : ''}</span>` : ''}
+                            ${r.alumnoNombre ? `<span class="text-xs text-textoSuave">· ${escapeHtml(r.alumnoNombre)}</span>` : ''}
+                        </div>
+                        ${r.rutinaDesc ? `<p class="pf-repo-full-desc text-xs text-textoSuave mt-1 truncate">${escapeHtml(r.rutinaDesc)}</p>` : ''}
+                        ${usoInfo}
                     </div>
-                    <div class="pf-repo-full-badges flex gap-2 flex-wrap items-center">
-                        ${totalDias > 0 ? `<span class="text-xs text-azul">${totalDias} día${totalDias !== 1 ? 's' : ''}</span>` : ''}
-                        ${totalSemanasRepo > 1 ? `<span class="text-xs font-bold text-amarillo">📅 ${totalSemanasRepo} semanas</span>` : ''}
-                        ${sistemasBadges}
-                        ${totalEjs > 0 ? `<span class="text-xs text-verde">${totalEjs} ejercicio${totalEjs !== 1 ? 's' : ''}</span>` : ''}
-                        ${r.alumnoNombre ? `<span class="text-xs text-textoSuave">· ${escapeHtml(r.alumnoNombre)}</span>` : ''}
+                    <div class="pf-repo-full-actions flex gap-2 flex-shrink-0 flex-wrap">
+                        <button onclick="_pfRepoVerInline(${idx}, 'repo-ver-inline-${idx}')" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition whitespace-nowrap">👁 Ver</button>
+                        <button onclick="cargarPlantillaEnCrear(${idx})" class="bg-verde/20 text-verde px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-verde/30 transition whitespace-nowrap">📋 Copiar toda la rutina</button>
+                        <button onclick="_pfDesglosarRepoInline(${idx}, 'repo-dias-${idx}')" class="bg-purpura/20 text-purpura px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition whitespace-nowrap">Ver días y copiar por partes</button>
+                        <button onclick="copiarAAlumnoDesdeRepo(${idx})" class="bg-naranja/20 text-naranja px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition whitespace-nowrap">Copiar a Alumno</button>
+                        <button onclick="editarPlantilla(${idx})" class="bg-fondoAlt border border-borde text-texto px-3 py-1.5 rounded-lg text-xs font-bold hover:border-azul transition whitespace-nowrap">Editar</button>
+                        <button onclick="eliminarDelRepositorio(${idx})" class="bg-rojo/20 text-rojo px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition whitespace-nowrap">Eliminar</button>
                     </div>
-                    ${r.rutinaDesc ? `<p class="pf-repo-full-desc text-xs text-textoSuave mt-1 truncate">${escapeHtml(r.rutinaDesc)}</p>` : ''}
-                    ${usoInfo}
                 </div>
-                <div class="pf-repo-full-actions flex gap-2 flex-shrink-0 flex-wrap">
-                    <button onclick="abrirModalOpcionesRepo(${idx})" class="bg-naranja/20 text-naranja px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition whitespace-nowrap">📂 Opciones</button>
-                    <button onclick="copiarAAlumnoDesdeRepo(${idx})" class="bg-verde/20 text-verde px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-verde/30 transition whitespace-nowrap">Copiar a Alumno</button>
-                    <button onclick="editarPlantilla(${idx})" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition whitespace-nowrap">Editar</button>
-                    <button onclick="eliminarDelRepositorio(${idx})" class="bg-rojo/20 text-rojo px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition whitespace-nowrap">Eliminar</button>
-                </div>
+                <div id="repo-ver-inline-${idx}" class="hidden mt-3 space-y-2"></div>
+                <div id="repo-dias-${idx}" class="hidden mt-3 space-y-2"></div>
             </div>`;
         }).join('');
     }
@@ -15506,57 +15495,37 @@
                 ? `<span class="text-[10px] text-verde">👥 ${escapeHtml(detallesUsos.slice(0,2).join(', '))}${detallesUsos.length>2?' +'+(detallesUsos.length-2):''}</span>`
                 : '';
             return `
-            <div class="pf-repo-card bg-fondoAlt rounded-lg border border-borde px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
-                <div class="pf-repo-card-info min-w-0 flex-1">
-                    <div class="pf-repo-card-title-row flex items-center gap-1.5 flex-wrap">
-                        <span class="pf-repo-card-title text-xs font-bold text-texto truncate">${escapeHtml(r.nombre)}</span>
-                        ${badges}
+            <div class="pf-repo-card bg-fondoAlt rounded-lg border border-borde px-3 py-2 flex flex-col gap-2">
+                <div class="flex items-center justify-between gap-2 flex-wrap">
+                    <div class="pf-repo-card-info min-w-0 flex-1">
+                        <div class="pf-repo-card-title-row flex items-center gap-1.5 flex-wrap">
+                            <span class="pf-repo-card-title text-xs font-bold text-texto truncate">${escapeHtml(r.nombre)}</span>
+                            ${badges}
+                        </div>
+                        <div class="pf-repo-card-meta flex items-center gap-2 mt-0.5">
+                            <span class="text-[10px] text-textoSuave">${r.fecha || ''}</span>
+                            ${usoTxt}
+                        </div>
                     </div>
-                    <div class="pf-repo-card-meta flex items-center gap-2 mt-0.5">
-                        <span class="text-[10px] text-textoSuave">${r.fecha || ''}</span>
-                        ${usoTxt}
+                    <div class="pf-repo-card-actions flex gap-1.5 flex-shrink-0 flex-wrap">
+                        <button onclick="_pfRepoVerInline(${idxOriginal}, 'rc-ver-inline-${idxOriginal}')" class="bg-azul/20 text-azul px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-azul/30 transition whitespace-nowrap">👁 Ver</button>
+                        <button onclick="cargarPlantillaEnCrear(${idxOriginal})" class="bg-verde/20 text-verde px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-verde/30 transition whitespace-nowrap">📋 Copiar toda la rutina</button>
+                        <button onclick="_pfDesglosarRepoInline(${idxOriginal}, 'rc-dias-${idxOriginal}')" class="bg-purpura/20 text-purpura px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-purpura/30 transition whitespace-nowrap">Ver días y copiar por partes</button>
                     </div>
                 </div>
-                <div class="pf-repo-card-actions flex gap-1.5 flex-shrink-0">
-                    <button onclick="abrirModalOpcionesRepo(${idxOriginal})" class="bg-naranja/20 text-naranja px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-naranja/30 transition whitespace-nowrap">📂 Opciones</button>
-                </div>
+                <div id="rc-ver-inline-${idxOriginal}" class="hidden space-y-2"></div>
+                <div id="rc-dias-${idxOriginal}" class="hidden space-y-2"></div>
             </div>`;
         }).join('');
     }
 
-    // Abre el modal de opciones de una rutina del Repositorio (mismo patrón que
-    // abrirModalHistorialAlumno): Ver / Copiar toda la rutina / Ver días y copiar por partes.
-    // A diferencia del historial del alumno, acá los datos ya están completos en el repositorio
-    // (no hace falta ningún fetch aparte al backend).
-    function abrirModalOpcionesRepo(idx) {
-        const repo = getRepositorio();
-        const r = repo[idx];
-        if (!r) return;
-        document.getElementById('repo-opciones-nombre-modal').textContent = (r.nombre || '').toUpperCase();
-        const desglose = document.getElementById('repo-opciones-desglose');
-        desglose.innerHTML = '';
-        desglose.classList.add('hidden');
-        document.getElementById('repo-opciones-btn-ver').onclick = () => {
-            document.getElementById('modal-repo-opciones').classList.add('hidden');
-            verEntrenamientoRepo(idx);
-        };
-        document.getElementById('repo-opciones-btn-copiar').onclick = () => {
-            document.getElementById('modal-repo-opciones').classList.add('hidden');
-            cargarPlantillaEnCrear(idx);
-        };
-        document.getElementById('repo-opciones-btn-desglosar').onclick = () => _pfDesglosarRepo(idx);
-        document.getElementById('modal-repo-opciones').classList.remove('hidden');
-    }
+    // "Ver" inline (sin modal) de una plantilla del Repositorio, directamente debajo
+    // de su tarjeta — mismo patrón que usa el Historial del alumno. Si la plantilla
+    // tiene progresión semanal guardada, muestra pestañas "Semana 1", "Semana 2", etc.
+    let _pfRepoVerInlineCache = {}; // idx -> { semanas, activa, contId }
 
-    // Muestra (o esconde, si ya estaba mostrado) el desglose día por día de una rutina del
-    // Repositorio, con botones para copiar solo el calentamiento o solo un bloque específico
-    // a la rutina que se está armando en "Crear Rutina" — mismo mecanismo que ya usa
-    // _pfDesglosarHistorial para el historial del alumno (_pfHistorialParseado +
-    // abrirModalCopiarBloqueDesdeHistorial / abrirModalCopiarCalentamientoDesdeHistorial).
-    let _pfDesgloseRepoCache = null; // { semanas, activa }, para poder cambiar de semana sin recalcular
-
-    function _pfDesglosarRepo(idx) {
-        const cont = document.getElementById('repo-opciones-desglose');
+    function _pfRepoVerInline(idx, contId) {
+        const cont = document.getElementById(contId);
         if (!cont) return;
         if (!cont.classList.contains('hidden')) { cont.classList.add('hidden'); return; }
         const repo = getRepositorio();
@@ -15564,26 +15533,69 @@
         if (!r) return;
         const { obj } = convertirRepoARutinaFormat(r);
         const semanas = _pfObtenerSemanasParaDesglose(obj);
-        _pfDesgloseRepoCache = { semanas, activa: semanas[semanas.length - 1].numero };
-        _pfRenderDesgloseRepo();
+        _pfRepoVerInlineCache[idx] = { semanas, activa: semanas[semanas.length - 1].numero, contId };
+        _pfRenderRepoVerInline(idx);
         cont.classList.remove('hidden');
     }
 
-    function _pfRenderDesgloseRepo() {
-        const cont = document.getElementById('repo-opciones-desglose');
-        const cache = _pfDesgloseRepoCache;
-        if (!cont || !cache) return;
+    function _pfRenderRepoVerInline(idx) {
+        const cache = _pfRepoVerInlineCache[idx];
+        if (!cache) return;
+        const cont = document.getElementById(cache.contId);
+        if (!cont) return;
+        const semanaObj = cache.semanas.find(s => s.numero === cache.activa) || cache.semanas[0];
+        const dias = _pfParsearDiasHistorial(semanaObj.shape);
+        const tabs = _pfRenderTabsSemanas(cache.semanas, cache.activa, '_pfCambiarSemanaRepoVerInline(' + idx + ',__N__)');
+        cont.innerHTML = tabs + _pfGenerarHTMLCompacto(dias, false);
+    }
+
+    function _pfCambiarSemanaRepoVerInline(idx, numero) {
+        const cache = _pfRepoVerInlineCache[idx];
+        if (!cache) return;
+        cache.activa = numero;
+        _pfRenderRepoVerInline(idx);
+    }
+
+    // Muestra (o esconde, si ya estaba mostrado) el desglose día por día de una rutina del
+    // Repositorio, con botones para copiar solo el calentamiento o solo un bloque específico
+    // a la rutina que se está armando en "Crear Rutina" — mismo mecanismo que ya usa
+    // _pfDesglosarHistorial para el historial del alumno (_pfHistorialParseado +
+    // abrirModalCopiarBloqueDesdeHistorial / abrirModalCopiarCalentamientoDesdeHistorial).
+    // Se muestra directamente debajo de la tarjeta correspondiente (sin modal intermedio),
+    // y si la plantilla tiene progresión semanal, agrega pestañas "Semana 1", "Semana 2", etc.
+    let _pfRepoDesgloseInlineCache = {}; // idx -> { semanas, activa, contId }
+
+    function _pfDesglosarRepoInline(idx, contId) {
+        const cont = document.getElementById(contId);
+        if (!cont) return;
+        if (!cont.classList.contains('hidden')) { cont.classList.add('hidden'); return; }
+        const repo = getRepositorio();
+        const r = repo[idx];
+        if (!r) return;
+        const { obj } = convertirRepoARutinaFormat(r);
+        const semanas = _pfObtenerSemanasParaDesglose(obj);
+        _pfRepoDesgloseInlineCache[idx] = { semanas, activa: semanas[semanas.length - 1].numero, contId };
+        _pfRenderRepoDesgloseInline(idx);
+        cont.classList.remove('hidden');
+    }
+
+    function _pfRenderRepoDesgloseInline(idx) {
+        const cache = _pfRepoDesgloseInlineCache[idx];
+        if (!cache) return;
+        const cont = document.getElementById(cache.contId);
+        if (!cont) return;
         const semanaObj = cache.semanas.find(s => s.numero === cache.activa) || cache.semanas[0];
         const dias = _pfParsearDiasHistorial(semanaObj.shape);
         _pfHistorialParseado = dias;
-        const tabs = _pfRenderTabsSemanas(cache.semanas, cache.activa, '_pfCambiarSemanaDesgloseRepo(__N__)');
+        const tabs = _pfRenderTabsSemanas(cache.semanas, cache.activa, '_pfCambiarSemanaRepoDesgloseInline(' + idx + ',__N__)');
         cont.innerHTML = tabs + _pfGenerarHTMLCompacto(dias, true);
     }
 
-    function _pfCambiarSemanaDesgloseRepo(numero) {
-        if (!_pfDesgloseRepoCache) return;
-        _pfDesgloseRepoCache.activa = numero;
-        _pfRenderDesgloseRepo();
+    function _pfCambiarSemanaRepoDesgloseInline(idx, numero) {
+        const cache = _pfRepoDesgloseInlineCache[idx];
+        if (!cache) return;
+        cache.activa = numero;
+        _pfRenderRepoDesgloseInline(idx);
     }
 
     async function cargarPlantillaEnCrear(idx) {
@@ -17393,7 +17405,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
     // IDs de los contenedores modales reales (fixed inset-0), en el orden en que aparecen en el DOM.
     const MODAL_IDS = ['modal-pf-confirm', 'modal-dash-rutina', 'modal-codigo', 'modal-repo-guardar', 'modal-repo-editar',
         'modal-repo-copiar', 'modal-ver-rutina', 'modal-piz-vt', 'modal-ia-config', 'modal-ia-preview',
-        'modal-nueva-cat', 'modal-bloque', 'modal-copiar-destino', 'modal-historial-alumno', 'modal-repo-opciones', 'modal-vista-compacta-rutina',
+        'modal-nueva-cat', 'modal-bloque', 'modal-copiar-destino', 'modal-historial-alumno', 'modal-vista-compacta-rutina',
         'modal-advertencia-ejercicio', 'modal-advertencia-costoso', 'modal-musculo-detalle'];
 
     // Devuelve tambien los modales de calentamiento (uno por dia, id dinamico modal-calentamiento-N)
