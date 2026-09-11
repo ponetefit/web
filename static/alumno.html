@@ -8255,19 +8255,31 @@
             // se abre la app o se retoma una clase, sin importar cuán seguido pase.
             async function _avisarProfesorPorEmail(cod, nombre) {
                 if (!cod) return;
-                try {
-                    var ahora = Date.now();
+                var ahora = Date.now();
+                var emailProfesor = _cacheEmailProfesor[cod];
 
-                    var emailProfesor = _cacheEmailProfesor[cod];
-                    if (!emailProfesor) {
+                // BUGFIX: antes esto estaba en el MISMO try que el envío del mail
+                // a FormSubmit. Si este fetch a /api/fb-meta/ fallaba (endpoint
+                // caído, responde algo que no es JSON, error de red, etc.), la
+                // excepción cortaba toda la función y el mail a FormSubmit NUNCA
+                // se llegaba a intentar — sin dejar rastro en ningún lado. Ahora
+                // un fallo acá solo hace que se use el mail de respaldo, pero el
+                // envío del aviso sigue adelante igual.
+                if (!emailProfesor) {
+                    try {
                         var resMeta = await fetch('/api/fb-meta/' + encodeURIComponent(cod));
                         var dataMeta = await resMeta.json();
                         emailProfesor = (dataMeta && dataMeta.email) ? dataMeta.email : 'raffa687@gmail.com';
-                        _cacheEmailProfesor[cod] = emailProfesor;
+                    } catch (eMeta) {
+                        console.warn('[PonéteFit] No se pudo obtener el email del profesor desde /api/fb-meta/, usando el de respaldo.', eMeta);
+                        emailProfesor = 'raffa687@gmail.com';
                     }
+                    _cacheEmailProfesor[cod] = emailProfesor;
+                }
 
+                try {
                     var fechaHora = new Date(ahora).toLocaleString('es-AR');
-                    fetch('https://formsubmit.co/ajax/' + encodeURIComponent(emailProfesor), {
+                    var resp = await fetch('https://formsubmit.co/ajax/' + encodeURIComponent(emailProfesor), {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -8278,11 +8290,22 @@
                             Alumno: nombre || '(sin nombre)',
                             Codigo: cod,
                             Fecha: fechaHora,
+                            _url: location.href.split('?')[0], // ayuda a FormSubmit a matchear el dominio activado
                             _template: 'table'
                         })
-                    }).catch(function () {});
+                    });
+                    // BUGFIX: antes el .catch() silencioso no distinguía "se mandó
+                    // bien" de "FormSubmit lo rechazó" (ej. 403 por dominio no
+                    // activado, límite mensual superado, etc.). Ahora queda logueado
+                    // en la consola del navegador para poder diagnosticarlo.
+                    if (!resp.ok) {
+                        var textoError = await resp.text().catch(function() { return ''; });
+                        console.warn('[PonéteFit] FormSubmit respondió con error al avisar al profesor:', resp.status, textoError);
+                    } else {
+                        console.log('[PonéteFit] Aviso al profesor enviado correctamente a', emailProfesor);
+                    }
                 } catch (e) {
-                    // Si falla el envío del mail, no interrumpe nada de la rutina del alumno
+                    console.warn('[PonéteFit] Falló el envío del aviso al profesor (red/CORS/bloqueado):', e);
                 }
             }
 
