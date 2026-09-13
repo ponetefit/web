@@ -1947,8 +1947,12 @@
             font-weight: 900;
         }
 
+        #overlay-bienvenida .bv-body-views-row {
+            margin-bottom: 6px;
+        }
+
         #overlay-bienvenida .bv-body-view {
-            width: 100%;
+            width: auto;
         }
 
         #overlay-bienvenida .bv-svg-wrap {
@@ -1958,7 +1962,7 @@
         }
 
         #overlay-bienvenida .bv-body-view svg {
-            width: min(72vw, 290px);
+            width: min(36vw, 148px);
             height: auto;
             max-height: 43dvh;
         }
@@ -2015,7 +2019,7 @@
                 padding-right: 9px;
             }
             #overlay-bienvenida .bv-body-view svg {
-                width: min(76vw, 268px);
+                width: min(38vw, 136px);
                 max-height: 40dvh;
             }
         }
@@ -2232,10 +2236,10 @@
             font-weight: 500;
         }
         
+        /* Los botones Frente/Espalda quedan ocultos: ahora las dos vistas
+           se muestran siempre juntas (ver .bv-body-views-row más abajo). */
         .bv-body-tabs {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 10px;
+            display: none;
         }
         
         .bv-tab-btn {
@@ -2258,13 +2262,20 @@
             color: #000000;
         }
         
-        .bv-body-view {
-            display: none;
+        /* Contenedor que muestra frente y espalda lado a lado, siempre */
+        .bv-body-views-row {
+            display: flex;
+            flex-direction: row;
             justify-content: center;
+            align-items: flex-start;
+            gap: 10px;
+            width: 100%;
+            flex-wrap: nowrap;
         }
         
-        .bv-body-view.active {
-            display: flex;
+        .bv-body-view {
+            display: flex !important;
+            justify-content: center;
         }
         
         .bv-svg-wrap {
@@ -4739,6 +4750,8 @@
                 <button class="bv-tab-btn" id="bv-tab-espalda" onclick="_bvTab('espalda')">Espalda</button>
             </div>
 
+            <!-- Frente y espalda se muestran siempre juntos, lado a lado -->
+            <div class="bv-body-views-row">
             <!-- Vista Frente -->
             <div class="bv-body-view active" id="bv-view-frente">
                 <div class="bv-svg-wrap">
@@ -4805,6 +4818,7 @@
                         <ellipse cx="170" cy="212" rx="6" ry="8" fill="#2a2a35" stroke="#3a3a45" stroke-width="0.5"/>
                     </svg>
                 </div>
+            </div>
             </div>
 
             <!-- Leyenda -->
@@ -7405,14 +7419,16 @@
                     '<button class="bv-tab-btn active" id="' + pfx + '-tab-frente" onclick="_mdTab(\'' + pfx + '\',\'frente\')" type="button">Frente</button>' +
                     '<button class="bv-tab-btn" id="' + pfx + '-tab-espalda" onclick="_mdTab(\'' + pfx + '\',\'espalda\')" type="button">Espalda</button>' +
                     '</div>' +
+                    '<div class="bv-body-views-row">' +
                     '<div class="bv-body-view active" id="' + pfx + '-view-frente">' +
                     '<div class="bv-svg-wrap">' +
-                    '<svg id="' + pfx + '-body-front" viewBox="0 0 220 460" width="140" height="292">' + front + '</svg>' +
+                    '<svg id="' + pfx + '-body-front" viewBox="0 0 220 460" width="112" height="234">' + front + '</svg>' +
                     '</div>' +
                     '</div>' +
                     '<div class="bv-body-view" id="' + pfx + '-view-espalda">' +
                     '<div class="bv-svg-wrap">' +
-                    '<svg id="' + pfx + '-body-back" viewBox="0 0 220 460" width="140" height="292">' + back + '</svg>' +
+                    '<svg id="' + pfx + '-body-back" viewBox="0 0 220 460" width="112" height="234">' + back + '</svg>' +
+                    '</div>' +
                     '</div>' +
                     '</div>' +
                     '<div class="bv-hm-legend">' +
