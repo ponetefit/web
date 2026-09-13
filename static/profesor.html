@@ -2589,7 +2589,18 @@
                         <span class="font-bold text-amarillo">📋 Historial</span>
                         <span class="text-textoSuave"> — <span id="historial-alumno-cant">0</span> rutinas de este alumno</span>
                     </div>
-                    <button onclick="abrirModalHistorialAlumno()" class="bg-amarillo/20 text-amarillo px-3 py-2 rounded-lg text-xs font-bold hover:bg-amarillo/30 transition">Ver</button>
+                    <div class="flex items-center gap-2">
+                        <label class="text-[11px] text-textoSuave" title="Contra cuántas de las últimas rutinas del alumno se avisa &quot;ya se usó&quot; al elegir un ejercicio">
+                            Avisar "ya se usó" mirando:
+                            <select onchange="_pfCambiarCantRutinasAnteriores(this.value)" class="ml-1 rounded-lg px-1.5 py-1 text-[11px] bg-fondo border border-borde">
+                                <option value="1" selected>última rutina</option>
+                                <option value="2">últimas 2</option>
+                                <option value="3">últimas 3</option>
+                                <option value="5">últimas 5</option>
+                            </select>
+                        </label>
+                        <button onclick="abrirModalHistorialAlumno()" class="bg-amarillo/20 text-amarillo px-3 py-2 rounded-lg text-xs font-bold hover:bg-amarillo/30 transition">Ver</button>
+                    </div>
                 </div>
                 <div id="ficha-alumno-card" class="hidden mt-3 bg-fondoAlt rounded-xl border border-rojo/30 p-3">
                     <div class="flex items-center justify-between gap-2 flex-wrap mb-1">
@@ -4371,7 +4382,7 @@
         input.addEventListener('input', () => {
             const q = input.value.trim().toLowerCase();
             if (!q) { ocultar(); return; }
-            mostrarMatches(q);
+            _pfDebounce('mobileEjBusqueda-' + inputId, function() { mostrarMatches(q); }, 180);
         });
 
         input.addEventListener('focus', () => {
@@ -5558,8 +5569,26 @@
     };
 
     // Filtra la videoteca segun el texto del buscador
+    // ====================================================================
+    // DEBOUNCE GENERICO PARA BUSCADORES DE EJERCICIO
+    // ====================================================================
+    // Los buscadores de ejercicio (videoteca, bloque, calentamiento, EMOM,
+    // reemplazar) filtran sobre TODA la videoteca en cada tecla. Con una
+    // videoteca grande eso se nota (lag mientras se tipea). Esta funcion
+    // retrasa la ejecucion real un instante (180ms) y cancela la anterior
+    // si el profe sigue tipeando, para que el filtro se dispare recien
+    // cuando hace una pausa al escribir. `clave` identifica cada buscador
+    // por separado (por ejemplo incluyendo el idx del dia o del minuto),
+    // para que tipear en un buscador no cancele el de otro que esta al
+    // lado (varios dias/minutos pueden tener su propio buscador a la vez).
+    const _pfDebounceTimers = {};
+    function _pfDebounce(clave, fn, delay) {
+        clearTimeout(_pfDebounceTimers[clave]);
+        _pfDebounceTimers[clave] = setTimeout(fn, delay || 180);
+    }
+
     function filtrarVideoteca() {
-        renderizarVideoteca();
+        _pfDebounce('filtrarVideoteca', renderizarVideoteca, 180);
     }
 
     // Renderiza la videoteca (completa o filtrada)
@@ -6656,6 +6685,10 @@
     }
 
     function filtrarEjsWarmupDia(idx) {
+        _pfDebounce('filtrarEjsWarmupDia-' + idx, function() { _pfEjecutarFiltrarEjsWarmupDia(idx); }, 180);
+    }
+
+    function _pfEjecutarFiltrarEjsWarmupDia(idx) {
         const query = (document.getElementById('warmup-buscar-ej-' + idx)?.value || '').trim().toLowerCase();
         const sel = document.getElementById('warmup-ej-select-' + idx);
         const elemSel = document.getElementById('warmup-elemento-select-' + idx);
@@ -7299,6 +7332,10 @@
     }
 
     function filtrarEjsBloque() {
+        _pfDebounce('filtrarEjsBloque', _pfEjecutarFiltrarEjsBloque, 180);
+    }
+
+    function _pfEjecutarFiltrarEjsBloque() {
         const query = (document.getElementById('bloque-buscar-ej')?.value || '').trim().toLowerCase();
         const sel = document.getElementById('bloque-ej-select');
         const elemSel = document.getElementById('bloque-elemento-select');
@@ -7452,6 +7489,19 @@
         if (query) ejs = ejs.filter(e => (e.nombre || e[0] || '').toLowerCase().includes(query));
         ejs = ejs.map(e => e.nombre || e[0] || '').filter(Boolean).sort();
         sel.innerHTML = '<option value="">-- Ejercicio --</option>' + ejs.map(n => '<option value="' + n + '">' + _pfMarcaCostoso(n) + n + '</option>').join('');
+        // Al repoblar el select se pierde la seleccion anterior (vuelve al placeholder),
+        // asi que si habia un aviso de "ya usado" mostrado para la seleccion previa,
+        // hay que limpiarlo tambien (el id del aviso se deriva del id del select).
+        _pfActualizarAvisoUsoGenerico(selId, selId.replace('-ejsel-', '-aviso-'));
+    }
+
+    // Version debounced de emomCargarEjsSelect, pensada solo para el oninput de los
+    // buscadores de texto de EMOM: sin esto, cada tecla filtra sobre TODA la
+    // videoteca. Los llamados programaticos (poblar el select al abrir el modal,
+    // refrescarlo despues de agregar un ejercicio) siguen usando la version
+    // inmediata de arriba, sin debounce, para que no haya demora visible ahi.
+    function emomCargarEjsSelectDebounced(selId, buscarId) {
+        _pfDebounce('emomCargarEjsSelect-' + selId, function() { emomCargarEjsSelect(selId, buscarId); }, 180);
     }
 
     // Variable global para copiar/pegar minutos EMOM
@@ -7520,10 +7570,11 @@
                 '<div id="emom-min-' + m + '-lista" data-ejs=\'' + JSON.stringify(ejsGuardados).replace(/'/g, '&#39;') + '\' class="mb-2">' + chipsHtml + '</div>' +
                 '<div class="border-t border-borde/30 pt-2 mt-1 space-y-1">' +
                 '<input type="text" id="emom-buscar-' + m + '" placeholder="Buscar ejercicio..."' +
-                ' oninput="emomCargarEjsSelect(\'emom-ejsel-' + m + '\',\'emom-buscar-' + m + '\')"' +
+                ' oninput="emomCargarEjsSelectDebounced(\'emom-ejsel-' + m + '\',\'emom-buscar-' + m + '\')"' +
                 ' class="w-full rounded-lg px-2 py-1 text-xs">' +
-                '<select id="emom-ejsel-' + m + '" class="w-full rounded-lg px-2 py-1 text-xs">' +
+                '<select id="emom-ejsel-' + m + '" onchange="_pfActualizarAvisoUsoGenerico(\'emom-ejsel-' + m + '\',\'emom-aviso-' + m + '\')" class="w-full rounded-lg px-2 py-1 text-xs">' +
                 '<option value="">-- Ejercicio --</option></select>' +
+                '<div id="emom-aviso-' + m + '" class="hidden text-[10px] text-amarillo leading-tight"></div>' +
                 '<div class="flex gap-1 items-center">' +
                 '<input type="text" id="emom-reps-' + m + '" placeholder="Reps/Seg" class="rounded-lg px-2 py-1 text-xs w-20">' +
                 '<select id="emom-unit-' + m + '" class="rounded-lg px-2 py-1 text-xs"><option>Reps</option><option>Segs</option></select>' +
@@ -7713,10 +7764,11 @@
                 '<div id="emow-min-' + idxOrKey + '-' + m + '-lista" data-ejs=\'' + JSON.stringify(ejsGuardados).replace(/'/g, '&#39;') + '\' class="mb-2">' + chipsHtml + '</div>' +
                 '<div class="border-t border-borde/30 pt-2 mt-1 space-y-1">' +
                 '<input type="text" id="emow-buscar-' + idxOrKey + '-' + m + '" placeholder="Buscar ejercicio..."' +
-                ' oninput="emomCargarEjsSelect(\'emow-ejsel-' + idxOrKey + '-' + m + '\',\'emow-buscar-' + idxOrKey + '-' + m + '\')"' +
+                ' oninput="emomCargarEjsSelectDebounced(\'emow-ejsel-' + idxOrKey + '-' + m + '\',\'emow-buscar-' + idxOrKey + '-' + m + '\')"' +
                 ' class="w-full rounded-lg px-2 py-1 text-xs">' +
-                '<select id="emow-ejsel-' + idxOrKey + '-' + m + '" class="w-full rounded-lg px-2 py-1 text-xs">' +
+                '<select id="emow-ejsel-' + idxOrKey + '-' + m + '" onchange="_pfActualizarAvisoUsoGenerico(\'emow-ejsel-' + idxOrKey + '-' + m + '\',\'emow-aviso-' + idxOrKey + '-' + m + '\')" class="w-full rounded-lg px-2 py-1 text-xs">' +
                 '<option value="">-- Ejercicio --</option></select>' +
+                '<div id="emow-aviso-' + idxOrKey + '-' + m + '" class="hidden text-[10px] text-amarillo leading-tight"></div>' +
                 '<div class="flex gap-1 items-center">' +
                 '<input type="text" id="emow-reps-' + idxOrKey + '-' + m + '" placeholder="Reps/Seg" class="rounded-lg px-2 py-1 text-xs w-20">' +
                 '<select id="emow-unit-' + idxOrKey + '-' + m + '" class="rounded-lg px-2 py-1 text-xs"><option>Reps</option><option>Segs</option></select>' +
@@ -8047,6 +8099,10 @@
     }
 
     function filtrarEjsReemplazar() {
+        _pfDebounce('filtrarEjsReemplazar', _pfEjecutarFiltrarEjsReemplazar, 180);
+    }
+
+    function _pfEjecutarFiltrarEjsReemplazar() {
         const query = (document.getElementById('reemplazar-buscar-ej')?.value || '').trim().toLowerCase();
         const sel = document.getElementById('reemplazar-ej-select');
         const elemSel = document.getElementById('reemplazar-elemento-select');
@@ -13420,13 +13476,19 @@
     let _pfCompararDiaAnteriorIdx = 0;      // índice del día elegido dentro de la rutina anterior
     let _pfRutinaAnteriorCompletaCache = null; // rutina COMPLETA (con bloques) de _pfHistorialAlumnoCache[0], para el panel de comparacion
     let _pfCargandoRutinaAnteriorCompleta = false;
-    // Set (normalizado con _pfNormNombreEj) de todos los ejercicios que aparecen en la
-    // ULTIMA rutina guardada del alumno tipeado ("rutina anterior"). null = todavia no
-    // se cargo ninguna rutina anterior (alumno sin historial, o historial no cargado aun).
-    // Se usa para avisar "este ejercicio ya se usó" en Crear Rutina, sin importar si la
-    // rutina anterior (o la que se esta armando ahora) es de un solo dia, multi-dia o
-    // tiene varias semanas.
+    // Set (normalizado con _pfNormNombreEj) de todos los ejercicios que aparecen en las
+    // ULTIMAS N rutinas guardadas del alumno tipeado (ver _pfCantRutinasAnteriores). null =
+    // todavia no se cargo ninguna rutina anterior (alumno sin historial, o historial no
+    // cargado aun). Se usa para avisar "este ejercicio ya se usó" en Crear Rutina, sin
+    // importar si esas rutinas anteriores (o la que se esta armando ahora) son de un solo
+    // dia, multi-dia o tienen varias semanas.
     let _pfEjerciciosRutinaAnteriorSet = null;
+    // Cuantas de las ultimas rutinas del alumno se toman en cuenta para el aviso de
+    // "ya se usó" (1 = solo la inmediata anterior). Configurable desde la tarjeta de
+    // historial de Crear Rutina con _pfCambiarCantRutinasAnteriores().
+    let _pfCantRutinasAnteriores = 1;
+    // Las N rutinas COMPLETAS (con bloques) usadas para calcular _pfEjerciciosRutinaAnteriorSet.
+    let _pfRutinasAnterioresCompletasCache = [];
 
     function toggleMapaCalorVivo() {
         _mapaCalorVivoAbierto = !_mapaCalorVivoAbierto;
@@ -13474,35 +13536,100 @@
     }
 
     // ====================================================================
-    // AVISO (NO BLOQUEANTE) DE EJERCICIOS YA USADOS EN LA RUTINA ANTERIOR
+    // AVISO (NO BLOQUEANTE) DE EJERCICIOS YA USADOS EN RUTINAS ANTERIORES
     // ====================================================================
-    // Recalcula _pfEjerciciosRutinaAnteriorSet a partir de _pfRutinaAnteriorCompletaCache
-    // (la rutina anterior YA completa, con todos sus bloques). Si esa rutina anterior
-    // tiene progresión semanal (r.semanas), se juntan los ejercicios de TODAS sus
-    // semanas (no solo la que quedó "afuera" al nivel raíz), para no dejar afuera
-    // ejercicios que el alumno ya hizo en una semana previa de esa misma rutina.
-    // _pfObtenerSemanasParaDesglose ya sabe devolver [{numero:1, shape:r}] cuando la
-    // rutina no tiene semanas, así que esta función funciona igual para rutinas de
-    // un solo día, multi-día o con semanas.
+    // Trae completas (con bloques) las primeras _pfCantRutinasAnteriores rutinas de
+    // _pfHistorialAlumnoCache (que ya viene ordenado de la más reciente a la más vieja).
+    // Reutiliza historialRutinasCache como caché compartido, así que si el panel de
+    // comparación del mapa de calor ya trajo la más reciente, acá no se vuelve a pedir.
+    async function _pfAsegurarRutinasAnterioresCompletas() {
+        const cant = Math.max(1, _pfCantRutinasAnteriores || 1);
+        const candidatas = (typeof _pfHistorialAlumnoCache !== 'undefined' ? _pfHistorialAlumnoCache : []).slice(0, cant);
+        const completas = [];
+        for (const liviana of candidatas) {
+            const codigo = liviana.codigo;
+            if (typeof historialRutinasCache !== 'undefined' && historialRutinasCache[codigo] && historialRutinasCache[codigo]._pfCompleta) {
+                completas.push(Object.assign({ codigo: codigo }, historialRutinasCache[codigo]));
+                continue;
+            }
+            try {
+                const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+                const data = await res.json();
+                if (data.ok && data.rutina) {
+                    data.rutina._pfCompleta = true;
+                    if (typeof historialRutinasCache !== 'undefined') historialRutinasCache[codigo] = data.rutina;
+                    completas.push(Object.assign({ codigo: codigo }, data.rutina));
+                } else {
+                    completas.push(liviana); // fallback: mejor mostrar el preview que nada
+                }
+            } catch (e) {
+                completas.push(liviana); // sin conexion: idem, mostrar lo que haya
+            }
+        }
+        _pfRutinasAnterioresCompletasCache = completas;
+        // El panel de comparación del mapa de calor siempre usa la más reciente de las
+        // cargadas acá, sin importar cuántas se estén usando para el aviso de "ya se usó".
+        if (completas[0]) _pfRutinaAnteriorCompletaCache = completas[0];
+    }
+
+    // Recalcula _pfEjerciciosRutinaAnteriorSet a partir de _pfRutinasAnterioresCompletasCache
+    // (las N rutinas anteriores YA completas, con todos sus bloques). Para cada una, si tiene
+    // progresión semanal (r.semanas), se juntan los ejercicios de TODAS sus semanas (no solo
+    // la que quedó "afuera" al nivel raíz), para no dejar afuera ejercicios que el alumno ya
+    // hizo en una semana previa de esa misma rutina. _pfObtenerSemanasParaDesglose ya sabe
+    // devolver [{numero:1, shape:r}] cuando la rutina no tiene semanas, así que esta función
+    // funciona igual para rutinas de un solo día, multi-día o con semanas.
     function _pfRecalcularEjerciciosRutinaAnterior() {
-        const r = _pfRutinaAnteriorCompletaCache;
-        if (!r) { _pfEjerciciosRutinaAnteriorSet = null; return; }
+        const rutinas = _pfRutinasAnterioresCompletasCache || [];
+        if (!rutinas.length) { _pfEjerciciosRutinaAnteriorSet = null; return; }
         const set = new Set();
-        _pfObtenerSemanasParaDesglose(r).forEach(s => {
-            const shape = s.shape;
-            const datos = resolverDatos(shape);
-            extraerEjerciciosDeRutina(shape, datos).forEach(n => set.add(_pfNormNombreEj(n)));
+        rutinas.forEach(r => {
+            _pfObtenerSemanasParaDesglose(r).forEach(s => {
+                const shape = s.shape;
+                const datos = resolverDatos(shape);
+                extraerEjerciciosDeRutina(shape, datos).forEach(n => set.add(_pfNormNombreEj(n)));
+            });
         });
         _pfEjerciciosRutinaAnteriorSet = set;
     }
 
-    // true si `nombre` ya se usó en la última rutina guardada del alumno tipeado.
-    // Si todavía no se cargó ninguna rutina anterior (alumno nuevo, sin historial,
-    // o la carga sigue en curso) devuelve false: no mostrar nada es más seguro que
-    // mostrar un aviso incorrecto.
+    // Cambia cuántas de las últimas rutinas del alumno se usan para el aviso de "ya se usó"
+    // (llamado desde el <select> de la tarjeta de historial en Crear Rutina) y recalcula todo
+    // de una, refrescando además los avisos que ya estén visibles en pantalla.
+    function _pfCambiarCantRutinasAnteriores(valor) {
+        _pfCantRutinasAnteriores = Math.max(1, parseInt(valor, 10) || 1);
+        _pfAsegurarRutinasAnterioresCompletas().then(() => {
+            _pfRecalcularEjerciciosRutinaAnterior();
+            _pfActualizarAvisoDuplicadoBloque();
+            document.querySelectorAll('[id^="warmup-ej-select-"]').forEach(sel => {
+                _pfActualizarAvisoDuplicadoWarmup(sel.id.replace('warmup-ej-select-', ''));
+            });
+            document.querySelectorAll('[id^="emom-ejsel-"]').forEach(sel => {
+                _pfActualizarAvisoUsoGenerico(sel.id, sel.id.replace('-ejsel-', '-aviso-'));
+            });
+            document.querySelectorAll('[id^="emow-ejsel-"]').forEach(sel => {
+                _pfActualizarAvisoUsoGenerico(sel.id, sel.id.replace('-ejsel-', '-aviso-'));
+            });
+        });
+    }
+
+    // true si `nombre` ya se usó en alguna de las últimas _pfCantRutinasAnteriores rutinas
+    // guardadas del alumno tipeado. Si todavía no se cargó ninguna rutina anterior (alumno
+    // nuevo, sin historial, o la carga sigue en curso) devuelve false: no mostrar nada es
+    // más seguro que mostrar un aviso incorrecto.
     function _pfEjercicioUsadoEnRutinaAnterior(nombre) {
         if (!nombre || !_pfEjerciciosRutinaAnteriorSet) return false;
         return _pfEjerciciosRutinaAnteriorSet.has(_pfNormNombreEj(nombre));
+    }
+
+    // Texto del aviso de "rutina(s) anterior(es)", dinámico según _pfCantRutinasAnteriores:
+    // singular si solo se compara contra la inmediata anterior, plural (sin especificar
+    // cuál exactamente) si se está comparando contra varias.
+    function _pfTextoUsoRutinaAnterior() {
+        const cant = Math.max(1, _pfCantRutinasAnteriores || 1);
+        return cant > 1
+            ? 'Este ejercicio ya se usó en una de las últimas ' + cant + ' rutinas de este alumno'
+            : 'Este ejercicio ya se usó en la rutina anterior de este alumno';
     }
 
     // Arma las líneas de aviso (no bloqueante) para un ejercicio elegido en cualquiera
@@ -13515,7 +13642,7 @@
         const lineas = [];
         const usos = _pfUsosDeEjercicio(nombre);
         if (usos.length) lineas.push('⚠ Ya usado en: ' + usos.join(', '));
-        if (_pfEjercicioUsadoEnRutinaAnterior(nombre)) lineas.push('🔁 Este ejercicio ya se usó en la rutina anterior de este alumno');
+        if (_pfEjercicioUsadoEnRutinaAnterior(nombre)) lineas.push('🔁 ' + _pfTextoUsoRutinaAnterior());
         return lineas;
     }
 
@@ -13528,9 +13655,28 @@
             html += ' <span style="color:#c4a820;font-size:10px;font-weight:700;" title="Ya usado en: ' + usos.join(', ') + '">⚠ usado</span>';
         }
         if (_pfEjercicioUsadoEnRutinaAnterior(nombre)) {
-            html += ' <span style="color:#4FC3F7;font-size:10px;font-weight:700;" title="Este ejercicio ya se usó en la rutina anterior de este alumno">🔁 ya se usó</span>';
+            html += ' <span style="color:#4FC3F7;font-size:10px;font-weight:700;" title="' + _pfTextoUsoRutinaAnterior() + '">🔁 ya se usó</span>';
         }
         return html;
+    }
+
+    // Actualiza (o limpia) el div de aviso "no bloqueante" que acompaña a un <select>
+    // de ejercicio: si hay algo que avisar (ya usado en esta rutina y/o en la
+    // anterior) lo muestra; si no, lo deja vacío y oculto. Genérica para poder
+    // reutilizarla en bloque, calentamiento y EMOM (bloque y calentamiento), que
+    // comparten exactamente el mismo criterio de "usado".
+    function _pfActualizarAvisoUsoGenerico(selectId, avisoId) {
+        const sel = document.getElementById(selectId);
+        const aviso = document.getElementById(avisoId);
+        if (!sel || !aviso) return;
+        const lineas = _pfArmarAvisoUsoEjercicio(sel.value);
+        if (lineas.length) {
+            aviso.innerHTML = lineas.map(l => '<div>' + l + '</div>').join('');
+            aviso.classList.remove('hidden');
+        } else {
+            aviso.innerHTML = '';
+            aviso.classList.add('hidden');
+        }
     }
 
     // Prende/apaga el modo "comparar con la rutina anterior" desde el checkbox del panel
@@ -17564,6 +17710,15 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         // ejercicios de "rutina anterior" usado en el aviso de "ya se usó".
         _pfRutinaAnteriorCompletaCache = null;
         _pfEjerciciosRutinaAnteriorSet = null;
+        _pfRutinasAnterioresCompletasCache = [];
+        // Cambió el alumno: volver al default (comparar solo contra la última rutina) y
+        // reflejarlo en el selector, para no arrastrar sin querer una preferencia (ej. "últimas
+        // 5") que el profe haya elegido para un alumno anterior.
+        _pfCantRutinasAnteriores = 1;
+        if (card) {
+            const selCant = card.querySelector('select');
+            if (selCant) selCant.value = '1';
+        }
         if (!nombre) { _pfHistorialAlumnoCache = []; if (card) card.classList.add('hidden'); return; }
         try {
             const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre));
@@ -17576,11 +17731,13 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
                 const cantEl = document.getElementById('historial-alumno-cant');
                 if (cantEl) cantEl.textContent = _pfHistorialAlumnoCache.length;
                 if (card) card.classList.remove('hidden');
-                // Traer siempre la rutina anterior completa (no solo si el checkbox del mapa de
-                // calor está tildado): la necesitamos para poder avisar "ya se usó en la rutina
-                // anterior" apenas el profe elija un ejercicio, en cualquier lugar de la rutina
-                // que esté armando (calentamiento, bloques, un solo día, multi-día o semanas).
-                _pfAsegurarRutinaAnteriorCompleta().then(() => {
+                // Traer siempre las rutinas anteriores completas (no solo si el checkbox del
+                // mapa de calor está tildado): las necesitamos para poder avisar "ya se usó en
+                // una rutina anterior" apenas el profe elija un ejercicio, en cualquier lugar de
+                // la rutina que esté armando (calentamiento, bloques, EMOM, un solo día,
+                // multi-día o semanas). _pfCantRutinasAnteriores controla contra cuántas de las
+                // últimas rutinas del alumno se compara (por defecto, solo la inmediata anterior).
+                _pfAsegurarRutinasAnterioresCompletas().then(() => {
                     _pfRecalcularEjerciciosRutinaAnterior();
                     if (_mapaCalorCompararAnterior) {
                         actualizarMapaCalorEnVivo(typeof diaActivoIdx !== 'undefined' ? diaActivoIdx : 0);
@@ -18267,32 +18424,12 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
 
     // Aviso visual (no bloqueante) para el select de ejercicios de bloque (desktop)
     function _pfActualizarAvisoDuplicadoBloque() {
-        const sel = document.getElementById('bloque-ej-select');
-        const aviso = document.getElementById('bloque-aviso-duplicado');
-        if (!sel || !aviso) return;
-        const lineas = _pfArmarAvisoUsoEjercicio(sel.value);
-        if (lineas.length) {
-            aviso.innerHTML = lineas.map(l => '<div>' + l + '</div>').join('');
-            aviso.classList.remove('hidden');
-        } else {
-            aviso.innerHTML = '';
-            aviso.classList.add('hidden');
-        }
+        _pfActualizarAvisoUsoGenerico('bloque-ej-select', 'bloque-aviso-duplicado');
     }
 
     // Aviso visual (no bloqueante) para el select de ejercicios de calentamiento (desktop, por dia)
     function _pfActualizarAvisoDuplicadoWarmup(idx) {
-        const sel = document.getElementById('warmup-ej-select-' + idx);
-        const aviso = document.getElementById('warmup-aviso-duplicado-' + idx);
-        if (!sel || !aviso) return;
-        const lineas = _pfArmarAvisoUsoEjercicio(sel.value);
-        if (lineas.length) {
-            aviso.innerHTML = lineas.map(l => '<div>' + l + '</div>').join('');
-            aviso.classList.remove('hidden');
-        } else {
-            aviso.innerHTML = '';
-            aviso.classList.add('hidden');
-        }
+        _pfActualizarAvisoUsoGenerico('warmup-ej-select-' + idx, 'warmup-aviso-duplicado-' + idx);
     }
 
     function abrirModalCalentamientoDia(idx) {
