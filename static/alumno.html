@@ -6453,25 +6453,25 @@
             function _pesoBloqueProgreso(bloque) {
                 var tipo = bloque.tipo || '';
                 if (tipo === 'Series') {
-                    var ejs = bloque.rutina || bloque.ejercicios || bloque.datos || [];
+                    var ejs = toArray(bloque.rutina || bloque.ejercicios || bloque.datos);
                     var total = 0;
                     for (var i = 0; i < ejs.length; i++) total += (parseInt(ejs[i].series) || 3);
                     return total || 3;
                 }
                 if (tipo === 'Circuito') return bloque.vueltas_bloque || bloque.vueltas || 3;
                 if (tipo === 'Por Tiempo') return bloque.vueltas || bloque.vueltas_bloque || 3;
-                if (tipo === 'Sumando Ejercicio') return (bloque.rutina || bloque.ejercicios || bloque.datos || []).length || 1;
+                if (tipo === 'Sumando Ejercicio') return toArray(bloque.rutina || bloque.ejercicios || bloque.datos).length || 1;
                 if (tipo === 'Tabata') {
                     var cfg = bloque.config || {};
                     // Debe coincidir EXACTO con la cantidad que usa el timer real
                     // (renderBloqueMix / iniciarTabataBloque): cantidad || nº ejercicios || 8
-                    var ejsTabPeso = bloque.rutina || bloque.ejercicios || bloque.datos || [];
+                    var ejsTabPeso = toArray(bloque.rutina || bloque.ejercicios || bloque.datos);
                     var cantidadTabPeso = cfg.cantidad || bloque.cantidad || ejsTabPeso.length || 8;
                     return cantidadTabPeso * (cfg.rondas || bloque.rondas || 1);
                 }
                 if (tipo === 'EMOM') return bloque.minutos_totales || 10;
                 if (tipo === 'Circuito por Tiempo') {
-                    var ejsCT = bloque.rutina || bloque.datos || [];
+                    var ejsCT = toArray(bloque.rutina || bloque.datos);
                     if (ejsCT.length > 0 && ejsCT[0] && ejsCT[0].ejercicios) {
                         var totalMinCT = 0;
                         for (var ci = 0; ci < ejsCT.length; ci++) totalMinCT += (ejsCT[ci].tiempo_min || 5);
@@ -6486,7 +6486,7 @@
             function _itemsBloqueProgreso(bloque) {
                 var tipo = bloque.tipo || '';
                 if (tipo === 'Series') {
-                    var ejs = bloque.rutina || bloque.ejercicios || bloque.datos || [];
+                    var ejs = toArray(bloque.rutina || bloque.ejercicios || bloque.datos);
                     var total = 0;
                     for (var i = 0; i < ejs.length; i++) total += (parseInt(ejs[i].series) || 3);
                     return total || 3;
@@ -6498,18 +6498,18 @@
                 // vueltas tenga. (El peso/ancho de barra sigue siendo por vueltas,
                 // eso se calcula aparte en _pesoBloqueProgreso.)
                 if (tipo === 'Por Tiempo') return 1;
-                if (tipo === 'Sumando Ejercicio') return (bloque.rutina || bloque.ejercicios || bloque.datos || []).length || 1;
+                if (tipo === 'Sumando Ejercicio') return toArray(bloque.rutina || bloque.ejercicios || bloque.datos).length || 1;
                 if (tipo === 'Tabata') {
                     var cfgT = bloque.config || {};
                     // Debe coincidir EXACTO con la cantidad que usa el timer real
                     // (renderBloqueMix / iniciarTabataBloque): cantidad || nº ejercicios || 8
-                    var ejsTabItems = bloque.rutina || bloque.ejercicios || bloque.datos || [];
+                    var ejsTabItems = toArray(bloque.rutina || bloque.ejercicios || bloque.datos);
                     var cantidadTabItems = cfgT.cantidad || bloque.cantidad || ejsTabItems.length || 8;
                     return cantidadTabItems * (cfgT.rondas || bloque.rondas || 1);
                 }
                 if (tipo === 'EMOM') return bloque.minutos_totales || 10;
                 if (tipo === 'Circuito por Tiempo') {
-                    var ejsCT2 = bloque.rutina || bloque.datos || [];
+                    var ejsCT2 = toArray(bloque.rutina || bloque.datos);
                     if (ejsCT2.length > 0 && ejsCT2[0] && ejsCT2[0].ejercicios) {
                         var totalMinCT2 = 0;
                         for (var ci2 = 0; ci2 < ejsCT2.length; ci2++) totalMinCT2 += (ejsCT2[ci2].tiempo_min || 5);
