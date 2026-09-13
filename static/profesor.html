@@ -4158,8 +4158,7 @@
                 return;
             }
             listaEl.innerHTML = ejs.map((m, i) => {
-                const usos = (typeof _pfUsosDeEjercicio === 'function') ? _pfUsosDeEjercicio(m.nombre) : [];
-                const avisoBadge = usos.length ? ' <span style="color:#c4a820;font-size:10px;font-weight:700;" title="Ya usado en: ' + usos.join(', ') + '">⚠ usado</span>' : '';
+                const avisoBadge = _pfBadgeUsoEjercicio(m.nombre);
                 return '<div class="ac-item-ej-wrap" data-nombre="' + m.nombre.toLowerCase() + '">' +
                     '<div class="ac-item-ej ac-item-ej-toggle" data-idx="' + i + '">' +
                         '<span class="ac-item-ej-ico">🏋️</span>' +
@@ -4356,8 +4355,7 @@
             activeIdx = -1;
             if (matches.length === 0) { ocultar(); return; }
             box.innerHTML = matches.map((m, i) => {
-                const usos = (typeof _pfUsosDeEjercicio === 'function') ? _pfUsosDeEjercicio(m.nombre) : [];
-                const avisoBadge = usos.length ? ' <span style="color:#c4a820;font-size:10px;font-weight:700;" title="Ya usado en: ' + usos.join(', ') + '">⚠ usado</span>' : '';
+                const avisoBadge = _pfBadgeUsoEjercicio(m.nombre);
                 return '<div class="ac-item-ej" data-idx="' + i + '">' +
                     '<span class="ac-item-ej-ico">🏋️</span>' +
                     '<span class="ac-item-ej-info">' + m.nombre + avisoBadge + '<span class="ac-item-ej-cat">' + m.cat + '</span></span>' +
@@ -13422,6 +13420,13 @@
     let _pfCompararDiaAnteriorIdx = 0;      // índice del día elegido dentro de la rutina anterior
     let _pfRutinaAnteriorCompletaCache = null; // rutina COMPLETA (con bloques) de _pfHistorialAlumnoCache[0], para el panel de comparacion
     let _pfCargandoRutinaAnteriorCompleta = false;
+    // Set (normalizado con _pfNormNombreEj) de todos los ejercicios que aparecen en la
+    // ULTIMA rutina guardada del alumno tipeado ("rutina anterior"). null = todavia no
+    // se cargo ninguna rutina anterior (alumno sin historial, o historial no cargado aun).
+    // Se usa para avisar "este ejercicio ya se usó" en Crear Rutina, sin importar si la
+    // rutina anterior (o la que se esta armando ahora) es de un solo dia, multi-dia o
+    // tiene varias semanas.
+    let _pfEjerciciosRutinaAnteriorSet = null;
 
     function toggleMapaCalorVivo() {
         _mapaCalorVivoAbierto = !_mapaCalorVivoAbierto;
@@ -13466,6 +13471,66 @@
         } finally {
             _pfCargandoRutinaAnteriorCompleta = false;
         }
+    }
+
+    // ====================================================================
+    // AVISO (NO BLOQUEANTE) DE EJERCICIOS YA USADOS EN LA RUTINA ANTERIOR
+    // ====================================================================
+    // Recalcula _pfEjerciciosRutinaAnteriorSet a partir de _pfRutinaAnteriorCompletaCache
+    // (la rutina anterior YA completa, con todos sus bloques). Si esa rutina anterior
+    // tiene progresión semanal (r.semanas), se juntan los ejercicios de TODAS sus
+    // semanas (no solo la que quedó "afuera" al nivel raíz), para no dejar afuera
+    // ejercicios que el alumno ya hizo en una semana previa de esa misma rutina.
+    // _pfObtenerSemanasParaDesglose ya sabe devolver [{numero:1, shape:r}] cuando la
+    // rutina no tiene semanas, así que esta función funciona igual para rutinas de
+    // un solo día, multi-día o con semanas.
+    function _pfRecalcularEjerciciosRutinaAnterior() {
+        const r = _pfRutinaAnteriorCompletaCache;
+        if (!r) { _pfEjerciciosRutinaAnteriorSet = null; return; }
+        const set = new Set();
+        _pfObtenerSemanasParaDesglose(r).forEach(s => {
+            const shape = s.shape;
+            const datos = resolverDatos(shape);
+            extraerEjerciciosDeRutina(shape, datos).forEach(n => set.add(_pfNormNombreEj(n)));
+        });
+        _pfEjerciciosRutinaAnteriorSet = set;
+    }
+
+    // true si `nombre` ya se usó en la última rutina guardada del alumno tipeado.
+    // Si todavía no se cargó ninguna rutina anterior (alumno nuevo, sin historial,
+    // o la carga sigue en curso) devuelve false: no mostrar nada es más seguro que
+    // mostrar un aviso incorrecto.
+    function _pfEjercicioUsadoEnRutinaAnterior(nombre) {
+        if (!nombre || !_pfEjerciciosRutinaAnteriorSet) return false;
+        return _pfEjerciciosRutinaAnteriorSet.has(_pfNormNombreEj(nombre));
+    }
+
+    // Arma las líneas de aviso (no bloqueante) para un ejercicio elegido en cualquiera
+    // de los buscadores/selects de "Crear Rutina": una línea si ya se usó en la rutina
+    // que se está armando ahora (con el detalle de dónde), y otra línea aparte si además
+    // ya se usó en la rutina anterior del alumno (sin detalle, porque es otra rutina ya
+    // cerrada). Si no aplica ninguna de las dos, devuelve un array vacío (no se muestra
+    // nada), tal cual se pidió.
+    function _pfArmarAvisoUsoEjercicio(nombre) {
+        const lineas = [];
+        const usos = _pfUsosDeEjercicio(nombre);
+        if (usos.length) lineas.push('⚠ Ya usado en: ' + usos.join(', '));
+        if (_pfEjercicioUsadoEnRutinaAnterior(nombre)) lineas.push('🔁 Este ejercicio ya se usó en la rutina anterior de este alumno');
+        return lineas;
+    }
+
+    // Badge HTML compacto (para las listas tocables de mobile) equivalente a
+    // _pfArmarAvisoUsoEjercicio, pensado para insertarse inline al lado del nombre.
+    function _pfBadgeUsoEjercicio(nombre) {
+        let html = '';
+        const usos = (typeof _pfUsosDeEjercicio === 'function') ? _pfUsosDeEjercicio(nombre) : [];
+        if (usos.length) {
+            html += ' <span style="color:#c4a820;font-size:10px;font-weight:700;" title="Ya usado en: ' + usos.join(', ') + '">⚠ usado</span>';
+        }
+        if (_pfEjercicioUsadoEnRutinaAnterior(nombre)) {
+            html += ' <span style="color:#4FC3F7;font-size:10px;font-weight:700;" title="Este ejercicio ya se usó en la rutina anterior de este alumno">🔁 ya se usó</span>';
+        }
+        return html;
     }
 
     // Prende/apaga el modo "comparar con la rutina anterior" desde el checkbox del panel
@@ -15389,6 +15454,12 @@
         // Setear alumno
         const alumnoInput = document.getElementById('alumno-nombre');
         if (alumnoInput) alumnoInput.value = alumnoOverride || r.alumnoNombre || '';
+        // Si quedó un alumno cargado (de la plantilla o pasado por parámetro), traer su
+        // historial y su rutina anterior ahora mismo, para que el aviso de "ya se usó en
+        // la rutina anterior" funcione también al partir de una plantilla del repositorio.
+        if (alumnoInput && alumnoInput.value.trim() && typeof _pfChequearHistorialAlumno === 'function') {
+            _pfChequearHistorialAlumno();
+        }
         const descInput = document.getElementById('rutina-desc');
         if (descInput) descInput.value = r.rutinaDesc || '';
         // Ir a la tab de rutina (inicializarRutina no reseteará porque diasData.length > 0)
@@ -17489,8 +17560,10 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         const nombre = (document.getElementById('alumno-nombre')?.value || '').trim();
         const card = document.getElementById('historial-alumno-card');
         // Cambió el alumno tipeado: la rutina "completa" que teníamos cacheada para el panel de
-        // comparación (si había alguna) es de OTRO alumno, no sirve más.
+        // comparación (si había alguna) es de OTRO alumno, no sirve más. Lo mismo para el set de
+        // ejercicios de "rutina anterior" usado en el aviso de "ya se usó".
         _pfRutinaAnteriorCompletaCache = null;
+        _pfEjerciciosRutinaAnteriorSet = null;
         if (!nombre) { _pfHistorialAlumnoCache = []; if (card) card.classList.add('hidden'); return; }
         try {
             const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre));
@@ -17503,13 +17576,16 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
                 const cantEl = document.getElementById('historial-alumno-cant');
                 if (cantEl) cantEl.textContent = _pfHistorialAlumnoCache.length;
                 if (card) card.classList.remove('hidden');
-                // Si el check de "comparar" ya estaba tildado (el profe cambió de alumno sin
-                // destildarlo), traer de una la rutina completa del nuevo alumno.
-                if (_mapaCalorCompararAnterior) {
-                    _pfAsegurarRutinaAnteriorCompleta().then(() => {
+                // Traer siempre la rutina anterior completa (no solo si el checkbox del mapa de
+                // calor está tildado): la necesitamos para poder avisar "ya se usó en la rutina
+                // anterior" apenas el profe elija un ejercicio, en cualquier lugar de la rutina
+                // que esté armando (calentamiento, bloques, un solo día, multi-día o semanas).
+                _pfAsegurarRutinaAnteriorCompleta().then(() => {
+                    _pfRecalcularEjerciciosRutinaAnterior();
+                    if (_mapaCalorCompararAnterior) {
                         actualizarMapaCalorEnVivo(typeof diaActivoIdx !== 'undefined' ? diaActivoIdx : 0);
-                    });
-                }
+                    }
+                });
             } else {
                 _pfHistorialAlumnoCache = [];
                 if (card) card.classList.add('hidden');
@@ -18194,11 +18270,12 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         const sel = document.getElementById('bloque-ej-select');
         const aviso = document.getElementById('bloque-aviso-duplicado');
         if (!sel || !aviso) return;
-        const usos = _pfUsosDeEjercicio(sel.value);
-        if (usos.length) {
-            aviso.textContent = '⚠ Ya usado en: ' + usos.join(', ');
+        const lineas = _pfArmarAvisoUsoEjercicio(sel.value);
+        if (lineas.length) {
+            aviso.innerHTML = lineas.map(l => '<div>' + l + '</div>').join('');
             aviso.classList.remove('hidden');
         } else {
+            aviso.innerHTML = '';
             aviso.classList.add('hidden');
         }
     }
@@ -18208,11 +18285,12 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         const sel = document.getElementById('warmup-ej-select-' + idx);
         const aviso = document.getElementById('warmup-aviso-duplicado-' + idx);
         if (!sel || !aviso) return;
-        const usos = _pfUsosDeEjercicio(sel.value);
-        if (usos.length) {
-            aviso.textContent = '⚠ Ya usado en: ' + usos.join(', ');
+        const lineas = _pfArmarAvisoUsoEjercicio(sel.value);
+        if (lineas.length) {
+            aviso.innerHTML = lineas.map(l => '<div>' + l + '</div>').join('');
             aviso.classList.remove('hidden');
         } else {
+            aviso.innerHTML = '';
             aviso.classList.add('hidden');
         }
     }
