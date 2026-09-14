@@ -12134,6 +12134,9 @@
     // solo viene si la rutina es MULTIDIA, 1-based igual que dia_N). Puede no
     // existir para fechas viejas, de antes de que el alumno.html mandara esto.
     let dashAsistenciaProgresoPorFecha = {};
+    // fechaISO -> [{ejercicio, motivo, ts, codigo}, ...] — ejercicios que el
+    // alumno marcó como "no pude hacer" ese día (botón en Series y Repeticiones).
+    let dashAsistenciaNoCompletadosPorFecha = {};
     let dashAsistenciaUltimo = 0; // timestamp del ultimo acceso (el mas reciente entre todos sus codigos)
     let dashCalMesActivo = new Date(); // primer día del mes que se está mostrando en el calendario
     let dashCalDiaSeleccionado = null; // fechaISO del día que el profesor tocó en el calendario (distinto de "hoy")
@@ -12246,6 +12249,7 @@
                 dashAsistenciaFechas = new Set();
                 dashAsistenciaPorFecha = {};
                 dashAsistenciaProgresoPorFecha = {};
+                dashAsistenciaNoCompletadosPorFecha = {};
                 dashAsistenciaUltimo = 0;
                 const fetchesAsistencia = codigos.map(async (cod) => {
                     try {
@@ -12286,6 +12290,26 @@
                                             semana: val.semana || null,
                                             ts: val.ts || 0,
                                             tiempoUsoSegundos: typeof val.tiempo_uso_segundos === 'number' ? val.tiempo_uso_segundos : null
+                                        });
+                                    }
+                                    // Ejercicios que el alumno marcó como "no pude hacer",
+                                    // agrupados por diaKey (d1, d2... o "u") con un push-id
+                                    // random de Firebase por cada uno.
+                                    if (val.no_completados && typeof val.no_completados === 'object') {
+                                        if (!dashAsistenciaNoCompletadosPorFecha[f]) dashAsistenciaNoCompletadosPorFecha[f] = [];
+                                        Object.keys(val.no_completados).forEach((diaKeyNC) => {
+                                            const registrosNC = val.no_completados[diaKeyNC];
+                                            if (!registrosNC || typeof registrosNC !== 'object') return;
+                                            Object.keys(registrosNC).forEach((pushId) => {
+                                                const item = registrosNC[pushId];
+                                                if (!item || !item.ejercicio) return;
+                                                dashAsistenciaNoCompletadosPorFecha[f].push({
+                                                    codigo: cod,
+                                                    ejercicio: item.ejercicio,
+                                                    motivo: item.motivo || '',
+                                                    ts: item.ts || 0
+                                                });
+                                            });
                                         });
                                     }
                                 }
@@ -12377,7 +12401,10 @@
             if (esHoy) clases += ' ring-2 ring-naranja';
             const esSeleccionado = fechaISO === dashCalDiaSeleccionado;
             if (esSeleccionado) clases += ' pf-cal-dia-seleccionado';
-            html += '<div class="' + clases + '" data-fecha="' + fechaISO + '" style="' + estilo + '" onclick="_pfMostrarDetalleDiaAsistencia(\'' + fechaISO + '\')">' + d + '</div>';
+            const tieneNoCompletados = (dashAsistenciaNoCompletadosPorFecha[fechaISO] || []).length > 0;
+            const marcaNoCompletados = tieneNoCompletados ? '<span style="position:absolute;top:2px;right:2px;width:6px;height:6px;border-radius:50%;background:#ff1744;"></span>' : '';
+            if (tieneNoCompletados) clases += ' relative';
+            html += '<div class="' + clases + '" data-fecha="' + fechaISO + '" style="' + estilo + '" onclick="_pfMostrarDetalleDiaAsistencia(\'' + fechaISO + '\')">' + d + marcaNoCompletados + '</div>';
         }
         gridEl.innerHTML = html;
         if (resumenEl) {
@@ -12520,7 +12547,26 @@
                 '</div>' + progresoHTML +
                 '</div>';
         }).join('');
-        detalleEl.innerHTML = '<p class="font-bold text-texto mb-1">' + fechaLegible + '</p>' + items;
+
+        // Ejercicios que el alumno marcó como "no pude hacer" ese día, con el
+        // motivo que escribió. Se muestran aparte, debajo del progreso normal.
+        const noCompletadosDia = (dashAsistenciaNoCompletadosPorFecha[fechaISO] || []).slice()
+            .sort((a, b) => (a.ts || 0) - (b.ts || 0));
+        let noCompletadosHTML = '';
+        if (noCompletadosDia.length) {
+            const filas = noCompletadosDia.map((it) => {
+                const codigoTag = codigosDia.length > 1 ? ' <span class="text-textoSuave">(' + escapeHtml(String(it.codigo).toUpperCase()) + ')</span>' : '';
+                return '<div class="text-xs mt-1">' +
+                    '<span class="text-rojo font-bold">⚠️ ' + escapeHtml(it.ejercicio) + '</span>' + codigoTag +
+                    '<div class="text-textoSuave">' + escapeHtml(it.motivo) + '</div>' +
+                    '</div>';
+            }).join('');
+            noCompletadosHTML = '<div class="py-1 border-t border-borde mt-1">' +
+                '<span class="font-bold text-texto">No pudo hacer:</span>' + filas +
+                '</div>';
+        }
+
+        detalleEl.innerHTML = '<p class="font-bold text-texto mb-1">' + fechaLegible + '</p>' + items + noCompletadosHTML;
         detalleEl.classList.remove('hidden');
     }
 
