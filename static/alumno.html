@@ -6472,9 +6472,18 @@
                 if (tipo === 'EMOM') return bloque.minutos_totales || 10;
                 if (tipo === 'Circuito por Tiempo') {
                     var ejsCT = toArray(bloque.rutina || bloque.datos);
-                    if (ejsCT.length > 0 && ejsCT[0] && ejsCT[0].ejercicios) {
+                    // Compatibilidad: si no hay sub-bloques en "rutina" pero sí una lista
+                    // plana en "ejercicios", el render arma un sub-bloque sintético único
+                    // (ver renderBloqueMix/Circuito por Tiempo) — hay que pesarlo igual.
+                    if (ejsCT.length === 0 && bloque.ejercicios) {
+                        ejsCT = [{ tiempo_min: bloque.duracion_min || 5 }];
+                    }
+                    if (ejsCT.length > 0 && ejsCT[0] && (ejsCT[0].ejercicios || ejsCT[0].tiempo_min)) {
                         var totalMinCT = 0;
-                        for (var ci = 0; ci < ejsCT.length; ci++) totalMinCT += (ejsCT[ci].tiempo_min || 5);
+                        // Mismo fallback que usa el render real (tiempo = b.tiempo_min ||
+                        // bloque.duracion_min || 5): si un sub-bloque no trae tiempo_min
+                        // propio, toma la duración del bloque, no un 5 fijo.
+                        for (var ci = 0; ci < ejsCT.length; ci++) totalMinCT += (ejsCT[ci].tiempo_min || bloque.duracion_min || 5);
                         return totalMinCT;
                     }
                     return Math.ceil(((bloque.config || {}).trabajo || 300) / 60);
@@ -6510,9 +6519,22 @@
                 if (tipo === 'EMOM') return bloque.minutos_totales || 10;
                 if (tipo === 'Circuito por Tiempo') {
                     var ejsCT2 = toArray(bloque.rutina || bloque.datos);
-                    if (ejsCT2.length > 0 && ejsCT2[0] && ejsCT2[0].ejercicios) {
+                    // Compatibilidad: mismo caso que en _pesoBloqueProgreso, si no hay
+                    // sub-bloques en "rutina" pero sí una lista plana en "ejercicios".
+                    if (ejsCT2.length === 0 && bloque.ejercicios) {
+                        ejsCT2 = [{ tiempo_min: bloque.duracion_min || 5 }];
+                    }
+                    if (ejsCT2.length > 0 && ejsCT2[0] && (ejsCT2[0].ejercicios || ejsCT2[0].tiempo_min)) {
                         var totalMinCT2 = 0;
-                        for (var ci2 = 0; ci2 < ejsCT2.length; ci2++) totalMinCT2 += (ejsCT2[ci2].tiempo_min || 5);
+                        // Mismo fallback que usa el render real (tiempo = b.tiempo_min ||
+                        // bloque.duracion_min || 5). Antes, si un sub-bloque no traía
+                        // tiempo_min propio, acá se sumaban igual 5 minutos fijos aunque el
+                        // circuito real durara más (bloque.duracion_min) — eso hacía que
+                        // totalItems del segmento quedara MÁS BAJO que la suma real de
+                        // minutos que corren los circuitos, y el bloque se marcaba
+                        // "completo" (dispara feedback + pantalla fin) antes de que el
+                        // último circuito llegara a correr.
+                        for (var ci2 = 0; ci2 < ejsCT2.length; ci2++) totalMinCT2 += (ejsCT2[ci2].tiempo_min || bloque.duracion_min || 5);
                         return totalMinCT2;
                     }
                     return Math.ceil(((bloque.config || {}).trabajo || 300) / 60);
