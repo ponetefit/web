@@ -13173,7 +13173,16 @@
                         _s2Vt.wrap +
                         notaHtml +
                         '<div style="text-align:center;"><div class="timer-display" id="timer-' + idxS + '">' + formatearTiempo(pausaBoton) + '</div>' +
-                        '<button class="btn-rest" id="btn-' + idxS + '" style="background:linear-gradient(135deg,var(--verde),#1a7a4a);color:#000;" onclick="marcarSerieConPausa(' + idxS + ',' + pausaBoton + ')">' + _labelBotonSerie(idxS, seriesN) + '</button></div></div></div>';
+                        '<button class="btn-rest" id="btn-' + idxS + '" style="background:linear-gradient(135deg,var(--verde),#1a7a4a);color:#000;" onclick="marcarSerieConPausa(' + idxS + ',' + pausaBoton + ')">' + _labelBotonSerie(idxS, seriesN) + '</button>' +
+                        '<button class="btn-no-pude" id="btn-no-pude-' + idxS + '" onclick="mostrarMotivoNoPude(' + idxS + ')">No pude hacer este ejercicio</button>' +
+                        '<div class="no-pude-box" id="no-pude-box-' + idxS + '">' +
+                        '<div class="no-pude-box-label">Contanos por qué no lo pudiste hacer</div>' +
+                        '<textarea id="no-pude-motivo-' + idxS + '" placeholder="Ej: me dolió la rodilla"></textarea>' +
+                        '<div class="no-pude-error" id="no-pude-error-' + idxS + '">Escribí el motivo antes de continuar</div>' +
+                        '<button class="no-pude-box-confirmar" onclick="confirmarNoPude(' + idxS + ')">Confirmar y pasar al siguiente</button>' +
+                        '<button class="no-pude-box-cancelar" onclick="cancelarNoPude(' + idxS + ')">Cancelar</button>' +
+                        '</div>' +
+                        '</div></div></div>';
                 });
                 html += '</div>';
                 pLista.innerHTML += html;
@@ -13534,6 +13543,10 @@
             // Manda al profesor, dentro del mismo nodo de asistencia del día,
             // qué ejercicio no se pudo hacer y por qué (no pisa nada existente,
             // se agrega a una lista para poder tener más de un caso por día).
+            // Incluye día (si es multi-día) y semana (si la rutina tiene
+            // progresión semanal), igual que el resto de los registros de
+            // asistencia, para que el profesor sepa exactamente en qué
+            // día/semana pasó esto.
             function _registrarNoPude(nombreEj, motivo) {
                 if (!currentCode) return;
                 try {
@@ -13543,11 +13556,15 @@
                         String(hoy.getMonth() + 1).padStart(2, '0') + '-' +
                         String(hoy.getDate()).padStart(2, '0');
                     var diaKey = (typeof esMultidia !== 'undefined' && esMultidia) ? ('d' + (diaActivo + 1)) : 'u';
+                    var registro = { ejercicio: nombreEj, motivo: motivo, ts: ahora };
+                    if (typeof esMultidia !== 'undefined' && esMultidia) registro.dia = diaActivo + 1;
+                    var semanaActualNP = (typeof dataGlobal !== 'undefined' && dataGlobal && dataGlobal.semana_elegida) ? dataGlobal.semana_elegida : null;
+                    if (semanaActualNP) registro.semana = semanaActualNP;
                     var base = _fbUrl(currentCode, 'asistencia/' + encodeURIComponent(currentCode) + '/');
                     fetch(base + 'fechas/' + fechaISO + '/no_completados/' + diaKey + '.json', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ ejercicio: nombreEj, motivo: motivo, ts: ahora })
+                        body: JSON.stringify(registro)
                     }).catch(function() {});
                 } catch (e) {}
             }
