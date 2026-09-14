@@ -11177,7 +11177,11 @@
                 if (data.descripcion) {
                     pLista.innerHTML += '<div class="bloque-descripcion">' + data.descripcion + '</div>';
                 }
-                const vBloque = data.vueltas_bloque || 3;
+                // Mismo orden de fallback que usa _itemsBloqueProgreso/_pesoBloqueProgreso
+                // (vueltas_bloque || vueltas || 3): si solo viene cargado "vueltas", antes
+                // acá se ignoraba y se usaban 3 vueltas fijas, mientras el progreso esperaba
+                // el valor real — la barra se quedaba pegada sin completar el bloque.
+                const vBloque = data.vueltas_bloque || data.vueltas || 3;
                 const pausaVuelta = data.pausa_vuelta || 60;
                 let vRestantes = vBloque;
                 const vContId = 'circ-vueltas-counter';
@@ -11440,7 +11444,8 @@
             function renderPorTiempoStandalone(data, pTitulo, pLista) {
                 pTitulo.innerText = "POR TIEMPO";
                 _tipoEntrenamientoGlobal = 'Por Tiempo';
-                var ptVueltas = data.vueltas || 3;
+                // Mismo orden que _pesoBloqueProgreso (vueltas || vueltas_bloque || 3)
+                var ptVueltas = data.vueltas || data.vueltas_bloque || 3;
                 var ptEjs = toArray(data.ejercicios || []);
                 var ptUid = 'pt-main';
                 var ptClockId = 'pt-main-clock';
@@ -11763,7 +11768,8 @@
                 const uid = "blq-" + idx;
 
                 if (tipo === "Circuito") {
-                    const vueltas = bloque.vueltas || 3;
+                    // Mismo orden que usa el cálculo de progreso (vueltas_bloque || vueltas || 3)
+                    const vueltas = bloque.vueltas_bloque || bloque.vueltas || 3;
                     const pausaV = bloque.pausa_vuelta || 0;
                     const vContId = uid + '-vcount';
                     let html = '<div class="bloque-mix" id="' + uid + '" style="border-color:' + color + ';--card-color:' + color + ';--card-text-color:#000;">' +
@@ -11853,7 +11859,8 @@
                     pLista.innerHTML += html;
 
                 } else if (tipo === "Por Tiempo") {
-                    const ptVueltas = bloque.vueltas || 3;
+                    // Mismo orden que _pesoBloqueProgreso (vueltas || vueltas_bloque || 3)
+                    const ptVueltas = bloque.vueltas || bloque.vueltas_bloque || 3;
                     const ptUid = uid + '-pt';
                     const ptBtnId = uid + '-pt-btn';
                     const ptClockId = uid + '-pt-clock';
