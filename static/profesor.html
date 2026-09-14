@@ -12307,7 +12307,9 @@
                                                     codigo: cod,
                                                     ejercicio: item.ejercicio,
                                                     motivo: item.motivo || '',
-                                                    ts: item.ts || 0
+                                                    ts: item.ts || 0,
+                                                    dia: typeof item.dia === 'number' ? item.dia : null,
+                                                    semana: item.semana || null
                                                 });
                                             });
                                         });
@@ -12556,8 +12558,12 @@
         if (noCompletadosDia.length) {
             const filas = noCompletadosDia.map((it) => {
                 const codigoTag = codigosDia.length > 1 ? ' <span class="text-textoSuave">(' + escapeHtml(String(it.codigo).toUpperCase()) + ')</span>' : '';
+                let contextoTag = '';
+                if (it.dia) contextoTag += ' · Día ' + it.dia;
+                if (it.semana) contextoTag += ' · Semana ' + escapeHtml(String(it.semana));
                 return '<div class="text-xs mt-1">' +
                     '<span class="text-rojo font-bold">⚠️ ' + escapeHtml(it.ejercicio) + '</span>' + codigoTag +
+                    (contextoTag ? '<span class="text-textoSuave">' + contextoTag + '</span>' : '') +
                     '<div class="text-textoSuave">' + escapeHtml(it.motivo) + '</div>' +
                     '</div>';
             }).join('');
