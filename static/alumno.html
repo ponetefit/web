@@ -1322,6 +1322,97 @@
             cursor: not-allowed;
             transform: none;
         }
+        /* ─── BOTÓN "NO PUDE HACER ESTE EJERCICIO" (Series y Repeticiones) ─── */
+        
+        .btn-no-pude {
+            background: transparent;
+            color: var(--rojo);
+            border: 1.5px solid var(--rojo);
+            padding: 12px;
+            border-radius:var(--radius-md);
+            font-weight: 700;
+            font-size:var(--fs-xs);
+            letter-spacing: .3px;
+            cursor: pointer;
+            width: 100%;
+            min-height: 44px;
+            margin-top: 10px;
+            transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s;
+        }
+        
+        .btn-no-pude:active {
+            transform: scale(0.97);
+            opacity: 0.85;
+        }
+        
+        .btn-no-pude:disabled {
+            border-color: var(--borde-sutil);
+            color: var(--texto-suave);
+            cursor: not-allowed;
+        }
+        
+        .no-pude-box {
+            display: none;
+            margin-top: 10px;
+            text-align: left;
+            background: var(--tarjeta-alt);
+            border: 1px solid var(--borde-sutil);
+            border-radius:var(--radius-md);
+            padding: 12px;
+        }
+        
+        .no-pude-box-label {
+            font-size:var(--fs-xs);
+            color: var(--texto-suave);
+            margin-bottom: 6px;
+            letter-spacing: .3px;
+        }
+        
+        .no-pude-box textarea {
+            width: 100%;
+            min-height: 56px;
+            background: var(--fondo-alt);
+            color: var(--texto);
+            border: 1px solid var(--borde);
+            border-radius:var(--radius-sm);
+            padding: 8px;
+            font-family: inherit;
+            font-size:var(--fs-sm);
+            resize: none;
+            box-sizing: border-box;
+        }
+        
+        .no-pude-box .no-pude-error {
+            display: none;
+            color: var(--rojo);
+            font-size:var(--fs-xs);
+            margin-top: 4px;
+        }
+        
+        .no-pude-box-confirmar {
+            width: 100%;
+            margin-top: 8px;
+            background: linear-gradient(135deg, var(--rojo), #c0392b);
+            color: #fff;
+            border: none;
+            border-radius:var(--radius-md);
+            min-height: 44px;
+            font-weight: 800;
+            font-size:var(--fs-xs);
+            letter-spacing: .3px;
+            cursor: pointer;
+        }
+        
+        .no-pude-box-cancelar {
+            width: 100%;
+            margin-top: 6px;
+            background: transparent;
+            color: var(--texto-suave);
+            border: none;
+            font-size:var(--fs-xs);
+            cursor: pointer;
+            padding: 6px;
+        }
         /* ─── MICRO-ANIMACIÓN AL MARCAR SERIE/VUELTA/RONDA ─── */
         .btn-marcar-pop {
             animation: btnMarcarPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -11166,6 +11257,14 @@
                         '<div style="text-align:center;">' +
                         '<div class="timer-display" id="timer-' + i + '">' + formatearTiempo(pausaBoton) + '</div>' +
                         '<button class="btn-rest" id="btn-' + i + '" style="background:linear-gradient(135deg,var(--verde),#1a7a4a);color:#000;" onclick="marcarSerieConPausa(' + i + ',' + pausaBoton + ')">' + _labelBotonSerie(i, seriesN) + '</button>' +
+                        '<button class="btn-no-pude" id="btn-no-pude-' + i + '" onclick="mostrarMotivoNoPude(' + i + ')">No pude hacer este ejercicio</button>' +
+                        '<div class="no-pude-box" id="no-pude-box-' + i + '">' +
+                        '<div class="no-pude-box-label">Contanos por qué no lo pudiste hacer</div>' +
+                        '<textarea id="no-pude-motivo-' + i + '" placeholder="Ej: me dolió la rodilla"></textarea>' +
+                        '<div class="no-pude-error" id="no-pude-error-' + i + '">Escribí el motivo antes de continuar</div>' +
+                        '<button class="no-pude-box-confirmar" onclick="confirmarNoPude(' + i + ')">Confirmar y pasar al siguiente</button>' +
+                        '<button class="no-pude-box-cancelar" onclick="cancelarNoPude(' + i + ')">Cancelar</button>' +
+                        '</div>' +
                         '</div></div></div>';
                 });
             }
@@ -13357,6 +13456,100 @@
             // Texto del botón "Marcar Serie"
             function _labelBotonSerie(i, n) {
                 return 'Marcar Serie (' + n + ' rest.)';
+            }
+
+            // ─── "NO PUDE HACER ESTE EJERCICIO" (Series y Repeticiones) ───
+            // Le permite al alumno marcar un ejercicio como no realizado, con un
+            // motivo, sin trabar el resto del bloque: completa el progreso con
+            // las series que le faltaban a ESE ejercicio (para que el bloque
+            // pueda llegar a 100%) y avisa al profesor via Firebase, dentro del
+            // mismo nodo de asistencia que ya usa el calendario.
+            function mostrarMotivoNoPude(i) {
+                var box = document.getElementById('no-pude-box-' + i);
+                var btn = document.getElementById('btn-no-pude-' + i);
+                if (box) box.style.display = 'block';
+                if (btn) btn.style.display = 'none';
+            }
+
+            function cancelarNoPude(i) {
+                var box = document.getElementById('no-pude-box-' + i);
+                var btn = document.getElementById('btn-no-pude-' + i);
+                var err = document.getElementById('no-pude-error-' + i);
+                if (box) box.style.display = 'none';
+                if (btn) btn.style.display = 'block';
+                if (err) err.style.display = 'none';
+            }
+
+            function confirmarNoPude(i) {
+                var textarea = document.getElementById('no-pude-motivo-' + i);
+                var err = document.getElementById('no-pude-error-' + i);
+                var motivo = textarea ? textarea.value.trim() : '';
+                if (!motivo) {
+                    if (err) err.style.display = 'block';
+                    if (textarea) textarea.focus();
+                    return;
+                }
+                if (err) err.style.display = 'none';
+
+                var nombreEj = (typeof _nombreEjData !== 'undefined' && _nombreEjData[i]) ? _nombreEjData[i] : (ejercicioNombres[i] || '');
+                var restantes = seriesRestantes[i] || 0;
+
+                // Suma al progreso general del bloque las series que quedaban
+                // pendientes de ESTE ejercicio, para que el bloque pueda llegar
+                // al 100% sin esperar a que el alumno las complete.
+                if (restantes > 0) incrementarProgreso(restantes);
+                seriesRestantes[i] = 0;
+
+                var valEl = document.getElementById('s-val-' + i);
+                if (valEl) valEl.innerText = 0;
+
+                if (restIntervals[i]) {
+                    bgClearInterval(restIntervals[i]);
+                    restIntervals[i] = null;
+                }
+
+                var btnPrincipal = document.getElementById('btn-' + i);
+                if (btnPrincipal) {
+                    btnPrincipal.classList.remove('active');
+                    btnPrincipal.innerText = 'No realizado';
+                    btnPrincipal.disabled = true;
+                    btnPrincipal.style.background = 'var(--tarjeta-alt)';
+                    btnPrincipal.style.color = 'var(--rojo)';
+                    btnPrincipal.style.border = '1px solid var(--rojo)';
+                }
+
+                var box = document.getElementById('no-pude-box-' + i);
+                if (box) box.style.display = 'none';
+                var btnNoPude = document.getElementById('btn-no-pude-' + i);
+                if (btnNoPude) btnNoPude.style.display = 'none';
+
+                var timer = document.getElementById('timer-' + i);
+                if (timer) timer.style.display = 'none';
+
+                _registrarNoPude(nombreEj, motivo);
+
+                if (nombreEj) hablarCoach('Anotado, ' + nombreEj + ' queda como no realizado. Seguimos con el siguiente ejercicio.');
+            }
+
+            // Manda al profesor, dentro del mismo nodo de asistencia del día,
+            // qué ejercicio no se pudo hacer y por qué (no pisa nada existente,
+            // se agrega a una lista para poder tener más de un caso por día).
+            function _registrarNoPude(nombreEj, motivo) {
+                if (!currentCode) return;
+                try {
+                    var ahora = Date.now();
+                    var hoy = new Date(ahora);
+                    var fechaISO = hoy.getFullYear() + '-' +
+                        String(hoy.getMonth() + 1).padStart(2, '0') + '-' +
+                        String(hoy.getDate()).padStart(2, '0');
+                    var diaKey = (typeof esMultidia !== 'undefined' && esMultidia) ? ('d' + (diaActivo + 1)) : 'u';
+                    var base = _fbUrl(currentCode, 'asistencia/' + encodeURIComponent(currentCode) + '/');
+                    fetch(base + 'fechas/' + fechaISO + '/no_completados/' + diaKey + '.json', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ejercicio: nombreEj, motivo: motivo, ts: ahora })
+                    }).catch(function() {});
+                } catch (e) {}
             }
 
             // ─── MARCAR SERIE CON PAUSA POR SERIE ───
