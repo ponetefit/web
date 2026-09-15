@@ -9634,6 +9634,8 @@
                 if (oldExtra) oldExtra.remove();
                 const oldSeries = document.getElementById('warmup-series-btns');
                 if (oldSeries) oldSeries.remove();
+                const oldNopude = document.getElementById('warmup-nopude-wrap');
+                if (oldNopude) oldNopude.remove();
 
                 if (tipo === "Circuito (Vueltas)") {
                     const vueltas = data.warmup_vueltas || det.vueltas || 2;
@@ -9845,6 +9847,17 @@
                     tBtn.onclick = function() {
                         iniciarWarmupPorTiempo(totalVueltas);
                     };
+                }
+
+                // "No pude hacer este bloque" — solo para los sistemas de calentamiento
+                // por bloque (Circuito por Vuelta, Circuito por Tiempo, Tabata, EMOM). El
+                // calentamiento siempre es el segmento de progreso 0 cuando existe.
+                if (tipo === "Circuito (Vueltas)" || tipo === "Circuito" || tipo === "Circuito por Tiempo" || tipo === "Tabata" || tipo === "EMOM") {
+                    var warmupTipoLabel = (tipo === "Circuito (Vueltas)" || tipo === "Circuito") ? "Circuito por Vuelta" : tipo;
+                    var warmupNopudeWrap = document.createElement('div');
+                    warmupNopudeWrap.id = 'warmup-nopude-wrap';
+                    warmupNopudeWrap.innerHTML = _htmlNoPudeBloque(warmupTipoLabel, 0, 'sec-warmup');
+                    tBox.appendChild(warmupNopudeWrap);
                 }
             }
 
@@ -11320,6 +11333,7 @@
                     '<div id="' + vContId + '" style="text-align:center; font-size:var(--fs-xl); font-weight:900; color:var(--azul); padding:14px; background:var(--tarjeta-alt); border-radius:var(--radius-md); margin-bottom:14px; border:1px solid var(--borde-sutil);">Vueltas restantes: ' + vRestantes + '</div>' +
                     '<button id="circ-btn-vuelta" class="btn-rest" style="background:linear-gradient(135deg,var(--azul),#0288d1);color:#000;" onclick="marcarVueltaCircuito(' + pausaVuelta + ',\'' + vContId + '\',' + vBloque + ')">ACTIVAR PAUSA</button>' +
                     '<button class="btn-fullscreen" style="margin-top:10px;" onclick="entrarFullscreen(\'descanso-circuito\')">⛶ PANTALLA COMPLETA</button></div>';
+                pLista.innerHTML += _htmlNoPudeBloque('Circuito por Vuelta', _segIdxBloqueUnico(), 'sec-principal');
             }
             let circVueltasRestantes = 0;
 
@@ -11352,7 +11366,7 @@
                     descripcion: data.descripcion,
                     ejercicios: ejercicios
                 };
-                pLista.innerHTML += renderSumandoEjercicioHtml(bloque, 'se-standalone', 'var(--rosa)', 1);
+                pLista.innerHTML += renderSumandoEjercicioHtml(bloque, 'se-standalone', 'var(--rosa)', 1, _segIdxBloqueUnico());
             }
 
             // ─── MODO CIRCUITO POR TIEMPO ───
@@ -11420,6 +11434,7 @@
                         _dActualCT.config.pausa_entre_rondas = 0;
                     }
                 }
+                pLista.innerHTML += _htmlNoPudeBloque('Circuito por Tiempo', _segIdxBloqueUnico(), 'sec-principal,sec-timer-ui');
             }
 
             // ─── MODO TABATA ───
@@ -11475,6 +11490,7 @@
                     }
                     pLista.innerHTML += crearCardNumero(i + 1, ejercicios.length, n, l, conCargaTab, null, metaTab, extraHtmlTab, omitirGenTab);
                 });
+                pLista.innerHTML += _htmlNoPudeBloque('Tabata', _segIdxBloqueUnico(), 'sec-principal,sec-timer-ui');
             }
 
             // ─── MODO EMOM ───
@@ -11526,6 +11542,7 @@
                 if (_cicloEnriq.length > 0) {
                     pLista.innerHTML += '<div style="margin-bottom:10px;">' + _emomCicloHtmlAgrupado(_cicloEnriq, 'emom') + '</div>';
                 }
+                pLista.innerHTML += _htmlNoPudeBloque('EMOM', _segIdxBloqueUnico(), 'sec-principal,sec-emom-ui');
 
                 document.getElementById('emom-status').innerText = "LISTO";
                 document.getElementById('emom-clock').innerText = "05";
@@ -11910,6 +11927,7 @@
                     });
                     html += '<button id="' + uid + '-btn-vuelta" class="btn-rest" style="margin-top:12px;background:linear-gradient(135deg,' + color + ',#0288d1);color:#000;" ' +
                         'onclick="marcarVueltaMixBloque(\'' + uid + '\',\'' + vContId + '\',' + pausaV + ',' + vueltas + ')">ACTIVAR PAUSA</button>';
+                    html += _htmlNoPudeBloque('Circuito por Vuelta', _segIdxBloqueMix(idx), uid);
                     html += '</div>';
                     pLista.innerHTML += html;
 
@@ -11954,6 +11972,7 @@
                             '<div class="bloque-mix-titulo" style="color:' + color + ';">BLOQUE ' + idx + ' \u2014 CIRCUITO POR TIEMPO</div>' +
                             '<div class="bloque-descripcion">' + bloque.descripcion + '</div>');
                     }
+                    html += _htmlNoPudeBloque('Circuito por Tiempo', _segIdxBloqueMix(idx), uid);
                     html += '</div>';
                     pLista.innerHTML += html;
 
@@ -12060,7 +12079,7 @@
                         '<button id="' + tabReinId + '" class="btn-pausa" style="max-width:280px; margin:8px auto 0; display:none; background:var(--tarjeta-alt); color:var(--texto-suave); border-color:var(--borde);" ' +
                         'onclick="reiniciarTabataBloque(\'' + tabBtnId + '\',\'' + tabStatusId + '\',\'' + tabEjId + '\',\'' + tabInfoId + '\',\'' + tabClockId + '\',\'' + tabPausaId + '\',\'' + tabReinId + '\')">&#8635; REINICIAR</button>' +
                         '<button class="btn-fullscreen" style="max-width:280px; margin:8px auto 0; display:block;" onclick="entrarFullscreen(\'inline\',{status:\'' + tabStatusId + '\',ej:\'' + tabEjId + '\',info:\'' + tabInfoId + '\',clock:\'' + tabClockId + '\'})">⛶ PANTALLA COMPLETA</button>' +
-                        '</div></div>';
+                        '</div>' + _htmlNoPudeBloque('Tabata', _segIdxBloqueMix(idx), uid) + '</div>';
                     pLista.innerHTML += htmlTab;
 
                 } else if (tipo === "EMOM") {
@@ -12119,7 +12138,7 @@
                         '<button id="' + emomReinId + '" class="btn-pausa" style="max-width:280px; margin:8px auto 0; display:none; background:var(--tarjeta-alt); color:var(--texto-suave); border-color:var(--borde);" ' +
                         'onclick="reiniciarEmomMixInline(\'' + emomBtnId + '\', \'' + emomStatusId + '\', \'' + emomRoundId + '\', \'' + emomClockId + '\', \'' + emomEjId + '\', \'' + emomPausaId + '\', \'' + emomReinId + '\')">&#8635; REINICIAR</button>' +
                         '<button class="btn-fullscreen" style="max-width:280px; margin:8px auto 0; display:block;" onclick="entrarFullscreen(\'inline\',{status:\'' + emomStatusId + '\',ej:\'' + emomEjId + '\',info:\'' + emomRoundId + '\',clock:\'' + emomClockId + '\'})">⛶ PANTALLA COMPLETA</button>' +
-                        '</div></div>';
+                        '</div>' + _htmlNoPudeBloque('EMOM', _segIdxBloqueMix(idx), uid) + '</div>';
                     pLista.innerHTML += emomHtml;
 
                 } else if (tipo === "Series") {
@@ -12127,7 +12146,7 @@
                     renderSeriesMixInline(pLista, bloque.rutina || bloque.ejercicios || [], serialOffset, bloque.descripcion || "", idx, uid);
 
                 } else if (tipo === "Sumando Ejercicio") {
-                    pLista.innerHTML += renderSumandoEjercicioHtml(bloque, uid, color, idx);
+                    pLista.innerHTML += renderSumandoEjercicioHtml(bloque, uid, color, idx, _segIdxBloqueMix(idx));
                 }
             }
 
@@ -12136,7 +12155,7 @@
             // (compartido por renderBloqueMix y por el modo standalone)
             var _seEjsPorUid = {};
 
-            function renderSumandoEjercicioHtml(bloque, uid, color, idx) {
+            function renderSumandoEjercicioHtml(bloque, uid, color, idx, segIdx) {
                 const seEjs = toArray(bloque.ejercicios || bloque.rutina || []);
                 const totalRondas = seEjs.length;
                 _seEjsPorUid[uid] = seEjs;
@@ -12187,7 +12206,9 @@
                     const totalReps = (parseInt(ej.reps) || 0) * vecesQueAparece;
                     html += '<div class="se-totales-fila"><span>' + ej.nombre + '</span><span>' + totalReps + ' ' + (ej.unit || 'reps').toLowerCase() + '</span></div>';
                 });
-                html += '</div></div>';
+                html += '</div>';
+                html += _htmlNoPudeBloque('Sumando Ejercicio', segIdx, uid);
+                html += '</div>';
                 return html;
             }
 
@@ -13567,6 +13588,125 @@
                         body: JSON.stringify(registro)
                     }).catch(function() {});
                 } catch (e) {}
+            }
+
+            // ─── "NO PUDE HACER ESTE BLOQUE" (Circuito, Circuito por Tiempo, Tabata,
+            // EMOM, Sumando Ejercicio) ───
+            // Mismo mecanismo que "No pude hacer este ejercicio" (arriba) pero a nivel
+            // de bloque completo: sirve para calentamiento y bloque principal, tanto en
+            // rutinas de un solo día como multi-día, y tanto si el bloque es el único
+            // sistema del día como si es uno más dentro de un entrenamiento "mix".
+            // Completa el segmento de progreso de ESE bloque al 100% (para que la barra
+            // avance al siguiente tramo sin trabar al alumno) y avisa al profesor
+            // reutilizando el mismo registro de asistencia que ya usa "no completados".
+            var _npbCounter = 0;
+
+            function _htmlNoPudeBloque(tipoBloque, segIdx, contenedorId) {
+                var id = 'blq' + (_npbCounter++);
+                var tipoEsc = (tipoBloque || '').replace(/'/g, "\\'");
+                var contEsc = (contenedorId || '').replace(/'/g, "\\'");
+                return '<div class="no-pude-bloque-wrap" style="margin-top:14px;">' +
+                    '<button class="btn-no-pude" id="btn-no-pude-' + id + '" onclick="mostrarMotivoNoPudeBloque(\'' + id + '\')">No pude hacer este bloque</button>' +
+                    '<div class="no-pude-box" id="no-pude-box-' + id + '">' +
+                    '<div class="no-pude-box-label">Contanos por qué no pudiste hacer este bloque</div>' +
+                    '<textarea id="no-pude-motivo-' + id + '" placeholder="Ej: me faltó tiempo, me dolió la rodilla"></textarea>' +
+                    '<div class="no-pude-error" id="no-pude-error-' + id + '">Escribí el motivo antes de continuar</div>' +
+                    '<button class="no-pude-box-confirmar" onclick="confirmarNoPudeBloque(\'' + id + '\',\'' + tipoEsc + '\',' + segIdx + ',\'' + contEsc + '\')">Confirmar y pasar al siguiente</button>' +
+                    '<button class="no-pude-box-cancelar" onclick="cancelarNoPudeBloque(\'' + id + '\')">Cancelar</button>' +
+                    '</div>' +
+                    '<div id="no-pude-msg-' + id + '" style="display:none;text-align:center;color:var(--rojo);font-weight:800;font-size:var(--fs-xs);letter-spacing:.3px;margin-top:10px;padding:10px;border:1px solid var(--rojo);border-radius:var(--radius-md);background:rgba(255,90,90,.06);">BLOQUE MARCADO COMO NO REALIZADO</div>' +
+                    '</div>';
+            }
+
+            function mostrarMotivoNoPudeBloque(id) {
+                var box = document.getElementById('no-pude-box-' + id);
+                var btn = document.getElementById('btn-no-pude-' + id);
+                if (box) box.style.display = 'block';
+                if (btn) btn.style.display = 'none';
+            }
+
+            function cancelarNoPudeBloque(id) {
+                var box = document.getElementById('no-pude-box-' + id);
+                var btn = document.getElementById('btn-no-pude-' + id);
+                var err = document.getElementById('no-pude-error-' + id);
+                if (box) box.style.display = 'none';
+                if (btn) btn.style.display = 'block';
+                if (err) err.style.display = 'none';
+            }
+
+            // Marca al 100% el segmento de progreso de este bloque (avanza la barra al
+            // siguiente tramo), igual que si el alumno lo hubiese terminado normalmente.
+            function _completarSegmentoBloque(segIdx) {
+                if (typeof _progresoSegmentos === 'undefined' || segIdx == null || !_progresoSegmentos[segIdx]) return;
+                var seg = _progresoSegmentos[segIdx];
+                seg.completados = seg.totalItems;
+                if (segIdx >= _progresoSegActual) {
+                    _progresoSegActual = segIdx;
+                    while (_progresoSegActual < _progresoSegmentos.length - 1 &&
+                        _progresoSegmentos[_progresoSegActual].completados >= _progresoSegmentos[_progresoSegActual].totalItems) {
+                        _progresoSegActual++;
+                    }
+                }
+                try {
+                    lanzarDestelloBloque();
+                } catch (e) {}
+                try {
+                    _pfMarcarSegmentoCompletado(segIdx);
+                } catch (e) {}
+                actualizarProgresoUI();
+            }
+
+            function confirmarNoPudeBloque(id, tipoBloque, segIdx, contenedorId) {
+                var textarea = document.getElementById('no-pude-motivo-' + id);
+                var err = document.getElementById('no-pude-error-' + id);
+                var motivo = textarea ? textarea.value.trim() : '';
+                if (!motivo) {
+                    if (err) err.style.display = 'block';
+                    if (textarea) textarea.focus();
+                    return;
+                }
+                if (err) err.style.display = 'none';
+
+                _completarSegmentoBloque(segIdx);
+
+                // Deshabilita los controles interactivos del bloque (timers, botones de
+                // inicio, etc.) para que no se pueda arrancar después de marcarlo como no
+                // realizado. Puede venir más de un contenedor separado por coma (ej: la
+                // tarjeta principal + el cuadro flotante de EMOM/Tabata).
+                (contenedorId || '').split(',').forEach(function(cid) {
+                    var cont = cid ? document.getElementById(cid.trim()) : null;
+                    if (!cont) return;
+                    var controles = cont.querySelectorAll('button, input, textarea, select');
+                    controles.forEach(function(el) {
+                        if (el.closest && el.closest('.no-pude-bloque-wrap')) return;
+                        if (el.classList && el.classList.contains('btn-no-pude')) return;
+                        el.disabled = true;
+                    });
+                });
+
+                var box = document.getElementById('no-pude-box-' + id);
+                if (box) box.style.display = 'none';
+                var msg = document.getElementById('no-pude-msg-' + id);
+                if (msg) msg.style.display = 'block';
+
+                _registrarNoPude('Bloque completo: ' + tipoBloque, motivo);
+
+                hablarCoach('Anotado, el bloque de ' + tipoBloque + ' queda como no realizado. Seguimos con lo que sigue.');
+            }
+
+            // Offset de segmentos de progreso por el Calentamiento (1 si existe, 0 si no).
+            function _npbOffsetWarmup() {
+                return (typeof _progresoSegmentos !== 'undefined' && _progresoSegmentos.length > 0 && _progresoSegmentos[0] && _progresoSegmentos[0].nombre === 'Calentamiento') ? 1 : 0;
+            }
+            // Índice de segmento para un Bloque Principal de sistema único (Circuito,
+            // Circuito por Tiempo, Tabata, EMOM, Sumando Ejercicio como TODO el bloque).
+            function _segIdxBloqueUnico() {
+                return _npbOffsetWarmup();
+            }
+            // Índice de segmento para el bloque N (1-based, mismo orden que data.bloques)
+            // dentro de un entrenamiento "mix" (ENTRENAMIENTO con varios bloques).
+            function _segIdxBloqueMix(idx1based) {
+                return _npbOffsetWarmup() + (idx1based - 1);
             }
 
             // ─── MARCAR SERIE CON PAUSA POR SERIE ───
