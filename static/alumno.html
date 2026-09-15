@@ -9621,11 +9621,6 @@
                             var badgeSegW4 = esSegW ? crearSegBadge(r, n, 'var(--azul)') : '';
                             wLista.innerHTML += crearCard(n, l, metaStr, cc, '', '', false, badgeSegW4);
                         }
-
-                        // Circuito por Vuelta: botón por ejercicio como en Series y Repeticiones
-                        if (tipo === "Circuito (Vueltas)" || tipo === "Circuito") {
-                            wLista.innerHTML += _htmlNoPudeEjercicioCircuito(n);
-                        }
                     });
                 }
 
@@ -11346,7 +11341,6 @@
                             var badgeSeg3 = esSeg ? crearSegBadge(ej.reps, ej.nombre, 'var(--azul)') : '';
                             pLista.innerHTML += crearCard(ej.nombre, ej.link, metaStr, false, '', '', false, badgeSeg3);
                         }
-                        pLista.innerHTML += _htmlNoPudeEjercicioCircuito(ej.nombre);
                     });
                 });
 
@@ -11945,7 +11939,6 @@
                                 var badgeSegMix2 = esSegMix ? crearSegBadge(ej.reps, ej.nombre, color) : '';
                                 html += crearCard(ej.nombre, ej.link, metaStr, ej.con_carga, '', '', false, badgeSegMix2);
                             }
-                            html += _htmlNoPudeEjercicioCircuito(ej.nombre);
                         });
                     });
                     html += '<button id="' + uid + '-btn-vuelta" class="btn-rest" style="margin-top:12px;background:linear-gradient(135deg,' + color + ',#0288d1);color:#000;" ' +
@@ -13730,48 +13723,6 @@
             // dentro de un entrenamiento "mix" (ENTRENAMIENTO con varios bloques).
             function _segIdxBloqueMix(idx1based) {
                 return _npbOffsetWarmup() + (idx1based - 1);
-            }
-
-            // ─── "NO PUDE HACER ESTE EJERCICIO" dentro de Circuito por Vuelta ───
-            // En Circuito por Vuelta el progreso se cuenta por vuelta completada (no
-            // por ejercicio), así que este botón por ejercicio es informativo: no
-            // toca la barra de progreso del bloque (eso lo sigue manejando "ACTIVAR
-            // PAUSA"/vueltas), solo deja constancia al profesor de qué ejercicio
-            // puntual no se pudo hacer, igual que en Series y Repeticiones.
-            var _npeCounter = 0;
-
-            function _htmlNoPudeEjercicioCircuito(nombreEjercicio) {
-                var id = 'cej' + (_npeCounter++);
-                var nombreEsc = (nombreEjercicio || '').replace(/'/g, "\\'");
-                return '<div class="no-pude-bloque-wrap" style="margin-top:8px;">' +
-                    '<button class="btn-no-pude" id="btn-no-pude-' + id + '" onclick="mostrarMotivoNoPudeBloque(\'' + id + '\')">No pude hacer este ejercicio</button>' +
-                    '<div class="no-pude-box" id="no-pude-box-' + id + '">' +
-                    '<div class="no-pude-box-label">Contanos por qué no lo pudiste hacer</div>' +
-                    '<textarea id="no-pude-motivo-' + id + '" placeholder="Ej: me dolió la rodilla"></textarea>' +
-                    '<div class="no-pude-error" id="no-pude-error-' + id + '">Escribí el motivo antes de continuar</div>' +
-                    '<button class="no-pude-box-confirmar" onclick="confirmarNoPudeEjCircuito(\'' + id + '\',\'' + nombreEsc + '\')">Confirmar y pasar al siguiente</button>' +
-                    '<button class="no-pude-box-cancelar" onclick="cancelarNoPudeBloque(\'' + id + '\')">Cancelar</button>' +
-                    '</div>' +
-                    '<div id="no-pude-msg-' + id + '" style="display:none;text-align:center;color:var(--rojo);font-weight:800;font-size:var(--fs-xs);letter-spacing:.3px;margin-top:8px;padding:8px;border:1px solid var(--rojo);border-radius:var(--radius-md);background:rgba(255,90,90,.06);">EJERCICIO NO REALIZADO</div>' +
-                    '</div>';
-            }
-
-            function confirmarNoPudeEjCircuito(id, nombreEjercicio) {
-                var textarea = document.getElementById('no-pude-motivo-' + id);
-                var err = document.getElementById('no-pude-error-' + id);
-                var motivo = textarea ? textarea.value.trim() : '';
-                if (!motivo) {
-                    if (err) err.style.display = 'block';
-                    if (textarea) textarea.focus();
-                    return;
-                }
-                if (err) err.style.display = 'none';
-                var box = document.getElementById('no-pude-box-' + id);
-                if (box) box.style.display = 'none';
-                var msg = document.getElementById('no-pude-msg-' + id);
-                if (msg) msg.style.display = 'block';
-                _registrarNoPude(nombreEjercicio, motivo);
-                hablarCoach('Anotado, ' + nombreEjercicio + ' queda como no realizado.');
             }
 
             // ─── MARCAR SERIE CON PAUSA POR SERIE ───
