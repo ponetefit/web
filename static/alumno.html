@@ -8975,12 +8975,33 @@
                         btn.classList.remove('activo');
                         btn.setAttribute('aria-label', 'Mostrar ' + (prefix === 'warmup' ? 'calentamiento' : 'bloque principal'));
                     }
+                    // Al colapsar el Bloque Principal, ocultar también el reloj de
+                    // Tabata/Circuito por Tiempo/Por Tiempo y el de EMOM si estaban
+                    // visibles (viven fuera del contenedor colapsable).
+                    if (prefix === 'principal') {
+                        var _stu = document.getElementById('sec-timer-ui');
+                        if (_stu) _stu.style.display = 'none';
+                        var _seu = document.getElementById('sec-emom-ui');
+                        if (_seu) _seu.style.display = 'none';
+                    }
                 } else {
                     contenido.classList.remove('colapsada');
                     if (btn) {
                         btn.innerHTML = '−';
                         btn.classList.add('activo');
                         btn.setAttribute('aria-label', 'Ocultar ' + (prefix === 'warmup' ? 'calentamiento' : 'bloque principal'));
+                    }
+                    // Al expandir el Bloque Principal, volver a mostrar el reloj
+                    // correspondiente solo si este bloque efectivamente lo usa.
+                    if (prefix === 'principal') {
+                        if (_timerUiActivoPrincipal) {
+                            var _stu2 = document.getElementById('sec-timer-ui');
+                            if (_stu2) _stu2.style.display = 'block';
+                        }
+                        if (_emomUiActivoPrincipal) {
+                            var _seu2 = document.getElementById('sec-emom-ui');
+                            if (_seu2) _seu2.style.display = 'block';
+                        }
                     }
                 }
             }
@@ -11112,6 +11133,13 @@
 
 
 
+            // Indican si el reloj de Tabata/Circuito por Tiempo/Por Tiempo (sec-timer-ui)
+            // o el de EMOM (sec-emom-ui) corresponden al Bloque Principal actual. Viven
+            // fuera del contenedor colapsable, así que hay que sincronizarlos a mano
+            // con el estado de "colapsado" del Bloque Principal (ver toggleSeccionColapsable).
+            var _timerUiActivoPrincipal = false;
+            var _emomUiActivoPrincipal = false;
+
             // ─── RENDER PRINCIPAL ───
             function render(data) {
                 _dataRenderActual = data; // guardar referencia real para poder retomar sesión correctamente
@@ -11121,6 +11149,8 @@
                 inicializarProgreso(data);
                 document.getElementById('sec-emom-ui').style.display = "none";
                 document.getElementById('sec-timer-ui').style.display = "none";
+                _timerUiActivoPrincipal = false;
+                _emomUiActivoPrincipal = false;
                 const pLista = document.getElementById('principal-lista');
                 const pTitulo = document.getElementById('principal-titulo');
                 const pSeccion = document.getElementById('sec-principal');
@@ -11186,6 +11216,18 @@
                     _principalTieneContenido = ejerciciosPrincipales.length > 0;
                 }
                 if (pSeccion) pSeccion.style.display = _principalTieneContenido ? '' : 'none';
+
+                // Los relojes de Tabata/Circuito por Tiempo/Por Tiempo (sec-timer-ui) y
+                // de EMOM (sec-emom-ui) viven fuera del contenedor colapsable del Bloque
+                // Principal. Si el Bloque Principal quedó colapsado (estado por defecto
+                // al entrar a la rutina), hay que ocultarlos aunque el render del tipo
+                // correspondiente los haya dejado en display:block.
+                var _principalContRV = document.getElementById('principal-seccion-contenido');
+                var _principalColapsadoRV = _principalContRV ? _principalContRV.classList.contains('colapsada') : true;
+                if (_principalColapsadoRV) {
+                    document.getElementById('sec-timer-ui').style.display = 'none';
+                    document.getElementById('sec-emom-ui').style.display = 'none';
+                }
 
                 // Asegura que el nombre del ejercicio nunca quede tapado por el botón
                 // "Activar" del reloj de segundos, sin depender de soporte de :has() en CSS.
@@ -11426,6 +11468,7 @@
                     });
                 } else {
                     document.getElementById('sec-timer-ui').style.display = "block";
+                    _timerUiActivoPrincipal = true;
                     const btnPausa = document.getElementById('btnPausaTimer');
                     if (btnPausa) btnPausa.style.display = "block";
 
@@ -11457,6 +11500,7 @@
                 pTitulo.innerText = "TABATA";
                 _tipoEntrenamientoGlobal = 'Tabata';
                 document.getElementById('sec-timer-ui').style.display = "block";
+                _timerUiActivoPrincipal = true;
                 const btnPausa = document.getElementById('btnPausaTimer');
                 if (btnPausa) {
                     btnPausa.style.display = "block";
@@ -11513,6 +11557,7 @@
                 pTitulo.innerText = "EMOM";
                 _tipoEntrenamientoGlobal = 'EMOM';
                 document.getElementById('sec-emom-ui').style.display = "block";
+                _emomUiActivoPrincipal = true;
                 const minutos = data.minutos_totales || 10;
                 const ejsPorMin = data.ejercicios_por_minuto || 1;
                 const repsDict = data.reps_por_ejercicio || {};
