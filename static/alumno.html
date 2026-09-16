@@ -8219,6 +8219,17 @@
                 return (nombreEj || '').toUpperCase().trim().replace(/[.#$\[\]\/]/g, '_');
             }
 
+            // Genera un ID único para cada registro de historial (timestamp en
+            // base36 + sufijo random), para no depender de que el backend
+            // ("/api/fb/...") reproduzca el comportamiento nativo de Firebase de
+            // generar una key automática distinta en cada POST. Guardando con
+            // PUT a esta key exacta, cada serie queda en su propio nodo pase lo
+            // que pase del lado del servidor, y nunca se pisan entre sí aunque
+            // se guarden casi al mismo milisegundo (ej: 4 series seguidas).
+            function _pfIdUnicoHistorial() {
+                return Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
+            }
+
             function _pesoKey(nombreEj) {
                 return 'pf-peso-' + currentCode + '-' + _cargaNombreNorm(nombreEj);
             }
@@ -8277,8 +8288,9 @@
                                 if (!isNaN(seriesNum) && seriesNum > 0) bodyHist.series = seriesNum;
                             }
                         }
-                        fetch(_fbUrl(currentCode, 'cargas/' + currentCode + "/historial/" + ejercicioNorm + ".json"), {
-                            method: "POST",
+                        var idUnicoHist = _pfIdUnicoHistorial();
+                        fetch(_fbUrl(currentCode, 'cargas/' + currentCode + "/historial/" + ejercicioNorm + "/" + idUnicoHist + ".json"), {
+                            method: "PUT",
                             headers: {
                                 "Content-Type": "application/json"
                             },
