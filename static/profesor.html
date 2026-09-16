@@ -2154,6 +2154,7 @@
                         <span class="text-sm font-bold text-verde uppercase tracking-wider flex items-center gap-2">
                             Calendario de Asistencia
                             <span id="dash-cal-resumen-mini" class="text-textoSuave normal-case font-normal text-xs"></span>
+                            <span id="dash-cal-alerta-inactividad" class="hidden normal-case font-bold text-[11px] px-2 py-0.5 rounded-full" style="background:rgba(239,83,80,.15);color:#EF5350;"></span>
                         </span>
                         <svg id="cal-asistencia-chevron" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-textoSuave transition-transform duration-200 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                     </button>
@@ -12450,6 +12451,35 @@
                 ? '· ' + diasConAsistenciaEnMes + ' día' + (diasConAsistenciaEnMes === 1 ? '' : 's') + ' este mes'
                 : '';
         }
+        _pfRenderAlertaInactividad();
+    }
+
+    // Avisa si hace mucho que el alumno no entra a su rutina, tomando el
+    // ultimo acceso entre todos sus codigos (dashAsistenciaUltimo, ya
+    // calculado en cargarDashboard). Se muestra siempre junto al titulo del
+    // calendario (no hace falta abrirlo para verlo).
+    const PF_DIAS_INACTIVIDAD_AVISO = 5; // a partir de cuantos dias sin entrenar se avisa
+    function _pfRenderAlertaInactividad() {
+        const el = document.getElementById('dash-cal-alerta-inactividad');
+        if (!el) return;
+        if (!dashAsistenciaUltimo) {
+            el.classList.add('hidden');
+            return;
+        }
+        const msDia = 24 * 60 * 60 * 1000;
+        const hoy = new Date();
+        const ultimo = new Date(dashAsistenciaUltimo);
+        // Diferencia en dias de calendario (no horas exactas), para que "ayer"
+        // no cuente como si fuera casi 2 dias por una diferencia de horas.
+        const hoyMedianoche = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+        const ultimoMedianoche = new Date(ultimo.getFullYear(), ultimo.getMonth(), ultimo.getDate());
+        const diasSinEntrenar = Math.round((hoyMedianoche - ultimoMedianoche) / msDia);
+        if (diasSinEntrenar >= PF_DIAS_INACTIVIDAD_AVISO) {
+            el.textContent = '⚠️ Hace ' + diasSinEntrenar + ' días que no entrena';
+            el.classList.remove('hidden');
+        } else {
+            el.classList.add('hidden');
+        }
     }
 
     // Etiqueta legible para el tipo de rutina (mismo criterio que se usa en
@@ -12469,6 +12499,69 @@
         if (h > 0) return h + 'h ' + m + 'm';
         if (m > 0) return m + 'm';
         return s + 's';
+    }
+
+    // Arma, para el día tocado en el calendario, el detalle de peso/reps/
+    // volumen de cada ejercicio que el alumno registró ese día, comparado
+    // contra la sesión anterior en la que hizo ese mismo ejercicio (para que
+    // el profesor vea la evolución sin tener que entrar al gráfico y elegir
+    // ejercicio por ejercicio). Reutiliza _pfAgruparCargaPorDia, que ya arma
+    // un punto por fecha con peso/reps/series/volumen para un ejercicio.
+    function _pfCargasDelDiaDetalle(fechaISO) {
+        const filas = [];
+        Object.keys(dashCargasHistorial).sort().forEach((normEj) => {
+            const registros = dashCargasHistorial[normEj] || [];
+            if (!registros.some(r => r.fecha === fechaISO)) return; // no se tocó ese ejercicio ese día
+
+            const dias = _pfAgruparCargaPorDia(registros);
+            const idx = dias.findIndex(d => d.fecha === fechaISO);
+            if (idx === -1) return;
+            const actual = dias[idx];
+            const anterior = idx > 0 ? dias[idx - 1] : null;
+            const unidad = _pfEtiquetaUnidad(actual.metodo);
+            const nombreLegible = _pfNormNombreEj ? _pfNormNombreEj(normEj) : normEj;
+
+            let descActual = actual.peso + ' kg' + (actual.reps ? ' × ' + actual.reps : '') + (actual.series > 1 ? ' × ' + actual.series + ' ' + unidad : '');
+            let volLinea = actual.volumen !== null ? ('Volumen: ' + actual.volumen + ' kg') : '';
+
+            let comparacion = '';
+            if (anterior) {
+                const difPeso = actual.peso - anterior.peso;
+                let difVolTxt = '';
+                if (actual.volumen !== null && anterior.volumen !== null) {
+                    const difVol = actual.volumen - anterior.volumen;
+                    const pctVol = anterior.volumen > 0 ? Math.round((difVol / anterior.volumen) * 100) : 0;
+                    if (difVol > 0) difVolTxt = ' · Volumen +' + difVol + 'kg (' + (pctVol >= 0 ? '+' : '') + pctVol + '%) vs la vez anterior';
+                    else if (difVol < 0) difVolTxt = ' · Volumen ' + difVol + 'kg (' + pctVol + '%) vs la vez anterior';
+                    else difVolTxt = ' · Mismo volumen que la vez anterior';
+                }
+                if (difPeso > 0) {
+                    comparacion = '<div class="text-[11px] text-verde mt-0.5">▲ Levantó +' + difPeso + ' kg más que la última vez (' + anterior.peso + ' kg)' + difVolTxt + '</div>';
+                } else if (difPeso < 0) {
+                    comparacion = '<div class="text-[11px] text-rojo mt-0.5">▼ Levantó ' + Math.abs(difPeso) + ' kg menos que la última vez (' + anterior.peso + ' kg)' + difVolTxt + '</div>';
+                } else {
+                    comparacion = '<div class="text-[11px] text-textoSuave mt-0.5">➖ Mismo peso que la última vez' + difVolTxt + '</div>';
+                }
+            } else {
+                comparacion = '<div class="text-[11px] text-textoSuave mt-0.5">Primera vez registrada</div>';
+            }
+
+            filas.push(
+                '<div class="py-1 border-t border-borde first:border-t-0 first:pt-0">' +
+                '<div class="flex items-center justify-between gap-2 flex-wrap">' +
+                '<span class="font-bold text-texto">' + escapeHtml(nombreLegible) + '</span>' +
+                '<span class="text-azul text-xs">' + escapeHtml(descActual) + '</span>' +
+                '</div>' +
+                (volLinea ? '<div class="text-[11px] text-textoSuave mt-0.5">' + volLinea + '</div>' : '') +
+                comparacion +
+                '</div>'
+            );
+        });
+        if (!filas.length) return '';
+        return '<div class="py-1 border-t border-borde mt-1">' +
+            '<span class="font-bold text-texto">Cargas registradas ese día:</span>' +
+            filas.join('') +
+            '</div>';
     }
 
     // Muestra, debajo del calendario, qué rutina(s) hizo el alumno en el día
@@ -12603,7 +12696,9 @@
                 '</div>';
         }
 
-        detalleEl.innerHTML = '<p class="font-bold text-texto mb-1">' + fechaLegible + '</p>' + items + noCompletadosHTML;
+        const cargasDelDiaHTML = _pfCargasDelDiaDetalle(fechaISO);
+
+        detalleEl.innerHTML = '<p class="font-bold text-texto mb-1">' + fechaLegible + '</p>' + items + cargasDelDiaHTML + noCompletadosHTML;
         detalleEl.classList.remove('hidden');
     }
 
