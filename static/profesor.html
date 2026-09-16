@@ -4361,7 +4361,7 @@
         }
 
         function mostrarMatches(q) {
-            const matches = todosLosEjercicios().filter(e => e.nombre.toLowerCase().includes(q)).slice(0, 8);
+            const matches = todosLosEjercicios().filter(e => e.nombre.toLowerCase().includes(q)).sort((a, b) => a.nombre.localeCompare(b.nombre)).slice(0, 8);
             currentMatches = matches;
             activeIdx = -1;
             if (matches.length === 0) { ocultar(); return; }
@@ -5127,6 +5127,18 @@
     // alumno actualmente cargado, para marcarlo en los selectores/buscadores de ejercicios.
     function _pfMarcaCostoso(nombre) {
         return _pfFeedbackCostosoCache[_pfNormNombreEj(nombre)] ? '💪 ' : '';
+    }
+
+    // Marca de texto plano (para <option>, que no admite HTML/estilos) que avisa
+    // si el ejercicio ya se usó: en este bloque/dia sin guardar, en otro dia de
+    // esta misma rutina, o en la rutina anterior del alumno. Mismo criterio que
+    // _pfBadgeUsoEjercicio (usado en los paneles tocables de mobile), pero en
+    // formato texto para poder anteponerlo al nombre dentro del select.
+    function _pfMarcaUsado(nombre) {
+        const usos = (typeof _pfUsosDeEjercicio === 'function') ? _pfUsosDeEjercicio(nombre) : [];
+        if (usos.length) return '⚠️ ';
+        if (typeof _pfEjercicioUsadoEnRutinaAnterior === 'function' && _pfEjercicioUsadoEnRutinaAnterior(nombre)) return '🔁 ';
+        return '';
     }
 
     // Muestra el cartel de "este ejercicio le costó" si corresponde. Devuelve true si bloqueó
@@ -6680,7 +6692,7 @@
         }
         ejs = ejs.slice().sort((a, b) => (a.nombre||a[0]||'').localeCompare(b.nombre||b[0]||''));
         ejSel.innerHTML = ejs.length
-            ? ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + _pfMarcaCostoso(e.nombre||e[0]) + (e.nombre||e[0]) + '</option>').join('')
+            ? ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + _pfMarcaUsado(e.nombre||e[0]) + _pfMarcaCostoso(e.nombre||e[0]) + (e.nombre||e[0]) + '</option>').join('')
             : '<option value="">Sin ejercicios</option>';
         _pfActualizarAvisoDuplicadoWarmup(idx);
     }
@@ -6705,8 +6717,9 @@
                 }
             });
         }
+        resultados.sort((a, b) => a.nombre.localeCompare(b.nombre));
         sel.innerHTML = resultados.length
-            ? resultados.map(r => '<option value="' + r.nombre + '" data-cat="' + r.cat + '">' + _pfMarcaCostoso(r.nombre) + r.nombre + ' (' + r.cat + ')</option>').join('')
+            ? resultados.map(r => '<option value="' + r.nombre + '" data-cat="' + r.cat + '">' + _pfMarcaUsado(r.nombre) + _pfMarcaCostoso(r.nombre) + r.nombre + ' (' + r.cat + ')</option>').join('')
             : '<option value="">Sin resultados</option>';
         _pfActualizarAvisoDuplicadoWarmup(idx);
     }
@@ -7328,7 +7341,7 @@
         }
         ejs = ejs.slice().sort((a, b) => (a.nombre||a[0]||'').localeCompare(b.nombre||b[0]||''));
         sel.innerHTML = ejs.length
-            ? ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + _pfMarcaCostoso(e.nombre||e[0]) + (e.nombre||e[0]) + '</option>').join('')
+            ? ejs.map(e => '<option value="' + (e.nombre||e[0]) + '">' + _pfMarcaUsado(e.nombre||e[0]) + _pfMarcaCostoso(e.nombre||e[0]) + (e.nombre||e[0]) + '</option>').join('')
             : '<option value="">Sin ejercicios</option>';
         _pfActualizarAvisoDuplicadoBloque();
     }
@@ -7355,8 +7368,9 @@
                 }
             });
         }
+        resultados.sort((a, b) => a.nombre.localeCompare(b.nombre));
         sel.innerHTML = resultados.length
-            ? resultados.map(r => '<option value="' + r.nombre + '" data-cat="' + r.cat + '">' + _pfMarcaCostoso(r.nombre) + r.nombre + ' (' + r.cat + ')</option>').join('')
+            ? resultados.map(r => '<option value="' + r.nombre + '" data-cat="' + r.cat + '">' + _pfMarcaUsado(r.nombre) + _pfMarcaCostoso(r.nombre) + r.nombre + ' (' + r.cat + ')</option>').join('')
             : '<option value="">Sin resultados</option>';
         _pfActualizarAvisoDuplicadoBloque();
     }
@@ -8097,7 +8111,7 @@
         if (elemFiltro) ejs = ejs.filter(e => (e.elemento || '') === elemFiltro);
         ejs = ejs.slice().sort((a, b) => (a.nombre||a[0]||'').localeCompare(b.nombre||b[0]||''));
         ejSel.innerHTML = ejs.length
-            ? ejs.map(e => '<option value="' + (e.nombre || e[0]) + '">' + _pfMarcaCostoso(e.nombre || e[0]) + (e.nombre || e[0]) + '</option>').join('')
+            ? ejs.map(e => '<option value="' + (e.nombre || e[0]) + '">' + _pfMarcaUsado(e.nombre || e[0]) + _pfMarcaCostoso(e.nombre || e[0]) + (e.nombre || e[0]) + '</option>').join('')
             : '<option value="">Sin ejercicios</option>';
     }
 
@@ -8122,8 +8136,9 @@
                 }
             });
         }
+        resultados.sort((a, b) => a.nombre.localeCompare(b.nombre));
         sel.innerHTML = resultados.length
-            ? resultados.map(r => '<option value="' + r.nombre + '" data-cat="' + r.cat + '">' + _pfMarcaCostoso(r.nombre) + r.nombre + ' (' + r.cat + ')</option>').join('')
+            ? resultados.map(r => '<option value="' + r.nombre + '" data-cat="' + r.cat + '">' + _pfMarcaUsado(r.nombre) + _pfMarcaCostoso(r.nombre) + r.nombre + ' (' + r.cat + ')</option>').join('')
             : '<option value="">Sin resultados</option>';
     }
 
