@@ -1173,6 +1173,118 @@ def eliminar_alumno(nombre):
 
 
 # ──────────────────────────────────────────────────────────────
+#  API - FICHA DE ALUMNOS (perfil: edad, elementos, lesiones,
+#  ejercicios prohibidos, feedback habilitado). Antes profesor.html
+#  hablaba DIRECTO con Firebase para esto (sin pasar por el login ni
+#  por la cuenta del profesor); ahora queda igual que videoteca/
+#  repositorio/rutinas: pasa por el backend y usa db_ref(), que
+#  resuelve al proyecto Firebase de la cuenta logueada.
+# ──────────────────────────────────────────────────────────────
+
+@app.route("/api/alumnos_perfil", methods=["GET"])
+@auth.login_requerido
+def obtener_perfiles_alumnos():
+    """Obtiene todas las fichas de alumnos (lesiones, elementos, etc.) de la cuenta logueada."""
+    try:
+        data = db_ref("/alumnos_perfil").get()
+        return jsonify({"ok": True, "perfiles": data or {}})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/alumnos_perfil/<clave>", methods=["POST"])
+@auth.login_requerido
+def guardar_perfil_alumno(clave):
+    """Crea o actualiza la ficha de un alumno puntual."""
+    try:
+        perfil = request.json
+        if not isinstance(perfil, dict):
+            return jsonify({"ok": False, "error": "Ficha invalida"}), 400
+        db_ref(f"/alumnos_perfil/{clave}").set(perfil)
+        return jsonify({"ok": True, "mensaje": "Ficha guardada"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/alumnos_perfil/<clave>", methods=["DELETE"])
+@auth.login_requerido
+def eliminar_perfil_alumno(clave):
+    """Elimina la ficha de un alumno puntual (no borra sus rutinas ni su historial)."""
+    try:
+        db_ref(f"/alumnos_perfil/{clave}").delete()
+        return jsonify({"ok": True, "mensaje": "Ficha eliminada"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ──────────────────────────────────────────────────────────────
+#  API - FEEDBACK POST-ENTRENO / EJERCICIOS COSTOSOS / CARGAS / ASISTENCIA
+#  Estos datos los ESCRIBE alumno.html (ya proxeado via /api/fb/<codigo>/...),
+#  asi que profesor.html solo necesita LEERLOS -- salvo "resueltos", que el
+#  profesor tambien puede escribir manualmente (boton "Ya no le cuesta mas").
+#  Igual que arriba: antes profesor.html leia/escribia esto hablando DIRECTO
+#  con Firebase; ahora pasa por el backend con db_ref().
+# ──────────────────────────────────────────────────────────────
+
+@app.route("/api/feedback/<codigo>", methods=["GET"])
+@auth.login_requerido
+def obtener_feedback(codigo):
+    """Feedback post-entreno (sensacion, ejercicio_dificil, etc.) de una rutina."""
+    try:
+        data = db_ref(f"/feedback/{codigo}").get()
+        return jsonify({"ok": True, "feedback": data or {}})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/resueltos/<codigo>", methods=["GET"])
+@auth.login_requerido
+def obtener_resueltos(codigo):
+    """Ejercicios 'costosos' ya marcados como superados para una rutina."""
+    try:
+        data = db_ref(f"/resueltos/{codigo}").get()
+        return jsonify({"ok": True, "resueltos": data or {}})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/resueltos/<codigo>/<clave>", methods=["POST"])
+@auth.login_requerido
+def marcar_resuelto(codigo, clave):
+    """El profesor marca a mano que un ejercicio 'costoso' ya no le cuesta mas al alumno."""
+    try:
+        payload = request.json
+        if not isinstance(payload, dict):
+            return jsonify({"ok": False, "error": "Payload invalido"}), 400
+        db_ref(f"/resueltos/{codigo}/{clave}").set(payload)
+        return jsonify({"ok": True, "mensaje": "Marcado como superado"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/cargas/<codigo>", methods=["GET"])
+@auth.login_requerido
+def obtener_cargas(codigo):
+    """Historial de cargas (peso) que el alumno fue registrando para una rutina."""
+    try:
+        data = db_ref(f"/cargas/{codigo}").get()
+        return jsonify({"ok": True, "cargas": data or {}})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/asistencia/<codigo>", methods=["GET"])
+@auth.login_requerido
+def obtener_asistencia(codigo):
+    """Fechas/registros de asistencia que el alumno fue generando para una rutina."""
+    try:
+        data = db_ref(f"/asistencia/{codigo}").get()
+        return jsonify({"ok": True, "asistencia": data or {}})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ──────────────────────────────────────────────────────────────
 #  API - UTILIDADES
 # ──────────────────────────────────────────────────────────────
 
@@ -1194,7 +1306,7 @@ def calcular_pausa_endpoint():
 def obtener_repositorio():
     """Obtiene el repositorio de rutinas del profesor desde Firebase."""
     try:
-        ref = db_ref("/repositorio")
+        ref = db_ref("/repositorio_rutinas")
         data = ref.get()
         return jsonify({"ok": True, "repositorio": data or []})
     except Exception as e:
@@ -1208,7 +1320,7 @@ def guardar_repositorio():
     try:
         body = request.json
         repositorio = body.get("repositorio", [])
-        ref = db_ref("/repositorio")
+        ref = db_ref("/repositorio_rutinas")
         ref.set(repositorio)
         return jsonify({"ok": True, "mensaje": "Repositorio guardado"})
     except Exception as e:
