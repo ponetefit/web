@@ -8625,13 +8625,30 @@
             // Ejercicio, y todos los bloques dentro de un día Mix/ENTRENAMIENTO),
             // este único listener delegado cubre absolutamente todos los casos,
             // presentes y futuros.
-            document.addEventListener('change', function(e) {
-                var t = e.target;
+            //
+            // Extraído a función aparte (_pfGuardarInputPeso) porque además del
+            // "change" (cuando el campo pierde el foco), también se dispara con
+            // un debounce corto sobre "input" más abajo: así el peso queda
+            // guardado apenas el alumno termina de escribirlo, sin depender de
+            // que llegue a tocar "Marcar Serie" o de que el campo pierda el
+            // foco (por ejemplo si cierra la app o se queda sin batería en el
+            // medio de la serie, antes de marcarla como hecha).
+            // Recuerda, por cada input de peso, el último valor que ya se mandó
+            // a guardar — para no crear un registro DUPLICADO en el historial
+            // cuando el mismo número se guarda más de una vez (al tipear, al
+            // perder el foco, y al tocar "Marcar Serie" son 3 disparadores
+            // distintos que pueden coincidir en el mismo valor). Si el alumno
+            // corrige el peso a otro número, sí se guarda de nuevo.
+            var _pfUltimoValorPesoGuardado = new WeakMap();
+
+            function _pfGuardarInputPeso(t) {
                 if (!t || !t.classList || !t.classList.contains('peso-input')) return;
                 var nombre = t.getAttribute('data-peso-nombre');
                 if (!nombre) return;
                 var val = parseFloat(t.value);
                 if (!val || isNaN(val) || val <= 0) return;
+                if (_pfUltimoValorPesoGuardado.get(t) === val) return; // ya se guardó este mismo valor
+                _pfUltimoValorPesoGuardado.set(t, val);
 
                 var idxAttr = t.getAttribute('data-peso-idx');
                 if (idxAttr !== null && idxAttr !== '') {
@@ -8656,6 +8673,28 @@
                         ultimaSpan.textContent = 'Última vez: ' + val + 'kg';
                     }
                 }
+            }
+
+            document.addEventListener('change', function(e) {
+                _pfGuardarInputPeso(e.target);
+            }, true);
+
+            // Auto-guardado mientras escribe: espera una pausa corta de 700ms sin
+            // tipear (para no mandar un pedido por cada dígito) y guarda con lo
+            // que haya en ese momento, aunque el alumno no haya sacado el foco
+            // del campo todavía. Un mapa por elemento evita pisar el timer de
+            // un campo con el de otro cuando hay varias series en pantalla.
+            var _pfDebouncePesoTimers = new WeakMap();
+            document.addEventListener('input', function(e) {
+                var t = e.target;
+                if (!t || !t.classList || !t.classList.contains('peso-input')) return;
+                var timerPrevio = _pfDebouncePesoTimers.get(t);
+                if (timerPrevio) clearTimeout(timerPrevio);
+                var nuevoTimer = setTimeout(function() {
+                    _pfDebouncePesoTimers.delete(t);
+                    _pfGuardarInputPeso(t);
+                }, 700);
+                _pfDebouncePesoTimers.set(t, nuevoTimer);
             }, true);
 
             // ─── TIPO DE ENTRENAMIENTO GLOBAL (para calorias) ───
@@ -13797,11 +13836,13 @@
                     var p = parseInt(pausasPorSerie[serieIdx]);
                     if (!isNaN(p) && p > 0) pSerie = p;
                 }
-                // Guardar peso de la serie que se está marcando
+                // Guardar peso de la serie que se está marcando (por el mismo
+                // camino que el auto-guardado, con de-duplicado incluido: si ya
+                // se había guardado este valor mientras el alumno tipeaba, acá
+                // no se manda de nuevo).
                 var pesoSerieInput = document.getElementById('peso-' + i + '-s' + serieIdx);
                 if (pesoSerieInput && pesoSerieInput.value) {
-                    var pesoVal = parseFloat(pesoSerieInput.value);
-                    guardarPesoSerie(_nombreEjData[i] || ejercicioNombres[i] || '', serieIdx, pesoVal);
+                    _pfGuardarInputPeso(pesoSerieInput);
                 }
                 marcarSerie(i, pSerie || pausaDefault);
                 // Después de decrementar, actualizar labels a los valores de la PRÓXIMA serie
