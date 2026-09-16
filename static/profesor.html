@@ -479,6 +479,14 @@
         }
         /* ===== RESPONSIVE ===== */
         @media (max-width: 640px) {
+            /* Evita el auto-zoom molesto de iOS Safari: cuando un input/select/textarea
+               tiene letra menor a 16px, Safari agranda automaticamente la pantalla al
+               tocarlo (para que se pueda leer), y despues el profesor queda con la
+               pagina zoomeada hasta que la vuelve a achicar a mano. Fijamos un piso de
+               16px en TODOS los campos de formulario en mobile para que esto no pase
+               en ningun modal (Agregar Bloque, EMOM, Tabata, etc.), aunque algun estilo
+               mas especifico pida una letra mas chica. */
+            input, select, textarea { font-size: 16px !important; }
             /* Header: antes se apilaba en columna y centrado (logo, subtitulo,
                link "Ver vista del alumno", una linea divisoria, email y el
                boton Salir), ocupando ~5 renglones y hasta un 35-40% del alto
@@ -4702,10 +4710,14 @@
             .map(n => '<option value="' + n.replace(/"/g, '&quot;') + '">').join('');
     }
 
-    // Carga todas las fichas de alumnos guardadas en Firebase
+    // Carga todas las fichas de alumnos guardadas (a traves del backend, que
+    // resuelve a la base de datos de la cuenta logueada; ya no habla directo
+    // con Firebase).
     async function cargarPerfilesAlumnos() {
         try {
-            _perfilAlumnosCache = await _fbFetchCached(FIREBASE_BASE + '/alumnos_perfil.json') || {};
+            const res = await fetch(API_BASE + '/api/alumnos_perfil');
+            const data = await res.json();
+            _perfilAlumnosCache = (data && data.ok) ? (data.perfiles || {}) : {};
         } catch (e) {
             console.error('Error cargando fichas de alumnos:', e);
         }
@@ -4772,12 +4784,13 @@
         const btn = document.getElementById('btn-guardar-alumno');
         if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
         try {
-            await fetch(FIREBASE_BASE + '/alumnos_perfil/' + clave + '.json', {
-                method: 'PUT',
+            const res = await fetch(API_BASE + '/api/alumnos_perfil/' + encodeURIComponent(clave), {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(perfil)
             });
-            _fbCacheInvalidar(FIREBASE_BASE + '/alumnos_perfil.json');
+            const data = await res.json();
+            if (!data || !data.ok) throw new Error((data && data.error) || 'Error del servidor');
             _perfilAlumnosCache[clave] = perfil;
             toast('Ficha de ' + perfil.nombre + ' guardada');
             limpiarFormAlumno();
@@ -4817,8 +4830,9 @@
         if (!p) return;
         if (!await pfConfirm('¿Eliminar la ficha de ' + p.nombre + '? (No se eliminan sus rutinas ni su historial)')) return;
         try {
-            await fetch(FIREBASE_BASE + '/alumnos_perfil/' + clave + '.json', { method: 'DELETE' });
-            _fbCacheInvalidar(FIREBASE_BASE + '/alumnos_perfil.json');
+            const res = await fetch(API_BASE + '/api/alumnos_perfil/' + encodeURIComponent(clave), { method: 'DELETE' });
+            const data = await res.json();
+            if (!data || !data.ok) throw new Error((data && data.error) || 'Error del servidor');
             delete _perfilAlumnosCache[clave];
             renderizarListaAlumnosPerfil();
             toast('Ficha eliminada');
@@ -4838,12 +4852,13 @@
             Object.assign({}, existente, { feedbackHabilitado: nuevoEstado }) :
             { nombre: (nombreFallback || '').toUpperCase(), edad: '', elementos: [], lesiones: '', ejerciciosProhibidos: [], feedbackHabilitado: nuevoEstado };
         try {
-            await fetch(FIREBASE_BASE + '/alumnos_perfil/' + clave + '.json', {
-                method: 'PUT',
+            const res = await fetch(API_BASE + '/api/alumnos_perfil/' + encodeURIComponent(clave), {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(perfil)
             });
-            _fbCacheInvalidar(FIREBASE_BASE + '/alumnos_perfil.json');
+            const data = await res.json();
+            if (!data || !data.ok) throw new Error((data && data.error) || 'Error del servidor');
             _perfilAlumnosCache[clave] = perfil;
             renderizarListaAlumnosPerfil();
             toast(nuevoEstado ? 'Feedback activado para ' + perfil.nombre : 'Feedback desactivado para ' + perfil.nombre);
@@ -4907,10 +4922,7 @@
 
     // ── Badge "Entrenó hoy" en la lista de alumnos ──────────────────────
     // Para cada alumno: pide sus códigos de rutina (mismo endpoint que ya usa
-    // el dashboard) y revisa en Firebase, por código, cuándo fue su último
-    // acceso. Se hace aparte del render principal para no trabar la lista,
-    // y con una concurrencia chica para no saturar con muchos alumnos.
-    const FIREBASE_ASISTENCIA_URL_LISTA = "https://ponetefit-app-default-rtdb.firebaseio.com/asistencia/";
+    // el dashboard) y revisa, por código, cuándo fue su último acceso.
     async function _pfCargarBadgesAsistencia(targets) {
         if (!targets || !targets.length) return;
         const CONCURRENCIA = 4;
@@ -4927,7 +4939,9 @@
                     let ultimo = 0;
                     await Promise.all(codigos.map(async (cod) => {
                         try {
-                            const val = await _fbFetchCached(FIREBASE_ASISTENCIA_URL_LISTA + encodeURIComponent(cod) + '/ultimo.json');
+                            const r = await fetch(API_BASE + '/api/asistencia/' + encodeURIComponent(cod));
+                            const d = await r.json();
+                            const val = (d && d.ok && d.asistencia) ? d.asistencia.ultimo : null;
                             if (val && val > ultimo) ultimo = val;
                         } catch (e) {}
                     }));
@@ -5006,11 +5020,6 @@
     // que se está por agregar aparece como "ejercicio_dificil" en alguna, muestra un cartel con
     // el detalle: código de rutina, sistema de entrenamiento (con tiempos/reps) y si fue
     // calentamiento o bloque principal.
-    const FEEDBACK_URL_COSTOSO = 'https://ponetefit-app-default-rtdb.firebaseio.com/feedback/';
-    // Path donde se guardan las resoluciones: cuando el alumno (desde su app) o el
-    // profesor (con el botón "Marcar como superado") avisan que un ejercicio ya no
-    // cuesta más. resueltos/{codigo}/{EJERCICIO_UPPER} = {ts, fecha, quien}
-    const RESUELTOS_URL_COSTOSO = 'https://ponetefit-app-default-rtdb.firebaseio.com/resueltos/';
     // Solo se avisa cuando la sensación de esfuerzo fue alta (9 o 10 sobre 10), para no
     // alertar por ejercicios que en realidad no costaron tanto.
     const UMBRAL_SENSACION_COSTOSO = 9;
@@ -5061,11 +5070,14 @@
             // Resoluciones para este código: {EJERCICIO_UPPER: {ts, fecha, quien}}
             let resueltos = {};
             try {
-                const dataR = await _fbFetchCached(RESUELTOS_URL_COSTOSO + encodeURIComponent(codigo) + '.json');
-                if (dataR && typeof dataR === 'object') resueltos = dataR;
+                const rR = await fetch(API_BASE + '/api/resueltos/' + encodeURIComponent(codigo));
+                const dataR = await rR.json();
+                if (dataR && dataR.ok && dataR.resueltos && typeof dataR.resueltos === 'object') resueltos = dataR.resueltos;
             } catch (e) {}
             try {
-                const data = await _fbFetchCached(FEEDBACK_URL_COSTOSO + encodeURIComponent(codigo) + '.json');
+                const rF = await fetch(API_BASE + '/api/feedback/' + encodeURIComponent(codigo));
+                const dataF = await rF.json();
+                const data = (dataF && dataF.ok) ? dataF.feedback : null;
                 if (!data || typeof data !== 'object') return;
                 Object.keys(data).forEach(fecha => {
                     const dia = data[fecha];
@@ -5211,13 +5223,12 @@
         const payload = { ejercicio: ejercicio, ts: Date.now(), fecha: new Date().toISOString().slice(0, 10), quien: 'profesor' };
         try {
             await Promise.all(codigos.map(codigo =>
-                fetch(RESUELTOS_URL_COSTOSO + encodeURIComponent(codigo) + '/' + encodeURIComponent(clave) + '.json', {
-                    method: 'PUT',
+                fetch(API_BASE + '/api/resueltos/' + encodeURIComponent(codigo) + '/' + encodeURIComponent(clave), {
+                    method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 }).catch(() => {})
             ));
-            codigos.forEach(codigo => _fbCacheInvalidar(RESUELTOS_URL_COSTOSO + encodeURIComponent(codigo) + '.json'));
         } catch (e) {}
         delete _pfFeedbackCostosoCache[clave];
         document.getElementById('modal-advertencia-costoso').classList.add('hidden');
@@ -12139,7 +12150,6 @@
     // norm(ejercicio) -> [{v, t, fecha, metodo, codigo}], ordenado por fecha ascendente.
     let dashCargasHistorial = {};
     let dashCargaChartInstance = null;
-    const FIREBASE_CARGAS_URL_DASH = "https://ponetefit-app-default-rtdb.firebaseio.com/cargas/";
 
     // Asistencia (días que el alumno entró a su rutina), juntando todos sus codigos.
     // Set de fechas "YYYY-MM-DD". El alumno.html escribe acá cada vez que entra.
@@ -12158,7 +12168,6 @@
     let dashAsistenciaUltimo = 0; // timestamp del ultimo acceso (el mas reciente entre todos sus codigos)
     let dashCalMesActivo = new Date(); // primer día del mes que se está mostrando en el calendario
     let dashCalDiaSeleccionado = null; // fechaISO del día que el profesor tocó en el calendario (distinto de "hoy")
-    const FIREBASE_ASISTENCIA_URL_DASH = "https://ponetefit-app-default-rtdb.firebaseio.com/asistencia/";
 
     async function cargarAlumnosDash() {
         const inp = document.getElementById('dash-select-alumno');
@@ -12234,7 +12243,9 @@
                 dashCargasHistorial = {};
                 const fetchesCargas = codigos.map(async (cod) => {
                     try {
-                        const remoto = await _fbFetchCached(FIREBASE_CARGAS_URL_DASH + encodeURIComponent(cod) + '/historial.json');
+                        const rCarg = await fetch(API_BASE + '/api/cargas/' + encodeURIComponent(cod));
+                        const dCarg = await rCarg.json();
+                        const remoto = (dCarg && dCarg.ok && dCarg.cargas) ? dCarg.cargas.historial : null;
                         if (!remoto) return;
                         Object.keys(remoto).forEach((normEj) => {
                             const registros = remoto[normEj];
@@ -12271,7 +12282,9 @@
                 dashAsistenciaUltimo = 0;
                 const fetchesAsistencia = codigos.map(async (cod) => {
                     try {
-                        const remoto = await _fbFetchCached(FIREBASE_ASISTENCIA_URL_DASH + encodeURIComponent(cod) + '.json');
+                        const rAsi = await fetch(API_BASE + '/api/asistencia/' + encodeURIComponent(cod));
+                        const dAsi = await rAsi.json();
+                        const remoto = (dAsi && dAsi.ok) ? dAsi.asistencia : null;
                         if (!remoto) return;
                         if (remoto.fechas) {
                             Object.keys(remoto.fechas).forEach((f) => {
@@ -14917,7 +14930,6 @@
     // REPOSITORIO DE RUTINAS (Firebase, con cache en memoria + respaldo localStorage)
     // ====================================================================
     const REPO_KEY = 'ponetefit_repositorio';           // respaldo local (offline / mientras carga)
-    const REPO_FIREBASE_PATH = '/repositorio_rutinas.json';
     let repoEditandoIdx = null;
     let repoCopiarIdx = null;
     // Índice del repositorio actualmente cargado en Crear Rutina (vía "Usar acá"
@@ -14945,11 +14957,13 @@
         const ind = document.getElementById('repo-sync-indicador');
         if (ind) { ind.textContent = '☁️ Sincronizando...'; ind.className = 'text-xs text-textoSuave'; }
         try {
-            await fetch(FIREBASE_BASE + REPO_FIREBASE_PATH, {
-                method: 'PUT',
+            const res = await fetch(API_BASE + '/api/repositorio', {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(arr)
+                body: JSON.stringify({ repositorio: arr })
             });
+            const data = await res.json();
+            if (!data || !data.ok) throw new Error((data && data.error) || 'Error del servidor');
             if (ind) { ind.textContent = '☁️ Sincronizado — disponible en todos tus dispositivos'; ind.className = 'text-xs text-verde'; }
         } catch (e) {
             console.error('Error sincronizando repositorio con la nube:', e);
@@ -14966,11 +14980,11 @@
         _repositorioSincronizando = true;
         const ind = document.getElementById('repo-sync-indicador');
         try {
-            const res = await fetch(FIREBASE_BASE + REPO_FIREBASE_PATH);
+            const res = await fetch(API_BASE + '/api/repositorio');
             const data = await res.json();
-            if (Array.isArray(data)) {
-                _repositorioCache = data;
-                try { localStorage.setItem(REPO_KEY, JSON.stringify(data)); } catch(e) {}
+            if (data && data.ok && Array.isArray(data.repositorio) && data.repositorio.length) {
+                _repositorioCache = data.repositorio;
+                try { localStorage.setItem(REPO_KEY, JSON.stringify(data.repositorio)); } catch(e) {}
                 if (ind) { ind.textContent = '☁️ Sincronizado — disponible en todos tus dispositivos'; ind.className = 'text-xs text-verde'; }
             } else if (_repositorioCache === null) {
                 let local = [];
@@ -19062,7 +19076,6 @@ self.addEventListener('fetch', event => {
          ==================================================================== -->
     <script>
         (function _pfFeedbackDashboard() {
-            var FEEDBACK_URL = 'https://ponetefit-app-default-rtdb.firebaseio.com/feedback/';
             var dashFeedbackPorFecha = {};
             window.dashFeedbackPorFecha = dashFeedbackPorFecha;
 
@@ -19226,9 +19239,10 @@ self.addEventListener('fetch', event => {
                     return;
                 }
                 Promise.all(codigos.map(function(codigo) {
-                    return fetch(FEEDBACK_URL + encodeURIComponent(codigo) + '.json')
+                    return fetch(API_BASE + '/api/feedback/' + encodeURIComponent(codigo))
                         .then(function(res) { return res.json(); })
-                        .then(function(data) {
+                        .then(function(dataRes) {
+                            var data = (dataRes && dataRes.ok) ? dataRes.feedback : null;
                             _normalizarFeedback(data, codigo).forEach(function(item) {
                                 var fecha = item.fecha || '';
                                 if (!fecha) return;
