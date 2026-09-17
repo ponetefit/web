@@ -2168,6 +2168,7 @@
                         <div id="dash-cal-grid" class="grid grid-cols-7 gap-1"></div>
                         <div class="flex items-center gap-4 mt-3 text-[11px] text-textoSuave flex-wrap">
                             <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded" style="background:#2d8f5e"></div> Entrenó (tocá el día para ver la rutina)</div>
+                            <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded" style="background:#FFD54F"></div> Solo ingresó, no hizo la rutina</div>
                             <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded border border-borde"></div> No entrenó</div>
                             <span id="dash-cal-resumen" class="ml-auto text-texto font-bold"></span>
                         </div>
@@ -12458,16 +12459,28 @@
 
         let html = '';
         for (let i = 0; i < primerDiaSemana; i++) html += '<div></div>';
-        let diasConAsistenciaEnMes = 0;
+        let diasEntrenadosEnMes = 0;
+        let diasSoloIngresoEnMes = 0;
         for (let d = 1; d <= totalDias; d++) {
             const fechaISO = anio + '-' + String(mes + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
             const entreno = dashAsistenciaFechas.has(fechaISO);
-            if (entreno) diasConAsistenciaEnMes++;
+            // "entreno" solo indica que el alumno abrió la app ese día. Para
+            // saber si de verdad hizo algo de la rutina (y no solo entró a
+            // mirar), miramos el % de avance máximo registrado ese día:
+            // > 1% => entrenó de verdad (verde). 0%/sin dato => solo ingresó
+            // (amarillo).
+            let hizoRutina = false;
+            if (entreno) {
+                hizoRutina = _pfMaxPctAsistenciaFecha(fechaISO) > 1;
+                if (hizoRutina) diasEntrenadosEnMes++; else diasSoloIngresoEnMes++;
+            }
             const esHoy = fechaISO === hoyISO;
             let clases = 'aspect-square rounded-lg flex items-center justify-center text-xs font-bold cursor-pointer transition hover:opacity-80';
             let estilo = '';
-            if (entreno) {
-                estilo = 'background:#2d8f5e;color:#fff;';
+            if (hizoRutina) {
+                estilo = 'background:#2d8f5e;color:#fff;'; // verde: entrenó (>1% de la rutina)
+            } else if (entreno) {
+                estilo = 'background:#FFD54F;color:#1a1a20;'; // amarillo: solo entró a mirar, 0%
             } else {
                 clases += ' border border-borde text-textoSuave';
             }
@@ -12480,9 +12493,13 @@
             html += '<div class="' + clases + '" data-fecha="' + fechaISO + '" style="' + estilo + '" onclick="_pfMostrarDetalleDiaAsistencia(\'' + fechaISO + '\')">' + d + marcaNoCompletados + '</div>';
         }
         gridEl.innerHTML = html;
+        const diasConAsistenciaEnMes = diasEntrenadosEnMes + diasSoloIngresoEnMes;
         if (resumenEl) {
+            const partes = [];
+            if (diasEntrenadosEnMes > 0) partes.push(diasEntrenadosEnMes + ' entrenado' + (diasEntrenadosEnMes === 1 ? '' : 's'));
+            if (diasSoloIngresoEnMes > 0) partes.push(diasSoloIngresoEnMes + ' solo ingresó' + (diasSoloIngresoEnMes === 1 ? '' : 'aron'));
             resumenEl.textContent = diasConAsistenciaEnMes > 0
-                ? diasConAsistenciaEnMes + ' día' + (diasConAsistenciaEnMes === 1 ? '' : 's') + ' entrenados este mes'
+                ? partes.join(' · ') + (diasConAsistenciaEnMes === 1 ? ' día este mes' : ' días este mes')
                 : 'Sin asistencia registrada este mes';
         }
         if (resumenMiniEl) {
@@ -12491,6 +12508,21 @@
                 : '';
         }
         _pfRenderAlertaInactividad();
+    }
+
+    // Devuelve el % de avance más alto registrado para el alumno en una
+    // fecha dada, mirando todos sus códigos de rutina y todos los registros
+    // (días de rutina) que haya guardado ese día. 0 si no hay ningún dato de
+    // avance (por ejemplo, formato viejo que solo guardaba el timestamp).
+    function _pfMaxPctAsistenciaFecha(fechaISO) {
+        const porCodigo = dashAsistenciaProgresoPorFecha[fechaISO] || {};
+        let max = 0;
+        Object.keys(porCodigo).forEach(function(cod) {
+            (porCodigo[cod] || []).forEach(function(reg) {
+                if (typeof reg.pct === 'number' && reg.pct > max) max = reg.pct;
+            });
+        });
+        return max;
     }
 
     // Avisa si hace mucho que el alumno no entra a su rutina, tomando el
