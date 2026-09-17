@@ -10855,14 +10855,20 @@
                             '<div class="dia-badge-estado" style="margin-top:2px;"></div>' +
                             '</div></div>' +
                             '<div style="display:flex;align-items:center;gap:8px;">' +
-                            '<svg id="dia-chevron-' + idx + '" style="width:20px;height:20px;color:var(--texto-suave);transition:transform 0.25s;transform:' + (idx === 0 ? 'rotate(180deg)' : 'rotate(0deg)') + ';" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>' +
+                            '<svg id="dia-chevron-' + idx + '" style="width:20px;height:20px;color:var(--texto-suave);transition:transform 0.25s;transform:rotate(0deg);" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>' +
                             '</div>';
                         card.appendChild(headerDiv);
 
                         // Preview body (colapsable)
+                        // OJO: arrancan TODOS colapsados (antes el Día 1 se abría solo,
+                        // lo que en pantallas chicas empujaba los días siguientes fuera
+                        // de la vista y daba la sensación de que "se perdían" — el
+                        // alumno tenía que cerrar el Día 1 para recién ahí ver el resto).
+                        // Con los 3 (o más) días siempre colapsados al entrar, se ven
+                        // todos de entrada y el alumno elige cuál abrir.
                         var previewDiv = document.createElement('div');
                         previewDiv.id = 'dia-preview-' + idx;
-                        previewDiv.style.cssText = 'display:' + (idx === 0 ? 'block' : 'none') + ';padding:0 18px 18px;border-top:1px solid var(--borde-sutil);';
+                        previewDiv.style.cssText = 'display:none;padding:0 18px 18px;border-top:1px solid var(--borde-sutil);';
                         var tagHtml = '<span style="display:inline-block;margin:10px 0 8px;background:rgba(255,107,53,0.15);color:var(--naranja);border-radius:var(--radius-sm);padding:3px 10px;font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:1px;">' + tipo + '</span>';
                         var chipsHtml = '';
                         if (ejsPreview.length > 0) {
@@ -11108,6 +11114,18 @@
                     }
                 } else if (mdContainer) {
                     mdContainer.style.display = 'flex';
+                    // BUGFIX: no reconstruimos las tarjetas acá (ya existían), pero
+                    // el estado "completo" se guarda recién al terminar un día — si
+                    // por lo que sea la tarjeta no se había refrescado en vivo (ej.
+                    // el alumno volvió por otro camino que no pasó por
+                    // marcarDiaCompletado), esto reasegura que cada tarjeta muestre
+                    // "COMPLETO"/"pendiente" acorde a lo guardado, no lo que tenía
+                    // pintado desde la última vez que se armó la lista.
+                    cargarProgresoLocal(currentCode);
+                    var _totalDiasRefresh = (dataGlobal && dataGlobal.total_dias) || 1;
+                    for (var _dRef = 0; _dRef < _totalDiasRefresh; _dRef++) {
+                        actualizarEstadoDia(_dRef);
+                    }
                 }
                 // Ocultar botón "Días" del header
                 var btnVolverHeader = document.getElementById('btn-volver-dias-header');
