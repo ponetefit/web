@@ -12191,6 +12191,15 @@
     // norm(ejercicio) -> [{v, t, fecha, metodo, codigo}], ordenado por fecha ascendente.
     let dashCargasHistorial = {};
     let dashCargaChartInstance = null;
+    // Set de fechas "YYYY-MM-DD" en las que el alumno registró alguna carga
+    // (peso), derivado de dashCargasHistorial. Se usa para el calendario de
+    // asistencia: si registró carga ese día, cuenta como que entrenó de
+    // verdad aunque el % de la rutina no se haya guardado.
+    let dashCargasFechas = new Set();
+    // Igual que dashCargasFechas pero por código de rutina puntual, clave
+    // "fechaISO|codigo". Se usa para contar cuántas veces entrenó un rango
+    // de rutinas puntual (filtro de rango del dashboard).
+    let dashCargasFechaCodigo = new Set();
 
     // Asistencia (días que el alumno entró a su rutina), juntando todos sus codigos.
     // Set de fechas "YYYY-MM-DD". El alumno.html escribe acá cada vez que entra.
@@ -12282,6 +12291,8 @@
                 // usa, asi que para armar un historial completo hay que juntar el
                 // historial de todos sus codigos. Se pide en paralelo con las rutinas.
                 dashCargasHistorial = {};
+                dashCargasFechas = new Set();
+                dashCargasFechaCodigo = new Set();
                 const fetchesCargas = codigos.map(async (cod) => {
                     try {
                         const rCarg = await fetch(API_BASE + '/api/cargas/' + encodeURIComponent(cod));
@@ -12295,6 +12306,11 @@
                             Object.keys(registros).forEach((k) => {
                                 const r = registros[k];
                                 if (!r || r.v === undefined || r.v === null) return;
+                                const fechaReg = r.fecha || (r.t ? new Date(r.t).toISOString().slice(0, 10) : '');
+                                if (fechaReg) {
+                                    dashCargasFechas.add(fechaReg);
+                                    dashCargasFechaCodigo.add(fechaReg + '|' + cod);
+                                }
                                 dashCargasHistorial[normEj].push({
                                     v: r.v,
                                     t: r.t || 0,
@@ -12463,16 +12479,17 @@
         let diasSoloIngresoEnMes = 0;
         for (let d = 1; d <= totalDias; d++) {
             const fechaISO = anio + '-' + String(mes + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
-            const entreno = dashAsistenciaFechas.has(fechaISO);
-            // "entreno" solo indica que el alumno abrió la app ese día. Para
-            // saber si de verdad hizo algo de la rutina (y no solo entró a
-            // mirar), miramos el % de avance máximo registrado ese día:
-            // > 1% => entrenó de verdad (verde). 0%/sin dato => solo ingresó
-            // (amarillo).
-            let hizoRutina = false;
+            // dashAsistenciaFechas solo indica que el alumno abrió la app ese
+            // día. Para saber si de verdad hizo algo (y no solo entró a
+            // mirar) sumamos también otras señales de actividad real:
+            // feedback post-entreno, carga registrada, o % de avance > 1%.
+            // Cualquiera de esas tres pinta el día de verde; si solo hay
+            // apertura de app sin ninguna de ellas, queda en amarillo.
+            const tieneFeedback = !!((window.dashFeedbackPorFecha || {})[fechaISO] || []).length;
+            const tieneCarga = dashCargasFechas.has(fechaISO);
+            const hizoRutina = tieneFeedback || tieneCarga || _pfMaxPctAsistenciaFecha(fechaISO) > 1;
+            const entreno = dashAsistenciaFechas.has(fechaISO) || hizoRutina;
             if (entreno) {
-                const tieneFeedback = !!((window.dashFeedbackPorFecha || {})[fechaISO] || []).length;
-                hizoRutina = tieneFeedback || _pfMaxPctAsistenciaFecha(fechaISO) > 1;
                 if (hizoRutina) diasEntrenadosEnMes++; else diasSoloIngresoEnMes++;
             }
             const esHoy = fechaISO === hoyISO;
@@ -13209,6 +13226,38 @@
         });
     }
 
+    // Cuenta cuántos días distintos el alumno entrenó de verdad (feedback,
+    // carga registrada o % > 1%, mismo criterio que el calendario de
+    // asistencia) usando algún código de rutina dentro del rango [desde,hasta].
+    // Ej: rango RAFA0001 → RAFA0001 puede devolver 6 si entrenó esa rutina 6 veces.
+    function _pfContarEntrenamientosEnRango(desde, hasta) {
+        if (!desde || !hasta) return 0;
+        const numDesde = _pfNumeroDeCodigo(desde);
+        const numHasta = _pfNumeroDeCodigo(hasta);
+        if (numDesde === null || numHasta === null) return 0;
+        const lo = Math.min(numDesde, numHasta), hi = Math.max(numDesde, numHasta);
+        let count = 0;
+        Object.keys(dashAsistenciaPorFecha || {}).forEach(function(fecha) {
+            const codigosDia = dashAsistenciaPorFecha[fecha] || [];
+            const codigosEnRango = codigosDia.filter(function(cod) {
+                const n = _pfNumeroDeCodigo(cod);
+                return n !== null && n >= lo && n <= hi;
+            });
+            if (!codigosEnRango.length) return;
+            const entrenoEseDia = codigosEnRango.some(function(cod) {
+                const tieneFeedback = ((window.dashFeedbackPorFecha || {})[fecha] || []).some(function(item) {
+                    return item.codigo === cod;
+                });
+                const tieneCarga = dashCargasFechaCodigo.has(fecha + '|' + cod);
+                const registros = (dashAsistenciaProgresoPorFecha[fecha] || {})[cod] || [];
+                const tienePct = registros.some(function(r) { return typeof r.pct === 'number' && r.pct > 1; });
+                return tieneFeedback || tieneCarga || tienePct;
+            });
+            if (entrenoEseDia) count++;
+        });
+        return count;
+    }
+
     function _pfAplicarRangoDash() {
         const selD = document.getElementById('dash-rango-desde');
         const selH = document.getElementById('dash-rango-hasta');
@@ -13216,7 +13265,11 @@
         dashRangoDesde = selD.value;
         dashRangoHasta = selH.value;
         const label = document.getElementById('dash-rango-activo');
-        if (label) label.textContent = '📌 ' + dashRangoDesde.toUpperCase() + ' → ' + dashRangoHasta.toUpperCase();
+        if (label) {
+            const veces = _pfContarEntrenamientosEnRango(dashRangoDesde, dashRangoHasta);
+            const vecesTxt = veces === 1 ? '1 vez' : veces + ' veces';
+            label.textContent = '📌 ' + dashRangoDesde.toUpperCase() + ' → ' + dashRangoHasta.toUpperCase() + ' · entrenó ' + vecesTxt;
+        }
         procesarDashboard(dashAlumnoActual);
     }
 
