@@ -4868,6 +4868,43 @@
         }
     }
 
+    // Borrado COMPLETO del alumno (cuenta + todas sus rutinas), disponible
+    // directamente desde la pestaña "Crear Alumno". Es distinto de
+    // eliminarPerfilAlumno(), que solo borra la ficha (datos, no la cuenta
+    // ni las rutinas). Reutiliza el mismo endpoint que ya usa la pestaña
+    // Historial para el borrado total.
+    async function eliminarAlumnoCompleto(clave, nombre) {
+        if (!nombre) return;
+        const confirmacion = await pfConfirm('¿Eliminar por completo al alumno ' + nombre.toUpperCase() + '? Esto borra su cuenta y TODAS sus rutinas. Esta accion no se puede deshacer.');
+        if (!confirmacion) return;
+        try {
+            const res = await fetch(API_BASE + '/api/alumnos/' + encodeURIComponent(nombre), {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            if (!data || !data.ok) throw new Error((data && data.error) || 'No se pudo eliminar');
+            // Limpiar caches locales relacionados con este alumno
+            if (clave) delete _perfilAlumnosCache[clave];
+            _alumnosCache = _alumnosCache.filter(n => n.toUpperCase() !== nombre.toUpperCase());
+            _pfLimpiarUsoEnRepositorio({ alumno: nombre });
+            toast('Alumno ' + nombre.toUpperCase() + ' eliminado por completo');
+            renderizarListaAlumnosPerfil();
+            // Si estaba seleccionado en el desplegable de Historial, limpiar esa vista también
+            const selectAlumno = document.getElementById('select-alumno');
+            if (selectAlumno && selectAlumno.value && selectAlumno.value.toUpperCase() === nombre.toUpperCase()) {
+                selectAlumno.value = '';
+                const listaHist = document.getElementById('historial-lista');
+                if (listaHist) listaHist.innerHTML = '<p class="text-textoSuave text-sm text-center py-8">Selecciona un alumno del desplegable</p>';
+                const btnElim = document.getElementById('btn-eliminar-alumno');
+                if (btnElim) btnElim.classList.add('hidden');
+            }
+        } catch (e) {
+            console.error('Error eliminando alumno por completo:', e);
+            toast('Error de conexion al eliminar el alumno');
+        }
+    }
+
     function renderizarListaAlumnosPerfil() {
         const cont = document.getElementById('ca-lista-alumnos');
         if (!cont) return;
@@ -4899,7 +4936,8 @@
                     '<div class="pf-alumno-card-actions flex gap-2 flex-shrink-0">' +
                     '<button onclick="toggleFeedbackAlumno(\'' + clave + '\')" class="' + (fbOn ? 'bg-verde/20 text-verde hover:bg-verde/30' : 'bg-borde/40 text-textoSuave hover:bg-borde/60') + ' px-3 py-1.5 rounded-lg text-xs font-bold transition" title="' + (fbOn ? 'Feedback post-entreno activado (click para desactivar)' : 'Feedback post-entreno desactivado (click para activar)') + '">' + (fbOn ? '🔔 Feedback' : '🔕 Feedback') + '</button>' +
                     '<button onclick="editarPerfilAlumno(\'' + clave + '\')" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">Editar</button>' +
-                    '<button onclick="eliminarPerfilAlumno(\'' + clave + '\')" class="bg-rojo/20 text-rojo px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition">✕</button>' +
+                    '<button onclick="eliminarPerfilAlumno(\'' + clave + '\')" title="Borrar solo la ficha (no borra la cuenta ni las rutinas)" class="bg-rojo/20 text-rojo px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition">✕ Ficha</button>' +
+                    '<button onclick="eliminarAlumnoCompleto(\'' + clave + '\', \'' + (p.nombre || '').replace(/'/g, "\\'") + '\')" title="Borra la cuenta del alumno y TODAS sus rutinas" class="bg-rojo text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-600 transition">🗑 Eliminar Alumno</button>' +
                     '</div>' +
                     '</div>';
             });
@@ -4913,6 +4951,7 @@
                 '<div class="pf-alumno-card-actions flex gap-2">' +
                 '<button onclick="toggleFeedbackAlumno(\'' + claveExtra + '\', \'' + nEsc + '\')" class="bg-verde/20 text-verde hover:bg-verde/30 px-3 py-1.5 rounded-lg text-xs font-bold transition" title="Feedback post-entreno activado (click para desactivar)">🔔 Feedback</button>' +
                 '<button onclick="document.getElementById(\'ca-nombre\').value=\'' + nEsc + '\'; document.getElementById(\'ca-nombre\').scrollIntoView({behavior:\'smooth\'});" class="bg-naranja/20 text-naranja px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition">Crear ficha</button>' +
+                '<button onclick="eliminarAlumnoCompleto(\'' + claveExtra + '\', \'' + nEsc + '\')" title="Borra la cuenta del alumno y TODAS sus rutinas" class="bg-rojo text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-600 transition">🗑 Eliminar Alumno</button>' +
                 '</div>' +
                 '</div>';
         });
