@@ -3781,12 +3781,22 @@
         .container-scroll::-webkit-scrollbar {
             width: 0;
         }
-        /* Wake Lock indicator */
+        /* Wake Lock indicator
+           OJO: va centrado horizontalmente (left:50% + translateX(-50%)) en
+           vez de pegado a la esquina superior derecha (top:12px;right:12px)
+           porque esa esquina la ocupan, según el estado del scroll, el botón
+           "Salir" del header (#header-rutina) o el porcentaje "0%" de
+           #rutina-progress-container — el punto verde terminaba tapando ese
+           texto. El hueco vacío entre el bloque de la izquierda y el de la
+           derecha (tanto en el header como en el renglón de progreso, que
+           usan justify-content:space-between) se mantiene libre en ambos
+           estados, así el punto nunca superpone contenido. */
         
         #wakelock-indicator {
             position: fixed;
-            top: 12px;
-            right: 12px;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
             width: 8px;
             height: 8px;
             border-radius: 50%;
@@ -3794,6 +3804,7 @@
             opacity: 0;
             transition: opacity 0.3s;
             z-index: 9999;
+            pointer-events: none;
         }
         
         #wakelock-indicator.active {
