@@ -18125,7 +18125,12 @@
                 '.pf-vr-ej-list{display:flex;flex-direction:column;gap:8px;}',
                 '.pf-vr-ej-item{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;}',
                 '.pf-vr-ej-nombre{font-size:0.95rem;font-weight:700;color:#f0f0f5;line-height:1.25;}',
-                '.pf-vr-ej-reps{flex-shrink:0;font-family:"Inter",sans-serif;font-size:0.95rem;font-weight:900;color:#FFD54F;background:rgba(255,193,7,0.12);border-radius:8px;padding:3px 10px;white-space:nowrap;}'
+                '.pf-vr-ej-reps{flex-shrink:0;font-family:"Inter",sans-serif;font-size:0.95rem;font-weight:900;color:#FFD54F;background:rgba(255,193,7,0.12);border-radius:8px;padding:3px 10px;white-space:nowrap;}',
+                '.pf-vr-dia-wrap{border:1.5px solid rgba(255,255,255,0.08);border-radius:16px;margin-bottom:10px;overflow:hidden;}',
+                '.pf-vr-dia-header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;background:rgba(255,255,255,0.03);}',
+                '.pf-vr-dia-title-btn{font-family:"Inter",sans-serif;font-size:0.95rem;font-weight:900;color:#f0f0f5;text-transform:uppercase;letter-spacing:0.02em;}',
+                '.pf-vr-dia-chevron{width:18px;height:18px;color:#9a9aa5;transition:transform 0.2s;flex-shrink:0;}',
+                '.pf-vr-dia-body{padding:6px 12px 12px;}'
             ].join('');
             document.head.appendChild(style);
 
@@ -18691,8 +18696,10 @@
 
             // Calentamiento y cada bloque en su propia tarjeta, con cada
             // ejercicio en un recuadro apilado — igual que
-            // _pfGenerarHTMLCompactoGrande() en profesor.html.
-            function _pfGenerarHTMLCompactoGrande(dias) {
+            // _pfGenerarHTMLCompactoGrande() en profesor.html, pero cuando
+            // hay más de un día cada día se muestra colapsado y se despliega
+            // por separado (si no, la vista queda kilométrica).
+            function _pfGenerarHTMLCompactoGrande(dias, contentId) {
                 if (!dias || dias.length === 0) return '<p class="mr-preview-vacio">Sin días para mostrar</p>';
                 var itemsHtml = function(ejercicios) {
                     return (ejercicios || []).map(function(e) {
@@ -18703,6 +18710,7 @@
                         '</div>';
                     }).join('');
                 };
+                var multiDia = dias.length > 1;
                 return dias.map(function(d, di) {
                     var calEjs = d.warmupEjercicios || [];
                     var calTipo = d._wTipo || (d._warmupCfg && d._warmupCfg.tipo) || '';
@@ -18727,12 +18735,34 @@
                             '<div class="pf-vr-ej-list">' + itemsHtml(b.ejercicios) + '</div>' +
                         '</div>';
                     }).join('');
-                    return '<div style="margin-bottom:16px;">' +
-                        (dias.length > 1 ? '<h4 class="pf-vr-dia-title">' + escapeHtml(d.titulo || ('Día ' + (di + 1))) + '</h4>' : '') +
-                        (calCard + bloquesCards || '<p class="mr-preview-vacio">Día vacío</p>') +
+                    var bodyHtml = (calCard + bloquesCards) || '<p class="mr-preview-vacio">Día vacío</p>';
+
+                    if (!multiDia) {
+                        return '<div style="margin-bottom:4px;">' + bodyHtml + '</div>';
+                    }
+
+                    var diaId = contentId + '-dia-' + di;
+                    return '<div class="pf-vr-dia-wrap">' +
+                        '<div class="pf-vr-dia-header" onclick="_pfToggleDiaPreview(\'' + diaId + '\')">' +
+                            '<span class="pf-vr-dia-title-btn">' + escapeHtml(d.titulo || ('Día ' + (di + 1))) + '</span>' +
+                            '<svg id="' + diaId + '-chev" class="pf-vr-dia-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>' +
+                        '</div>' +
+                        '<div id="' + diaId + '" class="pf-vr-dia-body" style="display:none;">' + bodyHtml + '</div>' +
                     '</div>';
                 }).join('');
             }
+
+            // Abre/cierra el contenido de un día dentro de la vista rápida de
+            // "Mis Rutinas" (independiente por día, no afecta a los demás).
+            function _pfToggleDiaPreview(diaId) {
+                var body = document.getElementById(diaId);
+                var chev = document.getElementById(diaId + '-chev');
+                if (!body) return;
+                var abierto = body.style.display !== 'none';
+                body.style.display = abierto ? 'none' : 'block';
+                if (chev) chev.style.transform = abierto ? 'rotate(0deg)' : 'rotate(180deg)';
+            }
+            window._pfToggleDiaPreview = _pfToggleDiaPreview;
 
             // Header (alumno + código + tags de semana si tiene progresión) +
             // contenido — igual que _pfRenderVistaRapidaModal() en profesor.html,
@@ -18760,7 +18790,7 @@
                         (codigoTxt ? '<div class="pf-vr-header-codigo">' + escapeHtml(codigoTxt) + '</div>' : '') +
                         semanasTags +
                     '</div>' : '';
-                return headerCard + _pfGenerarHTMLCompactoGrande(dias);
+                return headerCard + _pfGenerarHTMLCompactoGrande(dias, contentId);
             }
 
             // Re-renderiza la vista rápida ya abierta en "Mis Rutinas" cuando se
