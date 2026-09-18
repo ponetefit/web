@@ -18106,12 +18106,26 @@
                 '{display:none!important;}',
                 '.mr-item{position:relative;}',
                 '.pf-lectura-ojo.activo{color:#69f0ae;border-color:#69f0ae;background:rgba(105,240,174,0.12);}',
-                '.mr-preview{display:none;background:var(--tarjeta-alt,#1c1c22);border:1px solid var(--borde,#2a2a32);border-top:none;border-radius:0 0 var(--radius-md,12px) var(--radius-md,12px);margin-top:-10px;padding:14px 16px 16px;}',
-                '.mr-preview-tag{display:inline-block;background:rgba(105,240,174,0.12);color:#69f0ae;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:20px;margin-bottom:10px;}',
-                '.mr-preview-chips{display:flex;flex-wrap:wrap;gap:6px;}',
-                '.mr-preview-chip{background:var(--fondo-alt,#141418);border:1px solid var(--borde,#2a2a32);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--texto-suave,#aaa);}',
-                '.mr-preview-mas{font-size:12px;color:var(--texto-suave,#aaa);padding:4px 2px;}',
-                '.mr-preview-cargando,.mr-preview-vacio{font-size:12px;color:var(--texto-suave,#aaa);text-align:center;padding:10px 0;margin:0;}'
+                '.mr-preview{display:none;background:#17171C;border:1px solid var(--borde,#2a2a32);border-top:none;border-radius:0 0 var(--radius-md,12px) var(--radius-md,12px);margin-top:-10px;padding:16px 12px 14px;}',
+                '.mr-preview-cargando,.mr-preview-vacio{font-size:12px;color:#9a9aa5;text-align:center;padding:10px 0;margin:0;}',
+                '.pf-vr-header-card{background:linear-gradient(135deg,rgba(255,193,7,0.16),rgba(255,193,7,0.06));border:1.5px solid rgba(255,193,7,0.35);border-radius:16px;padding:14px 16px;margin-bottom:14px;text-align:center;}',
+                '.pf-vr-header-alumno{font-family:"Inter",sans-serif;font-size:1.2rem;font-weight:900;color:#FFD54F;text-transform:uppercase;letter-spacing:0.02em;line-height:1.2;}',
+                '.pf-vr-header-codigo{font-family:monospace;font-size:0.85rem;font-weight:700;color:#d8d8de;margin-top:4px;letter-spacing:0.05em;}',
+                '.pf-vr-header-semanas{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:8px;}',
+                '.pf-vr-semana-tag{font-family:"Inter",sans-serif;font-size:0.7rem;font-weight:800;color:#FFD54F;background:rgba(255,193,7,0.14);border:1px solid rgba(255,193,7,0.35);border-radius:999px;padding:5px 12px;letter-spacing:0.03em;cursor:pointer;min-height:28px;transition:background 0.15s,color 0.15s,border-color 0.15s;}',
+                '.pf-vr-semana-tag:active{background:rgba(255,193,7,0.28);}',
+                '.pf-vr-semana-tag-activa{color:#0a0a0a;background:#FFD54F;border-color:#FFD54F;}',
+                '.pf-vr-dia-title{font-family:"Inter",sans-serif;font-size:1.05rem;font-weight:900;color:#f0f0f5;text-align:center;text-transform:uppercase;letter-spacing:0.02em;margin:0 0 10px;}',
+                '.pf-vr-card{border-radius:16px;padding:14px;margin-bottom:12px;border:1.5px solid transparent;}',
+                '.pf-vr-card-cal{background:rgba(79,195,247,0.08);border-color:rgba(79,195,247,0.3);}',
+                '.pf-vr-card-bloque{background:rgba(124,58,237,0.08);border-color:rgba(124,58,237,0.3);}',
+                '.pf-vr-card-head{text-align:center;margin-bottom:10px;}',
+                '.pf-vr-card-title{font-family:"Inter",sans-serif;font-size:1.05rem;font-weight:900;color:#f0f0f5;display:block;}',
+                '.pf-vr-card-sub{display:block;font-size:0.75rem;color:#9a9aa5;margin-top:2px;}',
+                '.pf-vr-ej-list{display:flex;flex-direction:column;gap:8px;}',
+                '.pf-vr-ej-item{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;}',
+                '.pf-vr-ej-nombre{font-size:0.95rem;font-weight:700;color:#f0f0f5;line-height:1.25;}',
+                '.pf-vr-ej-reps{flex-shrink:0;font-family:"Inter",sans-serif;font-size:0.95rem;font-weight:900;color:#FFD54F;background:rgba(255,193,7,0.12);border-radius:8px;padding:3px 10px;white-space:nowrap;}'
             ].join('');
             document.head.appendChild(style);
 
@@ -18457,100 +18471,308 @@
             }
 
             // ─── Vista rápida de "Mis Rutinas": al tocar el ojo de una tarjeta,
-            // la rutina se despliega hacia abajo (mismo estilo que las
-            // tarjetas de día en una rutina multi-día), en vez de entrar a
-            // esa rutina. Un segundo toque la cierra y no cambia nada de lo
-            // que ya se estaba viendo (currentCode, dataGlobal, etc. quedan
-            // intactos). ───
+            // la rutina se despliega hacia abajo (mismo estilo "vista rápida"
+            // que usa el profesor en Historial), en vez de entrar a esa
+            // rutina. Un segundo toque la cierra y no cambia nada de lo que
+            // ya se estaba viendo (currentCode, dataGlobal, etc. quedan
+            // intactos). Las funciones de abajo son un port 1:1 de las que
+            // usa profesor.html para esa misma vista. ───
             var _pfPreviewRutinaCache = {};
 
             function _pfIdPreview(cod) {
                 return 'mr-preview-' + String(cod).replace(/[^a-zA-Z0-9_-]/g, '_');
             }
 
-            // Extrae un resumen (tag + nombres de ejercicios) de una rutina ya
-            // cargada, reutilizando los mismos nombres de campo que usa
-            // renderMultidia() para las tarjetas de día.
-            function _pfExtraerPreviewRutina(data) {
-                if (!data) return { tag: '', ejercicios: [] };
-                var esMulti = data.es_multidia === true && (data.total_dias || 1) > 1;
-                if (esMulti) {
-                    var total = data.total_dias || 1;
-                    var ejercicios = [];
-                    for (var i = 1; i <= total; i++) {
-                        var diaData = data['dia_' + i];
-                        if (!diaData) continue;
-                        var dd = diaData.datos || {};
-                        if (dd.warmup_ejercicios) {
-                            toArray(dd.warmup_ejercicios).slice(0, 2).forEach(function(e) {
-                                var n = Array.isArray(e) ? e[0] : (e.nombre || '');
-                                if (n) ejercicios.push(n);
-                            });
-                        }
-                        var _bloqSrc = dd.bloques || dd.datos;
-                        if (_bloqSrc) {
-                            toArray(_bloqSrc).forEach(function(b) {
-                                if (b && b.ejercicios) {
-                                    toArray(b.ejercicios).slice(0, 3).forEach(function(e) {
-                                        var n = Array.isArray(e) ? e[0] : (e.nombre || '');
-                                        if (n) ejercicios.push(n);
-                                    });
-                                } else if (b && (b.nombre || Array.isArray(b))) {
-                                    var n2 = Array.isArray(b) ? b[0] : (b.nombre || '');
-                                    if (n2) ejercicios.push(n2);
-                                }
-                            });
-                        } else if (dd.rutina) {
-                            toArray(dd.rutina).slice(0, 3).forEach(function(e) {
-                                var n3 = Array.isArray(e) ? e[0] : (e.nombre || '');
-                                if (n3) ejercicios.push(n3);
-                            });
-                        }
-                    }
-                    return { tag: 'MULTI-DÍA · ' + total + ' DÍAS', ejercicios: ejercicios };
-                }
-                var tipo = (data.tipo || 'ENTRENAMIENTO').toUpperCase();
-                var ejercicios2 = [];
-                if (data.warmup_ejercicios) {
-                    toArray(data.warmup_ejercicios).slice(0, 3).forEach(function(e) {
-                        var n = Array.isArray(e) ? e[0] : (e.nombre || '');
-                        if (n) ejercicios2.push(n);
-                    });
-                }
-                var mainEjs = [];
-                if (data.tipo === 'ENTRENAMIENTO' && data.bloques) {
-                    toArray(data.bloques).forEach(function(b) {
-                        toArray(b.ejercicios || b.rutina || []).forEach(function(e) {
-                            var n = Array.isArray(e) ? e[0] : (e.nombre || '');
-                            if (n) mainEjs.push(n);
-                        });
-                    });
-                } else {
-                    toArray(data.rutina || data.datos || data.ejercicios || []).forEach(function(e) {
-                        var n = Array.isArray(e) ? e[0] : (e.nombre || '');
-                        if (n) mainEjs.push(n);
-                    });
-                }
-                ejercicios2 = ejercicios2.concat(mainEjs);
-                return { tag: tipo, ejercicios: ejercicios2 };
+            function escapeHtml(str) {
+                if (!str) return '';
+                return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
             }
 
-            function _pfRenderPreviewHtml(data) {
-                var info = _pfExtraerPreviewRutina(data);
-                var tagHtml = info.tag ? '<span class="mr-preview-tag">' + info.tag + '</span><br>' : '';
-                var chipsHtml;
-                if (info.ejercicios.length > 0) {
-                    chipsHtml = '<div class="mr-preview-chips">';
-                    info.ejercicios.slice(0, 8).forEach(function(n) {
-                        chipsHtml += '<span class="mr-preview-chip">' + n + '</span>';
-                    });
-                    if (info.ejercicios.length > 8) chipsHtml += '<span class="mr-preview-mas">+' + (info.ejercicios.length - 8) + ' mas</span>';
-                    chipsHtml += '</div>';
-                } else {
-                    chipsHtml = '<p class="mr-preview-vacio">Sin ejercicios para mostrar</p>';
+            // Igual que resolverDatos() en profesor.html: normaliza r.datos (a
+            // veces guardado como string JSON) y lo mezcla con las propiedades
+            // planas de r.
+            function _pfResolverDatosPreview(r) {
+                var rawDatos = r.datos;
+                if (typeof rawDatos === 'string') {
+                    try { rawDatos = JSON.parse(rawDatos); } catch (e) { rawDatos = null; }
                 }
-                return tagHtml + chipsHtml;
+                var datos = {};
+                var skip = { alumno: 1, tipo: 1, timestamp: 1, codigo: 1, ok: 1 };
+                Object.keys(r).forEach(function(key) {
+                    if (!skip[key] && key !== 'datos') datos[key] = r[key];
+                });
+                if (rawDatos && typeof rawDatos === 'object' && !Array.isArray(rawDatos)) {
+                    Object.keys(rawDatos).forEach(function(key) { datos[key] = rawDatos[key]; });
+                } else if (Array.isArray(rawDatos)) {
+                    if (!datos.datos) datos.datos = rawDatos;
+                }
+                return datos;
             }
+
+            // Normaliza cualquier formato de ejercicio a {nombre, link, reps, unit, ...} — igual que normalizeEj() en profesor.html.
+            function _pfNormalizeEjPreview(ej) {
+                if (!ej) return { nombre: '', link: '', reps: '', unit: 'Reps', series: '', descanso: '', nota_tecnica: '' };
+                if (Array.isArray(ej)) {
+                    return { nombre: ej[0] || '', link: ej[1] || '', reps: String(ej[2] || ''), unit: ej[3] || 'Reps', series: '', descanso: '', nota_tecnica: '' };
+                }
+                if (typeof ej === 'object' && (0 in ej || '0' in ej) && !ej.nombre) {
+                    return { nombre: ej[0] || '', link: ej[1] || '', reps: String(ej[2] || ''), unit: ej[3] || 'Reps', series: '', descanso: '', nota_tecnica: '' };
+                }
+                var result = {
+                    nombre: ej.nombre || '',
+                    link: ej.video || ej.link || '',
+                    reps: String(ej.reps || ''),
+                    unit: ej.unit || 'Reps',
+                    series: String(ej.series || ''),
+                    descanso: String(ej.descanso || ej.pausa || ''),
+                    nota_tecnica: ej.nota_tecnica || '',
+                    con_carga: ej.con_carga === true || ej.con_carga === 'true',
+                    elemento: ej.elemento || ''
+                };
+                if (ej.reps_por_vuelta) result.reps_por_vuelta = ej.reps_por_vuelta;
+                if (ej.reps_por_serie) result.reps_por_serie = ej.reps_por_serie;
+                if (ej.pausa_por_serie) result.pausa_por_serie = ej.pausa_por_serie;
+                return result;
+            }
+
+            // Lista ordenada de números de semana (progresión semanal), o null.
+            function _pfNumerosSemanaRutina(r) {
+                if (!r || !r.semanas || typeof r.semanas !== 'object') return null;
+                var numeros = Object.keys(r.semanas)
+                    .filter(function(k) { return r.semanas[k]; })
+                    .map(function(k) { return parseInt(k, 10); })
+                    .filter(function(n) { return !isNaN(n); })
+                    .sort(function(a, b) { return a - b; });
+                return numeros.length > 1 ? numeros : null;
+            }
+
+            // Texto de reps/seg de un ejercicio para mostrar junto al nombre.
+            function _pfRepsEjercicio(e) {
+                if (!e) return '';
+                if (e.reps_por_vuelta && e.reps_por_vuelta.length) {
+                    var vals = e.reps_por_vuelta.filter(function(v) { return v; });
+                    return vals.length ? vals.join('/') : '';
+                }
+                if (e.reps_por_serie && e.reps_por_serie.length) {
+                    var vals2 = e.reps_por_serie.filter(function(v) { return v; });
+                    return vals2.length ? vals2.join('/') : '';
+                }
+                if (e.reps) return e.reps + (e.unit && e.unit !== 'Reps' ? ' ' + e.unit.toLowerCase() : '');
+                return '';
+            }
+
+            function _pfDetalleBloque(b) {
+                if (!b) return '';
+                var cantEj = (b.ejercicios || []).length;
+                if (b.tipo === 'Circuito') return (b.vueltas || 3) + ' vueltas · ' + (b.pausa_vuelta || 60) + 's pausa entre vueltas';
+                if (b.tipo === 'Circuito por Tiempo') return (b.duracion_min || 5) + ' min';
+                if (b.tipo === 'Tabata') return (b.rondas || 1) + ' ronda(s) · ' + (b.cantidad || cantEj || 8) + ' ej · ' + (b.trabajo || 20) + 's trabajo / ' + (b.pausa || 10) + 's pausa';
+                if (b.tipo === 'EMOM') return (b.minutos_totales || 10) + ' min';
+                if (b.tipo === 'Por Tiempo') return (b.vueltas || 3) + ' vueltas';
+                if (b.tipo === 'Series') {
+                    var seriesVals = (b.ejercicios || []).map(function(e) { return parseInt(e.series) || 4; });
+                    var avgSeries = seriesVals.length ? Math.round(seriesVals.reduce(function(a, c) { return a + c; }, 0) / seriesVals.length) : 4;
+                    return '~' + avgSeries + ' series por ejercicio';
+                }
+                if (b.tipo === 'Sumando Ejercicio') {
+                    return cantEj + ' vuelta(s) acumulada(s)' + (b.pausa_ronda ? ' · ' + b.pausa_ronda + 's pausa entre vueltas' : '');
+                }
+                return '';
+            }
+
+            function _pfDetalleCalentamiento(d) {
+                if (!d) return '';
+                var tipo = d._wTipo || (d._warmupCfg && d._warmupCfg.tipo) || '';
+                var cfg = d._wCfg || d._warmupCfg || {};
+                if (tipo === 'Circuito (Vueltas)') return (cfg.vueltas || 2) + ' vueltas · ' + (cfg.pausa_vuelta || 30) + 's pausa';
+                if (tipo === 'Circuito por Tiempo') return (cfg.duracion_bloque || 3) + ' min';
+                if (tipo === 'Tabata') return (cfg.cantidad || (d.warmupEjercicios || []).length || 8) + ' ej · ' + (cfg.trabajo || 20) + 's trabajo / ' + (cfg.pausa || 10) + 's pausa';
+                if (tipo === 'EMOM') return (cfg.minutos || 5) + ' min';
+                if (tipo === 'Por Tiempo') return (cfg.vueltas || 3) + ' vueltas';
+                if (tipo === 'Series/Reps') return (cfg.series || 3) + ' series · ' + (cfg.reps || 10) + ' reps';
+                if (tipo === 'Sumando Ejercicio') return (d.warmupEjercicios || []).length + ' vuelta(s) acumulada(s)' + (cfg.pausa_ronda ? ' · ' + cfg.pausa_ronda + 's pausa entre vueltas' : '');
+                return '';
+            }
+
+            // Convierte cualquier formato de rutina guardado (ENTRENAMIENTO con
+            // bloques, tipos "planos" como Tabata/EMOM/Series, o MULTIDIA) en
+            // una lista uniforme de "días" — igual que _pfParsearDiasHistorial()
+            // en profesor.html.
+            function _pfParsearDiasHistorial(r) {
+                var datos = _pfResolverDatosPreview(r);
+                var tipo = r.tipo || 'ENTRENAMIENTO';
+                var dias = [];
+
+                function normEjs(src) {
+                    return toArray(src).map(function(ej) {
+                        var e = _pfNormalizeEjPreview(ej);
+                        var out = { nombre: e.nombre, link: e.link, reps: e.reps || '12', unit: e.unit || 'Reps', series: parseInt(e.series) || 4, nota_tecnica: e.nota_tecnica || '' };
+                        if (e.reps_por_vuelta) out.reps_por_vuelta = e.reps_por_vuelta;
+                        if (e.reps_por_serie) out.reps_por_serie = e.reps_por_serie;
+                        if (e.pausa_por_serie) out.pausa_por_serie = e.pausa_por_serie;
+                        return out;
+                    }).filter(function(e) { return e.nombre; });
+                }
+                function normBloques(bSrc) {
+                    return toArray(bSrc).map(function(b) {
+                        var bl = { tipo: b.tipo || 'Circuito', descripcion: b.descripcion || '', ejercicios: normEjs(b.ejercicios || b.rutina || []) };
+                        if (b.tipo === 'Circuito') { bl.vueltas = b.vueltas || 3; bl.pausa_vuelta = b.pausa_vuelta || 60; }
+                        else if (b.tipo === 'Circuito por Tiempo') { bl.duracion_min = b.duracion_min || b.tiempo_min || 5; }
+                        else if (b.tipo === 'Tabata') { bl.trabajo = b.trabajo || 20; bl.pausa = b.pausa || 10; bl.rondas = b.rondas || 1; bl.pausa_entre_rondas = b.pausa_entre_rondas || 0; bl.cantidad = b.cantidad || bl.ejercicios.length || 8; }
+                        else if (b.tipo === 'EMOM') { bl.minutos_totales = b.minutos_totales || 10; bl.ejercicios_por_minuto = b.ejercicios_por_minuto || 1; if (b.emom_config_por_minuto) bl.emom_config_por_minuto = b.emom_config_por_minuto; }
+                        else if (b.tipo === 'Por Tiempo') { bl.vueltas = b.vueltas || 3; }
+                        else if (b.tipo === 'Sumando Ejercicio') { bl.pausa_ronda = b.pausa_ronda || 0; }
+                        return bl;
+                    });
+                }
+                function bloquesDesdePlano(tipoR, datosR) {
+                    var ejsFlat = [];
+                    if (tipoR === 'Tabata' || tipoR === 'EMOM' || tipoR === 'Series' || tipoR === 'Sumando Ejercicio') {
+                        ejsFlat = toArray(datosR.rutina || datosR.datos || []);
+                    } else if (tipoR === 'Circuito' || tipoR === 'Circuito por Tiempo') {
+                        var gruposC = toArray(datosR.datos || datosR.rutina || []);
+                        ejsFlat = (gruposC.length && gruposC[0] && gruposC[0].ejercicios !== undefined) ? toArray(gruposC[0].ejercicios) : gruposC;
+                    } else {
+                        ejsFlat = toArray(datosR.ejercicios || datosR.datos || datosR.rutina || []);
+                    }
+                    if (!ejsFlat.length) return [];
+                    var bl = { tipo: (tipoR === 'ENTRENAMIENTO') ? 'Circuito' : tipoR, descripcion: datosR.descripcion || '', ejercicios: normEjs(ejsFlat) };
+                    if (bl.tipo === 'Circuito') { bl.vueltas = datosR.vueltas_bloque || 3; bl.pausa_vuelta = datosR.pausa_vuelta || 60; }
+                    else if (bl.tipo === 'Circuito por Tiempo') { bl.duracion_min = datosR.duracion_min || 5; }
+                    else if (bl.tipo === 'Tabata') { bl.trabajo = datosR.trabajo || 20; bl.pausa = datosR.pausa || 10; bl.rondas = datosR.rondas || 1; bl.pausa_entre_rondas = datosR.pausa_entre_rondas || 0; bl.cantidad = datosR.cantidad || bl.ejercicios.length || 8; }
+                    else if (bl.tipo === 'EMOM') { bl.minutos_totales = datosR.minutos_totales || 10; bl.ejercicios_por_minuto = datosR.ejercicios_por_minuto || 1; if (datosR.minutos_ciclo) bl.emom_config_por_minuto = toArray(datosR.minutos_ciclo).map(function(mc, mi) { return { minuto: mi + 1, ejercicios: mc.ejercicios || [], ejercicios_cantidad: (mc.ejercicios || []).length, ejercicios_nombres: (mc.ejercicios || []).map(function(e) { return e.nombre; }) }; }); }
+                    else if (bl.tipo === 'Por Tiempo') { bl.vueltas = datosR.vueltas || 3; }
+                    else if (bl.tipo === 'Sumando Ejercicio') { bl.pausa_ronda = datosR.pausa_ronda || 0; }
+                    return [bl];
+                }
+                function normWarmupEjs(src) {
+                    return toArray(src).map(function(ej) {
+                        var e = _pfNormalizeEjPreview(ej);
+                        var out = { nombre: e.nombre, link: e.link, reps: e.reps, unit: e.unit || 'Reps', con_carga: ej.con_carga || false, tip1: ej.tip1 || '', tip2: ej.tip2 || '' };
+                        if (e.reps_por_vuelta) out.reps_por_vuelta = e.reps_por_vuelta;
+                        if (e.reps_por_serie) out.reps_por_serie = e.reps_por_serie;
+                        if (e.pausa_por_serie) out.pausa_por_serie = e.pausa_por_serie;
+                        return out;
+                    }).filter(function(e) { return e.nombre; });
+                }
+
+                if (tipo === 'MULTIDIA') {
+                    var totalDM = r.total_dias || 0;
+                    for (var di = 1; di <= totalDM; di++) {
+                        var diaR = r['dia_' + di];
+                        if (!diaR || !diaR.datos) continue;
+                        var dd = diaR.datos;
+                        var dWTipo = dd.warmup_tipo || 'Circuito (Vueltas)';
+                        var dWCfg = dd.warmup_config_detalle || {};
+                        var dBloques = toArray(dd.bloques).length > 0 ? normBloques(dd.bloques) : bloquesDesdePlano(diaR.tipo || 'ENTRENAMIENTO', dd);
+                        dias.push({
+                            titulo: diaR.titulo || ('Dia ' + di),
+                            warmupEjercicios: normWarmupEjs(dd.warmup_ejercicios),
+                            warmupEmomConfig: toArray(dWCfg.emom_config_por_minuto),
+                            bloquesRutina: dBloques,
+                            _wTipo: dWTipo,
+                            _wCfg: dWCfg
+                        });
+                    }
+                } else {
+                    var bloquesDelDia = toArray(datos.bloques).length > 0 ? normBloques(datos.bloques) : bloquesDesdePlano(tipo, datos);
+                    var _wCfgB = datos.warmup_config_detalle || {};
+                    dias.push({
+                        titulo: 'Dia 1',
+                        warmupEjercicios: normWarmupEjs(datos.warmup_ejercicios),
+                        warmupEmomConfig: toArray(_wCfgB.emom_config_por_minuto),
+                        bloquesRutina: bloquesDelDia,
+                        _wTipo: datos.warmup_tipo || 'Circuito (Vueltas)',
+                        _wCfg: _wCfgB
+                    });
+                }
+                return dias;
+            }
+
+            // Calentamiento y cada bloque en su propia tarjeta, con cada
+            // ejercicio en un recuadro apilado — igual que
+            // _pfGenerarHTMLCompactoGrande() en profesor.html.
+            function _pfGenerarHTMLCompactoGrande(dias) {
+                if (!dias || dias.length === 0) return '<p class="mr-preview-vacio">Sin días para mostrar</p>';
+                var itemsHtml = function(ejercicios) {
+                    return (ejercicios || []).map(function(e) {
+                        var reps = _pfRepsEjercicio(e);
+                        return '<div class="pf-vr-ej-item">' +
+                            '<span class="pf-vr-ej-nombre">' + escapeHtml(e.nombre || '') + '</span>' +
+                            (reps ? '<span class="pf-vr-ej-reps">' + escapeHtml(reps) + '</span>' : '') +
+                        '</div>';
+                    }).join('');
+                };
+                return dias.map(function(d, di) {
+                    var calEjs = d.warmupEjercicios || [];
+                    var calTipo = d._wTipo || (d._warmupCfg && d._warmupCfg.tipo) || '';
+                    var calDetalle = _pfDetalleCalentamiento(d);
+                    var calSub = [calTipo, calDetalle].filter(Boolean).join(' · ');
+                    var calCard = calEjs.length ? (
+                        '<div class="pf-vr-card pf-vr-card-cal">' +
+                            '<div class="pf-vr-card-head">' +
+                                '<span class="pf-vr-card-title">🔥 Calentamiento</span>' +
+                                (calSub ? '<span class="pf-vr-card-sub">' + escapeHtml(calSub) + '</span>' : '') +
+                            '</div>' +
+                            '<div class="pf-vr-ej-list">' + itemsHtml(calEjs) + '</div>' +
+                        '</div>'
+                    ) : '';
+                    var bloquesCards = (d.bloquesRutina || []).map(function(b, bi) {
+                        var detalle = _pfDetalleBloque(b);
+                        return '<div class="pf-vr-card pf-vr-card-bloque">' +
+                            '<div class="pf-vr-card-head">' +
+                                '<span class="pf-vr-card-title">💪 ' + (bi + 1) + '. ' + escapeHtml(b.tipo || 'Bloque') + '</span>' +
+                                (detalle ? '<span class="pf-vr-card-sub">' + escapeHtml(detalle) + '</span>' : '') +
+                            '</div>' +
+                            '<div class="pf-vr-ej-list">' + itemsHtml(b.ejercicios) + '</div>' +
+                        '</div>';
+                    }).join('');
+                    return '<div style="margin-bottom:16px;">' +
+                        (dias.length > 1 ? '<h4 class="pf-vr-dia-title">' + escapeHtml(d.titulo || ('Día ' + (di + 1))) + '</h4>' : '') +
+                        (calCard + bloquesCards || '<p class="mr-preview-vacio">Día vacío</p>') +
+                    '</div>';
+                }).join('');
+            }
+
+            // Header (alumno + código + tags de semana si tiene progresión) +
+            // contenido — igual que _pfRenderVistaRapidaModal() en profesor.html,
+            // adaptado para escribir en el panel de "Mis Rutinas" (identificado
+            // por el código, en vez de un id de modal fijo).
+            function _pfRenderVistaRapidaModal(codigo, r, contentId, semanaSel) {
+                var numerosSemana = _pfNumerosSemanaRutina(r);
+                var ultimaSemana = numerosSemana ? numerosSemana[numerosSemana.length - 1] : null;
+                var semanaActiva = numerosSemana ? (semanaSel && numerosSemana.indexOf(semanaSel) !== -1 ? semanaSel : ultimaSemana) : null;
+                var rSemana = (semanaActiva && semanaActiva !== ultimaSemana && r.semanas[String(semanaActiva)]) ? r.semanas[String(semanaActiva)] : r;
+                var dias = _pfParsearDiasHistorial(rSemana);
+                var alumno = (r.alumno || '').toUpperCase();
+                var codigoTxt = (codigo || '').toUpperCase() + (r.tipo === 'MULTIDIA' ? ' · MULTI-DÍA' : '');
+                var semanasTags = numerosSemana ?
+                    '<div class="pf-vr-header-semanas">' +
+                        numerosSemana.map(function(n) {
+                            var activa = n === semanaActiva;
+                            return '<button type="button" class="pf-vr-semana-tag' + (activa ? ' pf-vr-semana-tag-activa' : '') +
+                                '" onclick="_pfCambiarSemanaVistaRapidaAlumno(\'' + contentId + '\', ' + n + ')">SEM ' + n + '</button>';
+                        }).join('') +
+                    '</div>' : '';
+                var headerCard = (alumno || codigoTxt) ?
+                    '<div class="pf-vr-header-card">' +
+                        (alumno ? '<div class="pf-vr-header-alumno">' + escapeHtml(alumno) + '</div>' : '') +
+                        (codigoTxt ? '<div class="pf-vr-header-codigo">' + escapeHtml(codigoTxt) + '</div>' : '') +
+                        semanasTags +
+                    '</div>' : '';
+                return headerCard + _pfGenerarHTMLCompactoGrande(dias);
+            }
+
+            // Re-renderiza la vista rápida ya abierta en "Mis Rutinas" cuando se
+            // toca un tag "SEM n", sin volver a pedir el código al servidor.
+            function _pfCambiarSemanaVistaRapidaAlumno(cod, semanaNum) {
+                var r = _pfPreviewRutinaCache[cod];
+                if (!r) return;
+                var panel = document.getElementById(_pfIdPreview(cod));
+                if (!panel) return;
+                panel.innerHTML = _pfRenderVistaRapidaModal(cod, r, cod, semanaNum);
+            }
+            window._pfCambiarSemanaVistaRapidaAlumno = _pfCambiarSemanaVistaRapidaAlumno;
 
             // Abre/cierra (acordeón: solo una a la vez) la vista rápida de la
             // rutina "cod" debajo de su propia tarjeta en "Mis Rutinas", sin
@@ -18583,7 +18805,7 @@
                 if (ojoEl) ojoEl.classList.add('activo');
 
                 if (_pfPreviewRutinaCache[cod]) {
-                    panel.innerHTML = _pfRenderPreviewHtml(_pfPreviewRutinaCache[cod]);
+                    panel.innerHTML = _pfRenderVistaRapidaModal(cod, _pfPreviewRutinaCache[cod], cod);
                     return;
                 }
                 panel.innerHTML = '<p class="mr-preview-cargando">Cargando vista previa...</p>';
@@ -18598,7 +18820,7 @@
                     // Si mientras cargaba el usuario volvió a cerrar el panel, no
                     // lo reabrimos solos.
                     if (!panel.classList.contains('mr-preview-abierta')) return;
-                    panel.innerHTML = _pfRenderPreviewHtml(data);
+                    panel.innerHTML = _pfRenderVistaRapidaModal(cod, data, cod);
                 } catch (e) {
                     panel.innerHTML = '<p class="mr-preview-vacio">Error de conexión</p>';
                 }
