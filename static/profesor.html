@@ -2647,6 +2647,25 @@
                 </div>
             </div>
 
+            <!-- Rutinas de otros alumnos: buscar por nombre y ver/copiar de su historial, igual que el Repositorio -->
+            <div class="bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
+                <button type="button" onclick="_pfTogglePanelOtroAlumno()" class="pf-panel-toggle w-full flex items-center justify-between gap-2">
+                    <span class="text-sm font-bold text-azul uppercase tracking-wider flex items-center gap-2">
+                        👥 Rutinas de Otros Alumnos
+                    </span>
+                    <svg id="oa-chevron" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-textoSuave transition-transform duration-200 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div id="oa-content" class="hidden mt-4">
+                    <div class="flex flex-col sm:flex-row gap-2 mb-3">
+                        <input id="oa-buscador-alumno" type="text" placeholder="🔍 Buscar alumno..." class="rounded-lg px-3 py-2 text-sm flex-1" onkeydown="if(event.key==='Enter'){event.preventDefault();_pfBuscarRutinasOtroAlumno();}">
+                        <button onclick="_pfBuscarRutinasOtroAlumno()" class="bg-azul/20 text-azul px-4 py-2 rounded-lg text-sm font-bold hover:bg-azul/30 transition whitespace-nowrap">Buscar</button>
+                    </div>
+                    <div id="oa-lista" class="space-y-2 max-h-96 overflow-y-auto">
+                        <p class="text-textoSuave text-xs text-center py-6">Escribí el nombre de un alumno y presioná Buscar (o elegilo de las sugerencias) para ver todas sus rutinas.</p>
+                    </div>
+                </div>
+            </div>
+
             <!-- Mapa de calor muscular en vivo -->
             <div class="bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
                 <button type="button" onclick="toggleMapaCalorVivo()" class="pf-panel-toggle w-full flex items-center justify-between gap-2">
@@ -18322,6 +18341,176 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         _pfRenderDesgloseHistorial(i);
     }
 
+    // ====================================================================
+    // RUTINAS DE OTROS ALUMNOS (panel en Crear Rutina): buscar cualquier
+    // alumno (no necesariamente el que se está armando la rutina) y ver/
+    // copiar sus rutinas anteriores, con el mismo mecanismo de "Ver" /
+    // "Copiar toda la rutina" / "Ver días y copiar por partes" que ya usan
+    // el Repositorio y el Historial del alumno actual.
+    // ====================================================================
+    let _oaPanelAbierto = false;
+    let _oaRutinasCache = [];     // rutinas del último alumno buscado
+    let _oaNombreActual = '';
+
+    function _pfTogglePanelOtroAlumno() {
+        const content = document.getElementById('oa-content');
+        const chevron = document.getElementById('oa-chevron');
+        _oaPanelAbierto = content.classList.toggle('hidden') === false;
+        chevron.style.transform = _oaPanelAbierto ? 'rotate(180deg)' : '';
+    }
+
+    // Busca (via API) todas las rutinas guardadas de un alumno cualquiera y las lista
+    async function _pfBuscarRutinasOtroAlumno(nombreForzado) {
+        const input = document.getElementById('oa-buscador-alumno');
+        const nombre = (nombreForzado || input?.value || '').trim();
+        const lista = document.getElementById('oa-lista');
+        if (!nombre) { if (lista) lista.innerHTML = '<p class="text-textoSuave text-xs text-center py-6">Escribí el nombre de un alumno para buscar.</p>'; return; }
+        if (input && nombreForzado) input.value = nombreForzado;
+        // Abrir el panel si estaba cerrado (p.ej. al elegir una sugerencia del autocompletado)
+        const content = document.getElementById('oa-content');
+        if (content && content.classList.contains('hidden')) _pfTogglePanelOtroAlumno();
+        _oaNombreActual = nombre;
+        lista.innerHTML = '<p class="text-textoSuave text-xs text-center py-6">Buscando...</p>';
+        try {
+            const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre));
+            const data = await res.json();
+            if (data.ok && data.rutinas && Object.keys(data.rutinas).length > 0) {
+                const keys = Object.keys(data.rutinas).sort().reverse().slice(0, 30);
+                _oaRutinasCache = keys.map(k => Object.assign({ codigo: k }, data.rutinas[k]));
+            } else {
+                _oaRutinasCache = [];
+            }
+        } catch (e) {
+            _oaRutinasCache = [];
+            lista.innerHTML = '<p class="text-xs text-rojo text-center py-6">Error de conexión al buscar.</p>';
+            return;
+        }
+        _pfRenderRutinasOtroAlumno();
+    }
+
+    function _pfRenderRutinasOtroAlumno() {
+        const lista = document.getElementById('oa-lista');
+        if (!lista) return;
+        if (_oaRutinasCache.length === 0) {
+            lista.innerHTML = '<p class="text-textoSuave text-xs text-center py-6">' + escapeHtml(_oaNombreActual.toUpperCase()) + ' no tiene rutinas guardadas.</p>';
+            return;
+        }
+        lista.innerHTML = '<p class="text-[11px] text-textoSuave uppercase tracking-wider mb-1">' + escapeHtml(_oaNombreActual.toUpperCase()) + ' — ' + _oaRutinasCache.length + ' rutina(s)</p>' +
+            _oaRutinasCache.map((r, i) => {
+                const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
+                return '<div class="bg-fondoAlt rounded-lg border border-borde/50 px-3 py-2 flex flex-col gap-2">' +
+                    '<div class="flex items-center justify-between gap-2 flex-wrap">' +
+                        '<div><span class="font-mono font-bold text-amarillo text-xs">' + r.codigo.toUpperCase() + '</span>' +
+                        '<span class="text-[10px] text-textoSuave ml-2">' + (r.tipo || 'ENTRENAMIENTO') + (fecha ? ' · ' + fecha : '') + '</span></div>' +
+                    '</div>' +
+                    '<div class="flex flex-wrap gap-1.5">' +
+                        '<button onclick="_pfVerInlineOtroAlumno(\'' + r.codigo + '\', ' + i + ')" class="bg-azul/20 text-azul px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-azul/30 transition whitespace-nowrap">👁 Ver</button>' +
+                        '<button onclick="_pfCopiarRutinaCompletaDesdeOtroAlumno(\'' + r.codigo + '\')" class="bg-verde/20 text-verde px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-verde/30 transition whitespace-nowrap">📋 Copiar toda la rutina</button>' +
+                        '<button onclick="_pfDesglosarOtroAlumno(\'' + r.codigo + '\', ' + i + ')" class="bg-purpura/20 text-purpura px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-purpura/30 transition whitespace-nowrap">Ver días y copiar por partes</button>' +
+                    '</div>' +
+                    '<div id="oa-ver-inline-' + i + '" class="hidden space-y-2"></div>' +
+                    '<div id="oa-dias-' + i + '" class="hidden space-y-2"></div>' +
+                '</div>';
+            }).join('');
+    }
+
+    // "Ver" (solo lectura) de una rutina de otro alumno, desplegada debajo de su tarjeta
+    let _oaVerInlineCache = {}; // i -> { semanas, activa }
+
+    async function _pfVerInlineOtroAlumno(codigo, i) {
+        const cont = document.getElementById('oa-ver-inline-' + i);
+        if (!cont) return;
+        if (!cont.classList.contains('hidden')) { cont.classList.add('hidden'); return; }
+        cont.innerHTML = '<p class="text-xs text-textoSuave">Cargando...</p>';
+        cont.classList.remove('hidden');
+        try {
+            const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+            const data = await res.json();
+            if (!data.ok) { cont.innerHTML = '<p class="text-xs text-rojo">Error al cargar</p>'; return; }
+            const r = data.rutina;
+            historialRutinasCache[codigo] = r;
+            const semanas = _pfObtenerSemanasParaDesglose(r);
+            _oaVerInlineCache[i] = { semanas, activa: semanas[semanas.length - 1].numero };
+            _pfRenderVerInlineOtroAlumno(i);
+        } catch (e) {
+            cont.innerHTML = '<p class="text-xs text-rojo">Error de conexión</p>';
+        }
+    }
+
+    function _pfRenderVerInlineOtroAlumno(i) {
+        const cont = document.getElementById('oa-ver-inline-' + i);
+        const cache = _oaVerInlineCache[i];
+        if (!cont || !cache) return;
+        const semanaObj = cache.semanas.find(s => s.numero === cache.activa) || cache.semanas[0];
+        const dias = _pfParsearDiasHistorial(semanaObj.shape);
+        const tabs = _pfRenderTabsSemanas(cache.semanas, cache.activa, '_pfCambiarSemanaVerInlineOtroAlumno(' + i + ',__N__)');
+        cont.innerHTML = tabs + _pfGenerarHTMLCompacto(dias, false);
+    }
+
+    function _pfCambiarSemanaVerInlineOtroAlumno(i, numero) {
+        const cache = _oaVerInlineCache[i];
+        if (!cache) return;
+        cache.activa = numero;
+        _pfRenderVerInlineOtroAlumno(i);
+    }
+
+    // "Ver días y copiar por partes" de una rutina de otro alumno: mismo mecanismo que
+    // usan el Historial y el Repositorio (_pfHistorialParseado + abrirModalCopiarBloque/
+    // CalentamientoDesdeHistorial), asi que copiar un bloque o calentamiento puntual
+    // funciona exactamente igual sin importar de donde vino la rutina de origen.
+    let _oaDesgloseCache = {}; // i -> { semanas, activa }
+
+    async function _pfDesglosarOtroAlumno(codigo, i) {
+        const cont = document.getElementById('oa-dias-' + i);
+        if (!cont) return;
+        if (!cont.classList.contains('hidden')) { cont.classList.add('hidden'); return; }
+        cont.innerHTML = '<p class="text-xs text-textoSuave">Cargando...</p>';
+        cont.classList.remove('hidden');
+        try {
+            const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+            const data = await res.json();
+            if (!data.ok) { cont.innerHTML = '<p class="text-xs text-rojo">Error al cargar</p>'; return; }
+            const r = data.rutina;
+            historialRutinasCache[codigo] = r;
+            const semanas = _pfObtenerSemanasParaDesglose(r);
+            _oaDesgloseCache[i] = { semanas, activa: semanas[semanas.length - 1].numero };
+            _pfRenderDesgloseOtroAlumno(i);
+        } catch (e) {
+            cont.innerHTML = '<p class="text-xs text-rojo">Error de conexión</p>';
+        }
+    }
+
+    function _pfRenderDesgloseOtroAlumno(i) {
+        const cont = document.getElementById('oa-dias-' + i);
+        const cache = _oaDesgloseCache[i];
+        if (!cont || !cache) return;
+        const semanaObj = cache.semanas.find(s => s.numero === cache.activa) || cache.semanas[0];
+        const dias = _pfParsearDiasHistorial(semanaObj.shape);
+        _pfHistorialParseado = dias;
+        const tabs = _pfRenderTabsSemanas(cache.semanas, cache.activa, '_pfCambiarSemanaDesgloseOtroAlumno(' + i + ',__N__)');
+        cont.innerHTML = tabs + _pfGenerarHTMLCompacto(dias, true);
+    }
+
+    function _pfCambiarSemanaDesgloseOtroAlumno(i, numero) {
+        const cache = _oaDesgloseCache[i];
+        if (!cache) return;
+        cache.activa = numero;
+        _pfRenderDesgloseOtroAlumno(i);
+    }
+
+    // "Copiar toda la rutina" de otro alumno: carga la rutina completa en el editor
+    // (reemplazando lo que haya en "Crear Rutina"), igual que desde el Historial. A
+    // diferencia del historial del alumno actual, acá NO queremos que quede marcada
+    // como "edición" de la rutina original de ese otro alumno (para no arriesgarnos a
+    // sobreescribirla sin querer al guardar), así que se resetea _pfCodigoEditando.
+    async function _pfCopiarRutinaCompletaDesdeOtroAlumno(codigo) {
+        if (!await pfConfirm('¿Copiar esta rutina completa a "Crear Rutina"? Se reemplazará todo lo que tengas actualmente.', { destructivo: false, textoConfirmar: 'Copiar' })) return;
+        await editarRutinaDesdeHistorial(codigo);
+        // Es una copia para armar una rutina nueva, no una edición de la rutina original de este alumno
+        _pfCodigoEditando = null;
+        toast('Rutina copiada — revisá el alumno y la descripción antes de compartir');
+    }
+
     // Abre el selector de dia destino para copiar un bloque especifico de una rutina historica
     function abrirModalCopiarBloqueDesdeHistorial(histDiaIdx, bloqueIdx) {
         if (!_pfHistorialParseado) return;
@@ -19220,6 +19409,8 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         cargarAlumnosDash();
         // Autocompletado de alumno en "Crear Rutina" (texto libre, sugiere alumnos existentes)
         _obtenerAlumnosCache().then(() => _initAutocompleteAlumno('alumno-nombre', function(n) { _pfChequearHistorialAlumno(n).then(function() { _pfCargarFeedbackCostosoAlumno(); }); _pfChequearFichaAlumno(); }, null));
+        // Autocompletado del buscador de "Rutinas de Otros Alumnos" en Crear Rutina
+        _obtenerAlumnosCache().then(() => _initAutocompleteAlumno('oa-buscador-alumno', function(n) { _pfBuscarRutinasOtroAlumno(n); }, null));
         document.getElementById('alumno-nombre')?.addEventListener('blur', function() { _pfChequearHistorialAlumno().then(function() { _pfCargarFeedbackCostosoAlumno(); }); _pfChequearFichaAlumno(); });
         cargarPerfilesAlumnos();
         cargarRepositorioDesdeNube();
