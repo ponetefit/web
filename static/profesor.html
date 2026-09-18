@@ -18597,9 +18597,28 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         return '';
     }
 
+    // Contador global para generar ids únicos de acordeón por día en cada llamada a
+    // _pfGenerarHTMLCompacto (puede haber varias tarjetas de rutina renderizadas a la vez
+    // en pantalla, cada una con sus propios días desplegables).
+    let _pfAccordionSeq = 0;
+
+    // Abre/cierra el cuerpo de un día dentro del acordeón de una rutina multi-día
+    function _pfToggleDiaCompacto(bodyId, btn) {
+        const el = document.getElementById(bodyId);
+        if (!el) return;
+        const abierto = el.classList.toggle('hidden') === false;
+        const chevron = btn.querySelector('.pf-acc-chevron');
+        if (chevron) chevron.style.transform = abierto ? 'rotate(180deg)' : '';
+    }
+
     function _pfGenerarHTMLCompacto(dias, conCopiar) {
         const colores = { 'Circuito': 'naranja', 'Circuito por Tiempo': 'azul', 'Por Tiempo': 'purpura', 'Tabata': 'rojo', 'EMOM': 'amarillo', 'Series': 'verde', 'Sumando Ejercicio': 'purpura' };
         if (!dias || dias.length === 0) return '<p class="text-textoSuave text-sm text-center py-6">Sin días para mostrar</p>';
+        // Si la rutina tiene un solo día no hace falta acordeón: se muestra directo como antes.
+        // Con varios días, cada uno se pliega/despliega por separado para que la tarjeta no
+        // se estire para abajo mostrando todos los días de una a la vez.
+        const multiDia = dias.length > 1;
+        const instKey = '_pfacc' + (_pfAccordionSeq++);
         return dias.map((d, di) => {
             const calEjs = d.warmupEjercicios || [];
             const calPills = calEjs.map(e => {
@@ -18637,9 +18656,30 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
                     '<div style="display:flex;flex-wrap:wrap;gap:4px;">' + pills + '</div>' +
                 '</div>';
             }).join('');
-            return '<div class="mb-4">' +
-                '<h4 class="text-sm font-bold text-texto uppercase tracking-wider mb-2">' + (d.titulo || ('Día ' + (di + 1))) + '</h4>' +
-                (calCard + bloquesCards || '<p class="text-xs text-textoSuave">Día vacío</p>') +
+            const titulo = d.titulo || ('Día ' + (di + 1));
+            const contenido = calCard + bloquesCards || '<p class="text-xs text-textoSuave">Día vacío</p>';
+            if (!multiDia) {
+                return '<div class="mb-4">' +
+                    '<h4 class="text-sm font-bold text-texto uppercase tracking-wider mb-2">' + titulo + '</h4>' +
+                    contenido +
+                '</div>';
+            }
+            // Multi-día: acordeón plegado por defecto, con resumen (calentamiento + cantidad de bloques)
+            const cantBloques = (d.bloquesRutina || []).length;
+            const resumenPartes = [];
+            if (calEjs.length) resumenPartes.push('🔥 calentamiento');
+            if (cantBloques) resumenPartes.push(cantBloques + ' bloque' + (cantBloques > 1 ? 's' : ''));
+            const resumen = resumenPartes.join(' · ');
+            const bodyId = instKey + '-d' + di;
+            return '<div class="mb-2 rounded-xl border border-borde/50 overflow-hidden">' +
+                '<button type="button" onclick="_pfToggleDiaCompacto(\'' + bodyId + '\', this)" class="w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-fondoAlt hover:bg-borde/40 transition text-left">' +
+                    '<span class="text-sm font-bold text-texto uppercase tracking-wider">' + titulo + '</span>' +
+                    '<span class="flex items-center gap-2 flex-shrink-0">' +
+                        (resumen ? '<span class="text-[11px] text-textoSuave normal-case font-normal">' + resumen + '</span>' : '') +
+                        '<svg class="pf-acc-chevron w-4 h-4 text-textoSuave transition-transform duration-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>' +
+                    '</span>' +
+                '</button>' +
+                '<div id="' + bodyId + '" class="hidden px-3 py-2.5 border-t border-borde/50">' + contenido + '</div>' +
             '</div>';
         }).join('');
     }
