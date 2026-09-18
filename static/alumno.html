@@ -18104,7 +18104,14 @@
                 'body.pf-lectura-on #modal-scroll #emom-subtexto,' +
                 'body.pf-lectura-on #modal-scroll #next-ej-container' +
                 '{display:none!important;}',
-                '.mr-item{position:relative;}'
+                '.mr-item{position:relative;}',
+                '.pf-lectura-ojo.activo{color:#69f0ae;border-color:#69f0ae;background:rgba(105,240,174,0.12);}',
+                '.mr-preview{display:none;background:var(--tarjeta-alt,#1c1c22);border:1px solid var(--borde,#2a2a32);border-top:none;border-radius:0 0 var(--radius-md,12px) var(--radius-md,12px);margin-top:-10px;padding:14px 16px 16px;}',
+                '.mr-preview-tag{display:inline-block;background:rgba(105,240,174,0.12);color:#69f0ae;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:20px;margin-bottom:10px;}',
+                '.mr-preview-chips{display:flex;flex-wrap:wrap;gap:6px;}',
+                '.mr-preview-chip{background:var(--fondo-alt,#141418);border:1px solid var(--borde,#2a2a32);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--texto-suave,#aaa);}',
+                '.mr-preview-mas{font-size:12px;color:var(--texto-suave,#aaa);padding:4px 2px;}',
+                '.mr-preview-cargando,.mr-preview-vacio{font-size:12px;color:var(--texto-suave,#aaa);text-align:center;padding:10px 0;margin:0;}'
             ].join('');
             document.head.appendChild(style);
 
@@ -18449,6 +18456,155 @@
                 };
             }
 
+            // ─── Vista rápida de "Mis Rutinas": al tocar el ojo de una tarjeta,
+            // la rutina se despliega hacia abajo (mismo estilo que las
+            // tarjetas de día en una rutina multi-día), en vez de entrar a
+            // esa rutina. Un segundo toque la cierra y no cambia nada de lo
+            // que ya se estaba viendo (currentCode, dataGlobal, etc. quedan
+            // intactos). ───
+            var _pfPreviewRutinaCache = {};
+
+            function _pfIdPreview(cod) {
+                return 'mr-preview-' + String(cod).replace(/[^a-zA-Z0-9_-]/g, '_');
+            }
+
+            // Extrae un resumen (tag + nombres de ejercicios) de una rutina ya
+            // cargada, reutilizando los mismos nombres de campo que usa
+            // renderMultidia() para las tarjetas de día.
+            function _pfExtraerPreviewRutina(data) {
+                if (!data) return { tag: '', ejercicios: [] };
+                var esMulti = data.es_multidia === true && (data.total_dias || 1) > 1;
+                if (esMulti) {
+                    var total = data.total_dias || 1;
+                    var ejercicios = [];
+                    for (var i = 1; i <= total; i++) {
+                        var diaData = data['dia_' + i];
+                        if (!diaData) continue;
+                        var dd = diaData.datos || {};
+                        if (dd.warmup_ejercicios) {
+                            toArray(dd.warmup_ejercicios).slice(0, 2).forEach(function(e) {
+                                var n = Array.isArray(e) ? e[0] : (e.nombre || '');
+                                if (n) ejercicios.push(n);
+                            });
+                        }
+                        var _bloqSrc = dd.bloques || dd.datos;
+                        if (_bloqSrc) {
+                            toArray(_bloqSrc).forEach(function(b) {
+                                if (b && b.ejercicios) {
+                                    toArray(b.ejercicios).slice(0, 3).forEach(function(e) {
+                                        var n = Array.isArray(e) ? e[0] : (e.nombre || '');
+                                        if (n) ejercicios.push(n);
+                                    });
+                                } else if (b && (b.nombre || Array.isArray(b))) {
+                                    var n2 = Array.isArray(b) ? b[0] : (b.nombre || '');
+                                    if (n2) ejercicios.push(n2);
+                                }
+                            });
+                        } else if (dd.rutina) {
+                            toArray(dd.rutina).slice(0, 3).forEach(function(e) {
+                                var n3 = Array.isArray(e) ? e[0] : (e.nombre || '');
+                                if (n3) ejercicios.push(n3);
+                            });
+                        }
+                    }
+                    return { tag: 'MULTI-DÍA · ' + total + ' DÍAS', ejercicios: ejercicios };
+                }
+                var tipo = (data.tipo || 'ENTRENAMIENTO').toUpperCase();
+                var ejercicios2 = [];
+                if (data.warmup_ejercicios) {
+                    toArray(data.warmup_ejercicios).slice(0, 3).forEach(function(e) {
+                        var n = Array.isArray(e) ? e[0] : (e.nombre || '');
+                        if (n) ejercicios2.push(n);
+                    });
+                }
+                var mainEjs = [];
+                if (data.tipo === 'ENTRENAMIENTO' && data.bloques) {
+                    toArray(data.bloques).forEach(function(b) {
+                        toArray(b.ejercicios || b.rutina || []).forEach(function(e) {
+                            var n = Array.isArray(e) ? e[0] : (e.nombre || '');
+                            if (n) mainEjs.push(n);
+                        });
+                    });
+                } else {
+                    toArray(data.rutina || data.datos || data.ejercicios || []).forEach(function(e) {
+                        var n = Array.isArray(e) ? e[0] : (e.nombre || '');
+                        if (n) mainEjs.push(n);
+                    });
+                }
+                ejercicios2 = ejercicios2.concat(mainEjs);
+                return { tag: tipo, ejercicios: ejercicios2 };
+            }
+
+            function _pfRenderPreviewHtml(data) {
+                var info = _pfExtraerPreviewRutina(data);
+                var tagHtml = info.tag ? '<span class="mr-preview-tag">' + info.tag + '</span><br>' : '';
+                var chipsHtml;
+                if (info.ejercicios.length > 0) {
+                    chipsHtml = '<div class="mr-preview-chips">';
+                    info.ejercicios.slice(0, 8).forEach(function(n) {
+                        chipsHtml += '<span class="mr-preview-chip">' + n + '</span>';
+                    });
+                    if (info.ejercicios.length > 8) chipsHtml += '<span class="mr-preview-mas">+' + (info.ejercicios.length - 8) + ' mas</span>';
+                    chipsHtml += '</div>';
+                } else {
+                    chipsHtml = '<p class="mr-preview-vacio">Sin ejercicios para mostrar</p>';
+                }
+                return tagHtml + chipsHtml;
+            }
+
+            // Abre/cierra (acordeón: solo una a la vez) la vista rápida de la
+            // rutina "cod" debajo de su propia tarjeta en "Mis Rutinas", sin
+            // tocar la rutina que se está viendo actualmente.
+            async function _pfToggleVistaRapidaMisRutinas(cod, ojoEl) {
+                var panel = document.getElementById(_pfIdPreview(cod));
+                if (!panel) return;
+                var yaAbierto = panel.classList.contains('mr-preview-abierta');
+
+                // Cerrar cualquier otra vista rápida que hubiera quedado abierta.
+                document.querySelectorAll('.mr-preview.mr-preview-abierta').forEach(function(p) {
+                    if (p !== panel) {
+                        p.classList.remove('mr-preview-abierta');
+                        p.style.display = 'none';
+                    }
+                });
+                document.querySelectorAll('.pf-lectura-ojo.activo').forEach(function(o) {
+                    if (o !== ojoEl) o.classList.remove('activo');
+                });
+
+                if (yaAbierto) {
+                    panel.classList.remove('mr-preview-abierta');
+                    panel.style.display = 'none';
+                    if (ojoEl) ojoEl.classList.remove('activo');
+                    return;
+                }
+
+                panel.classList.add('mr-preview-abierta');
+                panel.style.display = 'block';
+                if (ojoEl) ojoEl.classList.add('activo');
+
+                if (_pfPreviewRutinaCache[cod]) {
+                    panel.innerHTML = _pfRenderPreviewHtml(_pfPreviewRutinaCache[cod]);
+                    return;
+                }
+                panel.innerHTML = '<p class="mr-preview-cargando">Cargando vista previa...</p>';
+                try {
+                    var res = await fetch('/api/fb/' + encodeURIComponent(cod) + '/rutinas/' + cod + '.json');
+                    var data = await res.json();
+                    if (!data) {
+                        panel.innerHTML = '<p class="mr-preview-vacio">No se pudo cargar la rutina</p>';
+                        return;
+                    }
+                    _pfPreviewRutinaCache[cod] = data;
+                    // Si mientras cargaba el usuario volvió a cerrar el panel, no
+                    // lo reabrimos solos.
+                    if (!panel.classList.contains('mr-preview-abierta')) return;
+                    panel.innerHTML = _pfRenderPreviewHtml(data);
+                } catch (e) {
+                    panel.innerHTML = '<p class="mr-preview-vacio">Error de conexión</p>';
+                }
+            }
+            window._pfToggleVistaRapidaMisRutinas = _pfToggleVistaRapidaMisRutinas;
+
             if (typeof _renderMisRutinas === 'function') {
                 var _origRenderMisRutinas = _renderMisRutinas;
                 _renderMisRutinas = function(data, prefijo) {
@@ -18459,17 +18615,26 @@
                     var items = cont.querySelectorAll('.mr-item');
                     items.forEach(function(item, idx) {
                         var cod = codigos[idx];
-                        if (!cod || item.querySelector('.pf-lectura-ojo')) return;
-                        var ojo = document.createElement('button');
-                        ojo.type = 'button';
-                        ojo.className = 'pf-lectura-ojo';
-                        ojo.title = 'Ver en modo solo lectura';
-                        ojo.innerHTML = '&#128065;';
-                        ojo.addEventListener('click', function(ev) {
-                            ev.stopPropagation();
-                            elegirRutinaDeLista(cod, true);
-                        });
-                        item.appendChild(ojo);
+                        if (!cod) return;
+                        if (!item.querySelector('.pf-lectura-ojo')) {
+                            var ojo = document.createElement('button');
+                            ojo.type = 'button';
+                            ojo.className = 'pf-lectura-ojo';
+                            ojo.title = 'Ver rutina en modo lectura';
+                            ojo.innerHTML = '&#128065;';
+                            ojo.addEventListener('click', function(ev) {
+                                ev.stopPropagation();
+                                _pfToggleVistaRapidaMisRutinas(cod, ojo);
+                            });
+                            item.appendChild(ojo);
+                        }
+                        var panelId = _pfIdPreview(cod);
+                        if (!document.getElementById(panelId)) {
+                            var panel = document.createElement('div');
+                            panel.id = panelId;
+                            panel.className = 'mr-preview';
+                            item.insertAdjacentElement('afterend', panel);
+                        }
                     });
                     return result;
                 };
