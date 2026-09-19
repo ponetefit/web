@@ -2142,6 +2142,7 @@
                         <p id="dash-ficha-elementos" class="text-xs text-azul hidden mb-1"></p>
                         <p id="dash-ficha-lesiones" class="text-xs text-textoSuave hidden mb-1"></p>
                         <p id="dash-ficha-prohibidos" class="text-xs text-amarillo hidden"></p>
+                        <div id="dash-ficha-extra"></div>
                     </div>
                     <div id="dash-sin-ficha" class="hidden mt-4 bg-fondoAlt rounded-xl border border-borde/50 p-3 flex items-center justify-between gap-2 flex-wrap" style="border-style:dashed">
                         <span class="text-xs text-textoSuave">Este alumno todavía no tiene ficha cargada (lesiones, elementos, etc.)</span>
@@ -2657,6 +2658,7 @@
                     <p id="ficha-alumno-lesiones" class="text-xs text-textoSuave hidden mb-1"></p>
                     <p id="ficha-alumno-prohibidos" class="text-xs text-amarillo hidden mb-1"></p>
                     <p id="ficha-alumno-costosos" class="text-xs text-verde hidden"></p>
+                    <div id="ficha-alumno-extra"></div>
                 </div>
             </div>
 
@@ -3153,6 +3155,10 @@
                 <div id="ca-avatar-wrap" class="hidden flex items-center gap-3 mb-4">
                     <img id="ca-avatar-preview" class="w-16 h-16 rounded-full object-cover border border-borde flex-shrink-0" src="" alt="Foto del alumno">
                     <p class="text-[11px] text-textoSuave">Foto subida por el alumno desde su Perfil — no se puede cambiar desde acá.</p>
+                </div>
+                <div id="ca-info-alumno-wrap" class="hidden bg-fondoAlt rounded-xl border border-borde/50 p-3 mb-4">
+                    <p class="text-[11px] text-textoSuave uppercase tracking-wider font-bold mb-1">📋 Lo que cargó el alumno desde su Perfil</p>
+                    <div id="ca-info-alumno"></div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -4848,6 +4854,8 @@
         if (chkFeedback) chkFeedback.checked = true;
         const avatarWrap = document.getElementById('ca-avatar-wrap');
         if (avatarWrap) avatarWrap.classList.add('hidden');
+        const infoWrap = document.getElementById('ca-info-alumno-wrap');
+        if (infoWrap) infoWrap.classList.add('hidden');
         const titulo = document.getElementById('ca-form-titulo');
         if (titulo) titulo.textContent = 'Nueva Ficha de Alumno';
     }
@@ -4913,6 +4921,13 @@
         if (avatarWrap && avatarImg) {
             if (p.foto) { avatarImg.src = p.foto; avatarWrap.classList.remove('hidden'); }
             else avatarWrap.classList.add('hidden');
+        }
+        const infoWrap = document.getElementById('ca-info-alumno-wrap');
+        const infoEl = document.getElementById('ca-info-alumno');
+        if (infoWrap && infoEl) {
+            const infoHtml = _pfInfoAlumnoExtraHtml(p);
+            infoEl.innerHTML = infoHtml;
+            infoWrap.classList.toggle('hidden', !infoHtml);
         }
         const titulo = document.getElementById('ca-form-titulo');
         if (titulo) titulo.textContent = 'Editando Ficha de ' + p.nombre;
@@ -5030,6 +5045,7 @@
                     (elementos.length ? '<p class="text-xs text-azul mt-0.5">🏋️ ' + elementos.join(', ') + '</p>' : '') +
                     (p.lesiones ? '<p class="text-xs text-rojo mt-0.5">⚠️ ' + p.lesiones + '</p>' : '') +
                     (prohibidos.length ? '<p class="text-xs text-amarillo mt-0.5">🚫 ' + prohibidos.join(', ') + '</p>' : '') +
+                    _pfInfoAlumnoExtraHtml(p) +
                     '</div>' +
                     '</div>' +
                     '<div class="pf-alumno-card-actions flex gap-2 flex-shrink-0">' +
@@ -5378,6 +5394,32 @@
         if (typeof cargarEjsBloque === 'function' && document.getElementById('bloque-ej-select')) cargarEjsBloque();
     }
 
+    // Info que carga el ALUMNO desde su propio "Perfil" (peso, altura, objetivo, ejercicio/
+    // sistema que más y menos le gusta) — antes esto no se mostraba en ningún lado del
+    // lado del profesor. Devuelve HTML listo para insertar, o '' si el alumno no cargó nada.
+    function _pfInfoAlumnoExtraHtml(perfil) {
+        if (!perfil) return '';
+        const lineas = [];
+        const datos = [];
+        if (perfil.peso) datos.push('⚖️ ' + escapeHtml(String(perfil.peso)) + ' kg');
+        if (perfil.altura) datos.push('📏 ' + escapeHtml(String(perfil.altura)) + ' cm');
+        if (perfil.objetivo) datos.push('🎯 ' + escapeHtml(perfil.objetivo));
+        if (datos.length) lineas.push('<p class="text-xs text-textoSuave mt-0.5">' + datos.join(' &nbsp;·&nbsp; ') + '</p>');
+        if (perfil.ejercicioFavorito || perfil.ejercicioNoFavorito) {
+            const ej = [];
+            if (perfil.ejercicioFavorito) ej.push('<span class="text-verde">👍 ' + escapeHtml(perfil.ejercicioFavorito) + '</span>');
+            if (perfil.ejercicioNoFavorito) ej.push('<span class="text-rojo">👎 ' + escapeHtml(perfil.ejercicioNoFavorito) + '</span>');
+            lineas.push('<p class="text-xs mt-0.5">' + ej.join(' &nbsp; ') + '</p>');
+        }
+        if (perfil.sistemaFavorito || perfil.sistemaNoFavorito) {
+            const sis = [];
+            if (perfil.sistemaFavorito) sis.push('<span class="text-verde">👍 ' + escapeHtml(perfil.sistemaFavorito) + '</span>');
+            if (perfil.sistemaNoFavorito) sis.push('<span class="text-rojo">👎 ' + escapeHtml(perfil.sistemaNoFavorito) + '</span>');
+            lineas.push('<p class="text-xs mt-0.5">' + sis.join(' &nbsp; ') + '</p>');
+        }
+        return lineas.join('');
+    }
+
     // Muestra/oculta la tarjeta "Ficha del alumno" en Crear Rutina cuando se carga un nombre de alumno
     function _pfChequearFichaAlumno() {
         const card = document.getElementById('ficha-alumno-card');
@@ -5409,6 +5451,8 @@
                 costEl.classList.add('hidden');
             }
         }
+        const extraEl = document.getElementById('ficha-alumno-extra');
+        if (extraEl) extraEl.innerHTML = _pfInfoAlumnoExtraHtml(perfil);
         card.classList.remove('hidden');
     }
 
@@ -12994,6 +13038,8 @@
         const proh = perfil.ejerciciosProhibidos || [];
         if (proh.length) { prohEl.textContent = '🚫 No puede hacer: ' + proh.join(', '); prohEl.classList.remove('hidden'); }
         else { prohEl.classList.add('hidden'); }
+        const extraEl = document.getElementById('dash-ficha-extra');
+        if (extraEl) extraEl.innerHTML = _pfInfoAlumnoExtraHtml(perfil);
     }
 
     // Ir a "Crear Alumno" con la ficha de este alumno lista para editar (o crear si no tiene)
