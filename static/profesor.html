@@ -990,6 +990,8 @@
                 padding: 18px 16px !important;
                 gap: 12px !important;
             }
+            #ca-lista-alumnos .pf-alumno-card-main { flex-direction: column !important; align-items: center !important; }
+            #ca-lista-alumnos .pf-alumno-avatar { width: 64px !important; height: 64px !important; }
             #ca-lista-alumnos .pf-alumno-card-info { text-align: center; }
             #ca-lista-alumnos .pf-alumno-card-nombre {
                 font-family: 'Inter', sans-serif !important;
@@ -3148,6 +3150,10 @@
         <section id="sec-crear-alumno" class="hidden">
             <div class="bg-tarjeta rounded-2xl border border-borde p-6 mb-6">
                 <h2 id="ca-form-titulo" class="pf-seccion-h1 text-lg font-bold text-naranja uppercase tracking-wider mb-4">Nueva Ficha de Alumno</h2>
+                <div id="ca-avatar-wrap" class="hidden flex items-center gap-3 mb-4">
+                    <img id="ca-avatar-preview" class="w-16 h-16 rounded-full object-cover border border-borde flex-shrink-0" src="" alt="Foto del alumno">
+                    <p class="text-[11px] text-textoSuave">Foto subida por el alumno desde su Perfil — no se puede cambiar desde acá.</p>
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Nombre del Alumno</label>
@@ -4840,6 +4846,8 @@
         renderizarChipsEjerciciosProhibidos();
         const chkFeedback = document.getElementById('ca-feedback-habilitado');
         if (chkFeedback) chkFeedback.checked = true;
+        const avatarWrap = document.getElementById('ca-avatar-wrap');
+        if (avatarWrap) avatarWrap.classList.add('hidden');
         const titulo = document.getElementById('ca-form-titulo');
         if (titulo) titulo.textContent = 'Nueva Ficha de Alumno';
     }
@@ -4854,7 +4862,14 @@
         const chkFeedback = document.getElementById('ca-feedback-habilitado');
         const feedbackHabilitado = chkFeedback ? !!chkFeedback.checked : true;
         const clave = _claveAlumno(nombre);
-        const perfil = { nombre: nombre.toUpperCase(), edad, elementos, lesiones, ejerciciosProhibidos, feedbackHabilitado };
+        // IMPORTANTE: partir de lo que ya haya en la ficha (foto, apellido, peso, altura,
+        // objetivo, ejercicio favorito, etc. — todo lo que carga el ALUMNO desde su propio
+        // Perfil) y solo pisar los campos que maneja este formulario. Antes se mandaba un
+        // objeto nuevo con nada más que estos campos y, como el backend reemplaza el nodo
+        // entero, cada vez que el profesor guardaba la ficha se borraba la foto y el resto
+        // de los datos que había cargado el alumno.
+        const base = _perfilAlumnosCache[clave] || {};
+        const perfil = Object.assign({}, base, { nombre: nombre.toUpperCase(), edad, elementos, lesiones, ejerciciosProhibidos, feedbackHabilitado });
 
         const btn = document.getElementById('btn-guardar-alumno');
         if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
@@ -4893,6 +4908,12 @@
         renderizarChipsEjerciciosProhibidos();
         const chkFeedback = document.getElementById('ca-feedback-habilitado');
         if (chkFeedback) chkFeedback.checked = (p.feedbackHabilitado !== false);
+        const avatarWrap = document.getElementById('ca-avatar-wrap');
+        const avatarImg = document.getElementById('ca-avatar-preview');
+        if (avatarWrap && avatarImg) {
+            if (p.foto) { avatarImg.src = p.foto; avatarWrap.classList.remove('hidden'); }
+            else avatarWrap.classList.add('hidden');
+        }
         const titulo = document.getElementById('ca-form-titulo');
         if (titulo) titulo.textContent = 'Editando Ficha de ' + p.nombre;
         const sec = document.getElementById('sec-crear-alumno');
@@ -4992,6 +5013,7 @@
         let _asistIdx = 0;
 
         let html = '';
+        const AVATAR_PLACEHOLDER = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 96 96%22%3E%3Crect width=%2296%22 height=%2296%22 fill=%22%23131316%22/%3E%3C/svg%3E';
         claves.sort((a, b) => (_perfilAlumnosCache[a].nombre || '').localeCompare(_perfilAlumnosCache[b].nombre || ''))
             .forEach(clave => {
                 const p = _perfilAlumnosCache[clave];
@@ -5001,11 +5023,14 @@
                 if (p.nombre) _asistTargets.push({ id: badgeId, nombre: p.nombre });
                 const fbOn = p.feedbackHabilitado !== false;
                 html += '<div class="pf-alumno-card bg-fondoAlt rounded-xl border border-borde p-3 flex items-start justify-between gap-3 flex-wrap">' +
+                    '<div class="pf-alumno-card-main flex items-center gap-3 min-w-0">' +
+                    '<img class="pf-alumno-avatar w-11 h-11 rounded-full object-cover flex-shrink-0 border border-borde" src="' + (p.foto || AVATAR_PLACEHOLDER) + '" alt="Foto de ' + escapeHtml(p.nombre || 'alumno') + '">' +
                     '<div class="pf-alumno-card-info min-w-0">' +
                     '<p class="pf-alumno-card-nombre font-bold text-sm">' + (p.nombre || '') + (p.edad ? ' <span class="text-textoSuave font-normal">(' + p.edad + ' años)</span>' : '') + ' <span id="' + badgeId + '"></span></p>' +
                     (elementos.length ? '<p class="text-xs text-azul mt-0.5">🏋️ ' + elementos.join(', ') + '</p>' : '') +
                     (p.lesiones ? '<p class="text-xs text-rojo mt-0.5">⚠️ ' + p.lesiones + '</p>' : '') +
                     (prohibidos.length ? '<p class="text-xs text-amarillo mt-0.5">🚫 ' + prohibidos.join(', ') + '</p>' : '') +
+                    '</div>' +
                     '</div>' +
                     '<div class="pf-alumno-card-actions flex gap-2 flex-shrink-0">' +
                     '<button onclick="toggleFeedbackAlumno(\'' + clave + '\')" class="' + (fbOn ? 'bg-verde/20 text-verde hover:bg-verde/30' : 'bg-borde/40 text-textoSuave hover:bg-borde/60') + ' px-3 py-1.5 rounded-lg text-xs font-bold transition" title="' + (fbOn ? 'Feedback post-entreno activado (click para desactivar)' : 'Feedback post-entreno desactivado (click para activar)') + '">' + (fbOn ? '🔔 Feedback' : '🔕 Feedback') + '</button>' +
