@@ -2133,7 +2133,7 @@
                     <!-- Ficha del alumno (lesiones / ejercicios prohibidos), cargada desde "Crear Alumno" -->
                     <div id="dash-ficha-alumno" class="hidden mt-4 bg-fondoAlt rounded-xl border border-rojo/30 p-3">
                         <div class="flex items-center justify-between gap-2 flex-wrap mb-1">
-                            <span class="font-bold text-rojo text-sm">🩺 Ficha del alumno</span>
+                            <span class="font-bold text-rojo text-sm flex items-center gap-2"><img id="dash-ficha-avatar" class="hidden w-6 h-6 rounded-full object-cover border border-borde" src="" alt="">🩺 Ficha del alumno</span>
                             <div class="flex items-center gap-2">
                                 <span id="dash-ficha-edad" class="text-xs text-textoSuave"></span>
                                 <button onclick="dashEditarFichaAlumno()" class="text-xs text-azul font-bold hover:underline">Editar ficha</button>
@@ -2651,7 +2651,7 @@
                 </div>
                 <div id="ficha-alumno-card" class="hidden mt-3 bg-fondoAlt rounded-xl border border-rojo/30 p-3">
                     <div class="flex items-center justify-between gap-2 flex-wrap mb-1">
-                        <span class="font-bold text-rojo text-sm">🩺 Ficha del alumno</span>
+                        <span class="font-bold text-rojo text-sm flex items-center gap-2"><img id="ficha-alumno-avatar" class="hidden w-6 h-6 rounded-full object-cover border border-borde" src="" alt="">🩺 Ficha del alumno</span>
                         <span id="ficha-alumno-edad" class="text-xs text-textoSuave"></span>
                     </div>
                     <p id="ficha-alumno-lesiones" class="text-xs text-textoSuave hidden mb-1"></p>
@@ -5024,7 +5024,7 @@
                 const fbOn = p.feedbackHabilitado !== false;
                 html += '<div class="pf-alumno-card bg-fondoAlt rounded-xl border border-borde p-3 flex items-start justify-between gap-3 flex-wrap">' +
                     '<div class="pf-alumno-card-main flex items-center gap-3 min-w-0">' +
-                    '<img class="pf-alumno-avatar w-11 h-11 rounded-full object-cover flex-shrink-0 border border-borde" src="' + (p.foto || AVATAR_PLACEHOLDER) + '" alt="Foto de ' + escapeHtml(p.nombre || 'alumno') + '">' +
+                    '<img class="pf-alumno-avatar w-11 h-11 rounded-full object-cover flex-shrink-0 border border-borde" src="' + escapeHtml(p.foto || AVATAR_PLACEHOLDER) + '" alt="Foto de ' + escapeHtml(p.nombre || 'alumno') + '">' +
                     '<div class="pf-alumno-card-info min-w-0">' +
                     '<p class="pf-alumno-card-nombre font-bold text-sm">' + (p.nombre || '') + (p.edad ? ' <span class="text-textoSuave font-normal">(' + p.edad + ' años)</span>' : '') + ' <span id="' + badgeId + '"></span></p>' +
                     (elementos.length ? '<p class="text-xs text-azul mt-0.5">🏋️ ' + elementos.join(', ') + '</p>' : '') +
@@ -5386,6 +5386,11 @@
         const perfil = alumno ? _perfilAlumnosCache[_claveAlumno(alumno)] : null;
         const costososClaves = Object.keys(_pfFeedbackCostosoCache || {});
         if (!perfil && !costososClaves.length) { card.classList.add('hidden'); return; }
+        const avatarEl = document.getElementById('ficha-alumno-avatar');
+        if (avatarEl) {
+            if (perfil && perfil.foto) { avatarEl.src = perfil.foto; avatarEl.classList.remove('hidden'); }
+            else avatarEl.classList.add('hidden');
+        }
         document.getElementById('ficha-alumno-edad').textContent = (perfil && perfil.edad) ? (perfil.edad + ' años') : '';
         const lesEl = document.getElementById('ficha-alumno-lesiones');
         if (perfil && perfil.lesiones) { lesEl.textContent = '⚠️ ' + perfil.lesiones; lesEl.classList.remove('hidden'); }
@@ -12952,6 +12957,31 @@
         }
         sinFicha.classList.add('hidden');
         conFicha.classList.remove('hidden');
+        const avatarEl = document.getElementById('dash-ficha-avatar');
+        if (avatarEl) {
+            if (perfil.foto) { avatarEl.src = perfil.foto; avatarEl.classList.remove('hidden'); }
+            else avatarEl.classList.add('hidden');
+        }
+        // Mismo criterio en el avatar grande del encabezado (letra inicial por defecto,
+        // foto real del alumno si la subió desde su Perfil)
+        const bigAvatar = document.getElementById('dash-avatar');
+        if (bigAvatar) {
+            if (perfil.foto) {
+                // Construido por DOM (no innerHTML): "foto" la escribe el alumno via un
+                // endpoint publico sin login, asi que no conviene concatenarla en un string HTML.
+                let img = bigAvatar.querySelector('img');
+                if (!img) {
+                    img = document.createElement('img');
+                    img.style.cssText = 'width:100%;height:100%;border-radius:50%;object-fit:cover;';
+                    img.alt = '';
+                    bigAvatar.textContent = '';
+                    bigAvatar.appendChild(img);
+                }
+                img.src = perfil.foto;
+            } else {
+                bigAvatar.textContent = nombre.charAt(0).toUpperCase();
+            }
+        }
         document.getElementById('dash-ficha-edad').textContent = perfil.edad ? (perfil.edad + ' años') : '';
         const elEl = document.getElementById('dash-ficha-elementos');
         const elementos = perfil.elementos || [];
