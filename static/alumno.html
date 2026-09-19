@@ -19591,6 +19591,15 @@
                 }
             }
 
+            // Misma fórmula de id que usa _pfIdPreview() en el bloque de
+            // "modo solo lectura" (no se puede reusar esa función directo
+            // porque queda privada dentro de su propio IIFE) — así el panel
+            // que crea acá coincide con el que busca
+            // window._pfToggleVistaRapidaMisRutinas().
+            function _pfBnIdPreview(cod) {
+                return 'mr-preview-' + String(cod).replace(/[^a-zA-Z0-9_-]/g, '_');
+            }
+
             // Misma paleta que usa _renderMisRutinas() para pintar la barrita
             // lateral y el círculo de número de cada tarjeta.
             var _pfHistColores = ['var(--naranja)', 'var(--azul)', 'var(--purpura)', 'var(--verde)', 'var(--amarillo)', 'var(--rosa)'];
@@ -19616,6 +19625,7 @@
                     if (esMulti) subPartes.push((d.total_dias || 1) + ' días');
                     var sub = subPartes.length ? subPartes.join(' · ') : 'Rutina';
                     var fecha = _pfBnFormatearFecha(d.timestamp);
+                    var idPreview = _pfBnIdPreview(cod);
                     html += '<div class="pf-hist-item' + (esActual ? ' pf-hist-activa' : '') + '" onclick="_pfBnElegirHistorial(\'' + cod.replace(/'/g, "\\'") + '\')">' +
                         '<div class="pf-hist-barra" style="background:' + color + ';"></div>' +
                         '<div class="pf-hist-num" style="background:' + color + ';">' + _pfBnEsc(numero) + '</div>' +
@@ -19628,7 +19638,13 @@
                     } else {
                         html += '<svg class="pf-hist-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 18l6-6-6-6"/></svg>';
                     }
+                    // Mismo ícono de "ojo" que ya tenía "Mis Rutinas" para ver
+                    // la rutina en modo lectura sin cargarla: reutiliza el
+                    // motor de vista rápida existente (_pfToggleVistaRapidaMisRutinas),
+                    // así el panel que se despliega es exactamente el mismo.
+                    html += '<button type="button" class="pf-lectura-ojo" title="Ver rutina en modo lectura" onclick="event.stopPropagation(); window._pfToggleVistaRapidaMisRutinas(\'' + cod.replace(/'/g, "\\'") + '\', this)">&#128065;</button>';
                     html += '</div>';
+                    html += '<div class="mr-preview" id="' + idPreview + '"></div>';
                 });
                 html += '</div>';
                 body.innerHTML = html;
