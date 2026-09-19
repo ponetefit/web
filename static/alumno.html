@@ -4992,6 +4992,19 @@
             box-sizing: border-box;
         }
 
+        .pf-perfil-campo input[type="text"]:disabled {
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--texto-suave);
+            cursor: not-allowed;
+            opacity: 0.85;
+        }
+
+        .pf-perfil-campo-nota {
+            font-size: 11px;
+            color: var(--texto-suave);
+            margin-top: 6px;
+        }
+
         .pf-perfil-campo textarea {
             resize: vertical;
             min-height: 70px;
@@ -19744,8 +19757,9 @@
                 html += '<canvas id="pf-perfil-foto-canvas" width="200" height="200" style="display:none;"></canvas>';
                 html += '</div>';
 
-                html += '<div class="pf-perfil-campo"><label>Nombre</label><input type="text" id="pf-perfil-nombre" value="' + _pfBnEsc(nombreVal) + '"></div>';
-                html += '<div class="pf-perfil-campo"><label>Apellido</label><input type="text" id="pf-perfil-apellido" value="' + _pfBnEsc(f.apellido || '') + '"></div>';
+                html += '<div class="pf-perfil-campo"><label>Nombre</label><input type="text" id="pf-perfil-nombre" value="' + _pfBnEsc(nombreVal) + '" disabled></div>';
+                html += '<div class="pf-perfil-campo"><label>Apellido</label><input type="text" id="pf-perfil-apellido" value="' + _pfBnEsc(f.apellido || '') + '" disabled>' +
+                    '<div class="pf-perfil-campo-nota">Tu nombre y apellido los define tu profesor/a — no se pueden editar acá.</div></div>';
 
                 html += '<div class="pf-perfil-row2">';
                 html += '<div class="pf-perfil-campo"><label>Edad</label><input type="number" id="pf-perfil-edad" value="' + _pfBnEsc(f.edad || '') + '"></div>';
@@ -19832,8 +19846,12 @@
                 }
 
                 var campos = {
-                    nombre: _val('pf-perfil-nombre'),
-                    apellido: _val('pf-perfil-apellido'),
+                    // Nombre/apellido NO se leen del formulario (están bloqueados ahí):
+                    // el nombre es la identidad real de la rutina (nombreAlumno) y el
+                    // apellido queda como lo tenga guardado el profesor en la ficha, para
+                    // que un alumno no pueda desalinear su perfil del código de rutina.
+                    nombre: nombreAlumno,
+                    apellido: (_pfPerfilFichaBase && _pfPerfilFichaBase.apellido) || '',
                     edad: _val('pf-perfil-edad'),
                     peso: _val('pf-perfil-peso'),
                     altura: _val('pf-perfil-altura'),
