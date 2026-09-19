@@ -1294,21 +1294,22 @@
                 min-height: 68px;
             }
 
-            /* ── Panel "Rutinas del Repositorio" dentro de Crear Rutina (mobile):
-               las tarjetas de rutina pasan a usar el mismo lenguaje visual grande
-               y claro que el resto de la pantalla — apiladas, texto centrado tipo
-               titulo y botones grandes y fáciles de tocar. ── */
-            #rc-lista { gap: 14px !important; }
-            #rc-lista .pf-repo-card {
+            /* ── Panel "Rutinas del Repositorio" y "Historial de Rutinas" (Este alumno /
+               Otro alumno) dentro de Crear Rutina (mobile): las tarjetas de rutina pasan
+               a usar el mismo lenguaje visual grande y claro que el resto de la pantalla
+               — apiladas, texto centrado tipo titulo y botones grandes y fáciles de
+               tocar. Ambos paneles comparten la misma tarjeta (.pf-repo-card). ── */
+            #rc-lista, #oa-lista { gap: 14px !important; }
+            #rc-lista .pf-repo-card, #oa-lista .pf-repo-card {
                 flex-direction: column !important;
                 align-items: stretch !important;
                 border-radius: 18px !important;
                 padding: 18px 16px !important;
                 gap: 14px !important;
             }
-            #rc-lista .pf-repo-card-info { text-align: center; }
-            #rc-lista .pf-repo-card-title-row { justify-content: center !important; }
-            #rc-lista .pf-repo-card-title {
+            #rc-lista .pf-repo-card-info, #oa-lista .pf-repo-card-info { text-align: center; }
+            #rc-lista .pf-repo-card-title-row, #oa-lista .pf-repo-card-title-row { justify-content: center !important; }
+            #rc-lista .pf-repo-card-title, #oa-lista .pf-repo-card-title {
                 font-family: 'Inter', sans-serif !important;
                 font-size: 1.15rem !important;
                 font-weight: 900 !important;
@@ -1316,23 +1317,40 @@
                 overflow: visible !important;
                 text-overflow: unset !important;
             }
-            #rc-lista .pf-repo-card-meta {
+            #rc-lista .pf-repo-card-meta, #oa-lista .pf-repo-card-meta {
                 justify-content: center !important;
                 flex-wrap: wrap;
                 margin-top: 4px !important;
             }
-            #rc-lista .pf-repo-card-meta span { font-size: 0.8rem !important; }
-            #rc-lista .pf-repo-card-actions {
+            #rc-lista .pf-repo-card-meta span, #oa-lista .pf-repo-card-meta span { font-size: 0.8rem !important; }
+            #rc-lista .pf-repo-card-actions, #oa-lista .pf-repo-card-actions {
                 width: 100% !important;
                 gap: 10px !important;
             }
-            #rc-lista .pf-repo-card-actions button {
+            #rc-lista .pf-repo-card-actions button, #oa-lista .pf-repo-card-actions button {
                 flex: 1 1 0 !important;
                 padding: 14px 10px !important;
                 font-size: 1rem !important;
                 font-weight: 800 !important;
                 border-radius: 12px !important;
             }
+            /* Dentro de una tarjeta ya desplegada (Ver / Ver días y copiar por partes):
+               el acordeón de días multi-día y los botones chicos de copiar por bloque/
+               calentamiento, con más aire para tocar cómodo en mobile. */
+            #rc-lista button[onclick^="_pfToggleDiaCompacto"],
+            #oa-lista button[onclick^="_pfToggleDiaCompacto"] { padding: 12px !important; }
+            #rc-lista button[onclick^="_pfExpandirTodosDias"],
+            #oa-lista button[onclick^="_pfExpandirTodosDias"] { font-size: 0.8rem !important; padding: 6px 4px !important; }
+            #rc-lista button[onclick^="abrirModalCopiarBloqueDesdeHistorial"],
+            #oa-lista button[onclick^="abrirModalCopiarBloqueDesdeHistorial"],
+            #rc-lista button[onclick^="abrirModalCopiarCalentamientoDesdeHistorial"],
+            #oa-lista button[onclick^="abrirModalCopiarCalentamientoDesdeHistorial"] {
+                padding: 8px 12px !important;
+                font-size: 0.8rem !important;
+            }
+            /* Selector de día destino (modal que aparece al copiar un bloque/calentamiento
+               puntual): un botón por fila, ya son full-width, solo se agranda el toque */
+            #modal-copiar-destino button { padding: 12px 14px !important; font-size: 0.9rem !important; }
             /* Buscador y filtros del panel, mas grandes y apilados para tocar facil */
             #rc-content .flex.flex-col.sm\\:flex-row.gap-2.mb-3 { gap: 10px !important; }
             #rc-content #rc-buscador,
@@ -1342,6 +1360,23 @@
                 padding: 12px 14px !important;
                 font-size: 0.95rem !important;
                 border-radius: 12px !important;
+            }
+            /* Panel "Historial de Rutinas": mismo tratamiento que el Repositorio para el
+               buscador y el filtro, y el selector "Este alumno / Otro alumno" con más
+               aire para tocar cómodo. */
+            #oa-content .flex.flex-col.sm\\:flex-row.gap-2.mb-3 { gap: 10px !important; }
+            #oa-content #oa-buscador-alumno,
+            #oa-content #oa-btn-buscar,
+            #oa-content #oa-filtro-tipo {
+                width: 100% !important;
+                padding: 12px 14px !important;
+                font-size: 0.95rem !important;
+                border-radius: 12px !important;
+            }
+            #oa-content #oa-modo-este,
+            #oa-content #oa-modo-otro {
+                padding: 12px 8px !important;
+                font-size: 0.75rem !important;
             }
 
             /* ── Tarjeta ya agregada (calentamiento / bloque): el nombre del tipo
@@ -2647,22 +2682,27 @@
                 </div>
             </div>
 
-            <!-- Rutinas de otros alumnos: buscar por nombre y ver/copiar de su historial, igual que el Repositorio -->
+            <!-- Historial de rutinas: de este alumno o de otro, en un solo buscador -->
             <div class="bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
                 <button type="button" onclick="_pfTogglePanelOtroAlumno()" class="pf-panel-toggle w-full flex items-center justify-between gap-2">
                     <span class="text-sm font-bold text-azul uppercase tracking-wider flex items-center gap-2">
-                        👥 Rutinas de Otros Alumnos
+                        📋 Historial de Rutinas
                     </span>
                     <svg id="oa-chevron" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-textoSuave transition-transform duration-200 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </button>
                 <div id="oa-content" class="hidden mt-4">
+                    <div class="flex gap-2 mb-3">
+                        <button type="button" id="oa-modo-este" onclick="_pfSetModoHistorial('este')" class="flex-1 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition">Este alumno</button>
+                        <button type="button" id="oa-modo-otro" onclick="_pfSetModoHistorial('otro')" class="flex-1 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition">Otro alumno</button>
+                    </div>
                     <div class="flex flex-col sm:flex-row gap-2 mb-3">
                         <input id="oa-buscador-alumno" type="text" placeholder="🔍 Buscar alumno..." class="rounded-lg px-3 py-2 text-sm flex-1" onkeydown="if(event.key==='Enter'){event.preventDefault();_pfBuscarRutinasOtroAlumno();}">
-                        <button onclick="_pfBuscarRutinasOtroAlumno()" class="bg-azul/20 text-azul px-4 py-2 rounded-lg text-sm font-bold hover:bg-azul/30 transition whitespace-nowrap">Buscar</button>
+                        <button id="oa-btn-buscar" onclick="_pfBuscarRutinasOtroAlumno()" class="bg-azul/20 text-azul px-4 py-2 rounded-lg text-sm font-bold hover:bg-azul/30 transition whitespace-nowrap">Buscar</button>
+                        <select id="oa-filtro-tipo" class="rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto" onchange="_pfRenderRutinasOtroAlumno()">
+                            <option value="TODOS">Todos los bloques</option>
+                        </select>
                     </div>
-                    <div id="oa-lista" class="space-y-2 max-h-96 overflow-y-auto">
-                        <p class="text-textoSuave text-xs text-center py-6">Escribí el nombre de un alumno y presioná Buscar (o elegilo de las sugerencias) para ver todas sus rutinas.</p>
-                    </div>
+                    <div id="oa-lista" class="space-y-2 max-h-96 overflow-y-auto"></div>
                 </div>
             </div>
 
@@ -3852,6 +3892,20 @@
                 <button onclick="cancelarAdvertenciaCostoso()" class="flex-1 py-2.5 rounded-xl border border-borde text-textoSuave text-sm font-bold hover:text-texto transition">Cancelar</button>
                 <button onclick="confirmarAdvertenciaCostoso()" class="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold text-sm">Agregar igual</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal: aviso (no bloqueante) de ejercicios prohibidos detectados tras copiar un bloque,
+         calentamiento o una rutina completa desde el Repositorio, el Historial u Otro Alumno -->
+    <div id="modal-aviso-prohibidos-copia" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+        <div class="bg-tarjeta rounded-3xl border border-rojo p-6 max-w-md w-full">
+            <div class="flex items-center gap-3 mb-3">
+                <span class="text-3xl">⚠️</span>
+                <h3 class="text-base font-bold text-rojo uppercase tracking-wider">Revisá antes de compartir</h3>
+            </div>
+            <p class="text-sm text-texto mb-2"><span id="apc-alumno-nombre" class="font-bold"></span> tiene marcados como prohibidos algunos de los ejercicios que acabás de copiar:</p>
+            <ul id="apc-lista" class="text-sm text-amarillo font-bold mb-4 list-disc list-inside space-y-0.5"></ul>
+            <button onclick="document.getElementById('modal-aviso-prohibidos-copia').classList.add('hidden')" class="btn-primary w-full py-2.5 rounded-xl text-white font-bold text-sm">Entendido</button>
         </div>
     </div>
 
@@ -5332,6 +5386,7 @@
     // TABS
     // ====================================================================
     let _pfActiveTab = 'dashboard';
+    let _historialTabInicializado = false; // la lista de alumnos de la pestaña "Historial" se pide recien la primera vez que se abre
 
     function showTab(tab) {
         _pfActiveTab = tab;
@@ -5370,6 +5425,13 @@
             poblarElementosCheckAlumno();
             poblarDatalistEjerciciosAlumno();
             cargarPerfilesAlumnos();
+        }
+        // La pestaña "Historial" (Rutinas Compartidas) recién pide la lista de alumnos la
+        // primera vez que se abre, en vez de al cargar la página entera (evita un fetch
+        // forzado + el toast "Alumnos cargados" apenas se abre la app sin haber entrado acá).
+        if (tab === 'historial' && !_historialTabInicializado) {
+            _historialTabInicializado = true;
+            cargarListaAlumnos();
         }
     }
 
@@ -17964,7 +18026,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
     const MODAL_IDS = ['modal-pf-confirm', 'modal-dash-rutina', 'modal-codigo', 'modal-repo-guardar', 'modal-repo-editar',
         'modal-repo-copiar', 'modal-ver-rutina', 'modal-piz-vt', 'modal-ia-config', 'modal-ia-preview',
         'modal-nueva-cat', 'modal-bloque', 'modal-copiar-destino', 'modal-historial-alumno', 'modal-vista-compacta-rutina',
-        'modal-advertencia-ejercicio', 'modal-advertencia-costoso', 'modal-musculo-detalle'];
+        'modal-advertencia-ejercicio', 'modal-advertencia-costoso', 'modal-musculo-detalle', 'modal-aviso-prohibidos-copia'];
 
     // Devuelve tambien los modales de calentamiento (uno por dia, id dinamico modal-calentamiento-N)
     function _pfTodosLosModalesVisibles() {
@@ -18060,7 +18122,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             const selCant = card.querySelector('select');
             if (selCant) selCant.value = '1';
         }
-        if (!nombre) { _pfHistorialAlumnoCache = []; if (card) card.classList.add('hidden'); return; }
+        if (!nombre) { _pfHistorialAlumnoCache = []; if (card) card.classList.add('hidden'); _pfSincronizarHistorialEsteAlumno(); return; }
         try {
             const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre));
             const data = await res.json();
@@ -18072,6 +18134,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
                 const cantEl = document.getElementById('historial-alumno-cant');
                 if (cantEl) cantEl.textContent = _pfHistorialAlumnoCache.length;
                 if (card) card.classList.remove('hidden');
+                _pfSincronizarHistorialEsteAlumno();
                 // Traer siempre las rutinas anteriores completas (no solo si el checkbox del
                 // mapa de calor está tildado): las necesitamos para poder avisar "ya se usó en
                 // una rutina anterior" apenas el profe elija un ejercicio, en cualquier lugar de
@@ -18087,46 +18150,30 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             } else {
                 _pfHistorialAlumnoCache = [];
                 if (card) card.classList.add('hidden');
+                _pfSincronizarHistorialEsteAlumno();
             }
         } catch (e) {
             _pfHistorialAlumnoCache = [];
             if (card) card.classList.add('hidden');
+            _pfSincronizarHistorialEsteAlumno();
         }
     }
 
-    // Abre el modal con las ultimas rutinas del alumno (Ver / Copiar toda / desglosar por dia)
+    // El botón "Ver" de la tarjeta de historial ahora abre el panel unificado "Historial de
+    // Rutinas" (más abajo) en modo "Este alumno", en vez de un modal aparte.
     function abrirModalHistorialAlumno() {
-        const nombre = (document.getElementById('alumno-nombre')?.value || '').trim();
-        document.getElementById('historial-alumno-nombre-modal').textContent = nombre.toUpperCase();
-        const lista = document.getElementById('historial-alumno-lista');
-        if (_pfHistorialAlumnoCache.length === 0) {
-            lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-6">No hay rutinas previas para este alumno</p>';
-        } else {
-            lista.innerHTML = _pfHistorialAlumnoCache.map((r, i) => {
-                const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
-                return '<div class="bg-fondoAlt rounded-xl border border-borde/50 p-3">' +
-                    '<div class="flex items-center justify-between mb-2 gap-2 flex-wrap">' +
-                        '<div><span class="font-mono font-bold text-amarillo text-sm">' + r.codigo.toUpperCase() + '</span>' +
-                        '<span class="text-xs text-textoSuave ml-2">' + (r.tipo || 'ENTRENAMIENTO') + (fecha ? ' · ' + fecha : '') + '</span></div>' +
-                    '</div>' +
-                    '<div class="flex flex-wrap gap-2 mb-2">' +
-                        '<button onclick="_pfVerInline(\'' + r.codigo + '\', ' + i + ')" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">👁 Ver</button>' +
-                        '<button onclick="_pfCopiarRutinaCompletaDesdeHistorial(\'' + r.codigo + '\')" class="bg-verde/20 text-verde px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-verde/30 transition">📋 Copiar toda la rutina</button>' +
-                        '<button onclick="_pfDesglosarHistorial(\'' + r.codigo + '\', ' + i + ')" class="bg-purpura/20 text-purpura px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">Ver días y copiar por partes</button>' +
-                    '</div>' +
-                    '<div id="historial-ver-inline-' + i + '" class="hidden mt-2 space-y-2"></div>' +
-                    '<div id="historial-dias-' + i + '" class="hidden mt-2 space-y-2"></div>' +
-                '</div>';
-            }).join('');
-        }
-        document.getElementById('modal-historial-alumno').classList.remove('hidden');
+        const content = document.getElementById('oa-content');
+        if (content && content.classList.contains('hidden')) _pfTogglePanelOtroAlumno();
+        _pfSetModoHistorial('este');
+        content?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     // "Copiar toda la rutina en todos los días": reemplaza por completo lo que hay en Crear Rutina
     async function _pfCopiarRutinaCompletaDesdeHistorial(codigo) {
         if (!await pfConfirm('¿Copiar esta rutina completa? Se reemplazará todo lo que tengas actualmente en "Crear Rutina".', { destructivo: false, textoConfirmar: 'Copiar' })) return;
         document.getElementById('modal-historial-alumno').classList.add('hidden');
-        editarRutinaDesdeHistorial(codigo);
+        await editarRutinaDesdeHistorial(codigo);
+        _pfAvisarSiProhibidosEnCopia(_pfTodosLosEjerciciosDeDias(diasData));
     }
 
     // Muestra (o esconde, si ya estaba mostrado) el desglose dia por dia de una rutina historica,
@@ -18349,14 +18396,64 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
     // el Repositorio y el Historial del alumno actual.
     // ====================================================================
     let _oaPanelAbierto = false;
-    let _oaRutinasCache = [];     // rutinas del último alumno buscado
+    let _oaRutinasCache = [];     // rutinas del alumno actualmente mostrado (este alumno u otro)
     let _oaNombreActual = '';
+    let _histModoActual = 'este'; // 'este' = el alumno de "Nombre del Alumno", 'otro' = buscador libre
+
+    function _pfEstiloModoBtn(activo) {
+        return 'flex-1 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition ' +
+            (activo ? 'bg-azul text-white' : 'bg-fondoAlt text-textoSuave border border-borde hover:text-texto');
+    }
+
+    // Cambia entre ver el historial de "este alumno" (el que está en "Nombre del Alumno",
+    // sin volver a pedirlo: reusa lo que ya trajo _pfChequearHistorialAlumno) o buscar
+    // libremente el de "otro alumno".
+    function _pfSetModoHistorial(modo) {
+        _histModoActual = modo;
+        const btnEste = document.getElementById('oa-modo-este');
+        const btnOtro = document.getElementById('oa-modo-otro');
+        if (btnEste) btnEste.className = _pfEstiloModoBtn(modo === 'este');
+        if (btnOtro) btnOtro.className = _pfEstiloModoBtn(modo === 'otro');
+        const input = document.getElementById('oa-buscador-alumno');
+        const btnBuscar = document.getElementById('oa-btn-buscar');
+        if (modo === 'este') {
+            if (btnBuscar) btnBuscar.classList.add('hidden');
+            if (input) { input.disabled = true; input.classList.add('opacity-60'); }
+            _pfSincronizarHistorialEsteAlumno();
+        } else {
+            if (btnBuscar) btnBuscar.classList.remove('hidden');
+            if (input) { input.disabled = false; input.classList.remove('opacity-60'); input.value = ''; input.placeholder = '🔍 Buscar alumno...'; input.focus(); }
+            _oaRutinasCache = [];
+            _oaNombreActual = '';
+            const lista = document.getElementById('oa-lista');
+            if (lista) lista.innerHTML = '<p class="text-textoSuave text-xs text-center py-6">Escribí el nombre de un alumno y presioná Buscar (o elegilo de las sugerencias) para ver todas sus rutinas.</p>';
+        }
+    }
+
+    // Sincroniza el panel (modo "Este alumno") con el nombre cargado arriba en "Nombre del
+    // Alumno" y con la cache que ya trajo _pfChequearHistorialAlumno (sin pedirla de nuevo).
+    function _pfSincronizarHistorialEsteAlumno() {
+        if (_histModoActual !== 'este') return;
+        const nombre = (document.getElementById('alumno-nombre')?.value || '').trim();
+        const input = document.getElementById('oa-buscador-alumno');
+        if (input) input.value = nombre;
+        _oaNombreActual = nombre;
+        const lista = document.getElementById('oa-lista');
+        if (!nombre) {
+            _oaRutinasCache = [];
+            if (lista) lista.innerHTML = '<p class="text-textoSuave text-xs text-center py-6">Escribí el nombre del alumno arriba, en "Nombre del Alumno".</p>';
+            return;
+        }
+        _oaRutinasCache = (typeof _pfHistorialAlumnoCache !== 'undefined' ? _pfHistorialAlumnoCache : []) || [];
+        _pfRenderRutinasOtroAlumno();
+    }
 
     function _pfTogglePanelOtroAlumno() {
         const content = document.getElementById('oa-content');
         const chevron = document.getElementById('oa-chevron');
         _oaPanelAbierto = content.classList.toggle('hidden') === false;
         chevron.style.transform = _oaPanelAbierto ? 'rotate(180deg)' : '';
+        if (_oaPanelAbierto && _histModoActual === 'este') _pfSincronizarHistorialEsteAlumno();
     }
 
     // Busca (via API) todas las rutinas guardadas de un alumno cualquiera y las lista
@@ -18365,6 +18462,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         const nombre = (nombreForzado || input?.value || '').trim();
         const lista = document.getElementById('oa-lista');
         if (!nombre) { if (lista) lista.innerHTML = '<p class="text-textoSuave text-xs text-center py-6">Escribí el nombre de un alumno para buscar.</p>'; return; }
+        if (_histModoActual !== 'otro') _pfSetModoHistorial('otro');
         if (input && nombreForzado) input.value = nombreForzado;
         // Abrir el panel si estaba cerrado (p.ej. al elegir una sugerencia del autocompletado)
         const content = document.getElementById('oa-content');
@@ -18390,20 +18488,46 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
 
     function _pfRenderRutinasOtroAlumno() {
         const lista = document.getElementById('oa-lista');
+        const selTipo = document.getElementById('oa-filtro-tipo');
         if (!lista) return;
         if (_oaRutinasCache.length === 0) {
+            if (selTipo) { selTipo.innerHTML = '<option value="TODOS">Todos los bloques</option>'; }
             lista.innerHTML = '<p class="text-textoSuave text-xs text-center py-6">' + escapeHtml(_oaNombreActual.toUpperCase()) + ' no tiene rutinas guardadas.</p>';
             return;
         }
-        lista.innerHTML = '<p class="text-[11px] text-textoSuave uppercase tracking-wider mb-1">' + escapeHtml(_oaNombreActual.toUpperCase()) + ' — ' + _oaRutinasCache.length + ' rutina(s)</p>' +
-            _oaRutinasCache.map((r, i) => {
+        // Poblar el filtro con los tipos que realmente tienen las rutinas encontradas
+        // (tipo general de cada rutina: el sistema si es de un solo tipo, "Multi-día" si
+        // tiene varios días, o "Mixto" si combina bloques distintos en un mismo día).
+        const tiposSet = new Set();
+        _oaRutinasCache.forEach(r => tiposSet.add((r.tipo || 'ENTRENAMIENTO').toUpperCase()));
+        if (selTipo) {
+            const nombreTipo = (t) => t === 'MULTIDIA' ? 'Multi-día' : (t === 'ENTRENAMIENTO' ? 'Mixto / Entrenamiento' : pfNombreSistema(t));
+            const valActual = selTipo.value || 'TODOS';
+            selTipo.innerHTML = '<option value="TODOS">Todos los bloques</option>' +
+                Array.from(tiposSet).sort().map(t => '<option value="' + t + '">' + escapeHtml(nombreTipo(t)) + '</option>').join('');
+            selTipo.value = tiposSet.has(valActual) ? valActual : 'TODOS';
+        }
+        const filtroTipo = selTipo ? selTipo.value : 'TODOS';
+        const items = filtroTipo === 'TODOS' ? _oaRutinasCache : _oaRutinasCache.filter(r => (r.tipo || 'ENTRENAMIENTO').toUpperCase() === filtroTipo);
+        if (items.length === 0) {
+            lista.innerHTML = '<p class="text-textoSuave text-xs text-center py-6">Ninguna rutina de ' + escapeHtml(_oaNombreActual.toUpperCase()) + ' coincide con ese filtro.</p>';
+            return;
+        }
+        lista.innerHTML = '<p class="text-[11px] text-textoSuave uppercase tracking-wider mb-1">' + escapeHtml(_oaNombreActual.toUpperCase()) + ' — ' + items.length + ' rutina(s)</p>' +
+            items.map((r, i) => {
                 const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString('es-AR') : '';
-                return '<div class="bg-fondoAlt rounded-lg border border-borde/50 px-3 py-2 flex flex-col gap-2">' +
+                return '<div class="pf-repo-card bg-fondoAlt rounded-lg border border-borde/50 px-3 py-2 flex flex-col gap-2">' +
                     '<div class="flex items-center justify-between gap-2 flex-wrap">' +
-                        '<div><span class="font-mono font-bold text-amarillo text-xs">' + r.codigo.toUpperCase() + '</span>' +
-                        '<span class="text-[10px] text-textoSuave ml-2">' + (r.tipo || 'ENTRENAMIENTO') + (fecha ? ' · ' + fecha : '') + '</span></div>' +
+                        '<div class="pf-repo-card-info min-w-0 flex-1">' +
+                            '<div class="pf-repo-card-title-row flex items-center gap-1.5 flex-wrap">' +
+                                '<span class="pf-repo-card-title font-mono font-bold text-amarillo text-xs">' + r.codigo.toUpperCase() + '</span>' +
+                            '</div>' +
+                            '<div class="pf-repo-card-meta flex items-center gap-2 mt-0.5">' +
+                                '<span class="text-[10px] text-textoSuave">' + (r.tipo || 'ENTRENAMIENTO') + (fecha ? ' · ' + fecha : '') + '</span>' +
+                            '</div>' +
+                        '</div>' +
                     '</div>' +
-                    '<div class="flex flex-wrap gap-1.5">' +
+                    '<div class="pf-repo-card-actions flex flex-wrap gap-1.5">' +
                         '<button onclick="_pfVerInlineOtroAlumno(\'' + r.codigo + '\', ' + i + ')" class="bg-azul/20 text-azul px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-azul/30 transition whitespace-nowrap">👁 Ver</button>' +
                         '<button onclick="_pfCopiarRutinaCompletaDesdeOtroAlumno(\'' + r.codigo + '\')" class="bg-verde/20 text-verde px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-verde/30 transition whitespace-nowrap">📋 Copiar toda la rutina</button>' +
                         '<button onclick="_pfDesglosarOtroAlumno(\'' + r.codigo + '\', ' + i + ')" class="bg-purpura/20 text-purpura px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-purpura/30 transition whitespace-nowrap">Ver días y copiar por partes</button>' +
@@ -18505,10 +18629,20 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
     // sobreescribirla sin querer al guardar), así que se resetea _pfCodigoEditando.
     async function _pfCopiarRutinaCompletaDesdeOtroAlumno(codigo) {
         if (!await pfConfirm('¿Copiar esta rutina completa a "Crear Rutina"? Se reemplazará todo lo que tengas actualmente.', { destructivo: false, textoConfirmar: 'Copiar' })) return;
+        // Guardamos el alumno/descripción que se estaba armando: es solo una base para una
+        // rutina nueva, no queremos que se pise con los datos de la rutina de origen (de otro alumno).
+        const alumnoInput = document.getElementById('alumno-nombre');
+        const descInput = document.getElementById('rutina-desc');
+        const alumnoActual = alumnoInput ? alumnoInput.value : '';
+        const descActual = descInput ? descInput.value : '';
         await editarRutinaDesdeHistorial(codigo);
-        // Es una copia para armar una rutina nueva, no una edición de la rutina original de este alumno
+        // Es una copia para armar una rutina nueva, no una edición de la rutina original de este otro alumno
         _pfCodigoEditando = null;
-        toast('Rutina copiada — revisá el alumno y la descripción antes de compartir');
+        if (alumnoInput) alumnoInput.value = alumnoActual;
+        if (descInput) descInput.value = descActual;
+        if (alumnoActual.trim()) { _pfChequearHistorialAlumno(); _pfChequearFichaAlumno(); }
+        toast('Rutina copiada — revisá y ajustá antes de compartir');
+        _pfAvisarSiProhibidosEnCopia(_pfTodosLosEjerciciosDeDias(diasData));
     }
 
     // Abre el selector de dia destino para copiar un bloque especifico de una rutina historica
@@ -18611,6 +18745,15 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         if (chevron) chevron.style.transform = abierto ? 'rotate(180deg)' : '';
     }
 
+    // Expande o colapsa de una todos los días del acordeón identificado por instKey
+    // (uno de los "Expandir todos" / "Colapsar todos" que aparecen en rutinas multi-día).
+    function _pfExpandirTodosDias(instKey, expandir) {
+        const cont = document.getElementById(instKey);
+        if (!cont) return;
+        cont.querySelectorAll('[id^="' + instKey + '-d"]').forEach(body => body.classList.toggle('hidden', !expandir));
+        cont.querySelectorAll('.pf-acc-chevron').forEach(ch => { ch.style.transform = expandir ? 'rotate(180deg)' : ''; });
+    }
+
     function _pfGenerarHTMLCompacto(dias, conCopiar) {
         const colores = { 'Circuito': 'naranja', 'Circuito por Tiempo': 'azul', 'Por Tiempo': 'purpura', 'Tabata': 'rojo', 'EMOM': 'amarillo', 'Series': 'verde', 'Sumando Ejercicio': 'purpura' };
         if (!dias || dias.length === 0) return '<p class="text-textoSuave text-sm text-center py-6">Sin días para mostrar</p>';
@@ -18619,7 +18762,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         // se estire para abajo mostrando todos los días de una a la vez.
         const multiDia = dias.length > 1;
         const instKey = '_pfacc' + (_pfAccordionSeq++);
-        return dias.map((d, di) => {
+        const diasHtml = dias.map((d, di) => {
             const calEjs = d.warmupEjercicios || [];
             const calPills = calEjs.map(e => {
                 const reps = _pfRepsEjercicio(e);
@@ -18682,6 +18825,12 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
                 '<div id="' + bodyId + '" class="hidden px-3 py-2.5 border-t border-borde/50">' + contenido + '</div>' +
             '</div>';
         }).join('');
+        if (!multiDia) return diasHtml;
+        return '<div class="flex justify-end gap-3 mb-1.5">' +
+                '<button type="button" onclick="_pfExpandirTodosDias(\'' + instKey + '\', true)" class="text-[11px] text-textoSuave hover:text-texto underline">Expandir todos</button>' +
+                '<button type="button" onclick="_pfExpandirTodosDias(\'' + instKey + '\', false)" class="text-[11px] text-textoSuave hover:text-texto underline">Colapsar todos</button>' +
+            '</div>' +
+            '<div id="' + instKey + '">' + diasHtml + '</div>';
     }
 
     // "Ver" desde el historial del alumno: en vez del PDF (generarHTMLRutina), muestra
@@ -18832,6 +18981,41 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         document.getElementById('modal-copiar-destino').classList.remove('hidden');
     }
 
+    // ====================================================================
+    // AVISO: ejercicios prohibidos (Ficha del alumno) detectados al copiar
+    // ====================================================================
+    // Junta en un solo array todos los ejercicios (calentamiento + bloques) de un
+    // conjunto de dias ya parseado/cargado en el editor.
+    function _pfTodosLosEjerciciosDeDias(dias) {
+        const out = [];
+        (dias || []).forEach(d => {
+            (d.warmupEjercicios || []).forEach(e => out.push(e));
+            (d.bloquesRutina || []).forEach(b => (b.ejercicios || []).forEach(e => out.push(e)));
+        });
+        return out;
+    }
+
+    // Muestra (si corresponde) el aviso no bloqueante de "ejercicios prohibidos" cuando
+    // alguno de los ejercicios recien copiados está en la ficha del alumno actualmente
+    // cargado en "Nombre del Alumno" como que no puede hacer.
+    function _pfAvisarSiProhibidosEnCopia(ejercicios) {
+        const alumno = (document.getElementById('alumno-nombre')?.value || '').trim();
+        if (!alumno) return;
+        const perfil = _perfilAlumnosCache[_claveAlumno(alumno)];
+        const proh = (perfil && perfil.ejerciciosProhibidos) || [];
+        if (!proh.length) return;
+        const prohUpper = proh.map(p => p.toUpperCase());
+        const encontrados = new Set();
+        (ejercicios || []).forEach(e => {
+            const nombre = (e && e.nombre) || '';
+            if (nombre && prohUpper.includes(nombre.toUpperCase())) encontrados.add(nombre);
+        });
+        if (!encontrados.size) return;
+        document.getElementById('apc-alumno-nombre').textContent = alumno.toUpperCase();
+        document.getElementById('apc-lista').innerHTML = Array.from(encontrados).map(n => '<li>' + escapeHtml(n) + '</li>').join('');
+        document.getElementById('modal-aviso-prohibidos-copia').classList.remove('hidden');
+    }
+
     function _pfConfirmarCopiar(targetIdx) {
         if (!_pfCopiarContexto) return;
         const ctx = _pfCopiarContexto;
@@ -18844,6 +19028,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             renderBloquesDia(targetIdx);
             actualizarBadgeDia(targetIdx);
             toast('Bloque copiado a ' + diasData[targetIdx].titulo);
+            _pfAvisarSiProhibidosEnCopia(copia.ejercicios || []);
         } else if (ctx.tipo === 'calentamiento') {
             // El chequeo de "mismo dia" solo aplica cuando se copia dentro de la rutina actual
             if (!ctx.origenExterno && targetIdx === ctx.diaIdx) { toast('Elegí un día distinto'); return; }
@@ -18858,6 +19043,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             if (tipoSelDestino) tipoSelDestino.value = tipoOrigen;
             actualizarWarmupUIDia(targetIdx); // regenera params y re-renderiza ejercicios
             toast('Calentamiento copiado a ' + diasData[targetIdx].titulo);
+            _pfAvisarSiProhibidosEnCopia(diasData[targetIdx].warmupEjercicios || []);
         }
         document.getElementById('modal-copiar-destino').classList.add('hidden');
         _pfCopiarContexto = null;
@@ -19445,15 +19631,18 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         _pfMejorarEtiquetasAccesibles();
         poblarSelectsMusculos();
         cargarVideoteca();
-        cargarListaAlumnos();
         cargarAlumnosDash();
         // Autocompletado de alumno en "Crear Rutina" (texto libre, sugiere alumnos existentes)
         _obtenerAlumnosCache().then(() => _initAutocompleteAlumno('alumno-nombre', function(n) { _pfChequearHistorialAlumno(n).then(function() { _pfCargarFeedbackCostosoAlumno(); }); _pfChequearFichaAlumno(); }, null));
         // Autocompletado del buscador de "Rutinas de Otros Alumnos" en Crear Rutina
         _obtenerAlumnosCache().then(() => _initAutocompleteAlumno('oa-buscador-alumno', function(n) { _pfBuscarRutinasOtroAlumno(n); }, null));
+        // Panel unificado "Historial de Rutinas": arranca en modo "Este alumno"
+        _pfSetModoHistorial('este');
         document.getElementById('alumno-nombre')?.addEventListener('blur', function() { _pfChequearHistorialAlumno().then(function() { _pfCargarFeedbackCostosoAlumno(); }); _pfChequearFichaAlumno(); });
         cargarPerfilesAlumnos();
-        cargarRepositorioDesdeNube();
+        // El Repositorio ya se pide solo (con guarda) al abrir esa pestaña o al desplegar
+        // el panel "Rutinas del Repositorio" dentro de Crear Rutina — no hace falta pedirlo
+        // de una acá si todavía no llegamos a usarlo.
         // Buscador de ejercicios mobile (bloque): reusa el select de desktop y agregarEjBloque()
         _initBusquedaEjercicioMobile('bloque-buscar-ej-mobile', 'bloque-ej-select', agregarEjBloque, _pfPostAgregarBloqueMobile);
         // Inicializar el sistema multi-dia con Dia 1 por defecto
