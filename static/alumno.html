@@ -19757,12 +19757,11 @@
                 html += '<canvas id="pf-perfil-foto-canvas" width="200" height="200" style="display:none;"></canvas>';
                 html += '</div>';
 
-                html += '<div class="pf-perfil-campo"><label>Nombre</label><input type="text" id="pf-perfil-nombre" value="' + _pfBnEsc(nombreVal) + '" disabled></div>';
-                html += '<div class="pf-perfil-campo"><label>Apellido</label><input type="text" id="pf-perfil-apellido" value="' + _pfBnEsc(f.apellido || '') + '" disabled>' +
+                html += '<div class="pf-perfil-campo"><label>Nombre</label><input type="text" id="pf-perfil-nombre" value="' + _pfBnEsc(nombreVal) + '" disabled>' +
                     '<div class="pf-perfil-campo-nota">Tu nombre y apellido los define tu profesor/a — no se pueden editar acá.</div></div>';
 
                 html += '<div class="pf-perfil-row2">';
-                html += '<div class="pf-perfil-campo"><label>Edad</label><input type="number" id="pf-perfil-edad" value="' + _pfBnEsc(f.edad || '') + '"></div>';
+                html += '<div class="pf-perfil-campo"><label>Fecha de nacimiento</label><input type="date" id="pf-perfil-nacimiento" value="' + _pfBnEsc(f.fechaNacimiento || '') + '" max="' + new Date().toISOString().slice(0, 10) + '"></div>';
                 html += '<div class="pf-perfil-campo"><label>Peso (kg)</label><input type="number" id="pf-perfil-peso" value="' + _pfBnEsc(f.peso || '') + '"></div>';
                 html += '</div>';
                 html += '<div class="pf-perfil-row2">';
@@ -19846,13 +19845,13 @@
                 }
 
                 var campos = {
-                    // Nombre/apellido NO se leen del formulario (están bloqueados ahí):
-                    // el nombre es la identidad real de la rutina (nombreAlumno) y el
-                    // apellido queda como lo tenga guardado el profesor en la ficha, para
-                    // que un alumno no pueda desalinear su perfil del código de rutina.
+                    // Nombre/apellido NO se leen del formulario (están bloqueados ahí, y el
+                    // de apellido ni siquiera se muestra): el nombre es la identidad real de
+                    // la rutina (nombreAlumno) y el apellido que haya cargado el profesor en
+                    // la ficha queda igual (se preserva solo, via el merge con _pfPerfilFichaBase
+                    // de más abajo, porque acá no se vuelve a mandar).
                     nombre: nombreAlumno,
-                    apellido: (_pfPerfilFichaBase && _pfPerfilFichaBase.apellido) || '',
-                    edad: _val('pf-perfil-edad'),
+                    fechaNacimiento: _val('pf-perfil-nacimiento'),
                     peso: _val('pf-perfil-peso'),
                     altura: _val('pf-perfil-altura'),
                     objetivo: _val('pf-perfil-objetivo'),
