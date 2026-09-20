@@ -19,8 +19,9 @@ import re
 import time
 import os
 import threading
+import hashlib
 import requests
-from flask import Flask, request, jsonify, session
+from flask import Flask, request, jsonify, session, make_response
 from flask_cors import CORS
 
 import firebase_config
@@ -36,27 +37,53 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("FLASK_ENV") != "development"
 
 # ──────────────────────────────────────────────────────────────
-#  CACHE de las fotos (/img/...)
-#  Las fotos de las tarjetas y de los sistemas de entrenamiento casi nunca cambian:
-#  con esto el navegador las guarda y las muestra al instante, sin volver a pedirlas
-#  al servidor cada vez que se abre la app.
-#  Si reemplazás una foto manteniendo el mismo nombre, los celulares la actualizan
-#  solos en 1 día como máximo (o cambiale el nombre para verla ya mismo).
+#  FOTOS (static/img)
+#  - Cada foto se pide con un codigo de version al final (/img/tabata.jpeg?v=ab12cd34).
+#    Ese codigo cambia SOLO cuando agregas, sacas o reemplazas una foto en static/img.
+#  - Las fotos pedidas con version valida se guardan en el celular "para siempre"
+#    (aparecen al instante) y, como la version cambia con cada cambio, cuando subis una
+#    foto nueva la ven al abrir la app, sin borrar cache ni esperar.
+#  - alumno.html recibe ademas la lista de fotos que hay, para armar los pozos por sistema.
+#  Nota: la version se calcula con nombre + tamano de cada archivo. Si reemplazas una foto por
+#  otra que pesa EXACTAMENTE lo mismo (casi imposible), cambiale el nombre.
 # ──────────────────────────────────────────────────────────────
-IMG_CACHE_SEGUNDOS = 60 * 60 * 24          # 1 día "fresca": ni siquiera consulta al servidor
-IMG_CACHE_REVALIDAR = 60 * 60 * 24 * 7     # 7 días más: se muestra al instante y se revisa en segundo plano
+FOTOS_DIR = os.path.join(app.static_folder, "img")
+FOTOS_EXTS = (".jpg", ".jpeg", ".png", ".webp")
+_RE_NOMBRE_FOTO = re.compile(r"^[A-Za-z0-9_.\-]+$")
+_RE_VERSION_FOTOS = re.compile(r"^[0-9a-f]{8}$")
+_fotos_cache = {"t": 0.0, "version": "0", "nombres": []}
+
+
+def info_fotos():
+    """Devuelve (version, [nombres]) de las fotos de static/img. Se recalcula cada 5 segundos como maximo."""
+    ahora = time.time()
+    if ahora - _fotos_cache["t"] > 5:
+        h = hashlib.md5()
+        nombres = []
+        try:
+            for nombre in sorted(os.listdir(FOTOS_DIR)):
+                ruta = os.path.join(FOTOS_DIR, nombre)
+                if not os.path.isfile(ruta) or not nombre.lower().endswith(FOTOS_EXTS):
+                    continue
+                h.update(("%s:%d;" % (nombre, os.path.getsize(ruta))).encode("utf-8"))
+                if _RE_NOMBRE_FOTO.match(nombre):
+                    nombres.append(nombre)
+        except OSError:
+            pass
+        _fotos_cache.update(t=ahora, version=h.hexdigest()[:8], nombres=nombres)
+    return _fotos_cache["version"], _fotos_cache["nombres"]
 
 
 @app.after_request
 def cache_fotos(resp):
+    """Fotos con version valida (?v=xxxxxxxx): cache larga. Sin version: comportamiento normal de Flask."""
     if (request.method in ("GET", "HEAD")
             and request.path.startswith("/img/")
-            and resp.status_code in (200, 304)):
-        resp.headers["Cache-Control"] = (
-            "public, max-age=%d, stale-while-revalidate=%d"
-            % (IMG_CACHE_SEGUNDOS, IMG_CACHE_REVALIDAR)
-        )
+            and resp.status_code in (200, 304)
+            and _RE_VERSION_FOTOS.match(request.args.get("v", ""))):
+        resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
     return resp
+
 
 # ──────────────────────────────────────────────────────────────
 #  VIDEOTECA - Datos por defecto
@@ -251,9 +278,19 @@ def pagina_admin():
 
 
 @app.route("/alumno")
+@app.route("/alumno.html")
 def alumno():
-    """Pagina del alumno (publica, sin login)."""
-    return app.send_static_file("alumno.html")
+    """Pagina del alumno (publica, sin login).
+    Le inserta la version y la lista de fotos de static/img (ver bloque FOTOS mas arriba)."""
+    ruta = os.path.join(app.static_folder, "alumno.html")
+    with open(ruta, encoding="utf-8") as f:
+        html = f.read()
+    version, nombres = info_fotos()
+    html = html.replace("__IMG_V__", version).replace("__IMG_LISTA__", ",".join(nombres))
+    resp = make_response(html)
+    resp.headers["Content-Type"] = "text/html; charset=utf-8"
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
 
 
 # ──────────────────────────────────────────────────────────────
