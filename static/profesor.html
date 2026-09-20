@@ -2006,6 +2006,16 @@
             <button id="pf-btn-logout" class="text-xs border border-borde rounded-full px-3 py-1.5 text-texto hover:border-naranja transition-colors">Salir</button>
         </div>
     </header>
+
+    <!-- Cartel de cumpleaños: aparece solo si algún alumno cumple años hoy, se puede cerrar
+         (queda cerrado el resto del día, aunque se recargue la página) -->
+    <div id="pf-banner-cumple" class="hidden bg-gradient-to-r from-naranja/20 to-rojo/10 border-b border-naranja/40 px-6 py-3">
+        <div class="max-w-6xl mx-auto flex items-center justify-between gap-3 flex-wrap">
+            <span id="pf-banner-cumple-texto" class="text-sm font-bold text-naranja"></span>
+            <button onclick="_pfCerrarBannerCumple()" class="text-textoSuave hover:text-texto text-lg leading-none px-2" title="Cerrar">×</button>
+        </div>
+    </div>
+
     <script>
         (function _pfBarraCuenta() {
             function pintar() {
@@ -3166,8 +3176,8 @@
                         <input id="ca-nombre" type="text" placeholder="Ej: MARIA" class="w-full rounded-lg px-3 py-2.5 text-sm">
                     </div>
                     <div>
-                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Edad</label>
-                        <input id="ca-edad" type="number" min="1" max="120" placeholder="Ej: 28" class="w-full rounded-lg px-3 py-2.5 text-sm">
+                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Fecha de Nacimiento</label>
+                        <input id="ca-fecha-nacimiento" type="date" class="w-full rounded-lg px-3 py-2.5 text-sm">
                     </div>
                 </div>
 
@@ -4845,7 +4855,7 @@
     function limpiarFormAlumno() {
         _caEditandoClave = null;
         document.getElementById('ca-nombre').value = '';
-        document.getElementById('ca-edad').value = '';
+        document.getElementById('ca-fecha-nacimiento').value = '';
         document.getElementById('ca-lesiones').value = '';
         document.querySelectorAll('.ca-elemento-check').forEach(chk => chk.checked = false);
         _caEjerciciosProhibidosTemp = [];
@@ -4863,7 +4873,7 @@
     async function guardarPerfilAlumno() {
         const nombre = document.getElementById('ca-nombre').value.trim();
         if (!nombre) { toast('Ingresá el nombre del alumno'); return; }
-        const edad = document.getElementById('ca-edad').value.trim();
+        const fechaNacimiento = document.getElementById('ca-fecha-nacimiento').value.trim();
         const lesiones = document.getElementById('ca-lesiones').value.trim();
         const elementos = Array.from(document.querySelectorAll('.ca-elemento-check:checked')).map(el => el.value);
         const ejerciciosProhibidos = _caEjerciciosProhibidosTemp.slice();
@@ -4877,7 +4887,7 @@
         // entero, cada vez que el profesor guardaba la ficha se borraba la foto y el resto
         // de los datos que había cargado el alumno.
         const base = _perfilAlumnosCache[clave] || {};
-        const perfil = Object.assign({}, base, { nombre: nombre.toUpperCase(), edad, elementos, lesiones, ejerciciosProhibidos, feedbackHabilitado });
+        const perfil = Object.assign({}, base, { nombre: nombre.toUpperCase(), fechaNacimiento, elementos, lesiones, ejerciciosProhibidos, feedbackHabilitado });
 
         const btn = document.getElementById('btn-guardar-alumno');
         if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
@@ -4907,7 +4917,7 @@
         _caEditandoClave = clave;
         poblarElementosCheckAlumno();
         document.getElementById('ca-nombre').value = p.nombre || '';
-        document.getElementById('ca-edad').value = p.edad || '';
+        document.getElementById('ca-fecha-nacimiento').value = p.fechaNacimiento || '';
         document.getElementById('ca-lesiones').value = p.lesiones || '';
         document.querySelectorAll('.ca-elemento-check').forEach(chk => {
             chk.checked = (p.elementos || []).includes(chk.value);
@@ -5041,7 +5051,7 @@
                     '<div class="pf-alumno-card-main flex items-center gap-3 min-w-0">' +
                     '<img class="pf-alumno-avatar w-11 h-11 rounded-full object-cover flex-shrink-0 border border-borde" src="' + escapeHtml(p.foto || AVATAR_PLACEHOLDER) + '" alt="Foto de ' + escapeHtml(p.nombre || 'alumno') + '">' +
                     '<div class="pf-alumno-card-info min-w-0">' +
-                    '<p class="pf-alumno-card-nombre font-bold text-sm">' + (p.nombre || '') + (p.edad ? ' <span class="text-textoSuave font-normal">(' + p.edad + ' años)</span>' : '') + ' <span id="' + badgeId + '"></span></p>' +
+                    '<p class="pf-alumno-card-nombre font-bold text-sm">' + (p.nombre || '') + (_pfEdadTexto(p) ? ' <span class="text-textoSuave font-normal">(' + _pfEdadTexto(p) + ')</span>' : '') + ' <span id="' + badgeId + '"></span></p>' +
                     (elementos.length ? '<p class="text-xs text-azul mt-0.5">🏋️ ' + elementos.join(', ') + '</p>' : '') +
                     (p.lesiones ? '<p class="text-xs text-rojo mt-0.5">⚠️ ' + p.lesiones + '</p>' : '') +
                     (prohibidos.length ? '<p class="text-xs text-amarillo mt-0.5">🚫 ' + prohibidos.join(', ') + '</p>' : '') +
@@ -5394,6 +5404,70 @@
         if (typeof cargarEjsBloque === 'function' && document.getElementById('bloque-ej-select')) cargarEjsBloque();
     }
 
+    // ====================================================================
+    // FECHA DE NACIMIENTO / CUMPLEAÑOS
+    // ====================================================================
+    // Calcula la edad en años a partir de una fecha "YYYY-MM-DD". Devuelve null si la
+    // fecha no es válida o no hay fecha.
+    function _pfCalcularEdad(fechaISO) {
+        if (!fechaISO) return null;
+        const nac = new Date(fechaISO + 'T00:00:00');
+        if (isNaN(nac.getTime())) return null;
+        const hoy = new Date();
+        let edad = hoy.getFullYear() - nac.getFullYear();
+        const m = hoy.getMonth() - nac.getMonth();
+        if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+        return edad >= 0 ? edad : null;
+    }
+
+    // Texto de edad para mostrar en las fichas: si hay fechaNacimiento la calcula; si no,
+    // cae en el campo "edad" viejo (perfiles cargados antes de este cambio, que guardaban
+    // la edad directamente como número y no tienen fecha de nacimiento).
+    function _pfEdadTexto(p) {
+        if (!p) return '';
+        const calculada = _pfCalcularEdad(p.fechaNacimiento);
+        if (calculada !== null) return calculada + ' años';
+        if (p.edad) return p.edad + ' años';
+        return '';
+    }
+
+    // ¿La fecha de nacimiento (solo dia/mes, sin importar el año) cae hoy?
+    function _pfEsCumpleHoy(fechaISO) {
+        if (!fechaISO) return false;
+        const partes = fechaISO.split('-');
+        if (partes.length !== 3) return false;
+        const mes = parseInt(partes[1], 10), dia = parseInt(partes[2], 10);
+        const hoy = new Date();
+        return (mes === hoy.getMonth() + 1) && (dia === hoy.getDate());
+    }
+
+    // Se fija, apenas cargan las fichas de alumnos, si alguien cumple años hoy y muestra
+    // un cartel arriba de todo (una sola vez por día: si el profesor lo cierra, no vuelve
+    // a aparecer hasta el día siguiente aunque recargue la página).
+    function _pfChequearCumpleaniosHoy() {
+        const banner = document.getElementById('pf-banner-cumple');
+        if (!banner) return;
+        const hoyISO = new Date().toISOString().slice(0, 10);
+        if (localStorage.getItem('pf_cumple_dismiss') === hoyISO) { banner.classList.add('hidden'); return; }
+        const nombres = Object.values(_perfilAlumnosCache)
+            .filter(p => p && p.nombre && _pfEsCumpleHoy(p.fechaNacimiento))
+            .map(p => p.nombre);
+        if (!nombres.length) { banner.classList.add('hidden'); return; }
+        let texto;
+        if (nombres.length === 1) texto = nombres[0];
+        else if (nombres.length === 2) texto = nombres[0] + ' y ' + nombres[1];
+        else texto = nombres.slice(0, -1).join(', ') + ' y ' + nombres[nombres.length - 1];
+        const textoEl = document.getElementById('pf-banner-cumple-texto');
+        if (textoEl) textoEl.textContent = '🎂 ¡Hoy cumple' + (nombres.length > 1 ? 'n' : '') + ' años ' + texto + '!';
+        banner.classList.remove('hidden');
+    }
+
+    function _pfCerrarBannerCumple() {
+        localStorage.setItem('pf_cumple_dismiss', new Date().toISOString().slice(0, 10));
+        const banner = document.getElementById('pf-banner-cumple');
+        if (banner) banner.classList.add('hidden');
+    }
+
     // Info que carga el ALUMNO desde su propio "Perfil" (peso, altura, objetivo, ejercicio/
     // sistema que más y menos le gusta) — antes esto no se mostraba en ningún lado del
     // lado del profesor. Devuelve HTML listo para insertar, o '' si el alumno no cargó nada.
@@ -5433,7 +5507,7 @@
             if (perfil && perfil.foto) { avatarEl.src = perfil.foto; avatarEl.classList.remove('hidden'); }
             else avatarEl.classList.add('hidden');
         }
-        document.getElementById('ficha-alumno-edad').textContent = (perfil && perfil.edad) ? (perfil.edad + ' años') : '';
+        document.getElementById('ficha-alumno-edad').textContent = _pfEdadTexto(perfil);
         const lesEl = document.getElementById('ficha-alumno-lesiones');
         if (perfil && perfil.lesiones) { lesEl.textContent = '⚠️ ' + perfil.lesiones; lesEl.classList.remove('hidden'); }
         else { lesEl.classList.add('hidden'); }
@@ -13026,7 +13100,7 @@
                 bigAvatar.textContent = nombre.charAt(0).toUpperCase();
             }
         }
-        document.getElementById('dash-ficha-edad').textContent = perfil.edad ? (perfil.edad + ' años') : '';
+        document.getElementById('dash-ficha-edad').textContent = _pfEdadTexto(perfil);
         const elEl = document.getElementById('dash-ficha-elementos');
         const elementos = perfil.elementos || [];
         if (elementos.length) { elEl.textContent = '🏋️ ' + elementos.join(', '); elEl.classList.remove('hidden'); }
@@ -13206,7 +13280,8 @@
         // Ficha médica
         if (perfil && (perfil.lesiones || (perfil.ejerciciosProhibidos||[]).length || (perfil.elementos||[]).length)) {
             colorBar('🩺 Ficha del alumno', 25, 84, 163, 8);
-            if (perfil.edad) textoNormal('Edad: ' + perfil.edad + ' años');
+            const edadTxt = _pfEdadTexto(perfil);
+            if (edadTxt) textoNormal('Edad: ' + edadTxt);
             if ((perfil.elementos||[]).length) textoNormal('Elementos disponibles: ' + perfil.elementos.join(', '));
             if (perfil.lesiones) textoNormal('Lesiones / limitaciones: ' + perfil.lesiones, 9.5, [180,120,20]);
             if ((perfil.ejerciciosProhibidos||[]).length) textoNormal('No puede hacer: ' + perfil.ejerciciosProhibidos.join(', '), 9.5, [180,60,40]);
@@ -19740,7 +19815,8 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         // Panel unificado "Historial de Rutinas": arranca en modo "Este alumno"
         _pfSetModoHistorial('este');
         document.getElementById('alumno-nombre')?.addEventListener('blur', function() { _pfChequearHistorialAlumno().then(function() { _pfCargarFeedbackCostosoAlumno(); }); _pfChequearFichaAlumno(); });
-        cargarPerfilesAlumnos();
+        cargarPerfilesAlumnos().then(_pfChequearCumpleaniosHoy);
+        document.getElementById('ca-fecha-nacimiento')?.setAttribute('max', new Date().toISOString().slice(0, 10));
         // El Repositorio ya se pide solo (con guarda) al abrir esa pestaña o al desplegar
         // el panel "Rutinas del Repositorio" dentro de Crear Rutina — no hace falta pedirlo
         // de una acá si todavía no llegamos a usarlo.
