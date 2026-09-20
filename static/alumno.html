@@ -142,6 +142,31 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
   #sec-warmup:has(>.seccion-contenido.colapsada)>.pf-card-hero,
   #sec-principal:has(>.seccion-contenido.colapsada)>.pf-card-hero{flex:1 1 auto}
 }
+
+/* ===== Fotos por sistema de entrenamiento =====
+   Las fotos van en /img (mismos nombres que abajo). Se cargan solo las de los sistemas que se usan en la rutina.
+   - Sistema solo: la tarjeta "Bloque Principal" usa la foto de ese sistema (en el mix se queda bloque-principal.jpg).
+   - Mix: cada bloque ("BLOQUE 1 — SERIES", etc.) muestra la foto de su sistema en la cabecera. */
+.bloque-mix{--pf-mix-pad:14px;--pf-sys-img:none}
+@media(max-width:480px){.bloque-mix{--pf-mix-pad:11px}}
+.bloque-mix.pf-mode-series,#sec-principal.pf-mode-series{--pf-sys-img:url(/img/series.jpeg);--pf-sys-color:var(--verde)}
+.bloque-mix.pf-mode-circuito,#sec-principal.pf-mode-circuito{--pf-sys-img:url(/img/circuito_por_vuelta.jpeg);--pf-sys-color:var(--azul)}
+.bloque-mix.pf-mode-circuito-tiempo,#sec-principal.pf-mode-circuito-tiempo{--pf-sys-img:url(/img/circuito_por_tiempo.jpeg);--pf-sys-color:#4fc3f7}
+.bloque-mix.pf-mode-por-tiempo,#sec-principal.pf-mode-por-tiempo{--pf-sys-img:url(/img/por_tiempo.jpeg);--pf-sys-color:var(--purpura)}
+.bloque-mix.pf-mode-tabata,#sec-principal.pf-mode-tabata{--pf-sys-img:url(/img/tabata.jpeg);--pf-sys-color:var(--naranja)}
+.bloque-mix.pf-mode-emom,#sec-principal.pf-mode-emom{--pf-sys-img:url(/img/emom.jpeg);--pf-sys-color:var(--amarillo)}
+.bloque-mix.pf-mode-sumando,#sec-principal.pf-mode-sumando{--pf-sys-img:url(/img/sumando_ejercicios.jpg);--pf-sys-color:var(--rosa)}
+#sec-principal.pf-mode-series .pf-card-hero::before,#sec-principal.pf-mode-circuito .pf-card-hero::before,#sec-principal.pf-mode-circuito-tiempo .pf-card-hero::before,#sec-principal.pf-mode-por-tiempo .pf-card-hero::before,#sec-principal.pf-mode-tabata .pf-card-hero::before,#sec-principal.pf-mode-emom .pf-card-hero::before,#sec-principal.pf-mode-sumando .pf-card-hero::before{background-image:var(--pf-sys-img);background-position:68% 30%}
+#sec-principal.pf-mode-series .pf-card-hero::after,#sec-principal.pf-mode-circuito .pf-card-hero::after,#sec-principal.pf-mode-circuito-tiempo .pf-card-hero::after,#sec-principal.pf-mode-por-tiempo .pf-card-hero::after,#sec-principal.pf-mode-tabata .pf-card-hero::after,#sec-principal.pf-mode-emom .pf-card-hero::after,#sec-principal.pf-mode-sumando .pf-card-hero::after{background:linear-gradient(90deg,#08090c 0%,#08090c 38%,rgba(8,9,12,.86) 62%,rgba(8,9,12,.58) 86%,color-mix(in srgb,var(--pf-sys-color) 32%,transparent) 100%)}
+
+/* cabecera de cada bloque del mix con foto (a sangre, hasta los bordes de la tarjeta) */
+.bloque-mix>.bloque-mix-titulo{position:relative;isolation:isolate;margin-top:calc(-1*var(--pf-mix-pad));margin-left:calc(-1*var(--pf-mix-pad));margin-right:calc(-1*var(--pf-mix-pad));padding:0 16px;min-height:92px;justify-content:flex-start;flex-wrap:nowrap;text-align:left;text-shadow:0 1px 10px rgba(0,0,0,.9),0 0 3px rgba(0,0,0,.6)}
+.bloque-mix>.bloque-mix-titulo::before{content:"";position:absolute;top:0;right:0;bottom:0;left:26%;z-index:-2;background:var(--pf-sys-img) center 30%/cover no-repeat}
+.bloque-mix>.bloque-mix-titulo::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(90deg,#08090c 0%,#08090c 38%,rgba(8,9,12,.86) 62%,rgba(8,9,12,.58) 86%,color-mix(in srgb,var(--card-color,var(--naranja)) 32%,transparent) 100%)}
+.bloque-mix>.bloque-mix-titulo .bloque-mix-toggle{margin-left:auto;flex-shrink:0}
+.bloque-mix>.bloque-mix-titulo .bloque-mix-check{flex-shrink:0;margin-left:8px}
+/* cerrado: la foto llena toda la tarjeta, sin franja de fondo abajo */
+.bloque-mix:has(>.bloque-mix-contenido.colapsado){padding-bottom:0}
 </style>
 </head>
 
