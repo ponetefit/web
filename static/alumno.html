@@ -110,6 +110,38 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
 #pf-header-wrap.pf-hidden-scroll~#pf-hero-bg{transform:translateY(calc(env(safe-area-inset-top,0px) - var(--pf-header-h,64px)))}
 #pf-header-wrap.pf-hidden-scroll~#pf-progress-wrap{transform:translateY(env(safe-area-inset-top,0px))}
 #pf-content-wrap.pf-hidden-scroll{top:calc(var(--pf-total-top,64px) - var(--pf-header-h,64px) + env(safe-area-inset-top,0px))}
+
+/* ===== MOBILE: Calentamiento y Bloque Principal (o el sistema de entrenamiento solo) ocupan TODO el alto =====
+   Pantalla del día con las secciones cerradas: las tarjetas se reparten el alto disponible, sin franja negra abajo.
+   - Si no hay calentamiento, el Bloque Principal ocupa todo. Si no hay bloque principal, ocupa todo el calentamiento.
+   - Aplica igual a un sistema solo (Series, EMOM, Tabata, Circuito, Por Tiempo, Sumando Ejercicio...) y al mix de bloques:
+     lo de ADENTRO (los bloques del mix, ejercicios, timers) se ve exactamente igual que antes al abrir la tarjeta.
+   - Si una tarjeta está desplegada, deja de estirarse y el contenido scrollea como siempre. */
+@media (max-width:600px){
+  #modal-scroll{display:flex;flex-direction:column;gap:12px;padding-bottom:calc(14px + env(safe-area-inset-bottom,0px))}
+  /* con algo desplegado se mantiene el aire de abajo para los botones flotantes */
+  #modal-scroll:has(.seccion-contenido:not(.colapsada)){padding-bottom:calc(110px + env(safe-area-inset-bottom,0px))}
+  #modal-scroll>*{flex-shrink:0}
+
+  /* el JS pone display:block/none inline, por eso los !important condicionados a que NO esté oculto */
+  #sec-warmup:not([style*="none"]),
+  #sec-principal:not([style*="none"]),
+  #sec-rutina-lista:not([style*="none"]){display:flex!important;flex-direction:column}
+  #sec-rutina-lista[style*="none"],
+  #sec-rutina-lista:not(:has(>#sec-principal:not([style*="none"]))){display:none!important}
+
+  #sec-warmup,#sec-principal{margin-bottom:0!important}
+
+  /* tarjeta cerrada => se estira y reparte el alto con la otra */
+  #sec-warmup:has(>.seccion-contenido.colapsada),
+  #sec-rutina-lista:has(>#sec-principal:not([style*="none"])>.seccion-contenido.colapsada){flex:1 1 0;min-height:112px}
+  #sec-rutina-lista>#sec-principal:has(>.seccion-contenido.colapsada){flex:1 1 auto;min-height:112px}
+
+  /* la foto/cabecera llena la tarjeta y el contenido queda centrado */
+  #sec-warmup>.pf-card-hero,#sec-principal>.pf-card-hero{display:flex;flex-direction:column;justify-content:center}
+  #sec-warmup:has(>.seccion-contenido.colapsada)>.pf-card-hero,
+  #sec-principal:has(>.seccion-contenido.colapsada)>.pf-card-hero{flex:1 1 auto}
+}
 </style>
 </head>
 
