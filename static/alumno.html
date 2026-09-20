@@ -14,6 +14,31 @@
     <meta name="application-name" content="PONETE FIT">
     <meta name="description" content="Tu entrenador personal de fitness">
     <link rel="manifest" id="pwa-manifest">
+    <!-- Precarga de las fotos de Calentamiento / Bloque Principal: se descargan al abrir la app
+         (antes recién se pedían al mostrar la pantalla y por eso aparecían después del texto). -->
+    <link rel="preload" as="image" href="/img/calentamiento.jpg">
+    <link rel="preload" as="image" href="/img/bloque-principal.jpg">
+    <script>
+    (function(){
+        var urls=["/img/calentamiento.jpg","/img/bloque-principal.jpg"];
+        var root=document.documentElement;
+        var pendientes=urls.length, terminado=false;
+        window._pfHeroImgs=[];
+        // Mientras las fotos no estén listas, las tarjetas se mantienen ocultas (sin mover el layout)
+        root.classList.add("pf-hero-loading");
+        function listo(){ if(terminado)return; terminado=true; root.classList.remove("pf-hero-loading"); }
+        function una(){ pendientes--; if(pendientes<=0)listo(); }
+        urls.forEach(function(u){
+            var im=new Image();
+            window._pfHeroImgs.push(im);
+            im.onload=function(){ if(im.decode){ im.decode().then(una,una); } else { una(); } };
+            im.onerror=una;
+            im.src=u;
+        });
+        // Seguridad: si la conexión es muy lenta o falla, no dejar las tarjetas ocultas para siempre
+        setTimeout(listo,5000);
+    })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700;900&family=Roboto+Mono:wght@700&display=swap">
@@ -24,6 +49,7 @@
 .pf-card-hero{position:relative;isolation:isolate;overflow:hidden;min-height:104px}
 .pf-card-hero::before{content:"";position:absolute;top:0;right:0;bottom:0;left:26%;z-index:-2;background-repeat:no-repeat;background-size:cover;background-position:center 8%}
 .pf-card-hero::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none}
+html.pf-hero-loading .pf-card-hero{visibility:hidden}
 #sec-warmup .pf-card-hero::before{background-image:url(/img/calentamiento.jpg)}
 #sec-warmup .pf-card-hero::after{background:linear-gradient(90deg,#070d16 0%,#070d16 27%,rgba(7,13,22,.8) 45%,rgba(7,13,22,.5) 70%,rgba(0,150,230,.30) 100%)}
 #sec-principal .pf-card-hero::before{background-image:url(/img/bloque-principal.jpg);background-position:center 30%}
