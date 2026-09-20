@@ -14,13 +14,27 @@
     <meta name="application-name" content="PONETE FIT">
     <meta name="description" content="Tu entrenador personal de fitness">
     <link rel="manifest" id="pwa-manifest">
+    <script>
+    /* ===== Versión y lista de fotos (las pone el servidor, app.py, al entregar esta página) =====
+       Abajo hay dos marcadores que app.py reemplaza cada vez que se pide la página:
+       - el de VERSION: un código que cambia SOLO cuando agregás, sacás o reemplazás una foto en static/img.
+         Se agrega al final de cada foto (?v=...): así el navegador las guarda "para siempre" y aun así ve
+         las fotos nuevas apenas se abre la app.
+       - el de LISTA: los nombres de las fotos que hay en static/img (para armar los pozos de fotos por sistema). */
+    (function(){
+        var v="__IMG_V__", l="__IMG_LISTA__";
+        window.PF_IMG_V = (v.indexOf("__")===0) ? "" : v;
+        window.PF_IMG_LISTA = (l.indexOf("__")===0) ? null : (l ? l.split(",") : []);
+        window.pfImg = function(url){ return window.PF_IMG_V ? url + (url.indexOf("?")<0 ? "?" : "&") + "v=" + window.PF_IMG_V : url; };
+    })();
+    </script>
     <!-- Precarga de las fotos de Calentamiento / Bloque Principal: se descargan al abrir la app
          (antes recién se pedían al mostrar la pantalla y por eso aparecían después del texto). -->
-    <link rel="preload" as="image" href="/img/calentamiento.jpg">
-    <link rel="preload" as="image" href="/img/bloque-principal.jpg">
+    <link rel="preload" as="image" href="/img/calentamiento.jpg?v=__IMG_V__">
+    <link rel="preload" as="image" href="/img/bloque-principal.jpg?v=__IMG_V__">
     <script>
     (function(){
-        var urls=["/img/calentamiento.jpg","/img/bloque-principal.jpg"];
+        var urls=[pfImg("/img/calentamiento.jpg"),pfImg("/img/bloque-principal.jpg")];
         var root=document.documentElement;
         var pendientes=urls.length, terminado=false;
         window._pfHeroImgs=[];
@@ -50,9 +64,9 @@
 .pf-card-hero::before{content:"";position:absolute;top:0;right:0;bottom:0;left:26%;z-index:-2;background-repeat:no-repeat;background-size:cover;background-position:center 8%}
 .pf-card-hero::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none}
 html.pf-hero-loading .pf-card-hero{visibility:hidden}
-#sec-warmup .pf-card-hero::before{background-image:url(/img/calentamiento.jpg)}
+#sec-warmup .pf-card-hero::before{background-image:url(/img/calentamiento.jpg?v=__IMG_V__)}
 #sec-warmup .pf-card-hero::after{background:linear-gradient(90deg,#070d16 0%,#070d16 27%,rgba(7,13,22,.8) 45%,rgba(7,13,22,.5) 70%,rgba(0,150,230,.30) 100%)}
-#sec-principal .pf-card-hero::before{background-image:url(/img/bloque-principal.jpg);background-position:center 30%}
+#sec-principal .pf-card-hero::before{background-image:url(/img/bloque-principal.jpg?v=__IMG_V__);background-position:center 30%}
 #sec-principal .pf-card-hero::after{background:linear-gradient(90deg,#0d0906 0%,#0d0906 27%,rgba(13,9,6,.8) 45%,rgba(13,9,6,.5) 70%,rgba(255,94,26,.32) 100%)}
 .pf-card-preview .pf-card-hero .seccion-titulo{text-shadow:0 1px 8px rgba(0,0,0,.6)}
 .pf-card-preview .pf-card-hero .pf-card-sub,.pf-card-preview .pf-card-hero .pf-card-footer{color:#c9ced8;text-shadow:0 1px 6px rgba(0,0,0,.7)}
@@ -106,7 +120,7 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
 @keyframes pfProgAvanza{0%{filter:brightness(1)}40%{filter:brightness(1.45)}100%{filter:brightness(1)}}
 .pf-prog-row .pct{flex:0 0 auto;min-width:34px;text-align:right;font-family:Roboto,sans-serif;font-size:15px;font-weight:900;color:#fff}
 
-#pf-hero-bg{position:absolute;top:0;left:0;right:0;max-width:560px;margin:0 auto;height:var(--pf-total-top,150px);z-index:998;pointer-events:none;border-radius:0 0 24px 24px;border-bottom:1px solid rgba(90,150,230,.22);box-shadow:0 12px 30px rgba(0,0,0,.55);background:linear-gradient(90deg,rgba(3,10,24,.93) 0%,rgba(3,10,24,.64) 38%,rgba(4,14,32,.16) 100%),linear-gradient(180deg,rgba(3,10,24,.06) 0%,rgba(3,10,24,.40) 100%),url('img/header.jpg') 0 12%/145% auto no-repeat,#050a14;transition:transform .28s ease;will-change:transform}
+#pf-hero-bg{position:absolute;top:0;left:0;right:0;max-width:560px;margin:0 auto;height:var(--pf-total-top,150px);z-index:998;pointer-events:none;border-radius:0 0 24px 24px;border-bottom:1px solid rgba(90,150,230,.22);box-shadow:0 12px 30px rgba(0,0,0,.55);background:linear-gradient(90deg,rgba(3,10,24,.93) 0%,rgba(3,10,24,.64) 38%,rgba(4,14,32,.16) 100%),linear-gradient(180deg,rgba(3,10,24,.06) 0%,rgba(3,10,24,.40) 100%),url('img/header.jpg?v=__IMG_V__') 0 12%/145% auto no-repeat,#050a14;transition:transform .28s ease;will-change:transform}
 #pf-header-wrap.pf-hidden-scroll~#pf-hero-bg{transform:translateY(calc(env(safe-area-inset-top,0px) - var(--pf-header-h,64px)))}
 #pf-header-wrap.pf-hidden-scroll~#pf-progress-wrap{transform:translateY(env(safe-area-inset-top,0px))}
 #pf-content-wrap.pf-hidden-scroll{top:calc(var(--pf-total-top,64px) - var(--pf-header-h,64px) + env(safe-area-inset-top,0px))}
@@ -149,13 +163,13 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
    - Mix: cada bloque ("BLOQUE 1 — SERIES", etc.) muestra la foto de su sistema en la cabecera. */
 .bloque-mix{--pf-mix-pad:14px;--pf-sys-img:none}
 @media(max-width:480px){.bloque-mix{--pf-mix-pad:11px}}
-.bloque-mix.pf-mode-series,#sec-principal.pf-mode-series{--pf-sys-img:url(/img/series.jpeg);--pf-sys-color:var(--verde)}
-.bloque-mix.pf-mode-circuito,#sec-principal.pf-mode-circuito{--pf-sys-img:url(/img/circuito_por_vuelta.jpeg);--pf-sys-color:var(--azul)}
-.bloque-mix.pf-mode-circuito-tiempo,#sec-principal.pf-mode-circuito-tiempo{--pf-sys-img:url(/img/circuito_por_tiempo.jpeg);--pf-sys-color:#4fc3f7}
-.bloque-mix.pf-mode-por-tiempo,#sec-principal.pf-mode-por-tiempo{--pf-sys-img:url(/img/por_tiempo.jpeg);--pf-sys-color:var(--purpura)}
-.bloque-mix.pf-mode-tabata,#sec-principal.pf-mode-tabata{--pf-sys-img:url(/img/tabata.jpeg);--pf-sys-color:var(--naranja)}
-.bloque-mix.pf-mode-emom,#sec-principal.pf-mode-emom{--pf-sys-img:url(/img/emom.jpeg);--pf-sys-color:var(--amarillo)}
-.bloque-mix.pf-mode-sumando,#sec-principal.pf-mode-sumando{--pf-sys-img:url(/img/sumando_ejercicios.jpg);--pf-sys-color:var(--rosa)}
+.bloque-mix.pf-mode-series,#sec-principal.pf-mode-series{--pf-sys-img:url(/img/series.jpeg?v=__IMG_V__);--pf-sys-color:var(--verde)}
+.bloque-mix.pf-mode-circuito,#sec-principal.pf-mode-circuito{--pf-sys-img:url(/img/circuito_por_vuelta.jpeg?v=__IMG_V__);--pf-sys-color:var(--azul)}
+.bloque-mix.pf-mode-circuito-tiempo,#sec-principal.pf-mode-circuito-tiempo{--pf-sys-img:url(/img/circuito_por_tiempo.jpeg?v=__IMG_V__);--pf-sys-color:#4fc3f7}
+.bloque-mix.pf-mode-por-tiempo,#sec-principal.pf-mode-por-tiempo{--pf-sys-img:url(/img/por_tiempo.jpeg?v=__IMG_V__);--pf-sys-color:var(--purpura)}
+.bloque-mix.pf-mode-tabata,#sec-principal.pf-mode-tabata{--pf-sys-img:url(/img/tabata.jpeg?v=__IMG_V__);--pf-sys-color:var(--naranja)}
+.bloque-mix.pf-mode-emom,#sec-principal.pf-mode-emom{--pf-sys-img:url(/img/emom.jpeg?v=__IMG_V__);--pf-sys-color:var(--amarillo)}
+.bloque-mix.pf-mode-sumando,#sec-principal.pf-mode-sumando{--pf-sys-img:url(/img/sumando_ejercicios.jpg?v=__IMG_V__);--pf-sys-color:var(--rosa)}
 #sec-principal.pf-mode-series .pf-card-hero::before,#sec-principal.pf-mode-circuito .pf-card-hero::before,#sec-principal.pf-mode-circuito-tiempo .pf-card-hero::before,#sec-principal.pf-mode-por-tiempo .pf-card-hero::before,#sec-principal.pf-mode-tabata .pf-card-hero::before,#sec-principal.pf-mode-emom .pf-card-hero::before,#sec-principal.pf-mode-sumando .pf-card-hero::before{background-image:var(--pf-sys-img);background-position:68% 30%}
 #sec-principal.pf-mode-series .pf-card-hero::after,#sec-principal.pf-mode-circuito .pf-card-hero::after,#sec-principal.pf-mode-circuito-tiempo .pf-card-hero::after,#sec-principal.pf-mode-por-tiempo .pf-card-hero::after,#sec-principal.pf-mode-tabata .pf-card-hero::after,#sec-principal.pf-mode-emom .pf-card-hero::after,#sec-principal.pf-mode-sumando .pf-card-hero::after{background:linear-gradient(90deg,#08090c 0%,#08090c 38%,rgba(8,9,12,.86) 62%,rgba(8,9,12,.58) 86%,color-mix(in srgb,var(--pf-sys-color) 32%,transparent) 100%)}
 
@@ -1075,7 +1089,7 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
 
     var COLORES = ["var(--verde)","var(--azul)","var(--rosa)","var(--naranja)","var(--purpura)","var(--amarillo)"];
 
-    function fotoDia(idx){ return PF_DIA_IMG_BASE + "dia_" + (idx % PF_DIA_IMG_TOTAL + 1) + ".jpeg"; }
+    function fotoDia(idx){ var u = PF_DIA_IMG_BASE + "dia_" + (idx % PF_DIA_IMG_TOTAL + 1) + ".jpeg"; return (typeof pfImg === "function") ? pfImg(u) : u; }
     function esc(v){ return String(v==null?"":v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
     function arr(v){ return (typeof toArray==="function") ? toArray(v) : (Array.isArray(v)?v:[]); }
     function nombreEj(e){ return Array.isArray(e) ? (e[0]||"") : (e && (e.nombre||e.ejercicio) || ""); }
@@ -1248,28 +1262,26 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
 })();
 </script>
 <script>
-/* ===== Fotos variadas por sistema de entrenamiento (rápidas) =====
-   Cada sistema tiene un pozo de fotos en /img:
-       series.jpeg, series_2.jpeg ... series_6.jpeg      (lo mismo para los demás sistemas)
-   Cómo se logra que aparezcan junto con las letras:
-   - La foto se elige AL INSTANTE al dibujar la rutina (sin esperar a chequear nada por red).
-   - Los sistemas tienen un "mazo" barajado que se guarda en el teléfono: sale una foto distinta cada vez y no se repite
-     hasta haber mostrado todas; los bloques repetidos de una rutina (ej. 3 Tabata) reciben fotos distintas.
-   - Apenas se abre la app, en segundo plano, se precarga la PRÓXIMA foto de cada sistema, así ya está lista cuando se necesita.
-   - Qué fotos existen se averigua en segundo plano con pedidos livianos (HEAD, no descargan la imagen) y se recuerda 12 h.
-     Hasta que se sepa, se usa la foto principal (series.jpeg, tabata.jpeg, etc.).
-   - Extensión: .jpeg, .jpg, .png o .webp (se detecta sola). Los números que falten se ignoran. */
+/* ===== Fotos variadas por sistema de entrenamiento (rápidas y siempre actualizadas) =====
+   Cada sistema tiene un pozo de fotos en static/img:
+       series.jpeg, series_2.jpeg, series_3.jpeg ... (todas las que quieras; lo mismo para los demás sistemas)
+   - El servidor (app.py) le pasa a la página la lista de fotos que hay y un código de versión que cambia solo cuando
+     agregás / sacás / reemplazás una foto. Por eso: NO hace falta borrar la caché ni tocar nada para ver una foto nueva,
+     y las fotos que no cambiaron quedan guardadas y aparecen al instante.
+   - La foto se elige AL INSTANTE al dibujar la rutina (sin pedidos extra por red).
+   - Cada sistema tiene un "mazo" barajado guardado en el teléfono: sale una foto distinta cada vez y no se repite hasta
+     mostrar todas; los bloques repetidos de una rutina (ej. 3 Tabata) reciben fotos distintas.
+   - Apenas se abre la app, en segundo plano, se precarga la PRÓXIMA foto de cada sistema.
+   - Extensiones: .jpeg, .jpg, .png o .webp. Si la página se abre sin pasar por app.py, se usa solo la foto principal. */
 (function(){
     var IMG_DIR = "/img/";
-    var FOTOS_POR_SISTEMA = 6;                       // series + series_2 ... series_6  (subilo si sumás más)
-    var EXTS = ["jpeg","jpg","png","webp"];
+    var EXTS_RE = "(?:jpe?g|png|webp)";
     var BASE = {                                     // modo -> nombre base del archivo (sin número ni extensión)
         "series":"series", "circuito":"circuito_por_vuelta", "circuito-tiempo":"circuito_por_tiempo",
         "por-tiempo":"por_tiempo", "tabata":"tabata", "emom":"emom", "sumando":"sumando_ejercicios"
     };
-    var EXT_PREF = { "sumando_ejercicios":"jpg" };  // extensión de las fotos originales
+    var EXT_PREF = { "sumando_ejercicios":"jpg" };  // extensión de la foto principal cuando no llega la lista del servidor
     var MODOS = Object.keys(BASE);
-    var TTL_POZO = 12*60*60*1000;                    // cada cuánto se busca si hay fotos nuevas
     var MAX_ESPERA = 1500;                           // ms máximos que se espera una foto antes de mostrar la tarjeta igual
 
     /* ---- almacenamiento (con respaldo en memoria si el navegador no deja usar localStorage) ---- */
@@ -1278,18 +1290,27 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
     function lsSet(k,v){ _mem[k]=v; try{ localStorage.setItem(k,v) }catch(e){} }
     function lsJson(k){ try{ return JSON.parse(lsGet(k)) }catch(e){ return null } }
 
+    /* ---- URLs con versión (?v=...) ---- */
+    function conV(url){ return (typeof pfImg === "function") ? pfImg(url) : url }
+
     /* ---- precarga: se guardan los Image() para que queden en memoria ---- */
     var _warm = {};
     function precargar(url){
-        if(!_warm[url]){ var im=new Image(); im.decoding="async"; im.src=url; _warm[url]=im }
-        return _warm[url];
+        var u = conV(url);
+        if(!_warm[u]){ var im=new Image(); im.decoding="async"; im.src=u; _warm[u]=im }
+        return _warm[u];
     }
-    function lista(url){ var im=_warm[url]; return !!(im && im.complete && im.naturalWidth>0) }
+    function lista(url){ var im=_warm[conV(url)]; return !!(im && im.complete && im.naturalWidth>0) }
 
-    /* ---- pozo de fotos por sistema ---- */
+    /* ---- pozo de fotos por sistema (sale de la lista que manda el servidor) ---- */
     function urlBase(m){ var b=BASE[m]; return IMG_DIR+b+"."+(EXT_PREF[b]||"jpeg") }
-    function pozoCache(){ var c=lsJson("pfFotosPool"); return (c && c.m) ? c : null }
-    function pozo(m){ var c=pozoCache(), p=c && c.m[m]; return (p && p.length) ? p : [urlBase(m)] }
+    function pozo(m){
+        var l = window.PF_IMG_LISTA;
+        if(!l) return [urlBase(m)];
+        var re = new RegExp("^"+BASE[m]+"(?:_\\d+)?\\."+EXTS_RE+"$","i");
+        var hallados = l.filter(function(n){ return re.test(n) }).sort();
+        return hallados.length ? hallados.map(function(n){ return IMG_DIR+n }) : [urlBase(m)];
+    }
 
     function mezclar(a){
         a = a.slice();
@@ -1332,59 +1353,9 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
         (modos||MODOS).forEach(function(m){ try{ var u=proxima(m); if(u) precargar(u) }catch(e){} });
     }
 
-    /* ---- averiguar qué fotos existen (en segundo plano, con HEAD: no descarga la imagen) ---- */
-    function existe(url){
-        return fetch(url,{method:"HEAD",priority:"low"}).then(function(r){
-            var ct = (r.headers.get("content-type")||"");
-            return r.ok && (!ct || ct.indexOf("image")===0);
-        }, function(){ return null });                  // null = no se pudo saber (sin conexión)
-    }
-    function buscarNombre(nombre){
-        var pref = lsGet("pfFotoExt:"+nombre) || EXT_PREF[nombre];
-        var orden = pref ? [pref].concat(EXTS.filter(function(e){ return e!==pref })) : EXTS.slice();
-        return new Promise(function(fin){
-            (function sig(i){
-                if(i>=orden.length){ fin(false); return }
-                var url = IMG_DIR + nombre + "." + orden[i];
-                existe(url).then(function(r){
-                    if(r===null){ fin(null); return }
-                    if(r){ lsSet("pfFotoExt:"+nombre, orden[i]); fin(url); return }
-                    sig(i+1);
-                });
-            })(0);
-        });
-    }
-    function descubrir(){
-        var res = {}, sinRed = false, tareas = [];
-        MODOS.forEach(function(m){
-            res[m] = [];
-            var nombres = [BASE[m]];
-            for(var n=2;n<=FOTOS_POR_SISTEMA;n++) nombres.push(BASE[m]+"_"+n);
-            nombres.forEach(function(nom,i){ tareas.push({ m:m, nom:nom, i:i }) });
-        });
-        var hallado = {};
-        var pos = 0;
-        function trabajador(){
-            if(pos>=tareas.length || sinRed) return Promise.resolve();
-            var t = tareas[pos++];
-            return buscarNombre(t.nom).then(function(r){
-                if(r===null) sinRed = true;
-                else if(typeof r==="string") hallado[t.m+"|"+t.i] = r;
-            }).then(trabajador);
-        }
-        return Promise.all([trabajador(),trabajador(),trabajador()]).then(function(){   // 3 a la vez
-            if(sinRed) return;
-            MODOS.forEach(function(m){
-                for(var i=0;i<FOTOS_POR_SISTEMA;i++){ var u = hallado[m+"|"+i]; if(u) res[m].push(u) }
-                if(!res[m].length) res[m] = [urlBase(m)];
-            });
-            lsSet("pfFotosPool", JSON.stringify({ t:Date.now(), m:res }));
-        });
-    }
-
     /* ---- aplicar la foto a una tarjeta ---- */
     function aplicar(el, url){
-        el.style.setProperty("--pf-sys-img", "url("+url+")");
+        el.style.setProperty("--pf-sys-img", "url("+conV(url)+")");
         if(lista(url)){ el.removeAttribute("data-pf-foto"); return }        // ya está en memoria: aparece con las letras
         el.setAttribute("data-pf-foto","cargando");
         var im = precargar(url), hecho = false;
@@ -1432,24 +1403,9 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
     try{ if(typeof _dataRenderActual !== "undefined" && _dataRenderActual) asignarFotos(_dataRenderActual) }catch(e){}
 
     /* ---- arranque: en segundo plano, sin frenar nada ---- */
-    function cuandoLibre(fn){                          // espera a que no haya ninguna foto "cargando" (tope 8 s)
-        var t0 = Date.now();
-        (function chk(){
-            if(document.querySelector('[data-pf-foto="cargando"]') && Date.now()-t0 < 8000){ setTimeout(chk,400); return }
-            fn();
-        })();
-    }
     function inicio(){
         var idle = window.requestIdleCallback || function(f){ return setTimeout(f,1200) };
-        idle(function(){
-            calentar();
-            var c = pozoCache();
-            if(!c || (Date.now()-c.t) > TTL_POZO){
-                setTimeout(function(){
-                    cuandoLibre(function(){ descubrir().then(function(){ calentar() })["catch"](function(){}) });
-                }, 3000);
-            }
-        });
+        idle(function(){ calentar() });
     }
     if(document.readyState==="complete") inicio(); else window.addEventListener("load", inicio);
 })();
