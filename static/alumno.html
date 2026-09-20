@@ -167,6 +167,10 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
 .bloque-mix>.bloque-mix-titulo .bloque-mix-check{flex-shrink:0;margin-left:8px}
 /* cerrado: la foto llena toda la tarjeta, sin franja de fondo abajo */
 .bloque-mix:has(>.bloque-mix-contenido.colapsado){padding-bottom:0}
+
+/* fade-in de la foto una vez elegida al azar (evita ver un "salto" de foto) */
+.bloque-mix>.bloque-mix-titulo::before,#sec-principal .pf-card-hero::before{transition:opacity .35s ease}
+.bloque-mix[data-pf-foto="cargando"]>.bloque-mix-titulo::before,#sec-principal[data-pf-foto="cargando"] .pf-card-hero::before{opacity:0}
 </style>
 </head>
 
@@ -1241,6 +1245,133 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
             })(i);
         }
     };
+})();
+</script>
+<script>
+/* ===== Fotos variadas por sistema de entrenamiento =====
+   Cada sistema tiene un "pozo" de fotos en /img:
+       series.jpeg, series_2.jpeg, series_3.jpeg ... series_6.jpeg      (lo mismo para los demás sistemas)
+   - Cada vez que se carga una rutina, las fotos se mezclan al azar.
+   - Si la rutina repite un sistema (ej. 3 bloques Tabata), cada bloque recibe una foto DISTINTA.
+   - La primera foto que sale de un sistema nunca es la misma que salió la vez anterior.
+   - La extensión puede ser .jpeg, .jpg, .png o .webp (se detecta sola). Los números que falten se ignoran. */
+(function(){
+    var IMG_DIR = "/img/";
+    var FOTOS_POR_SISTEMA = 6;                       // series + series_2 ... series_6  (subilo si sumás más)
+    var EXTS = ["jpeg","jpg","png","webp"];
+    var BASE = {                                     // modo -> nombre base del archivo (sin número ni extensión)
+        "series":"series", "circuito":"circuito_por_vuelta", "circuito-tiempo":"circuito_por_tiempo",
+        "por-tiempo":"por_tiempo", "tabata":"tabata", "emom":"emom", "sumando":"sumando_ejercicios"
+    };
+    var EXT_PREF = { "sumando_ejercicios":"jpg" };  // extensión que ya tienen las fotos originales
+    var MODOS = Object.keys(BASE);
+
+    var _resuelto = {};      // nombre -> Promise<url|null>  (una sola vez por sesión)
+    function lsGet(k){ try{ return localStorage.getItem(k) }catch(e){ return null } }
+    function lsSet(k,v){ try{ localStorage.setItem(k,v) }catch(e){} }
+
+    function probar(url){
+        return new Promise(function(ok){
+            var im = new Image();
+            im.onload = function(){ ok(true) };
+            im.onerror = function(){ ok(false) };
+            im.src = url;
+        });
+    }
+    function resolver(nombre){
+        if(_resuelto[nombre]) return _resuelto[nombre];
+        var pref = lsGet("pfFotoExt:"+nombre) || EXT_PREF[nombre];
+        var orden = pref ? [pref].concat(EXTS.filter(function(e){ return e!==pref })) : EXTS.slice();
+        var p = new Promise(function(fin){
+            (function probarSig(i){
+                if(i>=orden.length){ fin(null); return }
+                var url = IMG_DIR + nombre + "." + orden[i];
+                probar(url).then(function(existe){
+                    if(existe){ lsSet("pfFotoExt:"+nombre, orden[i]); fin(url) }
+                    else probarSig(i+1);
+                });
+            })(0);
+        });
+        _resuelto[nombre] = p;
+        return p;
+    }
+    function pozoDe(modo){
+        var base = BASE[modo], nombres = [base];
+        for(var n=2;n<=FOTOS_POR_SISTEMA;n++) nombres.push(base+"_"+n);
+        return Promise.all(nombres.map(resolver)).then(function(urls){
+            return urls.filter(Boolean);
+        });
+    }
+    function mezclar(a){
+        a = a.slice();
+        for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t }
+        return a;
+    }
+    function modoDe(el){
+        for(var i=0;i<MODOS.length;i++){ if(el.classList.contains("pf-mode-"+MODOS[i])) return MODOS[i] }
+        return null;
+    }
+    function aplicar(el,url){
+        el.style.setProperty("--pf-sys-img","url("+url+")");
+        el.setAttribute("data-pf-foto","listo");
+    }
+
+    var _dataPrev = null, _asignPrev = null;      // misma rutina re-renderizada => mismas fotos (no parpadea)
+
+    function asignarFotos(data){
+        var lista = document.getElementById("principal-lista");
+        var principal = document.getElementById("sec-principal");
+        var blancos = [];
+        if(lista) Array.prototype.forEach.call(lista.querySelectorAll(".bloque-mix"), function(el){ blancos.push(el) });
+        if(principal && !principal.classList.contains("pf-mode-mix") && modoDe(principal)) blancos.push(principal);
+
+        var porModo = {};
+        blancos.forEach(function(el){
+            var m = modoDe(el); if(!m) return;
+            el.setAttribute("data-pf-foto","cargando");
+            (porModo[m] = porModo[m] || []).push(el);
+        });
+        var modos = Object.keys(porModo);
+        if(!modos.length) return;
+
+        var mismaRutina = (data && data === _dataPrev && _asignPrev);
+        var nuevaAsign = {};
+        var seguro = setTimeout(function(){         // por las dudas: nunca dejar una foto oculta
+            blancos.forEach(function(el){ if(el.getAttribute("data-pf-foto")==="cargando") el.setAttribute("data-pf-foto","listo") });
+        }, 2500);
+
+        Promise.all(modos.map(function(m){
+            return pozoDe(m).then(function(pozo){
+                var els = porModo[m];
+                if(!pozo.length) return;              // sin fotos: queda el fondo oscuro
+                var orden;
+                if(mismaRutina && _asignPrev[m]){
+                    orden = _asignPrev[m].filter(function(u){ return pozo.indexOf(u)!==-1 });
+                }
+                if(!orden || !orden.length){
+                    orden = mezclar(pozo);
+                    var ultima = lsGet("pfFotoUlt:"+m);
+                    if(orden.length>1 && orden[0]===ultima){ var t=orden[0]; orden[0]=orden[1]; orden[1]=t }   // no repetir la de la vez anterior
+                }
+                nuevaAsign[m] = orden;
+                els.forEach(function(el,i){ aplicar(el, orden[i % orden.length]) });   // sin repetir dentro de la rutina (mientras alcancen las fotos)
+                lsSet("pfFotoUlt:"+m, orden[0]);
+            });
+        })).then(function(){
+            _dataPrev = data; _asignPrev = nuevaAsign;
+        })["catch"](function(){}).then(function(){
+            clearTimeout(seguro);
+            blancos.forEach(function(el){ if(el.getAttribute("data-pf-foto")==="cargando") el.setAttribute("data-pf-foto","listo") });
+        });
+    }
+
+    var _orig = window._pfAplicarVisualSistema;
+    window._pfAplicarVisualSistema = function(data){
+        var r; if(typeof _orig === "function") r = _orig.apply(this, arguments);
+        try{ asignarFotos(data) }catch(e){ console.warn("PF fotos:", e) }
+        return r;
+    };
+    try{ if(typeof _dataRenderActual !== "undefined" && _dataRenderActual) asignarFotos(_dataRenderActual) }catch(e){}
 })();
 </script>
 </body>
