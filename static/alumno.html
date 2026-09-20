@@ -168,9 +168,9 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
 /* cerrado: la foto llena toda la tarjeta, sin franja de fondo abajo */
 .bloque-mix:has(>.bloque-mix-contenido.colapsado){padding-bottom:0}
 
-/* fade-in de la foto una vez elegida al azar (evita ver un "salto" de foto) */
-.bloque-mix>.bloque-mix-titulo::before,#sec-principal .pf-card-hero::before{transition:opacity .35s ease}
-.bloque-mix[data-pf-foto="cargando"]>.bloque-mix-titulo::before,#sec-principal[data-pf-foto="cargando"] .pf-card-hero::before{opacity:0}
+/* la foto y las letras aparecen JUNTAS: mientras la foto elegida no está lista la tarjeta se mantiene oculta (sin mover el layout),
+   igual que Calentamiento / Bloque Principal. Si la foto ya está en memoria, no se oculta nada. */
+.bloque-mix[data-pf-foto="cargando"],#sec-principal[data-pf-foto="cargando"] .pf-card-hero{visibility:hidden}
 </style>
 </head>
 
@@ -1248,13 +1248,17 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
 })();
 </script>
 <script>
-/* ===== Fotos variadas por sistema de entrenamiento =====
-   Cada sistema tiene un "pozo" de fotos en /img:
-       series.jpeg, series_2.jpeg, series_3.jpeg ... series_6.jpeg      (lo mismo para los demás sistemas)
-   - Cada vez que se carga una rutina, las fotos se mezclan al azar.
-   - Si la rutina repite un sistema (ej. 3 bloques Tabata), cada bloque recibe una foto DISTINTA.
-   - La primera foto que sale de un sistema nunca es la misma que salió la vez anterior.
-   - La extensión puede ser .jpeg, .jpg, .png o .webp (se detecta sola). Los números que falten se ignoran. */
+/* ===== Fotos variadas por sistema de entrenamiento (rápidas) =====
+   Cada sistema tiene un pozo de fotos en /img:
+       series.jpeg, series_2.jpeg ... series_6.jpeg      (lo mismo para los demás sistemas)
+   Cómo se logra que aparezcan junto con las letras:
+   - La foto se elige AL INSTANTE al dibujar la rutina (sin esperar a chequear nada por red).
+   - Los sistemas tienen un "mazo" barajado que se guarda en el teléfono: sale una foto distinta cada vez y no se repite
+     hasta haber mostrado todas; los bloques repetidos de una rutina (ej. 3 Tabata) reciben fotos distintas.
+   - Apenas se abre la app, en segundo plano, se precarga la PRÓXIMA foto de cada sistema, así ya está lista cuando se necesita.
+   - Qué fotos existen se averigua en segundo plano con pedidos livianos (HEAD, no descargan la imagen) y se recuerda 12 h.
+     Hasta que se sepa, se usa la foto principal (series.jpeg, tabata.jpeg, etc.).
+   - Extensión: .jpeg, .jpg, .png o .webp (se detecta sola). Los números que falten se ignoran. */
 (function(){
     var IMG_DIR = "/img/";
     var FOTOS_POR_SISTEMA = 6;                       // series + series_2 ... series_6  (subilo si sumás más)
@@ -1263,106 +1267,160 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
         "series":"series", "circuito":"circuito_por_vuelta", "circuito-tiempo":"circuito_por_tiempo",
         "por-tiempo":"por_tiempo", "tabata":"tabata", "emom":"emom", "sumando":"sumando_ejercicios"
     };
-    var EXT_PREF = { "sumando_ejercicios":"jpg" };  // extensión que ya tienen las fotos originales
+    var EXT_PREF = { "sumando_ejercicios":"jpg" };  // extensión de las fotos originales
     var MODOS = Object.keys(BASE);
+    var TTL_POZO = 12*60*60*1000;                    // cada cuánto se busca si hay fotos nuevas
+    var MAX_ESPERA = 1500;                           // ms máximos que se espera una foto antes de mostrar la tarjeta igual
 
-    var _resuelto = {};      // nombre -> Promise<url|null>  (una sola vez por sesión)
-    function lsGet(k){ try{ return localStorage.getItem(k) }catch(e){ return null } }
-    function lsSet(k,v){ try{ localStorage.setItem(k,v) }catch(e){} }
+    /* ---- almacenamiento (con respaldo en memoria si el navegador no deja usar localStorage) ---- */
+    var _mem = {};
+    function lsGet(k){ try{ var v=localStorage.getItem(k); if(v!==null) return v }catch(e){} return (k in _mem)?_mem[k]:null }
+    function lsSet(k,v){ _mem[k]=v; try{ localStorage.setItem(k,v) }catch(e){} }
+    function lsJson(k){ try{ return JSON.parse(lsGet(k)) }catch(e){ return null } }
 
-    function probar(url){
-        return new Promise(function(ok){
-            var im = new Image();
-            im.onload = function(){ ok(true) };
-            im.onerror = function(){ ok(false) };
-            im.src = url;
-        });
+    /* ---- precarga: se guardan los Image() para que queden en memoria ---- */
+    var _warm = {};
+    function precargar(url){
+        if(!_warm[url]){ var im=new Image(); im.decoding="async"; im.src=url; _warm[url]=im }
+        return _warm[url];
     }
-    function resolver(nombre){
-        if(_resuelto[nombre]) return _resuelto[nombre];
-        var pref = lsGet("pfFotoExt:"+nombre) || EXT_PREF[nombre];
-        var orden = pref ? [pref].concat(EXTS.filter(function(e){ return e!==pref })) : EXTS.slice();
-        var p = new Promise(function(fin){
-            (function probarSig(i){
-                if(i>=orden.length){ fin(null); return }
-                var url = IMG_DIR + nombre + "." + orden[i];
-                probar(url).then(function(existe){
-                    if(existe){ lsSet("pfFotoExt:"+nombre, orden[i]); fin(url) }
-                    else probarSig(i+1);
-                });
-            })(0);
-        });
-        _resuelto[nombre] = p;
-        return p;
-    }
-    function pozoDe(modo){
-        var base = BASE[modo], nombres = [base];
-        for(var n=2;n<=FOTOS_POR_SISTEMA;n++) nombres.push(base+"_"+n);
-        return Promise.all(nombres.map(resolver)).then(function(urls){
-            return urls.filter(Boolean);
-        });
-    }
+    function lista(url){ var im=_warm[url]; return !!(im && im.complete && im.naturalWidth>0) }
+
+    /* ---- pozo de fotos por sistema ---- */
+    function urlBase(m){ var b=BASE[m]; return IMG_DIR+b+"."+(EXT_PREF[b]||"jpeg") }
+    function pozoCache(){ var c=lsJson("pfFotosPool"); return (c && c.m) ? c : null }
+    function pozo(m){ var c=pozoCache(), p=c && c.m[m]; return (p && p.length) ? p : [urlBase(m)] }
+
     function mezclar(a){
         a = a.slice();
         for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t }
         return a;
     }
+    // baraja dejando AL FINAL las fotos que hay que evitar (las de recién / la última usada)
+    function barajar(u, evitar){
+        var libres = u.filter(function(x){ return evitar.indexOf(x)===-1 });
+        var otras  = u.filter(function(x){ return evitar.indexOf(x)!==-1 });
+        return mezclar(libres).concat(mezclar(otras));
+    }
+
+    /* ---- mazo: orden barajado + posición, guardado para que la "próxima foto" ya se conozca al abrir la app ---- */
+    function mazo(m){
+        var p = pozo(m), d = lsJson("pfMazo:"+m);
+        var ult = lsGet("pfFotoUlt:"+m);
+        var igual = d && d.u && d.u.length===p.length && d.u.every(function(u){ return p.indexOf(u)!==-1 });
+        if(!igual || d.i>=d.u.length){
+            d = { u: barajar(p, ult?[ult]:[]), i: 0 };
+            lsSet("pfMazo:"+m, JSON.stringify(d));
+        }
+        return d;
+    }
+    function tomar(m, k){
+        var d = mazo(m), out = [];
+        for(var j=0;j<k;j++){
+            if(d.i>=d.u.length){                        // se acabó el mazo en plena rutina: nuevo mazo sin repetir las de esta rutina
+                d = { u: barajar(d.u, out.slice(-d.u.length)), i: 0 };
+            }
+            out.push(d.u[d.i++]);
+        }
+        lsSet("pfMazo:"+m, JSON.stringify(d));
+        lsSet("pfFotoUlt:"+m, out[out.length-1]);
+        return out;
+    }
+    function proxima(m){ var d = mazo(m); return d.u[d.i] }
+
+    function calentar(modos){
+        (modos||MODOS).forEach(function(m){ try{ var u=proxima(m); if(u) precargar(u) }catch(e){} });
+    }
+
+    /* ---- averiguar qué fotos existen (en segundo plano, con HEAD: no descarga la imagen) ---- */
+    function existe(url){
+        return fetch(url,{method:"HEAD",priority:"low"}).then(function(r){
+            var ct = (r.headers.get("content-type")||"");
+            return r.ok && (!ct || ct.indexOf("image")===0);
+        }, function(){ return null });                  // null = no se pudo saber (sin conexión)
+    }
+    function buscarNombre(nombre){
+        var pref = lsGet("pfFotoExt:"+nombre) || EXT_PREF[nombre];
+        var orden = pref ? [pref].concat(EXTS.filter(function(e){ return e!==pref })) : EXTS.slice();
+        return new Promise(function(fin){
+            (function sig(i){
+                if(i>=orden.length){ fin(false); return }
+                var url = IMG_DIR + nombre + "." + orden[i];
+                existe(url).then(function(r){
+                    if(r===null){ fin(null); return }
+                    if(r){ lsSet("pfFotoExt:"+nombre, orden[i]); fin(url); return }
+                    sig(i+1);
+                });
+            })(0);
+        });
+    }
+    function descubrir(){
+        var res = {}, sinRed = false, tareas = [];
+        MODOS.forEach(function(m){
+            res[m] = [];
+            var nombres = [BASE[m]];
+            for(var n=2;n<=FOTOS_POR_SISTEMA;n++) nombres.push(BASE[m]+"_"+n);
+            nombres.forEach(function(nom,i){ tareas.push({ m:m, nom:nom, i:i }) });
+        });
+        var hallado = {};
+        var pos = 0;
+        function trabajador(){
+            if(pos>=tareas.length || sinRed) return Promise.resolve();
+            var t = tareas[pos++];
+            return buscarNombre(t.nom).then(function(r){
+                if(r===null) sinRed = true;
+                else if(typeof r==="string") hallado[t.m+"|"+t.i] = r;
+            }).then(trabajador);
+        }
+        return Promise.all([trabajador(),trabajador(),trabajador()]).then(function(){   // 3 a la vez
+            if(sinRed) return;
+            MODOS.forEach(function(m){
+                for(var i=0;i<FOTOS_POR_SISTEMA;i++){ var u = hallado[m+"|"+i]; if(u) res[m].push(u) }
+                if(!res[m].length) res[m] = [urlBase(m)];
+            });
+            lsSet("pfFotosPool", JSON.stringify({ t:Date.now(), m:res }));
+        });
+    }
+
+    /* ---- aplicar la foto a una tarjeta ---- */
+    function aplicar(el, url){
+        el.style.setProperty("--pf-sys-img", "url("+url+")");
+        if(lista(url)){ el.removeAttribute("data-pf-foto"); return }        // ya está en memoria: aparece con las letras
+        el.setAttribute("data-pf-foto","cargando");
+        var im = precargar(url), hecho = false;
+        function fin(){ if(hecho) return; hecho = true; el.removeAttribute("data-pf-foto") }
+        function cargada(){ if(im.decode){ im.decode().then(fin,fin) } else fin() }
+        if(im.complete){ im.naturalWidth>0 ? cargada() : fin() }
+        else { im.addEventListener("load",cargada); im.addEventListener("error",fin) }
+        setTimeout(fin, MAX_ESPERA);                                        // seguridad: nunca dejar una tarjeta oculta
+    }
     function modoDe(el){
         for(var i=0;i<MODOS.length;i++){ if(el.classList.contains("pf-mode-"+MODOS[i])) return MODOS[i] }
         return null;
     }
-    function aplicar(el,url){
-        el.style.setProperty("--pf-sys-img","url("+url+")");
-        el.setAttribute("data-pf-foto","listo");
-    }
 
-    var _dataPrev = null, _asignPrev = null;      // misma rutina re-renderizada => mismas fotos (no parpadea)
-
+    var _dataPrev = null, _asignPrev = null;        // misma rutina re-dibujada => mismas fotos
     function asignarFotos(data){
-        var lista = document.getElementById("principal-lista");
+        var lista_ = document.getElementById("principal-lista");
         var principal = document.getElementById("sec-principal");
         var blancos = [];
-        if(lista) Array.prototype.forEach.call(lista.querySelectorAll(".bloque-mix"), function(el){ blancos.push(el) });
+        if(lista_) Array.prototype.forEach.call(lista_.querySelectorAll(".bloque-mix"), function(el){ blancos.push(el) });
         if(principal && !principal.classList.contains("pf-mode-mix") && modoDe(principal)) blancos.push(principal);
 
         var porModo = {};
-        blancos.forEach(function(el){
-            var m = modoDe(el); if(!m) return;
-            el.setAttribute("data-pf-foto","cargando");
-            (porModo[m] = porModo[m] || []).push(el);
-        });
+        blancos.forEach(function(el){ var m=modoDe(el); if(m) (porModo[m]=porModo[m]||[]).push(el) });
         var modos = Object.keys(porModo);
         if(!modos.length) return;
 
-        var mismaRutina = (data && data === _dataPrev && _asignPrev);
-        var nuevaAsign = {};
-        var seguro = setTimeout(function(){         // por las dudas: nunca dejar una foto oculta
-            blancos.forEach(function(el){ if(el.getAttribute("data-pf-foto")==="cargando") el.setAttribute("data-pf-foto","listo") });
-        }, 2500);
-
-        Promise.all(modos.map(function(m){
-            return pozoDe(m).then(function(pozo){
-                var els = porModo[m];
-                if(!pozo.length) return;              // sin fotos: queda el fondo oscuro
-                var orden;
-                if(mismaRutina && _asignPrev[m]){
-                    orden = _asignPrev[m].filter(function(u){ return pozo.indexOf(u)!==-1 });
-                }
-                if(!orden || !orden.length){
-                    orden = mezclar(pozo);
-                    var ultima = lsGet("pfFotoUlt:"+m);
-                    if(orden.length>1 && orden[0]===ultima){ var t=orden[0]; orden[0]=orden[1]; orden[1]=t }   // no repetir la de la vez anterior
-                }
-                nuevaAsign[m] = orden;
-                els.forEach(function(el,i){ aplicar(el, orden[i % orden.length]) });   // sin repetir dentro de la rutina (mientras alcancen las fotos)
-                lsSet("pfFotoUlt:"+m, orden[0]);
-            });
-        })).then(function(){
-            _dataPrev = data; _asignPrev = nuevaAsign;
-        })["catch"](function(){}).then(function(){
-            clearTimeout(seguro);
-            blancos.forEach(function(el){ if(el.getAttribute("data-pf-foto")==="cargando") el.setAttribute("data-pf-foto","listo") });
+        var misma = (data && data===_dataPrev && _asignPrev), nueva = {};
+        modos.forEach(function(m){
+            var els = porModo[m];
+            var urls = (misma && _asignPrev[m] && _asignPrev[m].length===els.length) ? _asignPrev[m] : tomar(m, els.length);
+            nueva[m] = urls;
+            els.forEach(function(el,i){ aplicar(el, urls[i]) });
         });
+        _dataPrev = data; _asignPrev = nueva;
+        setTimeout(function(){ calentar(modos) }, 400);   // deja lista la próxima foto de estos sistemas
     }
 
     var _orig = window._pfAplicarVisualSistema;
@@ -1372,6 +1430,28 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
         return r;
     };
     try{ if(typeof _dataRenderActual !== "undefined" && _dataRenderActual) asignarFotos(_dataRenderActual) }catch(e){}
+
+    /* ---- arranque: en segundo plano, sin frenar nada ---- */
+    function cuandoLibre(fn){                          // espera a que no haya ninguna foto "cargando" (tope 8 s)
+        var t0 = Date.now();
+        (function chk(){
+            if(document.querySelector('[data-pf-foto="cargando"]') && Date.now()-t0 < 8000){ setTimeout(chk,400); return }
+            fn();
+        })();
+    }
+    function inicio(){
+        var idle = window.requestIdleCallback || function(f){ return setTimeout(f,1200) };
+        idle(function(){
+            calentar();
+            var c = pozoCache();
+            if(!c || (Date.now()-c.t) > TTL_POZO){
+                setTimeout(function(){
+                    cuandoLibre(function(){ descubrir().then(function(){ calentar() })["catch"](function(){}) });
+                }, 3000);
+            }
+        });
+    }
+    if(document.readyState==="complete") inicio(); else window.addEventListener("load", inicio);
 })();
 </script>
 </body>
