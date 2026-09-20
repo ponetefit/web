@@ -204,6 +204,32 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
    igual que Calentamiento / Bloque Principal. Si la foto ya está en memoria, no se oculta nada. */
 .bloque-mix[data-pf-foto="cargando"],#sec-principal[data-pf-foto="cargando"] .pf-card-hero{visibility:hidden}
 </style>
+<style id="pf-bv-layout">
+/* ===== Bienvenida en 3 zonas: arriba (logo + saludo) / centro (días + frases) / abajo (tarjetas + botones) ===== */
+#overlay-bienvenida.visible{padding-top:max(22px,env(safe-area-inset-top,0px));padding-bottom:max(14px,env(safe-area-inset-bottom,0px))}
+#overlay-bienvenida.visible .bv-inner{flex:1 0 auto;min-height:0;justify-content:space-between;gap:14px}
+#overlay-bienvenida .bv-zona-top,#overlay-bienvenida .bv-zona-centro,#overlay-bienvenida .bv-zona-bottom{width:100%;display:flex;flex-direction:column;align-items:center}
+#overlay-bienvenida .bv-zona-top{flex:0 0 auto}
+#overlay-bienvenida .bv-zona-centro{flex:1 1 auto;justify-content:center}
+#overlay-bienvenida .bv-zona-bottom{flex:0 0 auto}
+#overlay-bienvenida .bv-zona-bottom .bv-multidia-stats{max-width:560px;margin-bottom:14px}
+
+/* Centro (multi-día): un texto a la vez, todos apilados en la misma celda para que nada salte */
+#overlay-bienvenida .bv-multidia-frase{margin:0;width:100%}
+.bv-rot{display:grid;justify-items:center;align-items:center;width:100%}
+.bv-rot-item{grid-area:1/1;font-weight:900;font-size:clamp(1.9rem,9vw,3.1rem);line-height:1.1;text-align:center;text-transform:uppercase;color:#fff;text-shadow:0 2px 14px rgba(0,0,0,.7);opacity:0;transform:translateY(10px);transition:opacity .45s ease,transform .45s ease;pointer-events:none}
+.bv-rot-item.bv-rot-activo{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.bv-rot-item{transform:none;transition:opacity .2s}}
+
+/* Abajo: botón EMPEZAR + botón silenciar en la misma fila */
+#overlay-bienvenida .bv-btn-row .bv-btn-fila{display:flex;align-items:center;gap:10px;width:100%}
+#overlay-bienvenida .bv-btn-row .bv-btn-fila .bv-btn-empezar{flex:1 1 auto;min-width:0}
+#overlay-bienvenida .bv-btn-row .bv-btn-lectura{flex:none}
+#overlay-bienvenida .bv-btn-coach{flex:0 0 64px;width:64px;height:64px;padding:0;border:0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#fff;cursor:pointer;background:linear-gradient(135deg,#4fc3f7,#0288d1);box-shadow:0 6px 20px rgba(2,136,209,.35);transition:opacity .2s,transform .15s}
+#overlay-bienvenida .bv-btn-coach:active{transform:scale(.94)}
+/* Mientras se ve la bienvenida, el botón flotante de voz se oculta (ya está dentro de la fila de abajo) */
+body.pf-bv-abierto #btn-coach-toggle{display:none!important}
+</style>
 </head>
 
 <body>
@@ -351,13 +377,18 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
     <!-- OVERLAY BIENVENIDA -->
     <div id="overlay-bienvenida">
         <div class="bv-inner">
+            <!-- ZONA SUPERIOR: logo + bienvenida + frase -->
+            <div class="bv-zona-top">
             <div class="home-logo bv-logo" id="bv-logo">
                 <h1>PONETE <span>FIT</span></h1>
                 <h2>En Casa</h2>
             </div>
             <div class="bv-nombre" id="bv-nombre">RUTINA</div>
             <div class="bv-subtitulo" id="bv-subtitulo">Tu disciplina, tu mejor versión.</div>
+            </div>
 
+            <!-- ZONA CENTRAL -->
+            <div class="bv-zona-centro">
             <!-- Tarjeta de progreso (solo cuando hay un entrenamiento en curso) -->
             <div class="bv-retomar-card" id="bv-retomar-card" style="display:none;">
                 <div class="bv-retomar-card-row">
@@ -371,23 +402,12 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
                 <span class="bv-retomar-tip-icon">⚡</span> Cada repetición te acerca a tu objetivo
             </div>
 
-            <!-- Frase y stats para la bienvenida multi-día (primera vez, sin mapa de calor) -->
-            <div class="bv-multidia-frase" id="bv-multidia-frase"><span id="bv-md-frase-dias">DÍAS</span><br>UN SOLO OBJETIVO<br>TU MEJOR VERSIÓN</div>
-            <div class="bv-multidia-stats" id="bv-multidia-stats">
-                <div class="bv-md-stat">
-                    <div class="bv-md-stat-icon">📅</div>
-                    <div class="bv-md-stat-val" id="bv-md-dias">--</div>
-                    <div class="bv-md-stat-lbl">Días de rutina</div>
-                </div>
-                <div class="bv-md-stat">
-                    <div class="bv-md-stat-icon">📊</div>
-                    <div class="bv-md-stat-val" id="bv-md-entrenamientos">--</div>
-                    <div class="bv-md-stat-lbl">Entrenamientos</div>
-                </div>
-                <div class="bv-md-stat">
-                    <div class="bv-md-stat-icon">🎯</div>
-                    <div class="bv-md-stat-val">Un mismo</div>
-                    <div class="bv-md-stat-lbl">objetivo</div>
+            <!-- CENTRO (multi-día): la cantidad de días y las frases van rotando -->
+            <div class="bv-multidia-frase" id="bv-multidia-frase">
+                <div class="bv-rot" id="bv-rot">
+                    <span class="bv-rot-item bv-rot-activo" id="bv-md-frase-dias">DÍAS</span>
+                    <span class="bv-rot-item">UN SOLO OBJETIVO</span>
+                    <span class="bv-rot-item">TU MEJOR VERSIÓN</span>
                 </div>
             </div>
 
@@ -481,7 +501,27 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
                 <div class="bv-hm-legend-item">
                     <div class="bv-hm-dot" style="background:#c41e1e;"></div>Máximo</div>
             </div>
+            </div>
 
+            <!-- ZONA INFERIOR (pegada al borde de abajo): 3 tarjetas + empezar + silenciar -->
+            <div class="bv-zona-bottom">
+            <div class="bv-multidia-stats" id="bv-multidia-stats">
+                <div class="bv-md-stat">
+                    <div class="bv-md-stat-icon">📅</div>
+                    <div class="bv-md-stat-val" id="bv-md-dias">--</div>
+                    <div class="bv-md-stat-lbl">Días de rutina</div>
+                </div>
+                <div class="bv-md-stat">
+                    <div class="bv-md-stat-icon">📊</div>
+                    <div class="bv-md-stat-val" id="bv-md-entrenamientos">--</div>
+                    <div class="bv-md-stat-lbl">Entrenamientos</div>
+                </div>
+                <div class="bv-md-stat">
+                    <div class="bv-md-stat-icon">🎯</div>
+                    <div class="bv-md-stat-val">Un mismo</div>
+                    <div class="bv-md-stat-lbl">objetivo</div>
+                </div>
+            </div>
             <!-- Stats: duración + bloques -->
             <div class="bv-stats">
                 <div class="bv-stat">
@@ -514,11 +554,15 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
                     <span class="bv-record-val" id="bv-record-val">--</span>
                 </div>
             </div>
-
             <div class="bv-btn-row" id="bv-btn-row">
-                <button class="bv-btn-empezar" id="bv-btn-empezar" onclick="_pfEmpezarNormal()">▶ EMPEZAR</button>
+                <div class="bv-btn-fila">
+                    <button class="bv-btn-empezar" id="bv-btn-empezar" onclick="_pfEmpezarNormal()">▶ EMPEZAR</button>
+                    <button type="button" class="bv-btn-coach" id="bv-btn-coach" onclick="toggleCoach();_pfSyncCoachBv()" aria-label="Silenciar o activar la voz del coach">&#x1F50A;</button>
+                </div>
                 <button class="bv-btn-empezar bv-btn-lectura" id="bv-btn-lectura" onclick="_pfEmpezarLectura()">&#128065; MODO LECTURA</button>
             </div>
+            </div>
+
         </div>
     </div>
 
@@ -1459,6 +1503,28 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
         idle(function(){ calentar() });
     }
     if(document.readyState==="complete") inicio(); else window.addEventListener("load", inicio);
+})();
+</script>
+<script>
+/* Bienvenida: rota "N DÍAS / UN SOLO OBJETIVO / TU MEJOR VERSIÓN" y mantiene el botón de silenciar sincronizado */
+(function(){
+    var ov=document.getElementById("overlay-bienvenida"); if(!ov) return;
+    var items=ov.querySelectorAll(".bv-rot-item"), n=0, iv=null;
+    function mostrar(k){ for(var j=0;j<items.length;j++) items[j].classList.toggle("bv-rot-activo", j===k); }
+    function arrancar(){ if(iv||items.length<2) return; n=0; mostrar(0); iv=setInterval(function(){ n=(n+1)%items.length; mostrar(n); },2800); }
+    function parar(){ if(iv){ clearInterval(iv); iv=null; } }
+    window._pfSyncCoachBv=function(){
+        var b=document.getElementById("bv-btn-coach"); if(!b) return;
+        var on=(typeof vozActivada==="undefined")?true:!!vozActivada;
+        b.innerHTML=on?"&#x1F50A;":"&#x1F507;"; b.style.opacity=on?"1":"0.55";
+    };
+    function estado(){
+        var vis=ov.classList.contains("visible");
+        document.body.classList.toggle("pf-bv-abierto", vis);
+        if(vis){ arrancar(); window._pfSyncCoachBv(); } else { parar(); }
+    }
+    new MutationObserver(estado).observe(ov,{attributes:true,attributeFilter:["class"]});
+    estado();
 })();
 </script>
 </body>
