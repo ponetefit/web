@@ -36,6 +36,29 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("FLASK_ENV") != "development"
 
 # ──────────────────────────────────────────────────────────────
+#  CACHE de las fotos (/img/...)
+#  Las fotos de las tarjetas y de los sistemas de entrenamiento casi nunca cambian:
+#  con esto el navegador las guarda y las muestra al instante, sin volver a pedirlas
+#  al servidor cada vez que se abre la app.
+#  Si reemplazás una foto manteniendo el mismo nombre, los celulares la actualizan
+#  solos en 1 día como máximo (o cambiale el nombre para verla ya mismo).
+# ──────────────────────────────────────────────────────────────
+IMG_CACHE_SEGUNDOS = 60 * 60 * 24          # 1 día "fresca": ni siquiera consulta al servidor
+IMG_CACHE_REVALIDAR = 60 * 60 * 24 * 7     # 7 días más: se muestra al instante y se revisa en segundo plano
+
+
+@app.after_request
+def cache_fotos(resp):
+    if (request.method in ("GET", "HEAD")
+            and request.path.startswith("/img/")
+            and resp.status_code in (200, 304)):
+        resp.headers["Cache-Control"] = (
+            "public, max-age=%d, stale-while-revalidate=%d"
+            % (IMG_CACHE_SEGUNDOS, IMG_CACHE_REVALIDAR)
+        )
+    return resp
+
+# ──────────────────────────────────────────────────────────────
 #  VIDEOTECA - Datos por defecto
 # ──────────────────────────────────────────────────────────────
 
