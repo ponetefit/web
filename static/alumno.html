@@ -968,6 +968,229 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
     verificar();
 })();
 </script>
+<style>
+/* ===== Tarjetas de día (multi-día) con foto de fondo =====
+   Mismo lenguaje visual que las tarjetas de Calentamiento / Bloque principal:
+   número de color, título, estado, cantidad de ejercicios y una bajada corta.
+   Las fotos NO van embebidas: se cargan desde el repositorio (ver PF_DIA_IMG_BASE
+   en el script de más abajo), así el HTML pesa poco y el navegador las cachea. */
+#multidia-container{max-width:560px;margin:0 auto;padding:0 12px calc(40px + env(safe-area-inset-bottom,0px))!important}
+.pf-dias-titulo{text-align:center;padding:10px 0 6px;font-size:11.5px;font-weight:900;letter-spacing:2.6px;text-transform:uppercase;color:#8f98a8}
+.pf-dia-card{position:relative;border-radius:20px;overflow:hidden;border:1.5px solid var(--pf-dia-color,var(--naranja));background:#0b0d12;box-shadow:0 14px 34px rgba(0,0,0,.42);transition:transform .12s ease,border-color .3s ease}
+.pf-dia-card:active{transform:scale(.99)}
+.pf-dia-head{position:relative;display:flex;align-items:center;gap:13px;padding:14px 14px;min-height:104px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.pf-dia-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 32%;z-index:0;display:block}
+.pf-dia-veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,rgba(6,9,16,.95) 0%,rgba(6,9,16,.86) 42%,rgba(6,9,16,.38) 78%,rgba(6,9,16,.22) 100%)}
+.pf-dia-num{position:relative;z-index:2;width:38px;height:38px;min-width:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;color:#000;background:var(--pf-dia-color,var(--naranja));box-shadow:0 0 0 3px rgba(0,0,0,.35)}
+.pf-dia-info{position:relative;z-index:2;flex:1;min-width:0}
+.pf-dia-title{font-size:17px;font-weight:900;letter-spacing:.6px;text-transform:uppercase;color:#fff;line-height:1.1;text-shadow:0 1px 8px rgba(0,0,0,.7)}
+.pf-dia-estado{margin-top:2px;font-size:11.5px;font-weight:900;letter-spacing:1.4px;text-transform:uppercase;color:var(--pf-dia-color,var(--naranja))}
+.pf-dia-card.pf-dia-completo{border-color:var(--verde)}
+.pf-dia-card.pf-dia-completo .pf-dia-estado{color:var(--verde)}
+.pf-dia-meta{display:flex;align-items:center;gap:6px;margin-top:7px;font-size:12px;font-weight:800;color:#cdd6e4;text-shadow:0 1px 6px rgba(0,0,0,.7)}
+.pf-dia-meta svg{width:14px;height:14px;flex-shrink:0;color:var(--pf-dia-color,var(--naranja))}
+.pf-dia-desc{margin-top:4px;font-size:11.5px;font-weight:600;line-height:1.35;color:#a9b4c4;text-shadow:0 1px 6px rgba(0,0,0,.7)}
+.pf-dia-chev{position:relative;z-index:2;width:20px;height:20px;flex-shrink:0;color:#c9d2e0;transition:transform .25s ease}
+.pf-dia-card.pf-dia-abierto .pf-dia-chev{transform:rotate(90deg)}
+.pf-dia-preview{display:none;padding:0 16px 16px;background:#0b0d12;border-top:1px solid rgba(255,255,255,.07)}
+.pf-dia-card.pf-dia-abierto .pf-dia-preview{display:block}
+.pf-dia-tag{display:inline-block;margin:12px 0 10px;border-radius:8px;padding:3px 10px;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:1px;color:var(--pf-dia-color,var(--naranja));background:rgba(255,255,255,.07)}
+.pf-dia-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px}
+.pf-dia-chips span{background:var(--fondo-alt);border:1px solid var(--borde);border-radius:8px;padding:3px 9px;font-size:11px;color:var(--texto-suave)}
+.pf-dia-btns{display:flex;flex-direction:column;gap:8px}
+.pf-dia-btn-start{width:100%;background:var(--pf-dia-color,var(--naranja));color:#000;border:none;border-radius:14px;padding:14px;font-weight:900;font-size:13px;text-transform:uppercase;letter-spacing:2px;cursor:pointer}
+.pf-dia-btn-lectura{width:100%;background:rgba(255,255,255,.04);color:#c9d2e0;border:1px solid var(--borde);border-radius:14px;padding:12px;font-weight:900;font-size:13px;text-transform:uppercase;letter-spacing:2px;cursor:pointer}
+@media(max-width:480px){#multidia-container{padding-left:9px;padding-right:9px}.pf-dia-head{min-height:96px;padding:12px}.pf-dia-title{font-size:16px}}
+</style>
+<script>
+/* ===== Tarjetas de día con foto: reemplaza el render del selector multi-día ===== */
+(function(){
+    // 📷 De acá salen las fotos. Subí dia_1.jpeg ... dia_5.jpeg al repositorio.
+    // Si las ponés en una carpeta (por ejemplo /img/), cambiá esta línea por: var PF_DIA_IMG_BASE="/img/";
+    var PF_DIA_IMG_BASE = "img/";
+    var PF_DIA_IMG_TOTAL = 5;
+
+    var COLORES = ["var(--verde)","var(--azul)","var(--rosa)","var(--naranja)","var(--purpura)","var(--amarillo)"];
+    var FRASES = [
+        "Movilidad, activación y preparación.",
+        "Fuerza y resistencia para tu progreso.",
+        "Potencia, estabilidad y control.",
+        "Resistencia y trabajo continuo.",
+        "Fuerza, core y movilidad."
+    ];
+
+    function fotoDia(idx){ return PF_DIA_IMG_BASE + "dia_" + (idx % PF_DIA_IMG_TOTAL + 1) + ".jpeg"; }
+    function esc(v){ return String(v==null?"":v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+    function arr(v){ return (typeof toArray==="function") ? toArray(v) : (Array.isArray(v)?v:[]); }
+    function nombreEj(e){ return Array.isArray(e) ? (e[0]||"") : (e && (e.nombre||e.ejercicio) || ""); }
+
+    // Cuenta calentamiento + bloque principal del día
+    function contarEjercicios(dd){
+        var n = arr(dd.warmup_ejercicios).length;
+        var bloques = arr(dd.bloques);
+        if(bloques.length){
+            bloques.forEach(function(b){
+                var lista = arr(b.ejercicios||b.rutina||b.datos);
+                lista.forEach(function(e){
+                    if(e && e.ejercicios) n += arr(e.ejercicios).length; else n++;
+                });
+            });
+        }else{
+            arr(dd.rutina||dd.datos||dd.ejercicios).forEach(function(e){
+                if(e && e.ejercicios) n += arr(e.ejercicios).length; else n++;
+            });
+        }
+        return n;
+    }
+
+    function listaPreview(dd){
+        var out = [];
+        arr(dd.warmup_ejercicios).slice(0,3).forEach(function(e){ var n=nombreEj(e); if(n) out.push(n); });
+        var main = [];
+        var src = dd.bloques || dd.datos;
+        if(src){
+            arr(src).forEach(function(b){
+                if(b && b.ejercicios) arr(b.ejercicios).forEach(function(e){ main.push(nombreEj(e)); });
+                else if(b && (b.nombre || Array.isArray(b))) main.push(nombreEj(b));
+            });
+        }else if(dd.rutina){
+            arr(dd.rutina).forEach(function(e){ main.push(nombreEj(e)); });
+        }
+        main.slice(0,5).forEach(function(n){ if(n) out.push(n); });
+        return out;
+    }
+
+    function tipoDia(dd, diaData){
+        if(dd.bloques && dd.bloques.length){
+            var t = [];
+            dd.bloques.forEach(function(b){
+                var x = (b.tipo||"").toUpperCase();
+                if(x && t.indexOf(x)===-1) t.push(x);
+            });
+            if(t.length) return t.join(" + ");
+        }
+        return (dd.tipo || (diaData && diaData.tipo) || "ENTRENAMIENTO").toUpperCase();
+    }
+
+    var ICONO_PESA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"/></svg>';
+    var ICONO_CHEV = '<svg class="pf-dia-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 18l6-6-6-6"/></svg>';
+
+    // Pinta el estado (pendiente / completo) sin romper el diseño de la tarjeta
+    window.actualizarEstadoDia = function(diaIdx){
+        var card = document.getElementById("dia-card-" + diaIdx);
+        if(!card) return;
+        var estado = card.querySelector(".pf-dia-estado");
+        var completo = !!(typeof diasCompletados !== "undefined" && diasCompletados[diaIdx]);
+        card.classList.toggle("pf-dia-completo", completo);
+        if(estado) estado.innerHTML = completo ? "&#10003; Completo" : "Pendiente";
+    };
+
+    window.toggleDiaAlumno = function(idx){
+        var card = document.getElementById("dia-card-" + idx);
+        if(card) card.classList.toggle("pf-dia-abierto");
+    };
+
+    window.renderMultidia = function(data, cod){
+        var total = data.total_dias || 1;
+
+        // Encabezado de la rutina (igual que antes)
+        var metodos = [];
+        for(var d = 1; d <= total; d++){
+            var dItem = data["dia_" + d];
+            if(!dItem) continue;
+            var ddm = dItem.datos || {};
+            if(ddm.bloques && ddm.bloques.length){
+                ddm.bloques.forEach(function(b){
+                    var t = (b.tipo||"").toUpperCase();
+                    if(t && metodos.indexOf(t)===-1) metodos.push(t);
+                });
+            }else if(dItem.tipo && dItem.tipo !== "ENTRENAMIENTO" && dItem.tipo !== "MULTIDIA"){
+                var t2 = dItem.tipo.toUpperCase();
+                if(metodos.indexOf(t2)===-1) metodos.push(t2);
+            }
+        }
+        var tagEl = document.getElementById("tipo-tag");
+        if(tagEl) tagEl.innerText = "MULTI-DÍA";
+        var idEl = document.getElementById("id-display");
+        if(idEl) idEl.innerText = metodos.length ? metodos.join(" + ") : total + " DÍAS";
+
+        var btnVolver = document.getElementById("btn-volver-dias-header");
+        if(btnVolver) btnVolver.style.display = "none";
+        var secW = document.getElementById("sec-warmup");
+        var secP = document.getElementById("sec-principal");
+        if(secW) secW.style.display = "none";
+        if(secP) secP.style.display = "none";
+        var prog = document.getElementById("rutina-progress-container");
+        if(prog) prog.style.display = "none";
+        if(typeof _pfSyncTopOffset === "function") _pfSyncTopOffset();
+
+        var cont = document.getElementById("multidia-container");
+        if(!cont){
+            cont = document.createElement("div");
+            cont.id = "multidia-container";
+            var scroll = document.getElementById("modal-scroll");
+            if(scroll) scroll.appendChild(cont); else document.getElementById("rutina-modal").appendChild(cont);
+        }
+        cont.style.cssText = "display:flex;flex-direction:column;gap:14px;";
+        cont.innerHTML = '<div class="pf-dias-titulo">Elegí tu día</div>';
+
+        for(var i = 0; i < total; i++){
+            (function(idx){
+                var diaData = data["dia_" + (idx + 1)];
+                if(!diaData) return;
+                var dd = diaData.datos || {};
+                var titulo = diaData.titulo || ("Día " + (idx + 1));
+                var color = COLORES[idx % COLORES.length];
+                var cant = contarEjercicios(dd);
+                var desc = dd.descripcion || diaData.descripcion || FRASES[idx % FRASES.length];
+                var pfx = "md" + idx;
+
+                var chips = listaPreview(dd);
+                var chipsHtml = "";
+                if(chips.length){
+                    chipsHtml = '<div class="pf-dia-chips">';
+                    chips.slice(0,7).forEach(function(n){ chipsHtml += "<span>" + esc(n) + "</span>"; });
+                    if(chips.length > 7) chipsHtml += '<span style="border:none;background:none;">+' + (chips.length - 7) + " más</span>";
+                    chipsHtml += "</div>";
+                }
+
+                var card = document.createElement("div");
+                card.id = "dia-card-" + idx;
+                card.className = "pf-dia-card";
+                card.style.setProperty("--pf-dia-color", color);
+                card.innerHTML =
+                    '<div class="pf-dia-head" onclick="toggleDiaAlumno(' + idx + ')">' +
+                        '<img class="pf-dia-bg" src="' + esc(fotoDia(idx)) + '" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">' +
+                        '<div class="pf-dia-veil"></div>' +
+                        '<span class="pf-dia-num">' + (idx + 1) + '</span>' +
+                        '<div class="pf-dia-info">' +
+                            '<div class="pf-dia-title">' + esc(titulo) + '</div>' +
+                            '<div class="pf-dia-estado">Pendiente</div>' +
+                            '<div class="pf-dia-meta">' + ICONO_PESA + '<span>' + cant + (cant === 1 ? " ejercicio" : " ejercicios") + '</span></div>' +
+                            '<div class="pf-dia-desc">' + esc(desc) + '</div>' +
+                        '</div>' +
+                        ICONO_CHEV +
+                    '</div>' +
+                    '<div class="pf-dia-preview" id="dia-preview-' + idx + '">' +
+                        '<span class="pf-dia-tag">' + esc(tipoDia(dd, diaData)) + '</span>' +
+                        '<div style="display:flex;flex-direction:column;align-items:center;margin-bottom:14px;">' +
+                            (typeof _mdHeatmapHtml === "function" ? _mdHeatmapHtml(pfx) : "") +
+                        '</div>' +
+                        chipsHtml +
+                        '<div class="pf-dia-btns">' +
+                            '<button class="pf-dia-btn-start" onclick="iniciarDia(' + idx + ')">&#9654; Empezar ' + esc(titulo) + '</button>' +
+                            '<button class="pf-dia-btn-lectura" onclick="_pfEmpezarLecturaDia(' + idx + ')">&#128065; Modo lectura</button>' +
+                        '</div>' +
+                    '</div>';
+                cont.appendChild(card);
+
+                if(typeof _mdColorearDia === "function") _mdColorearDia(pfx, dd);
+                setTimeout(function(){ actualizarEstadoDia(idx); }, 30);
+            })(i);
+        }
+    };
+})();
+</script>
 </body>
 
 </html>
