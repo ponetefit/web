@@ -221,13 +221,11 @@ html.pf-hero-loading .pf-card-hero{visibility:hidden}
 .bv-rot-item.bv-rot-activo{opacity:1;transform:none}
 @media (prefers-reduced-motion:reduce){.bv-rot-item{transform:none;transition:opacity .2s}}
 
-/* Abajo: botón EMPEZAR + botón silenciar en la misma fila */
+/* Abajo: botón EMPEZAR a lo ancho de toda la pantalla */
 #overlay-bienvenida .bv-btn-row .bv-btn-fila{display:flex;align-items:center;gap:10px;width:100%}
 #overlay-bienvenida .bv-btn-row .bv-btn-fila .bv-btn-empezar{flex:1 1 auto;min-width:0}
 #overlay-bienvenida .bv-btn-row .bv-btn-lectura{flex:none}
-#overlay-bienvenida .bv-btn-coach{flex:0 0 64px;width:64px;height:64px;padding:0;border:0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#fff;cursor:pointer;background:linear-gradient(135deg,#4fc3f7,#0288d1);box-shadow:0 6px 20px rgba(2,136,209,.35);transition:opacity .2s,transform .15s}
-#overlay-bienvenida .bv-btn-coach:active{transform:scale(.94)}
-/* Mientras se ve la bienvenida, el botón flotante de voz se oculta (ya está dentro de la fila de abajo) */
+/* Mientras se ve la bienvenida, el botón flotante de voz se oculta para que no tape el botón de empezar */
 body.pf-bv-abierto #btn-coach-toggle{display:none!important}
 </style>
 </head>
@@ -503,7 +501,7 @@ body.pf-bv-abierto #btn-coach-toggle{display:none!important}
             </div>
             </div>
 
-            <!-- ZONA INFERIOR (pegada al borde de abajo): 3 tarjetas + empezar + silenciar -->
+            <!-- ZONA INFERIOR (pegada al borde de abajo): 3 tarjetas + empezar -->
             <div class="bv-zona-bottom">
             <div class="bv-multidia-stats" id="bv-multidia-stats">
                 <div class="bv-md-stat">
@@ -557,7 +555,6 @@ body.pf-bv-abierto #btn-coach-toggle{display:none!important}
             <div class="bv-btn-row" id="bv-btn-row">
                 <div class="bv-btn-fila">
                     <button class="bv-btn-empezar" id="bv-btn-empezar" onclick="_pfEmpezarNormal()">▶ EMPEZAR</button>
-                    <button type="button" class="bv-btn-coach" id="bv-btn-coach" onclick="toggleCoach();_pfSyncCoachBv()" aria-label="Silenciar o activar la voz del coach">&#x1F50A;</button>
                 </div>
                 <button class="bv-btn-empezar bv-btn-lectura" id="bv-btn-lectura" onclick="_pfEmpezarLectura()">&#128065; MODO LECTURA</button>
             </div>
@@ -1506,22 +1503,17 @@ body.pf-bv-abierto #btn-coach-toggle{display:none!important}
 })();
 </script>
 <script>
-/* Bienvenida: rota "N DÍAS / UN SOLO OBJETIVO / TU MEJOR VERSIÓN" y mantiene el botón de silenciar sincronizado */
+/* Bienvenida: rota "N DÍAS / UN SOLO OBJETIVO / TU MEJOR VERSIÓN" */
 (function(){
     var ov=document.getElementById("overlay-bienvenida"); if(!ov) return;
     var items=ov.querySelectorAll(".bv-rot-item"), n=0, iv=null;
     function mostrar(k){ for(var j=0;j<items.length;j++) items[j].classList.toggle("bv-rot-activo", j===k); }
     function arrancar(){ if(iv||items.length<2) return; n=0; mostrar(0); iv=setInterval(function(){ n=(n+1)%items.length; mostrar(n); },2800); }
     function parar(){ if(iv){ clearInterval(iv); iv=null; } }
-    window._pfSyncCoachBv=function(){
-        var b=document.getElementById("bv-btn-coach"); if(!b) return;
-        var on=(typeof vozActivada==="undefined")?true:!!vozActivada;
-        b.innerHTML=on?"&#x1F50A;":"&#x1F507;"; b.style.opacity=on?"1":"0.55";
-    };
     function estado(){
         var vis=ov.classList.contains("visible");
         document.body.classList.toggle("pf-bv-abierto", vis);
-        if(vis){ arrancar(); window._pfSyncCoachBv(); } else { parar(); }
+        if(vis){ arrancar(); } else { parar(); }
     }
     new MutationObserver(estado).observe(ov,{attributes:true,attributeFilter:["class"]});
     estado();
