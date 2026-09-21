@@ -2180,6 +2180,7 @@
                     </div>
                     <p id="pf-notif-error" class="hidden text-xs mt-2" style="color:#EF5350"></p>
                     <div id="pf-notif-hilo" class="mt-4 flex flex-col gap-2 overflow-y-auto" style="max-height:340px"></div>
+                    <p class="text-[10px] text-textoSuave mt-2">Los mensajes que el alumno vio o respondió se ocultan de este panel a las 24 horas.</p>
                 </div>
 
 
@@ -20140,13 +20141,17 @@ self.addEventListener('fetch', event => {
     /* Notificaciones profesor <-> alumno (lado PROFESOR, dentro del Dashboard).
        Mismo canal que usa la app del alumno: /api/fb/{codigo}/notificaciones/{alumno}/
          mensajes/{ts}_{rand} = {de:"profesor"|"alumno", texto, ts}
-         vistoAlumno          = ts del último mensaje del profesor que el alumno ya vio (para el "✓ Visto")
+         (dentro de cada mensaje del profesor) vistoTs = cuándo lo vio el alumno (para el "✓ Visto")
          vistoProfesor        = ts de la última respuesta del alumno que el profesor ya vio
+       VENCIMIENTO en este panel (VENTANA_MS = 24 h): un mensaje del profesor que el alumno no vio no vence; una vez visto,
+       vence 24 h después de que lo vio o de la última respuesta del alumno. Las respuestas del alumno vencen 24 h después de enviadas.
+       Los mensajes no se borran del servidor: solo se ocultan.
+       
        El {alumno} se saca del prefijo del código, igual que en la app del alumno. */
     (function pfNotifProfesor() {
-        var POLL_MS = 20000, LIMITE = 60;
+        var POLL_MS = 20000, LIMITE = 60, VENTANA_MS = 24 * 60 * 60 * 1000;
         var alumno = '', codigo = '', clave = '';
-        var msgs = [], nuevos = {}, vistoProf = 0, vistoAlu = 0, cargado = false;
+        var msgs = [], nuevos = {}, vistoProf = 0, cargado = false;
         var pollIv = null, enviando = false, codigoCache = {};
 
         function claveDeCodigo(c) {
@@ -20166,9 +20171,21 @@ self.addEventListener('fetch', event => {
             if (!obj || typeof obj !== 'object') return [];
             return Object.keys(obj).map(function (id) {
                 var m = obj[id] || {};
-                return { id: id, de: m.de, texto: typeof m.texto === 'string' ? m.texto : '', ts: Number(m.ts) || 0 };
+                return { id: id, de: m.de, texto: typeof m.texto === 'string' ? m.texto : '', ts: Number(m.ts) || 0, vistoTs: Number(m.vistoTs) || 0 };
             }).filter(function (m) { return m.texto && (m.de === 'profesor' || m.de === 'alumno'); })
               .sort(function (a, b) { return a.ts - b.ts; });
+        }
+
+        // Mensajes que todavía se muestran en este panel (ver VENCIMIENTO arriba)
+        function visibles() {
+            var ahora = Date.now();
+            return msgs.filter(function (m) {
+                if (m.de === 'alumno') return ahora < m.ts + VENTANA_MS;
+                if (!m.vistoTs) return true;
+                var ancla = m.vistoTs;
+                msgs.forEach(function (r) { if (r.de === 'alumno' && r.ts > m.ts && r.ts > ancla) ancla = r.ts; });
+                return ahora < ancla + VENTANA_MS;
+            });
         }
 
         // Para hablar con el proxy hace falta un código real del alumno (resuelve la cuenta).
@@ -20193,7 +20210,7 @@ self.addEventListener('fetch', event => {
         function renderBadge() {
             var b = el('pf-notif-badge');
             if (!b) return;
-            var n = Object.keys(nuevos).length;
+            var n = visibles().filter(function (m) { return nuevos[m.id]; }).length;
             if (n > 0) {
                 b.textContent = n + (n === 1 ? ' respuesta nueva' : ' respuestas nuevas');
                 b.classList.remove('hidden');
@@ -20206,13 +20223,16 @@ self.addEventListener('fetch', event => {
             var cont = el('pf-notif-hilo');
             if (!cont) return;
             if (!alumno) { cont.innerHTML = ''; renderBadge(); return; }
-            if (!msgs.length) {
-                cont.innerHTML = '<p class="text-xs text-textoSuave text-center py-3">Todavía no hay mensajes con este alumno.</p>';
+            var lista = visibles();
+            if (!lista.length) {
+                cont.innerHTML = '<p class="text-xs text-textoSuave text-center py-3">' + (msgs.length
+                    ? 'No hay mensajes recientes con este alumno.'
+                    : 'Todavía no hay mensajes con este alumno.') + '</p>';
                 renderBadge();
                 return;
             }
             var nombreAlu = esc(alumno.toUpperCase());
-            cont.innerHTML = msgs.map(function (m) {
+            cont.innerHTML = lista.map(function (m) {
                 var esProf = m.de === 'profesor';
                 var esNueva = !esProf && nuevos[m.id];
                 var estilo = esProf
@@ -20223,7 +20243,7 @@ self.addEventListener('fetch', event => {
                 var tag = esNueva ? '<span style="background:#FFD54F;color:#000;border-radius:6px;padding:1px 6px;font-size:9px;letter-spacing:1px;margin-left:6px;">NUEVA</span>' : '';
                 var pie = esc(fmt(m.ts));
                 if (esProf) {
-                    pie += (m.ts <= vistoAlu)
+                    pie += m.vistoTs
                         ? ' · <span style="color:#69F0AE;font-weight:700;">✓ Visto</span>'
                         : ' · <span>Enviada</span>';
                 }
@@ -20257,13 +20277,11 @@ self.addEventListener('fetch', event => {
             var q = 'mensajes.json?orderBy=' + encodeURIComponent('"$key"') + '&limitToLast=' + LIMITE;
             return Promise.all([
                 fetch(url(q)).then(function (r) { return r.ok ? r.json() : null; }),
-                fetch(url('vistoProfesor.json')).then(function (r) { return r.ok ? r.json() : null; }),
-                fetch(url('vistoAlumno.json')).then(function (r) { return r.ok ? r.json() : null; })
+                fetch(url('vistoProfesor.json')).then(function (r) { return r.ok ? r.json() : null; })
             ]).then(function (res) {
                 if (alumno !== mi) return;
                 var lista = normalizar(res[0]);
                 if (!cargado) { vistoProf = Number(res[1]) || 0; cargado = true; }
-                vistoAlu = Number(res[2]) || 0;
                 lista.forEach(function (m) { if (m.de === 'alumno' && m.ts > vistoProf) nuevos[m.id] = true; });
                 msgs = lista;
                 renderHilo();
@@ -20281,7 +20299,7 @@ self.addEventListener('fetch', event => {
             if (nombre === alumno) return;
             detener();
             alumno = nombre; codigo = ''; clave = '';
-            msgs = []; nuevos = {}; vistoProf = 0; vistoAlu = 0; cargado = false;
+            msgs = []; nuevos = {}; vistoProf = 0; cargado = false;
             mostrarError('');
             var ta = el('pf-notif-texto');
             if (ta) { ta.value = ''; ta.placeholder = nombre ? 'Escribí el mensaje para ' + nombre + '...' : 'Escribí el mensaje para tu alumno...'; }
