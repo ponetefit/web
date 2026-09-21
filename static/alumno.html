@@ -885,14 +885,21 @@ body.pf-bv-abierto #btn-coach-toggle{display:none!important}
    2) Si está oculto y el scroll queda cerca del tope o el contenido deja de ser scrolleable (se cerró una tarjeta, se volvió a la lista de días, se cambió de día...), se vuelve a mostrar solo.
    3) El bloqueo de 320ms ya no ignora el "volver al tope": estar cerca del tope siempre muestra el header. */
 var _ultimoScrollTop=_scrollElHdr.scrollTop;var _oculto=false;var _bloqueadoHasta=0;var _umbralMovimiento=12;var _umbralActivacion=80;var _margenScroll=60;
+/* Reaparición del header: con el header oculto, NO alcanza con un scroll corto hacia arriba.
+   Hay que encadenar _gestosNecesarios gestos de subida (cada uno de al menos _minPxGesto px netos) sin bajar en el medio.
+   Un gesto = una ráfaga de scroll (un swipe/flick con su inercia). Si pasan más de _ventanaGestoMs entre gestos, se reinicia la cuenta.
+   Estar cerca del tope (< _umbralActivacion) sigue mostrando el header siempre. Para ajustar la sensibilidad, tocar estas 3 variables. */
+var _gestosNecesarios=3;var _minPxGesto=40;var _ventanaGestoMs=5000;var _gestosSubida=0;var _ultimoGestoTs=0;var _rafagaInicio=null;var _timerFinRafaga=null;
+function _resetGestos(){_gestosSubida=0;_ultimoGestoTs=0;_rafagaInicio=null;if(_timerFinRafaga){clearTimeout(_timerFinRafaga);_timerFinRafaga=null}}
+function _finRafaga(){_timerFinRafaga=null;var inicio=_rafagaInicio;_rafagaInicio=null;if(!_oculto||inicio===null)return;var neto=inicio-_scrollElHdr.scrollTop;if(neto>=_minPxGesto){var ahora=Date.now();if(ahora-_ultimoGestoTs>_ventanaGestoMs)_gestosSubida=0;_gestosSubida++;_ultimoGestoTs=ahora;if(_gestosSubida>=_gestosNecesarios){_mostrar()}}else if(neto<=-_minPxGesto){_gestosSubida=0}}
 function _altoHeader(){return _headerWrapEl.offsetHeight||0}
 function _maxScroll(){return _scrollElHdr.scrollHeight-_scrollElHdr.clientHeight}
-function _aplicar(ocultar){_oculto=ocultar;var m=ocultar?"add":"remove";_headerWrapEl.classList[m]("pf-hidden-scroll");if(_progressWrapEl)_progressWrapEl.classList[m]("pf-hidden-scroll");_contentWrapEl.classList[m]("pf-hidden-scroll");_bloqueadoHasta=Date.now()+320;setTimeout(function(){_ultimoScrollTop=_scrollElHdr.scrollTop;_revisar()},340)}
+function _aplicar(ocultar){_resetGestos();_oculto=ocultar;var m=ocultar?"add":"remove";_headerWrapEl.classList[m]("pf-hidden-scroll");if(_progressWrapEl)_progressWrapEl.classList[m]("pf-hidden-scroll");_contentWrapEl.classList[m]("pf-hidden-scroll");_bloqueadoHasta=Date.now()+320;setTimeout(function(){_ultimoScrollTop=_scrollElHdr.scrollTop;_revisar()},340)}
 function _mostrar(){if(_oculto)_aplicar(false)}
 function _ocultar(){if(_oculto)return;if(_maxScroll()-_altoHeader()<_umbralActivacion+_margenScroll)return;_aplicar(true)}
 function _revisar(){if(!_oculto)return;if(_scrollElHdr.scrollTop<_umbralActivacion||_maxScroll()<_umbralActivacion)_mostrar()}
 var _rafRevision=0;function _programarRevision(){if(_rafRevision)return;_rafRevision=requestAnimationFrame(function(){_rafRevision=0;_revisar()})}
-_scrollElHdr.addEventListener("scroll",function(){var actual=_scrollElHdr.scrollTop;if(actual<_umbralActivacion){_mostrar();_ultimoScrollTop=actual;return}if(Date.now()<_bloqueadoHasta)return;var diferencia=actual-_ultimoScrollTop;if(Math.abs(diferencia)<_umbralMovimiento)return;if(diferencia>0){_ocultar()}else{_mostrar()}_ultimoScrollTop=actual},{passive:true});
+_scrollElHdr.addEventListener("scroll",function(){var actual=_scrollElHdr.scrollTop;if(actual<_umbralActivacion){_mostrar();_resetGestos();_ultimoScrollTop=actual;return}if(_oculto){if(_rafagaInicio===null)_rafagaInicio=_ultimoScrollTop;if(_timerFinRafaga)clearTimeout(_timerFinRafaga);_timerFinRafaga=setTimeout(_finRafaga,160)}if(Date.now()<_bloqueadoHasta)return;var diferencia=actual-_ultimoScrollTop;if(Math.abs(diferencia)<_umbralMovimiento)return;if(diferencia>0){_ocultar()}_ultimoScrollTop=actual},{passive:true});
 _scrollElHdr.addEventListener("touchend",function(){setTimeout(_revisar,80)},{passive:true});
 window.addEventListener("resize",_programarRevision);window.addEventListener("orientationchange",_programarRevision);
 if(typeof ResizeObserver!=="undefined"){var _roHdr=new ResizeObserver(_programarRevision);_roHdr.observe(_scrollElHdr);var _observarHijos=function(){Array.prototype.forEach.call(_scrollElHdr.children,function(h){_roHdr.observe(h)})};_observarHijos()}
