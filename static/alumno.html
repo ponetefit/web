@@ -624,7 +624,7 @@ body.pf-bv-abierto #btn-coach-toggle{display:none!important}
                         <span class="pf-top-logo-t">PONETE FIT</span>
                         <span class="pf-top-logo-s">EN CASA</span>
                     </div>
-                    <button type="button" class="pf-bell-btn" onclick="if(typeof mostrarToast==='function')mostrarToast('No tenés notificaciones nuevas')" aria-label="Notificaciones">
+                    <button type="button" class="pf-bell-btn" onclick="if(typeof pfNotifAbrir==='function')pfNotifAbrir();else if(typeof mostrarToast==='function')mostrarToast('No tenés notificaciones nuevas')" aria-label="Notificaciones">
                         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 22a2.2 2.2 0 0 0 2.15-1.8h-4.3A2.2 2.2 0 0 0 12 22zm7.2-5.2-1.7-1.9V10.5c0-3.1-1.8-5.4-4.6-6.1V3.7a.9.9 0 0 0-1.8 0v.7c-2.8.7-4.6 3-4.6 6.1v4.4l-1.7 1.9a1 1 0 0 0 .8 1.7h13.8a1 1 0 0 0 .8-1.7z"/></svg>
                     </button>
                 </div>
@@ -1573,6 +1573,221 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
     else window.addEventListener("load",function(){ setTimeout(arrancar,300); });
 })();
 </script>
+<style id="pf-notif-css">
+.pf-bell-btn{position:relative}
+.pf-bell-badge{position:absolute;top:3px;right:3px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--rojo,#FF1744);color:#fff;font-size:11px;font-weight:900;line-height:18px;text-align:center;box-shadow:0 0 0 2px #0b0d12;pointer-events:none;box-sizing:border-box}
+.pf-bell-btn.pf-bell-activa{color:var(--naranja,#FF5E1A)}
+.pf-bell-btn.pf-bell-activa svg{transform-origin:50% 8%;animation:pfBellRing 1.6s ease-in-out 2}
+@keyframes pfBellRing{0%,50%,100%{transform:rotate(0)}10%,30%{transform:rotate(-14deg)}20%,40%{transform:rotate(14deg)}}
+@media (prefers-reduced-motion:reduce){.pf-bell-btn.pf-bell-activa svg{animation:none}}
+#pf-notif-overlay{position:fixed;inset:0;z-index:9200;display:flex;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top,0px)) 14px max(16px,env(safe-area-inset-bottom,0px));background:rgba(6,6,8,.84);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+#pf-notif-overlay[hidden]{display:none}
+.pf-notif-card{width:100%;max-width:460px;max-height:min(88dvh,720px);display:flex;flex-direction:column;background:var(--tarjeta,#0c0c0e);border:1px solid var(--borde,#2c2c38);border-radius:20px;box-shadow:0 24px 64px rgba(0,0,0,.65);overflow:hidden}
+.pf-notif-head{display:flex;align-items:center;gap:10px;padding:16px 18px 12px;border-bottom:1px solid var(--borde-sutil,#1c1c24);flex-shrink:0}
+.pf-notif-ico{font-size:22px;line-height:1}
+.pf-notif-head h2{margin:0;font-size:1.05rem;font-weight:900;letter-spacing:.3px;color:var(--texto,#fff)}
+.pf-notif-hilo{flex:1;min-height:80px;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 6px;display:flex;flex-direction:column;gap:10px}
+.pf-notif-msg{max-width:88%;padding:10px 12px;border-radius:14px;font-size:.95rem;line-height:1.4;position:relative}
+.pf-notif-msg.prof{align-self:flex-start;background:rgba(255,94,26,.12);border:1px solid rgba(255,94,26,.35);border-bottom-left-radius:4px}
+.pf-notif-msg.prof.nueva{border-color:var(--naranja,#FF5E1A);box-shadow:0 0 0 1px rgba(255,94,26,.35),0 6px 20px rgba(255,94,26,.14)}
+.pf-notif-msg.yo{align-self:flex-end;background:rgba(0,176,255,.12);border:1px solid rgba(0,176,255,.32);border-bottom-right-radius:4px}
+.pf-notif-quien{display:flex;align-items:center;gap:8px;font-size:.68rem;font-weight:900;letter-spacing:1.4px;text-transform:uppercase;color:var(--texto-suave,#9494a3);margin-bottom:4px}
+.pf-notif-msg.prof .pf-notif-quien{color:var(--naranja,#FF5E1A)}
+.pf-notif-tag{background:var(--naranja,#FF5E1A);color:#000;border-radius:6px;padding:1px 6px;font-size:.62rem;letter-spacing:1px}
+.pf-notif-texto{white-space:pre-wrap;word-break:break-word;color:var(--texto,#fff)}
+.pf-notif-hora{margin-top:5px;font-size:.68rem;color:var(--texto-suave,#9494a3);text-align:right}
+.pf-notif-vacio{margin:auto;text-align:center;color:var(--texto-suave,#9494a3);font-size:.9rem;padding:20px}
+.pf-notif-resp{padding:10px 14px 4px;flex-shrink:0;border-top:1px solid var(--borde-sutil,#1c1c24)}
+.pf-notif-lbl{display:block;font-size:.68rem;font-weight:900;letter-spacing:1.4px;text-transform:uppercase;color:var(--texto-suave,#9494a3);margin-bottom:6px}
+#pf-notif-texto{width:100%;box-sizing:border-box;resize:none;min-height:64px;background:var(--fondo-alt,#050505);color:var(--texto,#fff);border:1.5px solid var(--borde,#2c2c38);border-radius:12px;padding:10px 12px;font:inherit;font-size:16px;outline:0}
+#pf-notif-texto:focus{border-color:var(--naranja,#FF5E1A)}
+.pf-notif-err{margin-top:6px;font-size:.78rem;color:var(--rojo,#FF1744)}
+.pf-notif-err[hidden]{display:none}
+.pf-notif-btn{width:100%;min-height:48px;border-radius:14px;font-weight:900;font-size:.85rem;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:0;font-family:inherit}
+.pf-notif-enviar{margin-top:8px;background:linear-gradient(135deg,var(--naranja,#FF5E1A),#e85500);color:#fff;box-shadow:0 8px 22px rgba(255,94,26,.25)}
+.pf-notif-enviar:disabled{opacity:.55;cursor:not-allowed}
+.pf-notif-cerrar{margin:8px 14px 14px;width:calc(100% - 28px);background:var(--tarjeta-alt,#131316);color:var(--texto,#fff);border:1px solid var(--borde,#2c2c38)}
+.pf-notif-btn:active{transform:scale(.98)}
+</style>
+<script>
+/* Notificaciones profesor <-> alumno (lado ALUMNO).
+   Datos en /api/fb/{codigo}/notificaciones/{alumno}/ :
+     mensajes/{ts}_{rand} = {de:"profesor"|"alumno", texto, ts}
+     vistoAlumno          = ts del último mensaje del profesor que el alumno ya vio
+   El {alumno} es el prefijo del código (ej: "rafa" de "rafa-0001"), igual que usa el profesor. */
+(function pfNotifAlumno(){
+  var POLL_MS=30000,LIMITE=40;
+  var msgs=[],visto=0,keyActual="",modalAbierto=false,nuevos={},enviando=false,overlay=null;
+
+  function codigo(){try{return(typeof currentCode!=="undefined"&&currentCode)?String(currentCode):""}catch(e){return""}}
+  function clave(){var c=codigo();if(c.indexOf("-")<1)return"";return c.split("-")[0].toLowerCase().trim().replace(/[.#$\[\]\/]/g,"_")}
+  function url(resto){return"/api/fb/"+encodeURIComponent(codigo())+"/notificaciones/"+encodeURIComponent(clave())+"/"+resto}
+  function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
+  function fmt(ts){try{return new Date(ts).toLocaleString("es-AR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}catch(e){return""}}
+  function toast(m){if(typeof mostrarToast==="function")mostrarToast(m)}
+  function normalizar(obj){
+    if(!obj||typeof obj!=="object")return[];
+    return Object.keys(obj).map(function(id){var m=obj[id]||{};return{id:id,de:m.de,texto:typeof m.texto==="string"?m.texto:"",ts:Number(m.ts)||0}})
+      .filter(function(m){return m.texto&&(m.de==="profesor"||m.de==="alumno")})
+      .sort(function(a,b){return a.ts-b.ts});
+  }
+  function noLeidas(){return msgs.filter(function(m){return m.de==="profesor"&&m.ts>visto})}
+
+  function actualizarBadge(){
+    var n=noLeidas().length;
+    document.querySelectorAll(".pf-bell-btn").forEach(function(b){
+      var s=b.querySelector(".pf-bell-badge");
+      if(n>0){
+        if(!s){s=document.createElement("span");s.className="pf-bell-badge";b.appendChild(s)}
+        s.textContent=n>9?"9+":String(n);
+        b.setAttribute("aria-label","Notificaciones ("+n+(n===1?" nueva)":" nuevas)"));
+        b.classList.add("pf-bell-activa");
+      }else{
+        if(s)s.remove();
+        b.setAttribute("aria-label","Notificaciones");
+        b.classList.remove("pf-bell-activa");
+      }
+    });
+  }
+
+  function refrescar(forzar){
+    var k=clave();
+    if(!k)return Promise.resolve();
+    if(!forzar&&document.visibilityState==="hidden")return Promise.resolve();
+    var q="mensajes.json?orderBy="+encodeURIComponent('"$key"')+"&limitToLast="+LIMITE;
+    return Promise.all([
+      fetch(url(q)).then(function(r){return r.ok?r.json():null}),
+      fetch(url("vistoAlumno.json")).then(function(r){return r.ok?r.json():null})
+    ]).then(function(res){
+      if(clave()!==k)return;
+      msgs=normalizar(res[0]);
+      visto=Number(res[1])||0;
+      actualizarBadge();
+      if(modalAbierto)renderModal();
+    }).catch(function(){});
+  }
+
+  function marcarVisto(){
+    var max=0;
+    msgs.forEach(function(m){if(m.de==="profesor"&&m.ts>max)max=m.ts});
+    if(max<=visto)return;
+    visto=max;
+    actualizarBadge();
+    try{fetch(url("vistoAlumno.json"),{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(max)}).catch(function(){})}catch(e){}
+  }
+
+  function crearModal(){
+    var o=document.createElement("div");
+    o.id="pf-notif-overlay";o.hidden=true;
+    o.setAttribute("role","dialog");o.setAttribute("aria-modal","true");o.setAttribute("aria-labelledby","pf-notif-titulo");
+    o.innerHTML=
+      '<div class="pf-notif-card">'+
+        '<div class="pf-notif-head"><span class="pf-notif-ico" aria-hidden="true">🔔</span><h2 id="pf-notif-titulo">Mensaje de tu profesor</h2></div>'+
+        '<div class="pf-notif-hilo" id="pf-notif-hilo"></div>'+
+        '<div class="pf-notif-resp">'+
+          '<label class="pf-notif-lbl" for="pf-notif-texto">Respondele a tu profe</label>'+
+          '<textarea id="pf-notif-texto" maxlength="500" rows="3" placeholder="Escribí tu respuesta..."></textarea>'+
+          '<div class="pf-notif-err" id="pf-notif-err" hidden></div>'+
+          '<button type="button" class="pf-notif-btn pf-notif-enviar" id="pf-notif-enviar">Enviar respuesta</button>'+
+        '</div>'+
+        '<button type="button" class="pf-notif-btn pf-notif-cerrar" id="pf-notif-cerrar">Cerrar notificación</button>'+
+      '</div>';
+    document.body.appendChild(o);
+    o.querySelector("#pf-notif-cerrar").addEventListener("click",cerrar);
+    o.querySelector("#pf-notif-enviar").addEventListener("click",enviar);
+    o.querySelector("#pf-notif-texto").addEventListener("keydown",function(e){if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();enviar()}});
+    return o;
+  }
+
+  function renderModal(){
+    if(!overlay)return;
+    var hilo=overlay.querySelector("#pf-notif-hilo");
+    noLeidas().forEach(function(m){nuevos[m.id]=true});
+    if(!msgs.length){
+      hilo.innerHTML='<div class="pf-notif-vacio">Todavía no hay mensajes.</div>';
+    }else{
+      hilo.innerHTML=msgs.map(function(m){
+        var esProf=m.de==="profesor";
+        return'<div class="pf-notif-msg '+(esProf?"prof"+(nuevos[m.id]?" nueva":""):"yo")+'">'+
+          '<div class="pf-notif-quien">'+(esProf?"Tu profesor":"Vos")+(esProf&&nuevos[m.id]?'<span class="pf-notif-tag">NUEVA</span>':"")+'</div>'+
+          '<div class="pf-notif-texto">'+esc(m.texto)+'</div>'+
+          '<div class="pf-notif-hora">'+esc(fmt(m.ts))+'</div>'+
+        '</div>';
+      }).join("");
+    }
+    hilo.scrollTop=hilo.scrollHeight;
+    marcarVisto();
+  }
+
+  function mostrarError(t){
+    var el=overlay&&overlay.querySelector("#pf-notif-err");
+    if(!el)return;
+    if(t){el.textContent=t;el.hidden=false}else{el.hidden=true}
+  }
+
+  function abrir(){
+    if(!clave()){toast("No tenés notificaciones nuevas");return}
+    refrescar(true).then(function(){
+      if(!msgs.length){toast("No tenés notificaciones nuevas");return}
+      if(!overlay)overlay=crearModal();
+      nuevos={};
+      mostrarError("");
+      overlay.querySelector("#pf-notif-texto").value="";
+      overlay.hidden=false;
+      modalAbierto=true;
+      renderModal();
+    });
+  }
+
+  function cerrar(){
+    if(!overlay)return;
+    overlay.hidden=true;
+    modalAbierto=false;
+    nuevos={};
+    mostrarError("");
+  }
+
+  function enviar(){
+    if(enviando||!overlay)return;
+    var ta=overlay.querySelector("#pf-notif-texto");
+    var texto=(ta.value||"").trim();
+    if(!texto){mostrarError("Escribí tu respuesta antes de enviar.");return}
+    var k=clave();
+    if(!k)return;
+    var btn=overlay.querySelector("#pf-notif-enviar");
+    enviando=true;btn.disabled=true;btn.textContent="Enviando...";mostrarError("");
+    var ts=Date.now();
+    var id=ts+"_"+Math.random().toString(36).slice(2,6);
+    var msg={de:"alumno",texto:texto.slice(0,500),ts:ts};
+    fetch(url("mensajes/"+encodeURIComponent(id)+".json"),{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(msg)})
+      .then(function(r){if(!r.ok)throw new Error("HTTP "+r.status)})
+      .then(function(){
+        if(clave()!==k)return;
+        msgs.push({id:id,de:"alumno",texto:msg.texto,ts:ts});
+        ta.value="";
+        renderModal();
+        toast("Respuesta enviada");
+      })
+      .catch(function(e){
+        try{console.warn("[notificaciones] no se pudo enviar la respuesta",e)}catch(_){}
+        mostrarError("No se pudo enviar. Revisá tu conexión e intentá de nuevo.");
+      })
+      .then(function(){enviando=false;btn.disabled=false;btn.textContent="Enviar respuesta"});
+  }
+
+  document.addEventListener("keydown",function(e){if(e.key==="Escape"&&modalAbierto)cerrar()});
+  document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible")refrescar(false)});
+  /* Detecta cuando el alumno entra a una rutina (cambia el código) y arranca a consultar */
+  setInterval(function(){
+    var k=clave();
+    if(k!==keyActual){keyActual=k;msgs=[];visto=0;nuevos={};actualizarBadge();if(k)refrescar(false)}
+  },1000);
+  setInterval(function(){refrescar(false)},POLL_MS);
+
+  window.pfNotifAbrir=abrir;
+})();
+</script>
+
 </body>
 
 </html>
