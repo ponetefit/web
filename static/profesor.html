@@ -2163,6 +2163,25 @@
 
             <!-- Contenido del Dashboard (se muestra al seleccionar alumno) -->
             <div id="dash-contenido" class="hidden dash-fade-in">
+                <!-- Notificaciones al alumno: el profesor envía, le aparece en la campanita de su app y puede responder -->
+                <div id="pf-notif-card" class="bg-tarjeta rounded-2xl border border-borde p-5 mb-6">
+                    <div class="flex items-center justify-between gap-2 flex-wrap mb-1">
+                        <h3 class="text-sm font-bold text-naranja uppercase tracking-wider flex items-center gap-2 flex-wrap">
+                            <span>🔔 Enviale una notificación a tu alumno</span>
+                            <span id="pf-notif-badge" class="hidden px-2 py-0.5 rounded-full text-[10px] font-black" style="background:rgba(255,213,79,.18);color:#FFD54F;border:1px solid rgba(255,213,79,.4)"></span>
+                        </h3>
+                        <button type="button" onclick="pfNotifRecargar()" class="text-xs text-azul font-bold hover:underline">Actualizar</button>
+                    </div>
+                    <p class="text-xs text-textoSuave mb-3">Le llega a la campanita de su app. Si te responde, ves la respuesta acá abajo.</p>
+                    <textarea id="pf-notif-texto" rows="3" maxlength="500" class="w-full rounded-lg px-4 py-2.5 text-sm" placeholder="Escribí el mensaje para tu alumno..."></textarea>
+                    <div class="flex items-center justify-between gap-2 mt-2 flex-wrap">
+                        <span id="pf-notif-contador" class="text-xs text-textoSuave">0/500</span>
+                        <button type="button" id="pf-notif-enviar" onclick="pfNotifEnviar()" class="btn-primary px-4 py-2.5 rounded-xl text-white font-bold text-xs uppercase tracking-wider whitespace-nowrap">Enviar notificación</button>
+                    </div>
+                    <p id="pf-notif-error" class="hidden text-xs mt-2" style="color:#EF5350"></p>
+                    <div id="pf-notif-hilo" class="mt-4 flex flex-col gap-2 overflow-y-auto" style="max-height:340px"></div>
+                </div>
+
 
                 <!-- Filtro por rango de rutinas: afecta TODO el dashboard (KPIs, ejercicios,
                      mapa de calor, distribución de métodos) y lo que se exporta a PDF -->
@@ -12463,6 +12482,7 @@
         const selDash = document.getElementById('dash-select-alumno');
         if (!selDash) return;
         const nombre = selDash.value;
+        try { if (typeof pfNotifProfSeleccionar === 'function') pfNotifProfSeleccionar(nombre); } catch (e) { console.warn('notif:', e); }
         const contenido = document.getElementById('dash-contenido');
         const vacio = document.getElementById('dash-vacio');
         const perfil = document.getElementById('dash-perfil');
@@ -20116,5 +20136,213 @@ self.addEventListener('fetch', event => {
             _instalarHooks();
         })();
     </script>
+    <script>
+    /* Notificaciones profesor <-> alumno (lado PROFESOR, dentro del Dashboard).
+       Mismo canal que usa la app del alumno: /api/fb/{codigo}/notificaciones/{alumno}/
+         mensajes/{ts}_{rand} = {de:"profesor"|"alumno", texto, ts}
+         vistoAlumno          = ts del último mensaje del profesor que el alumno ya vio (para el "✓ Visto")
+         vistoProfesor        = ts de la última respuesta del alumno que el profesor ya vio
+       El {alumno} se saca del prefijo del código, igual que en la app del alumno. */
+    (function pfNotifProfesor() {
+        var POLL_MS = 20000, LIMITE = 60;
+        var alumno = '', codigo = '', clave = '';
+        var msgs = [], nuevos = {}, vistoProf = 0, vistoAlu = 0, cargado = false;
+        var pollIv = null, enviando = false, codigoCache = {};
+
+        function claveDeCodigo(c) {
+            return String(c || '').split('-')[0].toLowerCase().trim().replace(/[.#$\[\]\/]/g, '_');
+        }
+        function url(resto) {
+            return API_BASE + '/api/fb/' + encodeURIComponent(codigo) + '/notificaciones/' + encodeURIComponent(clave) + '/' + resto;
+        }
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+        function fmt(ts) {
+            try { return new Date(ts).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; }
+        }
+        function el(id) { return document.getElementById(id); }
+        function normalizar(obj) {
+            if (!obj || typeof obj !== 'object') return [];
+            return Object.keys(obj).map(function (id) {
+                var m = obj[id] || {};
+                return { id: id, de: m.de, texto: typeof m.texto === 'string' ? m.texto : '', ts: Number(m.ts) || 0 };
+            }).filter(function (m) { return m.texto && (m.de === 'profesor' || m.de === 'alumno'); })
+              .sort(function (a, b) { return a.ts - b.ts; });
+        }
+
+        // Para hablar con el proxy hace falta un código real del alumno (resuelve la cuenta).
+        function resolverCodigo(nombre) {
+            if (codigoCache[nombre]) return Promise.resolve(codigoCache[nombre]);
+            return fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre))
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    var cods = (d && d.ok && d.rutinas) ? Object.keys(d.rutinas).sort() : [];
+                    return cods.length ? cods[0] : String(nombre).toLowerCase().trim() + '-0001';
+                })
+                .catch(function () { return String(nombre).toLowerCase().trim() + '-0001'; })
+                .then(function (c) { codigoCache[nombre] = c; return c; });
+        }
+
+        function mostrarError(t) {
+            var e = el('pf-notif-error');
+            if (!e) return;
+            if (t) { e.textContent = t; e.classList.remove('hidden'); } else { e.classList.add('hidden'); }
+        }
+
+        function renderBadge() {
+            var b = el('pf-notif-badge');
+            if (!b) return;
+            var n = Object.keys(nuevos).length;
+            if (n > 0) {
+                b.textContent = n + (n === 1 ? ' respuesta nueva' : ' respuestas nuevas');
+                b.classList.remove('hidden');
+            } else {
+                b.classList.add('hidden');
+            }
+        }
+
+        function renderHilo() {
+            var cont = el('pf-notif-hilo');
+            if (!cont) return;
+            if (!alumno) { cont.innerHTML = ''; renderBadge(); return; }
+            if (!msgs.length) {
+                cont.innerHTML = '<p class="text-xs text-textoSuave text-center py-3">Todavía no hay mensajes con este alumno.</p>';
+                renderBadge();
+                return;
+            }
+            var nombreAlu = esc(alumno.toUpperCase());
+            cont.innerHTML = msgs.map(function (m) {
+                var esProf = m.de === 'profesor';
+                var esNueva = !esProf && nuevos[m.id];
+                var estilo = esProf
+                    ? 'align-self:flex-end;background:rgba(255,107,53,.12);border:1px solid rgba(255,107,53,.35);border-bottom-right-radius:4px;'
+                    : 'align-self:flex-start;background:rgba(79,195,247,.10);border:1px solid ' + (esNueva ? '#FFD54F' : 'rgba(79,195,247,.35)') + ';border-bottom-left-radius:4px;';
+                var quien = esProf ? 'Vos' : nombreAlu;
+                var color = esProf ? '#FF6B35' : '#4FC3F7';
+                var tag = esNueva ? '<span style="background:#FFD54F;color:#000;border-radius:6px;padding:1px 6px;font-size:9px;letter-spacing:1px;margin-left:6px;">NUEVA</span>' : '';
+                var pie = esc(fmt(m.ts));
+                if (esProf) {
+                    pie += (m.ts <= vistoAlu)
+                        ? ' · <span style="color:#69F0AE;font-weight:700;">✓ Visto</span>'
+                        : ' · <span>Enviada</span>';
+                }
+                return '<div style="max-width:88%;padding:9px 12px;border-radius:14px;' + estilo + '">' +
+                    '<div style="font-size:10px;font-weight:900;letter-spacing:1.4px;text-transform:uppercase;color:' + color + ';margin-bottom:3px;">' + quien + tag + '</div>' +
+                    '<div style="white-space:pre-wrap;word-break:break-word;font-size:14px;line-height:1.4;">' + esc(m.texto) + '</div>' +
+                    '<div style="margin-top:4px;font-size:10px;color:#8a8a9a;text-align:right;">' + pie + '</div>' +
+                    '</div>';
+            }).join('');
+            cont.scrollTop = cont.scrollHeight;
+            renderBadge();
+        }
+
+        function marcarVistoProfesor() {
+            var max = 0;
+            msgs.forEach(function (m) { if (m.de === 'alumno' && m.ts > max) max = m.ts; });
+            if (max <= vistoProf) return;
+            vistoProf = max;
+            try {
+                fetch(url('vistoProfesor.json'), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(max) }).catch(function () {});
+            } catch (e) {}
+        }
+
+        function refrescar(forzar) {
+            if (!alumno || !codigo) return Promise.resolve();
+            if (!forzar) {
+                if (document.visibilityState === 'hidden') return Promise.resolve();
+                if (typeof _pfActiveTab !== 'undefined' && _pfActiveTab !== 'dashboard') return Promise.resolve();
+            }
+            var mi = alumno;
+            var q = 'mensajes.json?orderBy=' + encodeURIComponent('"$key"') + '&limitToLast=' + LIMITE;
+            return Promise.all([
+                fetch(url(q)).then(function (r) { return r.ok ? r.json() : null; }),
+                fetch(url('vistoProfesor.json')).then(function (r) { return r.ok ? r.json() : null; }),
+                fetch(url('vistoAlumno.json')).then(function (r) { return r.ok ? r.json() : null; })
+            ]).then(function (res) {
+                if (alumno !== mi) return;
+                var lista = normalizar(res[0]);
+                if (!cargado) { vistoProf = Number(res[1]) || 0; cargado = true; }
+                vistoAlu = Number(res[2]) || 0;
+                lista.forEach(function (m) { if (m.de === 'alumno' && m.ts > vistoProf) nuevos[m.id] = true; });
+                msgs = lista;
+                renderHilo();
+                marcarVistoProfesor();
+            }).catch(function () {});
+        }
+
+        function detener() {
+            if (pollIv) { clearInterval(pollIv); pollIv = null; }
+        }
+
+        // Se llama desde cargarDashboard() con el alumno elegido ('' si se limpió la selección)
+        window.pfNotifProfSeleccionar = function (nombre) {
+            nombre = String(nombre || '').trim();
+            if (nombre === alumno) return;
+            detener();
+            alumno = nombre; codigo = ''; clave = '';
+            msgs = []; nuevos = {}; vistoProf = 0; vistoAlu = 0; cargado = false;
+            mostrarError('');
+            var ta = el('pf-notif-texto');
+            if (ta) { ta.value = ''; ta.placeholder = nombre ? 'Escribí el mensaje para ' + nombre + '...' : 'Escribí el mensaje para tu alumno...'; }
+            var cnt = el('pf-notif-contador'); if (cnt) cnt.textContent = '0/500';
+            renderHilo();
+            if (!nombre) return;
+            var mi = nombre;
+            resolverCodigo(mi).then(function (c) {
+                if (alumno !== mi) return;
+                codigo = c; clave = claveDeCodigo(c);
+                refrescar(true);
+                pollIv = setInterval(function () { refrescar(false); }, POLL_MS);
+            });
+        };
+
+        window.pfNotifRecargar = function () { refrescar(true); };
+
+        window.pfNotifEnviar = function () {
+            if (enviando) return;
+            var ta = el('pf-notif-texto'), btn = el('pf-notif-enviar');
+            if (!ta || !btn) return;
+            var texto = (ta.value || '').trim();
+            if (!alumno) { toast('Elegí un alumno primero'); return; }
+            if (!texto) { toast('Escribí un mensaje primero'); return; }
+            if (!codigo) { mostrarError('Todavía se está preparando la conexión con el alumno. Probá de nuevo en un segundo.'); return; }
+            var mi = alumno;
+            enviando = true; btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = 'Enviando...'; mostrarError('');
+            var ts = Date.now();
+            var id = ts + '_' + Math.random().toString(36).slice(2, 6);
+            var msg = { de: 'profesor', texto: texto.slice(0, 500), ts: ts };
+            fetch(url('mensajes/' + encodeURIComponent(id) + '.json'), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(msg) })
+                .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); })
+                .then(function () {
+                    if (alumno !== mi) return;
+                    msgs.push({ id: id, de: 'profesor', texto: msg.texto, ts: ts });
+                    ta.value = '';
+                    var cnt = el('pf-notif-contador'); if (cnt) cnt.textContent = '0/500';
+                    renderHilo();
+                    toast('Notificación enviada 🔔');
+                })
+                .catch(function (e) {
+                    console.warn('[notificaciones] no se pudo enviar', e);
+                    mostrarError('No se pudo enviar la notificación. Revisá tu conexión e intentá de nuevo.');
+                })
+                .then(function () { enviando = false; btn.disabled = false; btn.style.opacity = ''; btn.textContent = 'Enviar notificación'; });
+        };
+
+        var ta0 = el('pf-notif-texto');
+        if (ta0) {
+            ta0.addEventListener('input', function () {
+                var c = el('pf-notif-contador'); if (c) c.textContent = ta0.value.length + '/500';
+            });
+            ta0.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); window.pfNotifEnviar(); }
+            });
+        }
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'visible') refrescar(false);
+        });
+    })();
+    </script>
+
 </body>
 </html>
