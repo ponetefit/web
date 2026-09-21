@@ -20,14 +20,22 @@ import time
 import os
 import threading
 import hashlib
+import shutil
+import tempfile
+import mimetypes
 import requests
-from flask import Flask, request, jsonify, session, make_response
+from flask import Flask, request, jsonify, session, make_response, send_file, abort
 from flask_cors import CORS
 
 import firebase_config
 import multi_firebase
 import control_db
 import auth
+
+try:
+    from PIL import Image, ImageOps   # pip: Pillow (para achicar las fotos)
+except Exception:                     # si no esta instalado, la app sigue andando con las fotos originales
+    Image = ImageOps = None
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 CORS(app, supports_credentials=True)
@@ -83,6 +91,164 @@ def cache_fotos(resp):
             and _RE_VERSION_FOTOS.match(request.args.get("v", ""))):
         resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
     return resp
+
+
+# ──────────────────────────────────────────────────────────────
+#  FOTOS LIVIANAS (para que carguen al instante)
+#  - Las fotos de static/img se sirven ya ACHICADAS y COMPRIMIDAS (lado mas largo 1280 px, calidad 72):
+#    una foto de varios MB pasa a pesar unas decenas de KB y no hay diferencia visible en un celular.
+#  - Los originales de static/img NO se tocan: la version optimizada se guarda aparte (carpeta temporal)
+#    y se regenera sola si cambias o agregas una foto.
+#  - Al arrancar el servidor se optimizan todas en segundo plano, asi que ningun alumno espera esa conversion.
+#  - Usa la libreria Pillow. Si no esta instalada, la app la instala sola en segundo plano al arrancar
+#    (no hace falta tocar requirements.txt ni Render). Si no lo logra, se sirven los originales como antes.
+#  - Para comprobar que funciona: abrir  /api/fotos-estado  en el navegador (muestra el peso antes y despues).
+# ──────────────────────────────────────────────────────────────
+FOTOS_MAX_LADO = 1280
+FOTOS_CALIDAD = 72
+FOTOS_OPT_DIR = os.path.join(tempfile.gettempdir(), "pf_fotos_opt")
+_fotos_opt_lock = threading.Lock()
+_pillow_estado = {"instalando": False, "error": ""}
+_pillow_lock = threading.Lock()
+
+
+def _ruta_optimizada(nombre, original):
+    """Ruta donde vive (o vivira) la version liviana de una foto."""
+    st = os.stat(original)
+    return os.path.join(FOTOS_OPT_DIR, "%d-%d-%s" % (st.st_size, st.st_mtime_ns, nombre))
+
+
+def _asegurar_pillow():
+    """Si Pillow no esta instalado, intenta instalarlo solo (una vez, en segundo plano). Devuelve True si queda disponible."""
+    global Image, ImageOps
+    with _pillow_lock:
+        if Image is not None:
+            return True
+        return _instalar_pillow()
+
+
+def _instalar_pillow():
+    global Image, ImageOps
+    _pillow_estado["instalando"] = True
+    try:
+        import subprocess
+        import sys
+        import importlib
+        subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "--disable-pip-version-check", "Pillow"],
+                       check=True, timeout=240, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        importlib.invalidate_caches()
+        from PIL import Image as _Image, ImageOps as _ImageOps
+        Image, ImageOps = _Image, _ImageOps
+        print("[fotos] Pillow instalado: las fotos se van a servir achicadas.")
+        return True
+    except Exception as e:
+        _pillow_estado["error"] = str(e)[:200]
+        print("[fotos] No se pudo instalar Pillow (%s): se sirven las fotos originales." % e)
+        return False
+    finally:
+        _pillow_estado["instalando"] = False
+
+
+def _foto_optimizada(nombre, original):
+    """Devuelve la ruta de la version liviana de la foto (la crea si todavia no existe).
+    Si Pillow no esta disponible, o la original ya es mas liviana, devuelve la original."""
+    if Image is None:
+        return original
+    st = os.stat(original)
+    destino = _ruta_optimizada(nombre, original)
+    if os.path.isfile(destino):
+        return destino
+    with _fotos_opt_lock:
+        if os.path.isfile(destino):
+            return destino
+        os.makedirs(FOTOS_OPT_DIR, exist_ok=True)
+        tmp = "%s.%d.%d.tmp" % (destino, os.getpid(), threading.get_ident())
+        ext = nombre.lower().rsplit(".", 1)[-1]
+        try:
+            with Image.open(original) as im:
+                if ext in ("jpg", "jpeg"):
+                    im.draft("RGB", (FOTOS_MAX_LADO, FOTOS_MAX_LADO))   # decodifica ya reducida: mas rapido y menos memoria
+                im = ImageOps.exif_transpose(im)
+                remuestreo = getattr(Image, "Resampling", Image).LANCZOS
+                im.thumbnail((FOTOS_MAX_LADO, FOTOS_MAX_LADO), remuestreo)   # solo achica, nunca agranda
+                if ext in ("jpg", "jpeg"):
+                    if im.mode != "RGB":
+                        im = im.convert("RGB")
+                    im.save(tmp, "JPEG", quality=FOTOS_CALIDAD, optimize=True, progressive=True)
+                elif ext == "webp":
+                    im.save(tmp, "WEBP", quality=FOTOS_CALIDAD, method=4)
+                else:
+                    im.save(tmp, "PNG", optimize=True)
+            if os.path.getsize(tmp) >= st.st_size:      # ya estaba bien optimizada: se usa tal cual
+                shutil.copyfile(original, tmp)
+            os.replace(tmp, destino)
+        finally:
+            if os.path.exists(tmp):
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+    return destino
+
+
+@app.route("/img/<nombre>")
+def foto(nombre):
+    """Sirve las fotos de static/img en su version liviana (ver bloque FOTOS LIVIANAS)."""
+    if not _RE_NOMBRE_FOTO.match(nombre) or not nombre.lower().endswith(FOTOS_EXTS):
+        abort(404)
+    original = os.path.join(FOTOS_DIR, nombre)
+    if not os.path.isfile(original):
+        abort(404)
+    ruta = original
+    try:
+        ruta = _foto_optimizada(nombre, original)
+    except Exception as e:
+        print("[fotos] no se pudo optimizar %s: %s" % (nombre, e))
+    return send_file(ruta, mimetype=mimetypes.guess_type(nombre)[0] or "image/jpeg", conditional=True)
+
+
+@app.route("/api/fotos-estado")
+def fotos_estado():
+    """Para comprobar que las fotos se estan achicando: abrir /api/fotos-estado en el navegador."""
+    filas = []
+    total_o = total_l = 0
+    for nombre in info_fotos()[1]:
+        original = os.path.join(FOTOS_DIR, nombre)
+        try:
+            o = os.path.getsize(original)
+            destino = _ruta_optimizada(nombre, original)
+            l = os.path.getsize(destino) if os.path.isfile(destino) else None
+        except OSError:
+            continue
+        filas.append({"foto": nombre, "original_kb": round(o / 1024), "liviana_kb": None if l is None else round(l / 1024)})
+        total_o += o
+        total_l += l if l is not None else o
+    datos = {
+        "pillow_instalado": Image is not None,
+        "instalando_pillow": _pillow_estado["instalando"],
+        "error": _pillow_estado["error"],
+        "resumen": "Fotos: %d KB originales -> %d KB que descarga el alumno" % (round(total_o / 1024), round(total_l / 1024)),
+        "fotos": filas,
+    }
+    resp = make_response(json.dumps(datos, indent=2, ensure_ascii=False))
+    resp.headers["Content-Type"] = "application/json; charset=utf-8"
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+def _precalentar_fotos():
+    """Optimiza todas las fotos al arrancar (en segundo plano) para que el primer alumno no espere."""
+    if Image is None and not _asegurar_pillow():
+        return
+    for nombre in info_fotos()[1]:
+        try:
+            _foto_optimizada(nombre, os.path.join(FOTOS_DIR, nombre))
+        except Exception as e:
+            print("[fotos] no se pudo optimizar %s: %s" % (nombre, e))
+
+
+def iniciar_precarga_fotos():
+    threading.Thread(target=_precalentar_fotos, daemon=True).start()
 
 
 # ──────────────────────────────────────────────────────────────
@@ -1525,6 +1691,7 @@ if __name__ == "__main__":
     firebase_config.init_firebase()
     control_db.asegurar_cuenta_master()
     control_db.backfillar_codigos_master()
+    iniciar_precarga_fotos()
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
 else:
@@ -1532,3 +1699,4 @@ else:
     firebase_config.init_firebase()
     control_db.asegurar_cuenta_master()
     control_db.backfillar_codigos_master()
+    iniciar_precarga_fotos()
