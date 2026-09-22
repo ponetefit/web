@@ -889,7 +889,7 @@ var _ultimoScrollTop=_scrollElHdr.scrollTop;var _oculto=false;var _bloqueadoHast
    Hay que encadenar _gestosNecesarios gestos de subida (cada uno de al menos _minPxGesto px netos) sin bajar en el medio.
    Un gesto = una ráfaga de scroll (un swipe/flick con su inercia). Si pasan más de _ventanaGestoMs entre gestos, se reinicia la cuenta.
    Estar cerca del tope (< _umbralActivacion) sigue mostrando el header siempre. Para ajustar la sensibilidad, tocar estas 3 variables. */
-var _gestosNecesarios=3;var _minPxGesto=40;var _ventanaGestoMs=5000;var _gestosSubida=0;var _ultimoGestoTs=0;var _rafagaInicio=null;var _timerFinRafaga=null;
+var _gestosNecesarios=10;var _minPxGesto=40;var _ventanaGestoMs=10000;var _gestosSubida=0;var _ultimoGestoTs=0;var _rafagaInicio=null;var _timerFinRafaga=null;
 function _resetGestos(){_gestosSubida=0;_ultimoGestoTs=0;_rafagaInicio=null;if(_timerFinRafaga){clearTimeout(_timerFinRafaga);_timerFinRafaga=null}}
 function _finRafaga(){_timerFinRafaga=null;var inicio=_rafagaInicio;_rafagaInicio=null;if(!_oculto||inicio===null)return;var neto=inicio-_scrollElHdr.scrollTop;if(neto>=_minPxGesto){var ahora=Date.now();if(ahora-_ultimoGestoTs>_ventanaGestoMs)_gestosSubida=0;_gestosSubida++;_ultimoGestoTs=ahora;if(_gestosSubida>=_gestosNecesarios){_mostrar()}}else if(neto<=-_minPxGesto){_gestosSubida=0}}
 function _altoHeader(){return _headerWrapEl.offsetHeight||0}
@@ -1597,6 +1597,7 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
 .pf-notif-texto{white-space:pre-wrap;word-break:break-word;color:var(--texto,#fff)}
 .pf-notif-hora{margin-top:5px;font-size:.68rem;color:var(--texto-suave,#9494a3);text-align:right}
 .pf-notif-vacio{margin:auto;text-align:center;color:var(--texto-suave,#9494a3);font-size:.9rem;padding:20px}
+.pf-notif-nota{padding:0 16px 8px;font-size:.68rem;color:var(--texto-suave,#9494a3);text-align:center;flex-shrink:0}
 .pf-notif-resp{padding:10px 14px 4px;flex-shrink:0;border-top:1px solid var(--borde-sutil,#1c1c24)}
 .pf-notif-lbl{display:block;font-size:.68rem;font-weight:900;letter-spacing:1.4px;text-transform:uppercase;color:var(--texto-suave,#9494a3);margin-bottom:6px}
 #pf-notif-texto{width:100%;box-sizing:border-box;resize:none;min-height:64px;background:var(--fondo-alt,#050505);color:var(--texto,#fff);border:1.5px solid var(--borde,#2c2c38);border-radius:12px;padding:10px 12px;font:inherit;font-size:16px;outline:0}
@@ -1612,12 +1613,15 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
 <script>
 /* Notificaciones profesor <-> alumno (lado ALUMNO).
    Datos en /api/fb/{codigo}/notificaciones/{alumno}/ :
-     mensajes/{ts}_{rand} = {de:"profesor"|"alumno", texto, ts}
-     vistoAlumno          = ts del último mensaje del profesor que el alumno ya vio
-   El {alumno} es el prefijo del código (ej: "rafa" de "rafa-0001"), igual que usa el profesor. */
+     mensajes/{ts}_{rand} = {de:"profesor"|"alumno", texto, ts, vistoTs?}   (vistoTs = cuándo lo vio el alumno)
+   El {alumno} es el prefijo del código (ej: "rafa" de "rafa-0001"), igual que usa el profesor.
+   VENCIMIENTO en el panel del alumno (VENTANA_MS = 12 h): un mensaje del profesor sin ver no vence; una vez visto,
+   vence 12 h después de verlo o de la última respuesta del alumno. Las respuestas del alumno vencen 12 h después de enviadas.
+   Los mensajes no se borran del servidor: solo se ocultan (el profesor los sigue viendo 24 h). */
 (function pfNotifAlumno(){
   var POLL_MS=30000,LIMITE=40;
-  var msgs=[],visto=0,keyActual="",modalAbierto=false,nuevos={},enviando=false,overlay=null;
+  var VENTANA_MS=12*60*60*1000;
+  var msgs=[],vistosLocal={},keyActual="",modalAbierto=false,nuevos={},enviando=false,overlay=null;
 
   function codigo(){try{return(typeof currentCode!=="undefined"&&currentCode)?String(currentCode):""}catch(e){return""}}
   function clave(){var c=codigo();if(c.indexOf("-")<1)return"";return c.split("-")[0].toLowerCase().trim().replace(/[.#$\[\]\/]/g,"_")}
@@ -1627,11 +1631,21 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
   function toast(m){if(typeof mostrarToast==="function")mostrarToast(m)}
   function normalizar(obj){
     if(!obj||typeof obj!=="object")return[];
-    return Object.keys(obj).map(function(id){var m=obj[id]||{};return{id:id,de:m.de,texto:typeof m.texto==="string"?m.texto:"",ts:Number(m.ts)||0}})
+    return Object.keys(obj).map(function(id){var m=obj[id]||{};return{id:id,de:m.de,texto:typeof m.texto==="string"?m.texto:"",ts:Number(m.ts)||0,vistoTs:Number(m.vistoTs)||vistosLocal[id]||0}})
       .filter(function(m){return m.texto&&(m.de==="profesor"||m.de==="alumno")})
       .sort(function(a,b){return a.ts-b.ts});
   }
-  function noLeidas(){return msgs.filter(function(m){return m.de==="profesor"&&m.ts>visto})}
+  function visibles(){
+    var ahora=Date.now();
+    return msgs.filter(function(m){
+      if(m.de==="alumno")return ahora<m.ts+VENTANA_MS;
+      if(!m.vistoTs)return true;
+      var ancla=m.vistoTs;
+      msgs.forEach(function(r){if(r.de==="alumno"&&r.ts>m.ts&&r.ts>ancla)ancla=r.ts});
+      return ahora<ancla+VENTANA_MS;
+    });
+  }
+  function noLeidas(){return visibles().filter(function(m){return m.de==="profesor"&&!m.vistoTs})}
 
   function actualizarBadge(){
     var n=noLeidas().length;
@@ -1655,25 +1669,22 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
     if(!k)return Promise.resolve();
     if(!forzar&&document.visibilityState==="hidden")return Promise.resolve();
     var q="mensajes.json?orderBy="+encodeURIComponent('"$key"')+"&limitToLast="+LIMITE;
-    return Promise.all([
-      fetch(url(q)).then(function(r){return r.ok?r.json():null}),
-      fetch(url("vistoAlumno.json")).then(function(r){return r.ok?r.json():null})
-    ]).then(function(res){
+    return fetch(url(q)).then(function(r){return r.ok?r.json():null}).then(function(res){
       if(clave()!==k)return;
-      msgs=normalizar(res[0]);
-      visto=Number(res[1])||0;
+      msgs=normalizar(res);
       actualizarBadge();
       if(modalAbierto)renderModal();
     }).catch(function(){});
   }
 
   function marcarVisto(){
-    var max=0;
-    msgs.forEach(function(m){if(m.de==="profesor"&&m.ts>max)max=m.ts});
-    if(max<=visto)return;
-    visto=max;
+    var ahora=Date.now();
+    visibles().forEach(function(m){
+      if(m.de!=="profesor"||m.vistoTs)return;
+      m.vistoTs=ahora;vistosLocal[m.id]=ahora;
+      try{fetch(url("mensajes/"+encodeURIComponent(m.id)+"/vistoTs.json"),{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(ahora)}).catch(function(){})}catch(e){}
+    });
     actualizarBadge();
-    try{fetch(url("vistoAlumno.json"),{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(max)}).catch(function(){})}catch(e){}
   }
 
   function crearModal(){
@@ -1684,6 +1695,7 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
       '<div class="pf-notif-card">'+
         '<div class="pf-notif-head"><span class="pf-notif-ico" aria-hidden="true">🔔</span><h2 id="pf-notif-titulo">Mensaje de tu profesor</h2></div>'+
         '<div class="pf-notif-hilo" id="pf-notif-hilo"></div>'+
+        '<div class="pf-notif-nota">Los mensajes se ocultan 12 horas después de verlos o responderlos.</div>'+
         '<div class="pf-notif-resp">'+
           '<label class="pf-notif-lbl" for="pf-notif-texto">Respondele a tu profe</label>'+
           '<textarea id="pf-notif-texto" maxlength="500" rows="3" placeholder="Escribí tu respuesta..."></textarea>'+
@@ -1703,10 +1715,11 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
     if(!overlay)return;
     var hilo=overlay.querySelector("#pf-notif-hilo");
     noLeidas().forEach(function(m){nuevos[m.id]=true});
-    if(!msgs.length){
-      hilo.innerHTML='<div class="pf-notif-vacio">Todavía no hay mensajes.</div>';
+    var lista=visibles();
+    if(!lista.length){
+      hilo.innerHTML='<div class="pf-notif-vacio">No tenés mensajes nuevos.</div>';
     }else{
-      hilo.innerHTML=msgs.map(function(m){
+      hilo.innerHTML=lista.map(function(m){
         var esProf=m.de==="profesor";
         return'<div class="pf-notif-msg '+(esProf?"prof"+(nuevos[m.id]?" nueva":""):"yo")+'">'+
           '<div class="pf-notif-quien">'+(esProf?"Tu profesor":"Vos")+(esProf&&nuevos[m.id]?'<span class="pf-notif-tag">NUEVA</span>':"")+'</div>'+
@@ -1728,7 +1741,7 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
   function abrir(){
     if(!clave()){toast("No tenés notificaciones nuevas");return}
     refrescar(true).then(function(){
-      if(!msgs.length){toast("No tenés notificaciones nuevas");return}
+      if(!visibles().length){toast("No tenés notificaciones nuevas");return}
       if(!overlay)overlay=crearModal();
       nuevos={};
       mostrarError("");
@@ -1780,7 +1793,7 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
   /* Detecta cuando el alumno entra a una rutina (cambia el código) y arranca a consultar */
   setInterval(function(){
     var k=clave();
-    if(k!==keyActual){keyActual=k;msgs=[];visto=0;nuevos={};actualizarBadge();if(k)refrescar(false)}
+    if(k!==keyActual){keyActual=k;msgs=[];vistosLocal={};nuevos={};actualizarBadge();if(k)refrescar(false)}
   },1000);
   setInterval(function(){refrescar(false)},POLL_MS);
 
