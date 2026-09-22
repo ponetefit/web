@@ -1761,18 +1761,28 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
   }
 
   /* Aviso por mail al profesor cuando el alumno responde una notificación (vía FormSubmit, sin backend propio).
-     No bloquea ni afecta el guardado del mensaje: si el mail falla, la respuesta igual queda guardada. */
+     No bloquea ni afecta el guardado del mensaje: si el mail falla, la respuesta igual queda guardada.
+     Se manda como formulario (FormData), NO como JSON: un body "application/json" obliga al navegador a hacer
+     una consulta previa (CORS preflight) que FormSubmit puede no resolver bien, y el pedido nunca sale
+     (por eso tampoco llega ni el mail de activación). FormData evita ese paso y es el formato que usa FormSubmit
+     por diseño (es un backend de formularios). */
   var FORMSUBMIT_MAIL_PROFESOR="raffa687@gmail.com";
   function _avisarMailProfesor(texto){
     try{
+      var fd=new FormData();
+      fd.append("_subject","Ponete Fit - "+codigo()+" te respondió una notificación");
+      fd.append("_captcha","false");
+      fd.append("_template","table");
+      fd.append("Alumno",codigo());
+      fd.append("Mensaje",texto);
       fetch("https://formsubmit.co/ajax/"+encodeURIComponent(FORMSUBMIT_MAIL_PROFESOR),{
         method:"POST",
-        headers:{"Content-Type":"application/json","Accept":"application/json"},
-        body:JSON.stringify({
-          _subject:"Ponete Fit \u2014 "+codigo()+" te respondió una notificación",
-          Alumno:codigo(),
-          Mensaje:texto
-        })
+        headers:{"Accept":"application/json"},
+        body:fd
+      }).then(function(r){
+        return r.text().then(function(t){
+          try{console.info("[notificaciones] FormSubmit respondió",r.status,t)}catch(_){}
+        });
       }).catch(function(e){try{console.warn("[notificaciones] no se pudo avisar por mail",e)}catch(_){}});
     }catch(e){}
   }
@@ -1816,6 +1826,7 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
   setInterval(function(){refrescar(false)},POLL_MS);
 
   window.pfNotifAbrir=abrir;
+  window.pfNotifProbarMail=function(texto){_avisarMailProfesor(texto||"(mensaje de prueba)")};
 })();
 </script>
 
