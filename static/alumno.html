@@ -1760,6 +1760,23 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
     mostrarError("");
   }
 
+  /* Aviso por mail al profesor cuando el alumno responde una notificación (vía FormSubmit, sin backend propio).
+     No bloquea ni afecta el guardado del mensaje: si el mail falla, la respuesta igual queda guardada. */
+  var FORMSUBMIT_MAIL_PROFESOR="raffa687@gmail.com";
+  function _avisarMailProfesor(texto){
+    try{
+      fetch("https://formsubmit.co/ajax/"+encodeURIComponent(FORMSUBMIT_MAIL_PROFESOR),{
+        method:"POST",
+        headers:{"Content-Type":"application/json","Accept":"application/json"},
+        body:JSON.stringify({
+          _subject:"Ponete Fit \u2014 "+codigo()+" te respondió una notificación",
+          Alumno:codigo(),
+          Mensaje:texto
+        })
+      }).catch(function(e){try{console.warn("[notificaciones] no se pudo avisar por mail",e)}catch(_){}});
+    }catch(e){}
+  }
+
   function enviar(){
     if(enviando||!overlay)return;
     var ta=overlay.querySelector("#pf-notif-texto");
@@ -1780,6 +1797,7 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
         ta.value="";
         renderModal();
         toast("Respuesta enviada");
+        _avisarMailProfesor(msg.texto);
       })
       .catch(function(e){
         try{console.warn("[notificaciones] no se pudo enviar la respuesta",e)}catch(_){}
