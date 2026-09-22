@@ -24,9 +24,6 @@ import shutil
 import tempfile
 import mimetypes
 import requests
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from flask import Flask, request, jsonify, session, make_response, send_file, abort
 from flask_cors import CORS
 
@@ -51,43 +48,55 @@ app.config["SESSION_COOKIE_SECURE"] = os.environ.get("FLASK_ENV") != "developmen
 #  EMAIL (avisos por mail mandados desde el propio backend)
 #  - Antes estos avisos los mandaba el navegador directo a FormSubmit, que
 #    tiene un limite de ~50 mails gratis por mes.
-#  - Ahora los manda el backend por SMTP, sin ese limite (usando Gmail con
-#    "contraseña de aplicacion", SendGrid o Resend como servidor SMTP).
-#  - Se configura con variables de entorno, nada queda hardcodeado en el
-#    codigo:
-#       SMTP_HOST  -> ej: smtp.gmail.com | smtp.sendgrid.net | smtp.resend.com
-#       SMTP_PORT  -> ej: 587
-#       SMTP_USER  -> usuario SMTP (con SendGrid es literal "apikey")
-#       SMTP_PASS  -> password / contraseña de aplicacion / API key
-#       SMTP_FROM  -> remitente que ve el destinatario (por defecto SMTP_USER)
-#  - Si no estan configuradas, no explota: solo loguea el error y sigue,
+#  - Los manda el backend, sin ese limite, pero via la API HTTP de Resend
+#    (https://resend.com) en vez de SMTP: Render bloquea las conexiones
+#    salientes por SMTP (puertos 25/465/587) en sus servicios web para
+#    evitar spam, asi que smtplib nunca puede conectarse ahi (da
+#    "Network is unreachable"). La API de Resend viaja por HTTPS (puerto
+#    443), que es el mismo puerto que usa cualquier fetch normal, asi que
+#    no tiene ese problema.
+#  - Se configura con variables de entorno, nada queda hardcodeado:
+#       RESEND_API_KEY -> tu API key de resend.com (Settings > API Keys)
+#       RESEND_FROM    -> remitente (por defecto "onboarding@resend.dev",
+#                         que Resend deja usar sin verificar dominio propio,
+#                         pero SOLO para mandar a la casilla con la que te
+#                         registraste en Resend. Para mandar a cualquier
+#                         mail hay que verificar un dominio propio en
+#                         Resend y usar un remitente de ese dominio)
+#  - Si no esta configurada, no explota: solo loguea el error y sigue,
 #    para que el resto de la app (registro, login, etc.) no se rompa por
 #    un mail que no pudo salir.
 # ──────────────────────────────────────────────────────────────
 def enviar_email(destinatario, asunto, cuerpo_texto, cuerpo_html=None):
-    host = os.environ.get("SMTP_HOST")
-    port = int(os.environ.get("SMTP_PORT", "587"))
-    usuario = os.environ.get("SMTP_USER")
-    password = os.environ.get("SMTP_PASS")
-    remitente = os.environ.get("SMTP_FROM", usuario)
+    api_key = os.environ.get("RESEND_API_KEY")
+    remitente = os.environ.get("RESEND_FROM", "onboarding@resend.dev")
 
-    if not host or not usuario or not password or not destinatario:
-        print(f"[PonéteFit] SMTP no configurado (o falta destinatario): no se pudo enviar '{asunto}' a {destinatario}")
+    if not api_key or not destinatario:
+        print(f"[PonéteFit] RESEND_API_KEY no configurada (o falta destinatario): no se pudo enviar '{asunto}' a {destinatario}")
         return False
 
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = asunto
-        msg["From"] = remitente
-        msg["To"] = destinatario
-        msg.attach(MIMEText(cuerpo_texto, "plain", "utf-8"))
-        if cuerpo_html:
-            msg.attach(MIMEText(cuerpo_html, "html", "utf-8"))
+    payload = {
+        "from": remitente,
+        "to": [destinatario],
+        "subject": asunto,
+        "text": cuerpo_texto,
+    }
+    if cuerpo_html:
+        payload["html"] = cuerpo_html
 
-        with smtplib.SMTP(host, port, timeout=10) as server:
-            server.starttls()
-            server.login(usuario, password)
-            server.sendmail(remitente, [destinatario], msg.as_string())
+    try:
+        resp = requests.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            },
+            json=payload,
+            timeout=10
+        )
+        if resp.status_code >= 400:
+            print(f"[PonéteFit] Resend respondio con error ({resp.status_code}) enviando a {destinatario}: {resp.text}")
+            return False
         return True
     except Exception as e:
         print(f"[PonéteFit] Error enviando mail a {destinatario}: {e}")
