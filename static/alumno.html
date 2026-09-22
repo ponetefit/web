@@ -1762,29 +1762,40 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
 
   /* Aviso por mail al profesor cuando el alumno responde una notificación (vía FormSubmit, sin backend propio).
      No bloquea ni afecta el guardado del mensaje: si el mail falla, la respuesta igual queda guardada.
-     Se manda como formulario (FormData), NO como JSON: un body "application/json" obliga al navegador a hacer
-     una consulta previa (CORS preflight) que FormSubmit puede no resolver bien, y el pedido nunca sale
-     (por eso tampoco llega ni el mail de activación). FormData evita ese paso y es el formato que usa FormSubmit
-     por diseño (es un backend de formularios). */
+     Se manda como un <form> real, apuntado a un <iframe> invisible (el mismo método que usa cualquier
+     formulario de contacto clásico): eso evita fetch/CORS por completo, que es donde suelen frenarlo
+     los bloqueadores de anuncios/rastreadores del navegador. */
   var FORMSUBMIT_MAIL_PROFESOR="raffa687@gmail.com";
+  var _mailFrame=null,_mailForm=null;
+  function _prepararEnvioMail(){
+    if(_mailFrame)return;
+    _mailFrame=document.createElement("iframe");
+    _mailFrame.name="pf-mail-frame";
+    _mailFrame.style.cssText="position:fixed;width:1px;height:1px;left:-9999px;top:-9999px;border:0";
+    _mailFrame.setAttribute("aria-hidden","true");
+    document.body.appendChild(_mailFrame);
+    _mailForm=document.createElement("form");
+    _mailForm.method="POST";
+    _mailForm.action="https://formsubmit.co/"+encodeURIComponent(FORMSUBMIT_MAIL_PROFESOR);
+    _mailForm.target="pf-mail-frame";
+    _mailForm.style.display="none";
+    function campo(nombre){var i=document.createElement("input");i.type="hidden";i.name=nombre;_mailForm.appendChild(i);return i}
+    _mailForm._fSubject=campo("_subject");
+    campo("_captcha").value="false";
+    campo("_template").value="table";
+    _mailForm._fAlumno=campo("Alumno");
+    _mailForm._fMensaje=campo("Mensaje");
+    document.body.appendChild(_mailForm);
+  }
   function _avisarMailProfesor(texto){
     try{
-      var fd=new FormData();
-      fd.append("_subject","Ponete Fit - "+codigo()+" te respondió una notificación");
-      fd.append("_captcha","false");
-      fd.append("_template","table");
-      fd.append("Alumno",codigo());
-      fd.append("Mensaje",texto);
-      fetch("https://formsubmit.co/ajax/"+encodeURIComponent(FORMSUBMIT_MAIL_PROFESOR),{
-        method:"POST",
-        headers:{"Accept":"application/json"},
-        body:fd
-      }).then(function(r){
-        return r.text().then(function(t){
-          try{console.info("[notificaciones] FormSubmit respondió",r.status,t)}catch(_){}
-        });
-      }).catch(function(e){try{console.warn("[notificaciones] no se pudo avisar por mail",e)}catch(_){}});
-    }catch(e){}
+      _prepararEnvioMail();
+      _mailForm._fSubject.value="Ponete Fit - "+codigo()+" te respondió una notificación";
+      _mailForm._fAlumno.value=codigo();
+      _mailForm._fMensaje.value=texto;
+      _mailForm.submit();
+      try{console.info("[notificaciones] aviso por mail enviado")}catch(_){}
+    }catch(e){try{console.warn("[notificaciones] no se pudo avisar por mail",e)}catch(_){}}
   }
 
   function enviar(){
@@ -1826,7 +1837,7 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
   setInterval(function(){refrescar(false)},POLL_MS);
 
   window.pfNotifAbrir=abrir;
-  window.pfNotifProbarMail=function(texto){_avisarMailProfesor(texto||"(mensaje de prueba)")};
+  window.pfNotifProbarMail=function(texto){_avisarMailProfesor(texto||"(mensaje de prueba)")}; /* para probar sin responder una notificación real: abrí la consola y ejecutá pfNotifProbarMail() */
 })();
 </script>
 
