@@ -24,6 +24,9 @@ import shutil
 import tempfile
 import mimetypes
 import requests
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from flask import Flask, request, jsonify, session, make_response, send_file, abort
 from flask_cors import CORS
 
@@ -43,6 +46,53 @@ CORS(app, supports_credentials=True)
 app.secret_key = os.environ.get("SECRET_KEY", "cambia-esta-clave-en-produccion")
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("FLASK_ENV") != "development"
+
+# ──────────────────────────────────────────────────────────────
+#  EMAIL (avisos por mail mandados desde el propio backend)
+#  - Antes estos avisos los mandaba el navegador directo a FormSubmit, que
+#    tiene un limite de ~50 mails gratis por mes.
+#  - Ahora los manda el backend por SMTP, sin ese limite (usando Gmail con
+#    "contraseña de aplicacion", SendGrid o Resend como servidor SMTP).
+#  - Se configura con variables de entorno, nada queda hardcodeado en el
+#    codigo:
+#       SMTP_HOST  -> ej: smtp.gmail.com | smtp.sendgrid.net | smtp.resend.com
+#       SMTP_PORT  -> ej: 587
+#       SMTP_USER  -> usuario SMTP (con SendGrid es literal "apikey")
+#       SMTP_PASS  -> password / contraseña de aplicacion / API key
+#       SMTP_FROM  -> remitente que ve el destinatario (por defecto SMTP_USER)
+#  - Si no estan configuradas, no explota: solo loguea el error y sigue,
+#    para que el resto de la app (registro, login, etc.) no se rompa por
+#    un mail que no pudo salir.
+# ──────────────────────────────────────────────────────────────
+def enviar_email(destinatario, asunto, cuerpo_texto, cuerpo_html=None):
+    host = os.environ.get("SMTP_HOST")
+    port = int(os.environ.get("SMTP_PORT", "587"))
+    usuario = os.environ.get("SMTP_USER")
+    password = os.environ.get("SMTP_PASS")
+    remitente = os.environ.get("SMTP_FROM", usuario)
+
+    if not host or not usuario or not password or not destinatario:
+        print(f"[PonéteFit] SMTP no configurado (o falta destinatario): no se pudo enviar '{asunto}' a {destinatario}")
+        return False
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = asunto
+        msg["From"] = remitente
+        msg["To"] = destinatario
+        msg.attach(MIMEText(cuerpo_texto, "plain", "utf-8"))
+        if cuerpo_html:
+            msg.attach(MIMEText(cuerpo_html, "html", "utf-8"))
+
+        with smtplib.SMTP(host, port, timeout=10) as server:
+            server.starttls()
+            server.login(usuario, password)
+            server.sendmail(remitente, [destinatario], msg.as_string())
+        return True
+    except Exception as e:
+        print(f"[PonéteFit] Error enviando mail a {destinatario}: {e}")
+        return False
+
 
 # ──────────────────────────────────────────────────────────────
 #  FOTOS (static/img)
@@ -475,21 +525,19 @@ def api_registro():
 
         account_id, cuenta = control_db.crear_solicitud_cuenta(email, password, quiere_videoteca)
 
-        try:
-            requests.post(
-                f"https://formsubmit.co/ajax/{control_db.MASTER_EMAIL}",
-                headers={"Content-Type": "application/json", "Accept": "application/json"},
-                json={
-                    "_subject": "PONETE FIT - Nueva solicitud de cuenta de profesor",
-                    "mensaje": f"Se registro una cuenta nueva que necesita tu aprobacion: {cuenta['email']}",
-                    "quiere_heredar_videoteca": "Si" if quiere_videoteca else "No",
-                    "aprobar_en": "https://TU-DOMINIO-EN-RENDER/admin",
-                    "account_id": account_id
-                },
-                timeout=10
+        # El aviso por mail es informativo: si falla, no bloquea el registro.
+        enviar_email(
+            control_db.MASTER_EMAIL,
+            "PONETE FIT - Nueva solicitud de cuenta de profesor",
+            "Se registro una cuenta nueva que necesita tu aprobacion: {}\n"
+            "Quiere heredar videoteca: {}\n"
+            "Aprobar en: https://TU-DOMINIO-EN-RENDER/admin\n"
+            "account_id: {}".format(
+                cuenta["email"],
+                "Si" if quiere_videoteca else "No",
+                account_id
             )
-        except Exception:
-            pass  # el aviso por mail es informativo, no bloquea el registro
+        )
 
         return jsonify({
             "ok": True,
@@ -1667,8 +1715,8 @@ def fb_proxy(codigo, subpath):
 @app.route("/api/fb-meta/<codigo>", methods=["GET"])
 def fb_meta(codigo):
     """Datos publicos minimos de la cuenta duena de un codigo (el mail del
-    profesor para el aviso via FormSubmit, y las funciones activadas para
-    esa cuenta, para que alumno.html sepa que mostrar)."""
+    profesor, usado por el backend para los avisos por mail, y las funciones
+    activadas para esa cuenta, para que alumno.html sepa que mostrar)."""
     try:
         account_id = control_db.cuenta_de_codigo(codigo)
         if not account_id:
@@ -1679,6 +1727,44 @@ def fb_meta(codigo):
             "email": (cuenta or {}).get("email", control_db.MASTER_EMAIL),
             "features": (cuenta or {}).get("features") or {}
         })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/avisar-alumno", methods=["POST"])
+def api_avisar_alumno():
+    """Le avisa por mail al profesor dueño del codigo que un alumno entro a
+    su rutina. Antes este aviso lo mandaba el navegador del alumno directo
+    a FormSubmit (limitado a ~50 mails/mes); ahora lo manda el backend por
+    SMTP (ver enviar_email), sin ese limite y sin depender del navegador."""
+    try:
+        body = request.json or {}
+        codigo = (body.get("codigo") or "").strip().lower()
+        nombre = (body.get("nombre") or "").strip()
+        mensaje = (body.get("mensaje") or "").strip()  # solo cuando es respuesta a una notificacion
+        if not codigo:
+            return jsonify({"ok": False, "error": "Falta el codigo"}), 400
+
+        account_id = control_db.cuenta_de_codigo(codigo)
+        cuenta = control_db.obtener_cuenta(account_id) if account_id else None
+        email_profesor = (cuenta or {}).get("email", control_db.MASTER_EMAIL)
+
+        fecha_hora = time.strftime("%d/%m/%Y %H:%M:%S")
+        if mensaje:
+            enviar_email(
+                email_profesor,
+                f"Ponete Fit - {codigo} te respondió una notificación",
+                f"Alumno: {codigo}\nMensaje: {mensaje}\nFecha: {fecha_hora}"
+            )
+        else:
+            enviar_email(
+                email_profesor,
+                "PonéteFit: un alumno entró a su rutina",
+                f"Alumno: {nombre or '(sin nombre)'}\nCodigo: {codigo}\nFecha: {fecha_hora}"
+            )
+        # Siempre 200: es un aviso informativo, no queremos que el alumno
+        # vea ningun error aunque el mail no haya podido salir.
+        return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
