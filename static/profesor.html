@@ -6816,12 +6816,28 @@
         if (card) card.classList.add('hidden');
     }
 
-    // Limpia el borrador (se llama tras compartir o guardar en repositorio con exito)
+    // Limpia el borrador (se llama tras guardar en repositorio con exito)
     function _pfLimpiarBorrador() {
         try { localStorage.removeItem(PF_BORRADOR_KEY); } catch (e) {}
         _pfUltimoBorradorGuardado = '';
         const card = document.getElementById('borrador-card');
         if (card) card.classList.add('hidden');
+    }
+
+    // Se llama tras COMPARTIR una rutina con exito: deja el formulario de
+    // "Crear Rutina" en blanco y listo para la proxima, sin necesidad de
+    // actualizar (F5) la pagina. A diferencia de _pfLimpiarBorrador(), esta
+    // funcion NO borra el borrador guardado en localStorage: la rutina que
+    // se acaba de compartir queda siempre disponible para recuperarla desde
+    // el banner "Borrador sin guardar" si hiciera falta.
+    function _pfResetFormularioTrasCompartir() {
+        _pfCodigoEditando = null;
+        diasData = [];
+        initMultiDia();
+        const alumnoEl = document.getElementById('alumno-nombre');
+        const descEl = document.getElementById('rutina-desc');
+        if (alumnoEl) alumnoEl.value = '';
+        if (descEl) descEl.value = '';
     }
 
     // ====================================================================
@@ -9827,8 +9843,7 @@
                         ? (semanasAEnviar.length + ' semanas nuevas guardadas en ' + _pfCodigoEditando.toUpperCase() + ' (hasta Semana ' + ultimaGuardada + ') 🎉')
                         : ('Semana ' + ultimaGuardada + ' guardada en ' + _pfCodigoEditando.toUpperCase() + ' 🎉');
                     toast(msg);
-                    _pfCodigoEditando = null;
-                    _pfLimpiarBorrador();
+                    _pfResetFormularioTrasCompartir();
                     showTab('historial');
                 } catch (eSemana) {
                     toast('Error de conexión al guardar la semana');
@@ -9937,8 +9952,7 @@
                 } catch(e) {}
                 document.getElementById('modal-codigo').classList.remove('hidden');
                 toast('Rutina compartida!');
-                _pfLimpiarBorrador();
-                _pfResetSemanasBorrador();
+                _pfResetFormularioTrasCompartir();
             } else {
                 toast('Error: ' + data.error);
             }
