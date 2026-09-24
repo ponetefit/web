@@ -2767,6 +2767,7 @@
                     <span class="text-xs font-bold text-textoSuave uppercase tracking-wider flex-shrink-0">📅 Semanas</span>
                     <div id="pf-semanas-lista" class="overflow-x-auto flex items-center gap-1.5 flex-1 min-w-0 pb-0.5" style="-webkit-overflow-scrolling:touch;scrollbar-width:none;"></div>
                     <button id="pf-semana-eliminar" onclick="_pfEliminarSemanaActiva()" title="Eliminar esta semana" class="hidden flex-shrink-0 px-2.5 py-2 rounded-xl border border-rojo/40 text-rojo text-xs font-bold">🗑</button>
+                    <button id="pf-semana-progresion" onclick="_pfSugerirProgresionIA()" title="Sugerir progresión de series/reps en base a la semana anterior" class="hidden flex-shrink-0 px-3 py-2 rounded-xl text-white text-xs font-bold uppercase whitespace-nowrap" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);">🤖 Sugerir progresión</button>
                     <button id="pf-semana-agregar-desktop" onclick="_pfAgregarSemanaEnCreacion()" class="hidden sm:inline-block flex-shrink-0 px-3 py-2 rounded-xl bg-verde text-white text-xs font-bold uppercase whitespace-nowrap">+ Agregar semana</button>
                 </div>
                 <button id="pf-semana-agregar-mobile" onclick="_pfAgregarSemanaEnCreacion()" class="sm:hidden w-full mt-2.5 py-2.5 rounded-xl bg-verde text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5">
@@ -3382,6 +3383,23 @@
     .piz-ej-vt    { border:1px solid rgba(105,240,174,.25); background:rgba(105,240,174,.04); }
     .piz-ej-no    { border:1px solid rgba(255,107,53,.25);  background:rgba(255,107,53,.04);  }
     </style>
+
+    <!-- Modal: Sugerencia de progresión semanal con IA (revisar antes de aplicar) -->
+    <div id="modal-ia-progresion" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-tarjeta rounded-3xl border w-full max-w-lg" style="border-color:#7c3aed55; box-shadow:0 0 40px rgba(124,58,237,0.25); max-height:85vh; display:flex; flex-direction:column;">
+            <div class="flex items-center justify-between p-6 pb-3">
+                <h3 class="text-sm font-black text-texto uppercase tracking-widest">🤖 Progresión sugerida</h3>
+                <button onclick="_pfCancelarProgresionIA()" class="text-textoSuave hover:text-texto text-2xl leading-none">&times;</button>
+            </div>
+            <p class="text-xs text-textoSuave px-6 pb-2">Revisá los cambios antes de aplicarlos. Después podés seguir ajustando cada ejercicio a mano.</p>
+            <div id="ia-progresion-lista" class="space-y-2 px-6 overflow-y-auto flex-1"></div>
+            <p id="ia-progresion-nota" class="text-xs text-textoSuave px-6 pt-2"></p>
+            <div class="flex gap-3 p-6 pt-4">
+                <button onclick="_pfCancelarProgresionIA()" class="flex-1 py-2.5 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
+                <button onclick="_pfAplicarProgresionIA()" class="flex-1 py-2.5 rounded-xl text-white font-bold text-sm" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);">Aplicar cambios</button>
+            </div>
+        </div>
+    </div>
 
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- MODAL: CONFIGURAR RUTINA CON IA                                -->
@@ -9574,6 +9592,401 @@
             }
         }
         document.getElementById('pf-semana-eliminar').classList.toggle('hidden', totalSemanas <= 1);
+        // "Sugerir progresión" solo tiene sentido si estamos parados en una semana
+        // que se creó a partir de otra anterior (semanaActivaIdx >= 1): ahí es
+        // donde diasData todavía tiene la copia exacta de la semana previa, lista
+        // para que la IA le suba reps/series antes de que el profe la edite a mano.
+        const btnProgresion = document.getElementById('pf-semana-progresion');
+        if (btnProgresion) btnProgresion.classList.toggle('hidden', semanaActivaIdx < 1);
+    }
+
+    // ====================================================================
+    // PROGRESIÓN SEMANAL SUGERIDA POR IA
+    // --------------------------------------------------------------------
+    // Cuando el profe crea una semana nueva (mismos ejercicios que la
+    // anterior, para editar series/reps/pausa/tiempos), este motor propone
+    // automáticamente cómo subir la exigencia, con una regla distinta por
+    // cada sistema de entrenamiento. Si la rutina ya fue compartida y el
+    // alumno viene registrando cargas reales en su app (Balance Muscular),
+    // se usa esa tendencia real para no exigir de más a alguien que viene
+    // bajando el peso que usa (aplica a Series y Circuito por vueltas).
+    // ====================================================================
+
+    // --- Series / Circuito (por vueltas): escalera de reps 6→8→10→12→15.
+    // Al subir de escalón también baja la pausa 15seg (piso 30seg). Al
+    // llegar al techo (15), en vez de seguir sumando reps se suma una
+    // serie (o una vuelta, en Circuito) cada semana siguiente.
+    const _IA_REPS_BUCKETS = [6, 8, 10, 12, 15];
+    const _IA_PROG_PAUSA_DECREMENTO = 15;
+    const _IA_PROG_PAUSA_PISO = 30;
+    const _IA_PROG_MAX_SERIES = 6;
+    const _IA_PROG_MAX_VUELTAS = 6;
+
+    // --- Por Tiempo / Circuito por Tiempo / Sumando Ejercicio: +2 reps por
+    // semana, con un techo de seguridad (no especificaron uno propio).
+    const _IA_PROG_INCREMENTO_SIMPLE = 2;
+    const _IA_PROG_TECHO_SIMPLE = 20;
+
+    // --- Tabata: sube el trabajo de a 5seg hasta 40seg; al llegar ahí,
+    // en vez de seguir subiendo el trabajo empieza a subir la pausa.
+    const _IA_TABATA_TRABAJO_TECHO = 40;
+    const _IA_TABATA_INCREMENTO = 5;
+    const _IA_TABATA_PAUSA_TECHO = 20;
+
+    // --- EMOM: +2 reps por ejercicio hasta un techo de 15; al llegar ahí,
+    // en vez de seguir subiendo reps se suma 1 minuto más por ejercicio
+    // del ciclo (una vuelta completa más al EMOM).
+    const _IA_EMOM_REPS_TECHO = 15;
+    const _IA_EMOM_INCREMENTO = 2;
+
+    let _iaProgresionPendiente = null; // { diasNuevo, cambios, sinTocar } a la espera de confirmación
+
+    // Trae el historial real de cargas (peso que el alumno fue registrando)
+    // para el código que se está editando. Si la rutina todavía no se
+    // compartió, o falla la conexión, devuelve {} y el motor sigue
+    // funcionando solo con la heurística de reps/series.
+    async function _iaObtenerCargasParaProgresion() {
+        if (!_pfCodigoEditando) return {};
+        try {
+            const res = await fetch(API_BASE + '/api/cargas/' + encodeURIComponent(_pfCodigoEditando));
+            const data = await res.json();
+            return (data && data.ok && data.cargas && data.cargas.historial) ? data.cargas.historial : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    // Mirando los últimos 2 registros reales de un ejercicio puntual, dice
+    // si el alumno viene subiendo, estancado o bajando el peso que usa.
+    // Devuelve null si no hay suficientes datos para opinar.
+    function _iaTendenciaCarga(historialEj) {
+        if (!historialEj) return null;
+        const registros = Object.values(historialEj)
+            .filter(r => r && r.v !== undefined && r.v !== null)
+            .sort((a, b) => (a.t || 0) - (b.t || 0));
+        if (registros.length < 2) return null;
+        const ultimo = registros[registros.length - 1].v;
+        const anterior = registros[registros.length - 2].v;
+        if (ultimo > anterior) return 'subiendo';
+        if (ultimo < anterior) return 'bajando';
+        return 'estancado';
+    }
+
+    // Da el próximo escalón de la escalera de reps (6→8→10→12→15), o null
+    // si ya está en el techo (15) o por encima.
+    function _iaSiguienteRepsBucket(actual) {
+        for (let i = 0; i < _IA_REPS_BUCKETS.length; i++) {
+            if (_IA_REPS_BUCKETS[i] > actual) return _IA_REPS_BUCKETS[i];
+        }
+        return null;
+    }
+
+    // Progresión para UN ejercicio de un bloque tipo "Series" (el más común
+    // para fuerza/hipertrofia: series x reps x pausa por ejercicio).
+    //   · reps < 15  → sube al próximo escalón (6/8/10/12/15) y baja la
+    //                  pausa 15seg (piso 30seg).
+    //   · reps = 15  → suma 1 serie por semana (reps y pausa quedan fijas;
+    //                  el profe sube el peso a mano).
+    function _iaProgresarEjercicioSeries(ej, tendencia) {
+        const repsNum = parseInt(ej.reps);
+        if (isNaN(repsNum)) return null; // reps con formato no numérico: no tocar
+        const series = parseInt(ej.series) || 3;
+        const techo = _IA_REPS_BUCKETS[_IA_REPS_BUCKETS.length - 1];
+
+        if (tendencia === 'bajando') {
+            return { nombre: ej.nombre, cambio: 'Se mantiene igual — viene bajando el peso, dale una semana de estabilidad' };
+        }
+
+        if (repsNum >= techo) {
+            if (series < _IA_PROG_MAX_SERIES) {
+                const nuevaSerie = series + 1;
+                ej.series = nuevaSerie;
+                if (Array.isArray(ej.reps_por_serie)) ej.reps_por_serie = new Array(nuevaSerie).fill(String(repsNum));
+                if (Array.isArray(ej.pausa_por_serie)) ej.pausa_por_serie = new Array(nuevaSerie).fill(String(ej.descanso || '30'));
+                return { nombre: ej.nombre, cambio: series + '→' + nuevaSerie + ' series (reps y pausa quedan igual — la próxima subile el peso 💪)' };
+            }
+            return { nombre: ej.nombre, cambio: 'Al techo de series sugerido — hay que subirle el peso a mano' };
+        }
+
+        const nuevaReps = _iaSiguienteRepsBucket(repsNum);
+        if (nuevaReps === null) return null;
+        ej.reps = String(nuevaReps);
+        if (Array.isArray(ej.reps_por_serie) && ej.reps_por_serie.length) {
+            ej.reps_por_serie = ej.reps_por_serie.map(() => String(nuevaReps));
+        }
+        let cambioTxt = repsNum + '→' + nuevaReps + ' reps';
+        const descansoNum = parseInt(ej.descanso);
+        if (!isNaN(descansoNum) && descansoNum > _IA_PROG_PAUSA_PISO) {
+            const nuevaPausa = Math.max(descansoNum - _IA_PROG_PAUSA_DECREMENTO, _IA_PROG_PAUSA_PISO);
+            ej.descanso = String(nuevaPausa);
+            if (Array.isArray(ej.pausa_por_serie) && ej.pausa_por_serie.length) {
+                ej.pausa_por_serie = ej.pausa_por_serie.map(() => String(nuevaPausa));
+            }
+            cambioTxt += ' · pausa ' + descansoNum + 's→' + nuevaPausa + 's';
+        }
+        return { nombre: ej.nombre, cambio: cambioTxt };
+    }
+
+    // Progresión para un bloque tipo "Circuito" (por vueltas). Misma
+    // escalera de reps que Series, pero vueltas y pausa entre vueltas son
+    // del bloque (no de cada ejercicio), así que se manejan una sola vez
+    // para todo el bloque: baja la pausa mientras algún ejercicio todavía
+    // sube de escalón, y recién suma una vuelta cuando TODOS los
+    // ejercicios del circuito ya están en el techo de reps.
+    function _iaProgresarBloqueCircuito(bloque, cargas) {
+        const ejercicios = bloque.ejercicios || [];
+        if (ejercicios.length === 0) return [];
+        const techo = _IA_REPS_BUCKETS[_IA_REPS_BUCKETS.length - 1];
+        const cambios = [];
+
+        const todosEnTechoAntes = ejercicios.every(ej => {
+            const r = parseInt(ej.reps);
+            return !isNaN(r) && r >= techo;
+        });
+
+        if (todosEnTechoAntes) {
+            const vueltasActuales = parseInt(bloque.vueltas) || 3;
+            if (vueltasActuales < _IA_PROG_MAX_VUELTAS) {
+                bloque.vueltas = vueltasActuales + 1;
+                cambios.push({ nombre: '🔁 Bloque Circuito', cambio: vueltasActuales + '→' + bloque.vueltas + ' vueltas (todos los ejercicios llegaron al techo de ' + techo + ' reps — la próxima subile el peso 💪)' });
+            } else {
+                cambios.push({ nombre: '🔁 Bloque Circuito', cambio: 'Al techo de vueltas sugerido — hay que subir el peso a mano' });
+            }
+            return cambios;
+        }
+
+        let huboAvanceReps = false;
+        ejercicios.forEach(ej => {
+            const repsNum = parseInt(ej.reps);
+            if (isNaN(repsNum)) return;
+            const tendencia = _iaTendenciaCarga(cargas[_pfNormNombreEj(ej.nombre)]);
+            if (tendencia === 'bajando') {
+                cambios.push({ nombre: ej.nombre, cambio: 'Se mantiene igual — viene bajando el peso, dale una semana de estabilidad' });
+                return;
+            }
+            const nuevaReps = _iaSiguienteRepsBucket(repsNum);
+            if (nuevaReps === null) return; // este ya está en el techo, espera al resto
+            ej.reps = String(nuevaReps);
+            if (Array.isArray(ej.reps_por_vuelta) && ej.reps_por_vuelta.length) {
+                ej.reps_por_vuelta = ej.reps_por_vuelta.map(() => String(nuevaReps));
+            }
+            cambios.push({ nombre: ej.nombre, cambio: repsNum + '→' + nuevaReps + ' reps/vuelta' });
+            huboAvanceReps = true;
+        });
+
+        if (huboAvanceReps) {
+            const pausaActual = parseInt(bloque.pausa_vuelta);
+            if (!isNaN(pausaActual) && pausaActual > _IA_PROG_PAUSA_PISO) {
+                const nuevaPausa = Math.max(pausaActual - _IA_PROG_PAUSA_DECREMENTO, _IA_PROG_PAUSA_PISO);
+                bloque.pausa_vuelta = nuevaPausa;
+                cambios.push({ nombre: '⏸ Pausa entre vueltas', cambio: pausaActual + 's→' + nuevaPausa + 's' });
+            }
+        }
+        return cambios;
+    }
+
+    // Progresión simple (+2 reps, techo 20) para Por Tiempo, Circuito por
+    // Tiempo y Sumando Ejercicio: sistemas sin "series" propias donde no
+    // hay techo definido por el profe, así que solo se suma volumen.
+    function _iaProgresarEjercicioSimple(ej, notaExtra) {
+        const repsNum = parseInt(ej.reps);
+        if (isNaN(repsNum)) return null;
+        if (repsNum >= _IA_PROG_TECHO_SIMPLE) {
+            return { nombre: ej.nombre, cambio: 'Ya está en el techo sugerido (' + _IA_PROG_TECHO_SIMPLE + ' reps)' + (notaExtra ? ' — ' + notaExtra : '') };
+        }
+        const nuevaReps = Math.min(repsNum + _IA_PROG_INCREMENTO_SIMPLE, _IA_PROG_TECHO_SIMPLE);
+        ej.reps = String(nuevaReps);
+        return { nombre: ej.nombre, cambio: repsNum + '→' + nuevaReps + ' reps' + (notaExtra ? ' (' + notaExtra + ')' : '') };
+    }
+
+    // Tabata: sube el trabajo 5seg por semana (20→25→30→35→40); al llegar a
+    // 40seg, en vez de seguir subiendo el trabajo sube la pausa 5seg.
+    function _iaProgresarTabata(bloque) {
+        const trabajo = parseInt(bloque.trabajo) || 20;
+        const pausa = parseInt(bloque.pausa) || 10;
+        if (trabajo < _IA_TABATA_TRABAJO_TECHO) {
+            const nuevoTrabajo = Math.min(trabajo + _IA_TABATA_INCREMENTO, _IA_TABATA_TRABAJO_TECHO);
+            bloque.trabajo = nuevoTrabajo;
+            return { nombre: '🥊 Bloque Tabata', cambio: trabajo + 'seg×' + pausa + 'seg → ' + nuevoTrabajo + 'seg×' + pausa + 'seg de trabajo' };
+        }
+        if (pausa < _IA_TABATA_PAUSA_TECHO) {
+            const nuevaPausa = Math.min(pausa + _IA_TABATA_INCREMENTO, _IA_TABATA_PAUSA_TECHO);
+            bloque.pausa = nuevaPausa;
+            return { nombre: '🥊 Bloque Tabata', cambio: 'Techo de trabajo (' + _IA_TABATA_TRABAJO_TECHO + 'seg) alcanzado → sube la pausa: ' + trabajo + 'seg×' + pausa + 'seg → ' + trabajo + 'seg×' + nuevaPausa + 'seg' };
+        }
+        return { nombre: '🥊 Bloque Tabata', cambio: 'Ya está al máximo sugerido (40seg×20seg) — hay que subir dificultad a mano' };
+    }
+
+    // EMOM: +2 reps por ejercicio del ciclo hasta 15; al llegar ahí, en vez
+    // de seguir subiendo reps se agrega 1 minuto más por ejercicio del
+    // ciclo (una vuelta completa más). Ej: 30 min con 5 ejercicios → 35 min.
+    function _iaProgresarEmom(bloque) {
+        const ciclo = bloque.emom_ciclo_minutos || (bloque.emom_config_por_minuto ? bloque.emom_config_por_minuto.length : 1) || 1;
+        const configActual = bloque.emom_config_por_minuto || [];
+        if (configActual.length === 0) return [];
+
+        // Patrón base = las primeras `ciclo` entradas (una copia editable).
+        const patronBase = [];
+        for (let i = 0; i < ciclo; i++) {
+            const minuto = configActual[i] || { ejercicios: [] };
+            patronBase.push(JSON.parse(JSON.stringify(minuto.ejercicios || [])));
+        }
+
+        let hayNumericos = false;
+        let todosEnTecho = true;
+        patronBase.forEach(ejsMin => ejsMin.forEach(ej => {
+            const repsNum = parseInt(ej.reps);
+            if (isNaN(repsNum)) return; // ejercicios por segundos: no se tocan
+            hayNumericos = true;
+            if (repsNum < _IA_EMOM_REPS_TECHO) todosEnTecho = false;
+        }));
+        if (!hayNumericos) return [];
+
+        const cambios = [];
+        if (!todosEnTecho) {
+            patronBase.forEach(ejsMin => ejsMin.forEach(ej => {
+                const repsNum = parseInt(ej.reps);
+                if (isNaN(repsNum)) return;
+                const nuevo = Math.min(repsNum + _IA_EMOM_INCREMENTO, _IA_EMOM_REPS_TECHO);
+                if (nuevo !== repsNum) {
+                    cambios.push({ nombre: ej.nombre, cambio: repsNum + '→' + nuevo + ' reps (EMOM)' });
+                    ej.reps = String(nuevo);
+                }
+            }));
+        } else {
+            const minutosActuales = bloque.minutos_totales || ciclo;
+            const minutosNuevo = minutosActuales + ciclo;
+            bloque.minutos_totales = minutosNuevo;
+            cambios.push({ nombre: '⏱ Bloque EMOM', cambio: 'Llegó al techo de ' + _IA_EMOM_REPS_TECHO + ' reps por ejercicio → se suma 1 minuto más por ejercicio (' + minutosActuales + ' → ' + minutosNuevo + ' min)' });
+        }
+
+        // Reconstruye emom_config_por_minuto repitiendo el patrón (ya
+        // actualizado) a lo largo de los minutos totales del bloque.
+        const nuevoConfig = [];
+        const todosEjs = [];
+        for (let m = 0; m < bloque.minutos_totales; m++) {
+            const ejsData = JSON.parse(JSON.stringify(patronBase[m % ciclo] || []));
+            nuevoConfig.push({ minuto: m + 1, ejercicios_cantidad: ejsData.length, ejercicios_nombres: ejsData.map(e => e.nombre), ejercicios: ejsData });
+            ejsData.forEach(e => { if (!todosEjs.some(x => x.nombre === e.nombre)) todosEjs.push(e); });
+        }
+        bloque.emom_config_por_minuto = nuevoConfig;
+        bloque.ejercicios_por_minuto = nuevoConfig.reduce((mx, m) => Math.max(mx, m.ejercicios_cantidad), 1);
+        bloque.ejercicios = todosEjs;
+        bloque.emom_ciclo_minutos = ciclo;
+        return cambios;
+    }
+
+    // Punto de entrada: botón "🤖 Sugerir progresión". Trabaja sobre una
+    // COPIA de diasData (no toca nada todavía) y muestra un modal de
+    // revisión; los cambios recién se aplican si el profe confirma.
+    async function _pfSugerirProgresionIA() {
+        const hayBloques = diasData.some(d => (d.bloquesRutina || []).length > 0);
+        if (!hayBloques) { toast('No hay bloques cargados para sugerir progresión'); return; }
+
+        const btn = document.getElementById('pf-semana-progresion');
+        const btnTextoOriginal = btn ? btn.textContent : '';
+        if (btn) { btn.disabled = true; btn.textContent = 'Analizando...'; }
+
+        let cargas = {};
+        try {
+            cargas = await _iaObtenerCargasParaProgresion();
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = btnTextoOriginal; }
+        }
+
+        const diasNuevo = JSON.parse(JSON.stringify(diasData));
+        const cambios = [];
+        let sinTocar = 0;
+
+        diasNuevo.forEach((dia, di) => {
+            const diaLabel = dia.titulo || ('Día ' + (di + 1));
+            (dia.bloquesRutina || []).forEach((bloque) => {
+                if (bloque.tipo === 'Series') {
+                    (bloque.ejercicios || []).forEach(ej => {
+                        const tendencia = _iaTendenciaCarga(cargas[_pfNormNombreEj(ej.nombre)]);
+                        const r = _iaProgresarEjercicioSeries(ej, tendencia);
+                        if (r) cambios.push(Object.assign({ dia: diaLabel }, r));
+                        else sinTocar++;
+                    });
+                } else if (bloque.tipo === 'Circuito') {
+                    const rs = _iaProgresarBloqueCircuito(bloque, cargas);
+                    if (rs.length) rs.forEach(r => cambios.push(Object.assign({ dia: diaLabel }, r)));
+                    else sinTocar += (bloque.ejercicios || []).length;
+                } else if (bloque.tipo === 'Por Tiempo') {
+                    (bloque.ejercicios || []).forEach(ej => {
+                        const r = _iaProgresarEjercicioSimple(ej, 'sube el cronómetro también un poco si notás que le sobra tiempo');
+                        if (r) cambios.push(Object.assign({ dia: diaLabel }, r));
+                        else sinTocar++;
+                    });
+                } else if (bloque.tipo === 'Circuito por Tiempo') {
+                    (bloque.ejercicios || []).forEach(ej => {
+                        const r = _iaProgresarEjercicioSimple(ej, null);
+                        if (r) cambios.push(Object.assign({ dia: diaLabel }, r));
+                        else sinTocar++;
+                    });
+                } else if (bloque.tipo === 'Sumando Ejercicio') {
+                    (bloque.ejercicios || []).forEach(ej => {
+                        const r = _iaProgresarEjercicioSimple(ej, 'o considerá sumar un ejercicio más a la cadena');
+                        if (r) cambios.push(Object.assign({ dia: diaLabel }, r));
+                        else sinTocar++;
+                    });
+                } else if (bloque.tipo === 'Tabata') {
+                    const r = _iaProgresarTabata(bloque);
+                    if (r) cambios.push(Object.assign({ dia: diaLabel }, r));
+                    else sinTocar += (bloque.ejercicios || []).length;
+                } else if (bloque.tipo === 'EMOM') {
+                    const rs = _iaProgresarEmom(bloque);
+                    if (rs.length) rs.forEach(r => cambios.push(Object.assign({ dia: diaLabel }, r)));
+                    else sinTocar += (bloque.ejercicios || []).length;
+                } else {
+                    sinTocar += (bloque.ejercicios || []).length;
+                }
+            });
+        });
+
+        if (cambios.length === 0) {
+            toast('No encontré ejercicios con datos numéricos para progresar automáticamente');
+            return;
+        }
+
+        _iaProgresionPendiente = { diasNuevo, cambios, sinTocar };
+        _pfMostrarModalProgresionIA(cambios, sinTocar, Object.keys(cargas).length > 0);
+    }
+
+    function _pfMostrarModalProgresionIA(cambios, sinTocar, usoCargasReales) {
+        const lista = document.getElementById('ia-progresion-lista');
+        if (lista) {
+            lista.innerHTML = cambios.map(c => (
+                '<div class="rounded-xl p-3 text-xs" style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.25)">' +
+                    '<p class="text-textoSuave">' + escapeHtml(c.dia) + '</p>' +
+                    '<p class="font-bold text-texto">' + escapeHtml(c.nombre || 'Ejercicio') + '</p>' +
+                    '<p class="text-verde">' + escapeHtml(c.cambio) + '</p>' +
+                '</div>'
+            )).join('');
+        }
+        const nota = document.getElementById('ia-progresion-nota');
+        if (nota) {
+            let txt = sinTocar > 0 ? (sinTocar + ' ejercicio(s) no se pudieron progresar automáticamente (reps/tiempos en formato no numérico): revisalos a mano.') : '';
+            if (usoCargasReales) txt = '📊 Se tuvo en cuenta el peso real que el alumno viene registrando. ' + txt;
+            nota.textContent = txt;
+        }
+        document.getElementById('modal-ia-progresion').classList.remove('hidden');
+    }
+
+    function _pfCancelarProgresionIA() {
+        _iaProgresionPendiente = null;
+        document.getElementById('modal-ia-progresion').classList.add('hidden');
+    }
+
+    function _pfAplicarProgresionIA() {
+        if (!_iaProgresionPendiente) return;
+        diasData = _iaProgresionPendiente.diasNuevo;
+        const totalCambios = _iaProgresionPendiente.cambios.length;
+        _iaProgresionPendiente = null;
+        document.getElementById('modal-ia-progresion').classList.add('hidden');
+        renderDias();
+        diasData.forEach((_, i) => toggleDia(i, true));
+        toast('Progresión aplicada en ' + totalCambios + ' ejercicio(s) ✅ — revisala antes de compartir');
     }
 
     // --- Construye el objeto "datos" de un día para enviar al backend, en
