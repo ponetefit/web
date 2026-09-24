@@ -1988,6 +1988,90 @@
         document.head.appendChild(link);
     })();
     </script>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         REDISEÑO VISUAL: "Crear Rutina" → "Crear entrenamiento" (PROFESOR)
+         Solo CSS + reorganización de marcado estático. No se toca ninguna
+         función JS, id funcional, atributo onchange/onclick ni estructura
+         de datos existente.
+         ══════════════════════════════════════════════════════════════════ -->
+    <style id="pf-rediseno-entrenamientos">
+        /* ── Header "Entrenamientos" + panel "Crear entrenamiento" ── */
+        .pf-ent-topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px;}
+        .pf-ent-topbar-left{display:flex;align-items:flex-start;gap:12px;min-width:0;}
+        .pf-ent-back{flex-shrink:0;width:36px;height:36px;border-radius:12px;border:1px solid #2a2a35;background:#141418;color:#8a8a9a;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;transition:.15s;}
+        .pf-ent-back:hover{color:#f0f0f5;border-color:#FF6B35;}
+        .pf-ent-titles h1{font-size:1.5rem;font-weight:900;letter-spacing:-.01em;margin:0;line-height:1.15;}
+        .pf-ent-titles p{font-size:.8rem;color:#8a8a9a;margin:2px 0 0;}
+        .pf-ent-panel{background:#141418;border:1px solid #2a2a35;border-radius:20px;padding:18px 20px;margin-bottom:18px;}
+        .pf-ent-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+        .pf-ent-panel-head h2{font-size:1.15rem;font-weight:900;margin:0;display:flex;align-items:center;gap:10px;}
+        .pf-ent-panel-head p{font-size:.78rem;color:#8a8a9a;margin:3px 0 0;}
+        .pf-ent-panel-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+        .pf-ent-btn-ghost{background:#0f0f13;border:1px solid #2a2a35;color:#f0f0f5;font-size:.72rem;font-weight:700;letter-spacing:.03em;padding:9px 14px;border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:.15s;}
+        .pf-ent-btn-ghost:hover{border-color:#4FC3F7;color:#4FC3F7;}
+        .pf-ent-btn-ghost.is-on{border-color:#FF6B35;color:#FF6B35;background:rgba(255,107,53,.1);}
+        .pf-ent-btn-save{background:#FF6B35;border:none;color:#fff;font-size:.78rem;font-weight:900;letter-spacing:.03em;padding:10px 18px;border-radius:12px;cursor:pointer;text-transform:uppercase;box-shadow:0 6px 18px rgba(255,107,53,.3);transition:.15s;}
+        .pf-ent-btn-save:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(255,107,53,.4);}
+        /* Stepper: guía visual, no domina la pantalla */
+        .pf-ent-stepper{display:flex;align-items:center;gap:8px;margin-top:16px;overflow-x:auto;padding-bottom:2px;}
+        .pf-ent-step{display:flex;align-items:center;gap:8px;flex-shrink:0;background:transparent;border:none;cursor:pointer;padding:4px 2px;}
+        .pf-ent-step-n{width:22px;height:22px;border-radius:999px;background:#1a1a20;border:1px solid #2a2a35;color:#8a8a9a;font-size:.68rem;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+        .pf-ent-step.is-active .pf-ent-step-n{background:#FF6B35;border-color:#FF6B35;color:#fff;}
+        .pf-ent-step-label{font-size:.7rem;font-weight:700;color:#8a8a9a;white-space:nowrap;}
+        .pf-ent-step.is-active .pf-ent-step-label{color:#f0f0f5;}
+        .pf-ent-step-line{width:24px;height:1px;background:#2a2a35;flex-shrink:0;}
+
+        /* ── Zonas: izquierda (alumno) / centro (constructor) / derecha (fuentes) ── */
+        @media (min-width:1100px){
+            .pf-ent-grid{display:grid;grid-template-columns:288px minmax(0,1fr) 316px;gap:20px;align-items:start;}
+            .pf-zone-left{grid-column:1;}
+            .pf-zone-center{grid-column:2;min-width:0;}
+            .pf-zone-right{grid-column:3;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow-y:auto;}
+        }
+
+        /* ── Tarjeta destacada del alumno ── */
+        .pf-alumno-card{background:#141418;border:1px solid #2a2a35;border-radius:20px;padding:18px;margin-bottom:16px;}
+        .pf-alumno-card-head{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+        .pf-alumno-avatar-big{width:52px;height:52px;border-radius:999px;background:linear-gradient(135deg,#FF6B35,#7c3aed);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:1.1rem;flex-shrink:0;overflow:hidden;}
+        .pf-alumno-avatar-big img{width:100%;height:100%;object-fit:cover;}
+        .pf-alumno-card-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
+        .pf-alumno-card-actions button{flex:1;min-width:110px;background:#0f0f13;border:1px solid #2a2a35;color:#f0f0f5;font-size:.72rem;font-weight:700;padding:8px 10px;border-radius:10px;cursor:pointer;transition:.15s;}
+        .pf-alumno-card-actions button:hover{border-color:#FF6B35;color:#FF6B35;}
+        .pf-ent-subhead{font-size:.68rem;font-weight:800;letter-spacing:.12em;color:#8a8a9a;text-transform:uppercase;margin:0 0 3px;}
+
+        /* ── Accesos rápidos (Videoteca / IA / Pizarra) en la columna izquierda ── */
+        .pf-ent-quicklinks{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+        .pf-ent-quicklink{display:flex;align-items:center;gap:10px;background:#141418;border:1px solid #2a2a35;border-radius:14px;padding:11px 12px;cursor:pointer;text-align:left;transition:.15s;color:#f0f0f5;}
+        .pf-ent-quicklink:hover{border-color:#FF6B35;}
+        .pf-ent-quicklink .ico{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+        .pf-ent-quicklink .txt b{display:block;font-size:.76rem;font-weight:800;}
+        .pf-ent-quicklink .txt span{display:block;font-size:.66rem;color:#8a8a9a;}
+
+        /* ── Paneles laterales (Repositorio / Historial) con look de "fuente de contenido" ── */
+        .pf-zone-right .pf-panel-toggle{border-radius:14px;}
+        .pf-zone-right > div{margin-bottom:14px;}
+
+        /* ── Miniaturas de video reales en los chips de ejercicio ── */
+        .pf-ej-thumb{width:44px;height:44px;border-radius:10px;flex-shrink:0;overflow:hidden;background:linear-gradient(135deg,#1a1a20,#0f0f13);border:1px solid #2a2a35;display:flex;align-items:center;justify-content:center;position:relative;}
+        .pf-ej-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+        .pf-ej-thumb .pf-ej-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.25);color:#fff;font-size:.85rem;text-shadow:0 1px 4px rgba(0,0,0,.6);}
+        .pf-ej-thumb.pf-ej-thumb-empty .pf-ej-play{color:#8a8a9a;background:transparent;font-size:1rem;}
+
+        /* ── Bloque Principal con 2 sistemas: columnas "SISTEMA 1 / SISTEMA 2" ── */
+        .bloques-lista-container:has(> .exercise-chip:nth-child(2):last-child){
+            display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;
+        }
+        .bloques-lista-container:has(> .exercise-chip:nth-child(2):last-child) > .exercise-chip{position:relative;padding-top:26px !important;}
+        .bloques-lista-container:has(> .exercise-chip:nth-child(2):last-child) > .exercise-chip:nth-child(1)::before{content:"SISTEMA 1";}
+        .bloques-lista-container:has(> .exercise-chip:nth-child(2):last-child) > .exercise-chip:nth-child(2)::before{content:"SISTEMA 2";}
+        .bloques-lista-container:has(> .exercise-chip:nth-child(2):last-child) > .exercise-chip::before{
+            position:absolute;top:8px;left:14px;font-size:.62rem;font-weight:900;letter-spacing:.1em;color:#8a8a9a;
+        }
+        @media (max-width:760px){
+            .bloques-lista-container:has(> .exercise-chip:nth-child(2):last-child){grid-template-columns:1fr;}
+        }
+    </style>
 </head>
 <body class="bg-fondo text-texto min-h-screen">
     <!-- HEADER -->
@@ -2047,7 +2131,7 @@
         <!-- DESKTOP: tabs normales (ocultas en mobile) -->
         <div class="pf-tabs-desktop max-w-6xl mx-auto hidden sm:flex gap-0">
             <button onclick="showTab('dashboard')" id="tab-dashboard" class="tab-active px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">🏠</span><span class="pf-tab-label">Dashboard</span></button>
-            <button onclick="showTab('rutina')" id="tab-rutina" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">🏋️</span><span class="pf-tab-label">Crear Rutina</span></button>
+            <button onclick="showTab('rutina')" id="tab-rutina" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">🏋️</span><span class="pf-tab-label">Entrenamientos</span></button>
             <button onclick="showTab('repositorio')" id="tab-repositorio" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">📁</span><span class="pf-tab-label">Repositorio</span></button>
             <button onclick="showTab('videoteca')" id="tab-videoteca" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">▶</span><span class="pf-tab-label">Videoteca</span></button>
             <button onclick="showTab('crear-alumno')" id="tab-crear-alumno" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">🧑‍🎓</span><span class="pf-tab-label">Crear Alumno</span></button>
@@ -2078,9 +2162,9 @@
             <span class="mob-bn-pill"><span class="mob-bn-ico">🏠</span></span>
             <span class="mob-bn-label">Home</span>
         </button>
-        <button onclick="showTab('rutina')" id="bn-tab-rutina" class="mob-bn-btn" aria-label="Crear Rutina">
+        <button onclick="showTab('rutina')" id="bn-tab-rutina" class="mob-bn-btn" aria-label="Entrenamientos">
             <span class="mob-bn-pill"><span class="mob-bn-ico">🏋️</span></span>
-            <span class="mob-bn-label">Rutina</span>
+            <span class="mob-bn-label">Entren.</span>
         </button>
         <button onclick="showTab('videoteca')" id="bn-tab-videoteca" class="mob-bn-btn" aria-label="Videoteca">
             <span class="mob-bn-pill"><span class="mob-bn-ico">▶</span></span>
@@ -2637,6 +2721,60 @@
         <!-- TAB: CREAR RUTINA -->
         <!-- ═══════════════════════════════════════════ -->
         <section id="sec-rutina" class="hidden">
+            <!-- ═══ Header de sección + panel "Crear entrenamiento" (solo visual) ═══ -->
+            <div class="pf-ent-topbar">
+                <div class="pf-ent-topbar-left">
+                    <button type="button" class="pf-ent-back" onclick="showTab('dashboard')" title="Volver al Dashboard">←</button>
+                    <div class="pf-ent-titles">
+                        <h1>Entrenamientos</h1>
+                        <p>Creá, editá y gestioná entrenamientos de forma simple y rápida.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="pf-ent-panel">
+                <div class="pf-ent-panel-head">
+                    <div class="pf-ent-topbar-left">
+                        <button type="button" class="pf-ent-back" onclick="showTab('dashboard')" title="Volver">←</button>
+                        <div>
+                            <h2>Crear entrenamiento</h2>
+                            <p>Seleccioná el alumno, el tipo de entrenamiento y configurá cada bloque.</p>
+                        </div>
+                    </div>
+                    <div class="pf-ent-panel-actions">
+                        <button type="button" id="pf-ent-modo-avanzado-btn" class="pf-ent-btn-ghost" onclick="_pfToggleModoAvanzadoEnt()" title="Mostrar todos los días expandidos a la vez">
+                            <span id="pf-ent-modo-avanzado-ico">◐</span> Modo avanzado
+                        </button>
+                        <button type="button" class="pf-ent-btn-save" onclick="compartirRutina()">Guardar entrenamiento</button>
+                    </div>
+                </div>
+                <div class="pf-ent-stepper">
+                    <div class="pf-ent-step is-active"><span class="pf-ent-step-n">1</span><span class="pf-ent-step-label">Configuración</span></div>
+                    <span class="pf-ent-step-line"></span>
+                    <div class="pf-ent-step"><span class="pf-ent-step-n">2</span><span class="pf-ent-step-label">Calentamiento</span></div>
+                    <span class="pf-ent-step-line"></span>
+                    <div class="pf-ent-step"><span class="pf-ent-step-n">3</span><span class="pf-ent-step-label">Bloque principal / Mix</span></div>
+                    <span class="pf-ent-step-line"></span>
+                    <div class="pf-ent-step"><span class="pf-ent-step-n">4</span><span class="pf-ent-step-label">Resumen</span></div>
+                </div>
+            </div>
+
+            <div class="pf-ent-grid">
+            <div class="pf-zone-left">
+            <!-- Accesos rápidos: Videoteca / IA / Digitalizar pizarra, siempre a mano -->
+            <div class="pf-ent-quicklinks">
+                <button type="button" class="pf-ent-quicklink" onclick="showTab('videoteca')">
+                    <span class="ico" style="background:rgba(79,195,247,.15);color:#4FC3F7;">▶</span>
+                    <span class="txt"><b>Videoteca</b><span>Buscá y agregá ejercicios</span></span>
+                </button>
+                <button type="button" class="pf-ent-quicklink" onclick="generarRutinaIA()">
+                    <span class="ico" style="background:rgba(124,58,237,.18);color:#CE93D8;">🤖</span>
+                    <span class="txt"><b>IA Entrenamientos</b><span>Crear entrenamiento con IA</span></span>
+                </button>
+                <button type="button" class="pf-ent-quicklink" onclick="showTab('repositorio');setTimeout(function(){var b=document.getElementById('btn-pizarra');if(b)b.scrollIntoView({behavior:'smooth',block:'center'});},80);">
+                    <span class="ico" style="background:rgba(255,107,53,.15);color:#FF6B35;">📷</span>
+                    <span class="txt"><b>Digitalizar pizarra</b><span>Subí una foto y convertila</span></span>
+                </button>
+            </div>
             <!-- Banner de borrador recuperado (autoguardado en este dispositivo) -->
             <div id="borrador-card" class="hidden bg-tarjeta rounded-2xl border border-amarillo/40 p-4 mb-4 flex items-center justify-between gap-3 flex-wrap">
                 <div class="text-sm flex-1 min-w-0">
@@ -2649,35 +2787,34 @@
                 </div>
             </div>
 
-            <!-- Paso 1: Nombre del alumno -->
-            <div class="bg-tarjeta rounded-2xl border border-borde p-6 mb-6">
-                <h2 class="pf-seccion-h1 text-lg font-bold text-verde uppercase tracking-wider mb-4">Datos de la Rutina</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Nombre del Alumno</label>
-                        <input id="alumno-nombre" type="text" placeholder="Ej: MARIA" class="w-full rounded-lg px-3 py-2.5 text-sm">
+            <!-- Paso 1: Alumno + datos del entrenamiento -->
+            <div class="pf-alumno-card">
+                <div class="pf-alumno-card-head">
+                    <div class="pf-alumno-avatar-big" id="pf-ent-alumno-avatar"><span id="pf-ent-alumno-avatar-txt">🏋️</span></div>
+                    <div class="min-w-0 flex-1">
+                        <p class="pf-ent-subhead">Alumno</p>
+                        <input id="alumno-nombre" type="text" placeholder="Nombre del alumno (ej: MARIA)" oninput="var t=document.getElementById('pf-ent-alumno-avatar-txt');if(t)t.textContent=(this.value||'🏋️').trim().slice(0,2).toUpperCase()||'🏋️';" class="w-full bg-transparent border-0 border-b border-borde focus:border-naranja focus:outline-none text-base font-black px-0 py-1">
                     </div>
-                    <div>
-                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Descripcion (opcional)</label>
-                        <input id="rutina-desc" type="text" placeholder="Ej: Rutina de fuerza semana 1" class="w-full rounded-lg px-3 py-2.5 text-sm">
-                    </div>
+                </div>
+                <div>
+                    <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Descripción (opcional)</label>
+                    <input id="rutina-desc" type="text" placeholder="Ej: Entrenamiento de fuerza semana 1" class="w-full rounded-lg px-3 py-2.5 text-sm">
                 </div>
                 <div id="historial-alumno-card" class="hidden mt-4 bg-fondoAlt rounded-xl border border-amarillo/30 p-3 flex items-center justify-between gap-2 flex-wrap">
                     <div class="text-sm">
                         <span class="font-bold text-amarillo">📋 Historial</span>
-                        <span class="text-textoSuave"> — <span id="historial-alumno-cant">0</span> rutinas de este alumno</span>
+                        <span class="text-textoSuave"> — <span id="historial-alumno-cant">0</span> entrenamientos de este alumno</span>
                     </div>
                     <div class="flex items-center gap-2">
-                        <label class="text-[11px] text-textoSuave" title="Contra cuántas de las últimas rutinas del alumno se avisa &quot;ya se usó&quot; al elegir un ejercicio">
+                        <label class="text-[11px] text-textoSuave" title="Contra cuántos de los últimos entrenamientos del alumno se avisa &quot;ya se usó&quot; al elegir un ejercicio">
                             Avisar "ya se usó" mirando:
                             <select onchange="_pfCambiarCantRutinasAnteriores(this.value)" class="ml-1 rounded-lg px-1.5 py-1 text-[11px] bg-fondo border border-borde">
-                                <option value="1" selected>última rutina</option>
-                                <option value="2">últimas 2</option>
-                                <option value="3">últimas 3</option>
-                                <option value="5">últimas 5</option>
+                                <option value="1" selected>último entrenamiento</option>
+                                <option value="2">últimos 2</option>
+                                <option value="3">últimos 3</option>
+                                <option value="5">últimos 5</option>
                             </select>
                         </label>
-                        <button onclick="abrirModalHistorialAlumno()" class="bg-amarillo/20 text-amarillo px-3 py-2 rounded-lg text-xs font-bold hover:bg-amarillo/30 transition">Ver</button>
                     </div>
                 </div>
                 <div id="ficha-alumno-card" class="hidden mt-3 bg-fondoAlt rounded-xl border border-rojo/30 p-3">
@@ -2690,13 +2827,19 @@
                     <p id="ficha-alumno-costosos" class="text-xs text-verde hidden"></p>
                     <div id="ficha-alumno-extra"></div>
                 </div>
+                <div class="pf-alumno-card-actions">
+                    <button type="button" onclick="abrirModalHistorialAlumno()">Ver historial</button>
+                    <button type="button" onclick="var f=document.getElementById('ficha-alumno-card');if(f)f.classList.toggle('hidden');">Ver ficha</button>
+                </div>
             </div>
+            </div><!-- /pf-zone-left -->
 
+            <div class="pf-zone-right">
             <!-- Rutinas guardadas en el Repositorio: buscar, filtrar y usar una acá mismo -->
             <div class="bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
                 <button type="button" onclick="_pfTogglePanelRepoCrear()" class="pf-panel-toggle w-full flex items-center justify-between gap-2">
                     <span class="text-sm font-bold text-purpura uppercase tracking-wider flex items-center gap-2">
-                        📁 Rutinas del Repositorio
+                        📁 Repositorio de Entrenamientos
                     </span>
                     <svg id="rc-chevron" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-textoSuave transition-transform duration-200 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </button>
@@ -2720,7 +2863,7 @@
             <div class="bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
                 <button type="button" onclick="_pfTogglePanelOtroAlumno()" class="pf-panel-toggle w-full flex items-center justify-between gap-2">
                     <span class="text-sm font-bold text-azul uppercase tracking-wider flex items-center gap-2">
-                        📋 Historial de Rutinas
+                        📋 Historial de Entrenamientos
                     </span>
                     <svg id="oa-chevron" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-textoSuave transition-transform duration-200 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </button>
@@ -2739,7 +2882,9 @@
                     <div id="oa-lista" class="space-y-2 max-h-96 overflow-y-auto"></div>
                 </div>
             </div>
+            </div><!-- /pf-zone-right -->
 
+            <div class="pf-zone-center">
             <!-- Mapa de calor muscular en vivo -->
             <div class="bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
                 <button type="button" onclick="toggleMapaCalorVivo()" class="pf-panel-toggle w-full flex items-center justify-between gap-2">
@@ -2803,7 +2948,7 @@
                     ☰ Vista Compacta
                 </button>
                 <button onclick="generarRutinaIA()" class="flex-1 py-3 rounded-2xl font-bold text-sm uppercase tracking-wider transition flex items-center justify-center gap-2" style="background: linear-gradient(135deg, #7c3aed, #4f46e5); box-shadow: 0 8px 24px rgba(124,58,237,0.35); color: #fff;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                    🤖 Armar Rutina con IA
+                    🤖 Crear Entrenamiento con IA
                 </button>
                 <!-- Modo NORMAL: botón guardar en repo + botón compartir -->
                 <button id="btn-guardar-repo-normal" onclick="abrirGuardarPlantilla()" class="flex-1 py-3 rounded-2xl border-2 border-naranja/50 text-naranja font-bold text-sm uppercase tracking-wider hover:border-naranja hover:bg-naranja/5 transition flex items-center justify-center gap-2">
@@ -2811,13 +2956,15 @@
                     Guardar en Repositorio
                 </button>
                 <button id="btn-compartir-rutina" onclick="compartirRutina()" class="btn-primary flex-1 py-3 rounded-2xl text-white font-black text-lg uppercase tracking-wider">
-                    Compartir Rutina
+                    Guardar Entrenamiento
                 </button>
                 <!-- Modo REPOSITORIO: solo guardar en repositorio (reemplaza los dos de arriba) -->
                 <button id="btn-guardar-repo-modo" onclick="guardarEnRepositorioDirecto()" class="hidden btn-primary flex-1 py-3 rounded-2xl text-white font-black text-lg uppercase tracking-wider">
                     Guardar en Repositorio
                 </button>
             </div>
+            </div><!-- /pf-zone-center -->
+            </div><!-- /pf-ent-grid -->
 
             <!-- Modal de resultado -->
             <div id="modal-codigo" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6 modal-bottom-sheet-mobile">
@@ -3411,7 +3558,7 @@
                 <div class="flex items-center gap-3">
                     <span class="text-2xl">🤖</span>
                     <div>
-                        <h3 class="text-sm font-black text-texto uppercase tracking-widest">Armar Rutina con IA</h3>
+                        <h3 class="text-sm font-black text-texto uppercase tracking-widest">Crear Entrenamiento con IA</h3>
                         <p class="text-xs text-textoSuave mt-0.5">Configurá la lógica y generá una rutina inteligente</p>
                     </div>
                 </div>
@@ -5586,7 +5733,7 @@
                 : 'tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors';
         });
         // Sincronizar label mobile + barra inferior de accesos rápidos
-        const LABELS = { dashboard:'Dashboard', rutina:'Crear Rutina', repositorio:'Repositorio', videoteca:'Videoteca', historial:'Historial', 'crear-alumno':'Crear Alumno' };
+        const LABELS = { dashboard:'Dashboard', rutina:'Entrenamientos', repositorio:'Repositorio', videoteca:'Videoteca', historial:'Historial', 'crear-alumno':'Crear Alumno' };
         const labelEl = document.getElementById('mob-tab-label');
         if (labelEl) labelEl.textContent = LABELS[tab] || tab;
         const mobileRoutineActions = document.getElementById('pf-mobile-routine-actions');
@@ -6911,6 +7058,21 @@
         }
     }
 
+    // ── "Modo avanzado" (solo visual/UX): expande todos los días a la vez en
+    // lugar de tenerlos colapsados de a uno. No crea ni modifica datos, solo
+    // reutiliza toggleDia() para cada día ya existente. ──────────────────────
+    let _pfModoAvanzadoEnt = false;
+    function _pfToggleModoAvanzadoEnt() {
+        _pfModoAvanzadoEnt = !_pfModoAvanzadoEnt;
+        const btn = document.getElementById('pf-ent-modo-avanzado-btn');
+        const ico = document.getElementById('pf-ent-modo-avanzado-ico');
+        if (btn) btn.classList.toggle('is-on', _pfModoAvanzadoEnt);
+        if (ico) ico.textContent = _pfModoAvanzadoEnt ? '●' : '◐';
+        if (typeof diasData !== 'undefined') {
+            diasData.forEach((_, i) => toggleDia(i, _pfModoAvanzadoEnt));
+        }
+    }
+
     // Pobla los selects de categoria para un dia especifico
     function poblarCategoriasDia(idx) {
         const cats = Object.keys(videotecaCache);
@@ -7324,6 +7486,7 @@
                 '<span class="drag-handle flex-shrink-0" title="Arrastrar">' + svgHandle + '</span>' +
                 _flechasHtml('warmup-dia-' + idx, i, ejs.length) +
                 '<span class="text-xs text-textoSuave font-mono flex-shrink-0">' + (i+1) + '</span>' +
+                _pfThumbHtml(ej.link, nombreEsc) +
                 '<span class="text-sm font-bold ej-hover-preview break-words" data-video-url="' + linkEsc + '" data-ej-nombre="' + nombreEsc + '" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">' + ej.nombre + '</span>' + cargaBadgeW +
                 '</div>' +
                 '<div class="warmup-dia-acciones flex items-center gap-1 flex-shrink-0 ml-2">' +
@@ -7387,7 +7550,9 @@
                 const n = typeof e === 'object' ? (e.nombre || '') : (Array.isArray(e) ? e[0] : '');
                 if (!n) return '';
                 const reps = typeof e === 'object' ? _pfRepsEjercicio(e) : '';
-                return '<div class="pf-vr-ej-item">' +
+                const linkE = typeof e === 'object' ? (e.link || e.video || '') : '';
+                return '<div class="pf-vr-ej-item" style="display:flex;align-items:center;gap:8px;">' +
+                    _pfThumbHtml(linkE, (n + '').replace(/"/g, '&quot;')) +
                     '<span class="pf-vr-ej-nombre">' + n + '</span>' +
                     (reps ? '<span class="pf-vr-ej-reps">' + reps + '</span>' : '') +
                 '</div>';
@@ -15748,6 +15913,28 @@
     // ====================================================================
     let videoPreviewTimer = null;
     let currentPreviewUrl = '';
+
+    // ── Helper aditivo: extrae el ID de YouTube de un link (misma lógica que
+    // getYouTubeEmbedUrl, reutilizada acá solo para poder armar la URL de la
+    // miniatura real img.youtube.com/vi/ID/...). No reemplaza ni modifica
+    // getYouTubeEmbedUrl ni ninguna otra función existente. ──────────────────
+    function _pfYoutubeId(url) {
+        if (!url) return null;
+        const m1 = url.match(/[?&]v=([^&#]+)/); if (m1) return m1[1];
+        const m2 = url.match(/youtu\.be\/([^?&#]+)/); if (m2) return m2[1];
+        const m3 = url.match(/youtube\.com\/embed\/([^?&#]+)/); if (m3) return m3[1];
+        const m4 = url.match(/youtube\.com\/shorts\/([^?&#]+)/); if (m4) return m4[1];
+        return null;
+    }
+    // Devuelve el HTML de una miniatura (imagen real si hay video de YouTube,
+    // o un placeholder con ícono si no) para usar en los chips de ejercicio.
+    function _pfThumbHtml(link, nombreEsc) {
+        const yid = _pfYoutubeId(link || '');
+        if (yid) {
+            return '<span class="pf-ej-thumb" title="' + nombreEsc + '"><img loading="lazy" src="https://img.youtube.com/vi/' + yid + '/mqdefault.jpg" alt=""><span class="pf-ej-play">▶</span></span>';
+        }
+        return '<span class="pf-ej-thumb pf-ej-thumb-empty"><span class="pf-ej-play">🎬</span></span>';
+    }
 
     function getYouTubeEmbedUrl(url) {
         if (!url) return null;
