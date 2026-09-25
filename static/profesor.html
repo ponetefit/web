@@ -870,6 +870,9 @@
                texto tamaño titulo, alto contraste de color por tipo. ── */
             .pf-select-oculto-mobile { display: none !important; }
             .pf-tipo-cards { display: grid !important; grid-template-columns: 1fr; gap: 12px; margin-bottom: 8px; }
+            .pf-tipo-card { flex-direction: row; align-items: center; gap: 14px; padding: 20px 18px; border-radius: 16px; border-width: 3px; min-height: 80px; }
+            .pf-tipo-card-ico { font-size: 2rem; }
+            .pf-tipo-card-txt { font-size: 1.35rem; font-weight: 900; }
 
             /* ── Botones "+ Agregar Calentamiento" / "+ Agregar Bloque": tarjetas
                grandes con letra tipo titulo (H1), para identificarlas y tocarlas
@@ -1788,16 +1791,50 @@
                entrenamiento elegido (ver actualizarResumenCalentamientoDia y
                renderBloquesDia), asi que no necesitan aplanarse aca. ── */
         }
-        /* Oculto por defecto en desktop: ahi se sigue viendo el <select> de toda la vida */
-        .pf-tipo-cards { display: none; }
-        .pf-tipo-card {
-            display: flex; flex-direction: row; align-items: center; justify-content: flex-start;
-            gap: 14px; width: 100%; padding: 20px 18px; border-radius: 16px;
-            border: 3px solid transparent; text-align: left; min-height: 80px;
-            font-family: 'Inter', sans-serif;
+        /* Editor inline de Calentamiento / Bloque Principal — SOLO EN DESKTOP.
+           En mobile no se toca nada: sigue siendo el mismo modal tipo "hoja
+           inferior" (bottom-sheet) de siempre, con su overlay y animación.
+           En desktop (>640px), el mismo elemento (mismo HTML, misma lógica de
+           guardado) se despliega en el lugar en vez de flotar sobre la
+           pantalla, justo debajo de la tarjeta resumen correspondiente. */
+        @media (min-width: 641px) {
+            .pf-inline-editor {
+                position: static !important;
+                inset: auto !important;
+                z-index: auto !important;
+                display: block !important;
+                background: transparent !important;
+                backdrop-filter: none !important;
+                padding: 0 !important;
+                width: 100% !important;
+                margin-top: 10px;
+                animation: pfInlineEditorIn .15s ease-out;
+            }
+            .pf-inline-editor-inner {
+                max-width: 100% !important;
+                max-height: none !important;
+                overflow: visible !important;
+                border-color: rgba(255,107,53,0.4) !important;
+                border-width: 2px !important;
+            }
         }
-        .pf-tipo-card-ico { font-size: 2rem; line-height: 1; flex-shrink: 0; }
-        .pf-tipo-card-txt { font-size: 1.35rem; font-weight: 900; line-height: 1.2; }
+        @keyframes pfInlineEditorIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Selector de "Tipo de Entrenamiento" en tarjetas visuales — ahora en TODAS
+           las pantallas (antes solo en mobile; en desktop se seguía viendo el
+           <select> de toda la vida). El <select> original sigue existiendo, oculto,
+           como única fuente de verdad: todo el código de cada sistema sigue
+           leyendo su .value exactamente igual que antes. */
+        .pf-select-oculto-mobile { display: none !important; }
+        .pf-tipo-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
+        .pf-tipo-card {
+            display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
+            gap: 6px; width: 100%; padding: 12px 14px; border-radius: 14px;
+            border: 2px solid transparent; text-align: left; min-height: 64px;
+            font-family: 'Inter', sans-serif; background-color: #1a1a20;
+        }
+        .pf-tipo-card-ico { font-size: 1.3rem; line-height: 1; flex-shrink: 0; }
+        .pf-tipo-card-txt { font-size: 0.8rem; font-weight: 800; line-height: 1.2; }
         .pf-tipo-card-activa { border-color: rgba(0,0,0,0.55); box-shadow: 0 0 0 2px rgba(255,255,255,0.5) inset; }
         /* Estilos del stepper mobile (+/-) y swipe-to-delete (siempre definidos;
            los elementos que los usan ya llevan su propia clase sm:hidden) */
@@ -1970,6 +2007,156 @@
             outline: 2px solid #4FC3F7;
             outline-offset: 2px;
         }
+
+        /* ══════════════════════════════════════════════════════════════
+           REFRESCO VISUAL "Crear Entrenamiento" — capa puramente estética
+           agregada sobre las clases/estructura YA EXISTENTES. No cambia
+           ningún id, atributo onclick, ni el HTML que arma el JS: solo
+           redefine cómo se ven esas mismas clases (bg-tarjeta, emom-chip,
+           exercise-chip, tab-active, kpi-card, btn-primary, etc.).
+           ══════════════════════════════════════════════════════════════ */
+        #sec-rutina .bg-tarjeta,
+        #sec-repositorio .bg-tarjeta,
+        #sec-historial .bg-tarjeta {
+            box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 10px 30px -18px rgba(0,0,0,0.65);
+            transition: border-color .15s ease;
+        }
+        #sec-rutina .bg-tarjeta:hover { border-color: #35353f; }
+
+        /* Tarjetas de Calentamiento / Bloque Principal: header con más protagonismo */
+        .pf-vr-card-title, #sec-rutina h2.pf-seccion-h1, #sec-rutina h3.text-sm.font-bold.text-verde {
+            letter-spacing: .04em;
+        }
+
+        /* Chip de ejercicio: darle protagonismo visual al video con un
+           pequeño badge de "reproducir" cuando el ejercicio tiene link
+           cargado (usa el mismo data-video-url que ya llena emomChipHtml /
+           el resto de las tarjetas de ejercicio — no se agrega dato nuevo). */
+        .emom-chip, .exercise-chip {
+            border: 1px solid transparent;
+            transition: border-color .15s ease, background-color .15s ease;
+        }
+        .emom-chip:hover, .exercise-chip:hover {
+            border-color: rgba(255,107,53,0.35);
+            background: #1a1a20;
+        }
+        .ej-hover-preview[data-video-url]:not([data-video-url=""])::before {
+            content: '▶';
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 26px;
+            height: 19px;
+            margin-right: 6px;
+            border-radius: 5px;
+            background-color: rgba(255,107,53,0.18);
+            background-image: var(--pf-thumb, none);
+            background-size: cover;
+            background-position: center;
+            color: #fff;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.85);
+            font-size: 8px;
+            flex-shrink: 0;
+            vertical-align: middle;
+        }
+
+        /* Bloque Principal con 2 sistemas (Caso B del brief): mostrar los dos
+           bloques lado a lado en vez de apilados. Con 1 o 3+ bloques se
+           mantiene el apilado vertical de siempre — no cambia el HTML de
+           cada tarjeta, solo cómo se acomoda el contenedor. */
+        .bloques-lista-container.pf-bloques-2col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            align-items: start;
+        }
+        .bloques-lista-container.pf-bloques-2col > * { margin: 0 !important; }
+        @media (max-width: 720px) {
+            .bloques-lista-container.pf-bloques-2col { grid-template-columns: 1fr; }
+        }
+        .pf-sistema-num {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: .08em;
+            opacity: .85;
+        }
+
+        /* Stepper de 4 pasos (Configuración/Calentamiento/Bloque Principal/Resumen) */
+        .pf-stepper {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 14px 4px 20px;
+            flex-wrap: wrap;
+        }
+        .pf-step-pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: transparent;
+            border: none;
+            color: #8a8a9a;
+            font-size: 12.5px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .pf-step-pill:hover { color: #f0f0f5; }
+        .pf-step-num {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #1a1a20;
+            border: 1px solid #2a2a35;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            flex-shrink: 0;
+        }
+        .pf-step-pill:hover .pf-step-num { border-color: #FF6B35; color: #FF6B35; }
+        .pf-step-line {
+            width: 28px;
+            height: 1px;
+            background: #2a2a35;
+            flex-shrink: 0;
+        }
+        @media (max-width: 640px) {
+            .pf-step-label { display: none; }
+            .pf-step-line { width: 14px; }
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+           3 ZONAS en "Crear Entrenamiento" (brief punto 18): izquierda =
+           contexto del alumno, centro = constructor (semanas + días),
+           derecha = fuentes (repositorio / historial / balance muscular).
+           Los elementos NO se mueven de lugar en el DOM: solo se ubican
+           en su columna vía CSS grid, así ninguna función ni id cambia. */
+        @media (min-width: 1180px) {
+            #sec-rutina {
+                display: grid;
+                grid-template-columns: 280px minmax(0, 1fr) 320px;
+                gap: 0 20px;
+                align-items: start;
+            }
+            #sec-rutina > .pf-zone-izq { grid-column: 1; }
+            #sec-rutina > .pf-zone-centro { grid-column: 2; }
+            #sec-rutina > .pf-zone-der { grid-column: 3; }
+            /* El resto de hijos sin zona (modales, etc.) no deben cortar el flujo */
+            #sec-rutina > :not(.pf-zone-izq):not(.pf-zone-centro):not(.pf-zone-der) {
+                grid-column: 2;
+            }
+        }
+
+        /* Semana activa: leve glow naranja coherente con el resto de la marca */
+        #pf-semanas-lista button.bg-naranja { box-shadow: 0 4px 14px -4px rgba(255,107,53,0.55); }
+
+        /* KPIs del dashboard: más aire y jerarquía tipográfica */
+        .kpi-card { box-shadow: 0 10px 24px -16px rgba(0,0,0,0.7); }
+
+        /* Botones primarios: sombra coherente con el resto de la marca */
+        #sec-rutina .btn-primary, #sec-rutina button.bg-naranja\/20 {
+            box-shadow: 0 6px 18px -8px rgba(255,107,53,0.45);
+        }
     </style>
 
     <!-- PWA: Inline Manifest + Service Worker + Icons -->
@@ -1979,7 +2166,7 @@
     <script>
     // Inline manifest as blob URL
     (function() {
-        const manifestData = `{"name": "PONETE FIT - Panel del Profesor", "short_name": "PONETE FIT", "description": "Panel del Profesor - Gestion de rutinas de entrenamiento", "start_url": "./index.html", "display": "standalone", "background_color": "#0a0a0c", "theme_color": "#FF6B35", "orientation": "any", "icons": [{"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEgAAABICAIAAADajyQQAAACd0lEQVR4nO2bv0sbYRjHv14UitGhPxyqdgtioUNLoC04FjqJ4Ooi3aRI/Quk4KKbIN0c7NqhFFrIv9DEyS0ZpCJIghADJf4Ck6vDSb3o3Xvvr+fuvffyGV/u7nk++b735u5yGRgeHoGNOEk3QEVfLG30xdKGtWKDpEc/+/CcvUF+p0pUekD791ikTBh6JXWKSSv50aWnR0yLkh91PVUx7Up+VPSUVkVSK8XjSyZGrXQHiehkEovZSq6isFj8VnJ1xcSSspKoLiCWrJVoD7xiJlh5cHZi7UUwl5g5cXnw9BMtZpqVR2RXWZ2KZsblwe4tk4mZHJcHo0NrEwu9uueKa2kTL2YCxrtXOD9F4w9qFfz+iXaLay8/rotPb6MbABBy7U+TWG4Iow8xVcTcR3z+juJ7kipM6KfigzwW1zD9hrxQL1ofvy2/BgDHwdgzzC7h1bubccfB/ArWF1h76SY4MaX10HVxfIivq2ge3Q5OFPDoqfwxmQR2SzYVux3s7/WMPB6nqhWEtcs92SPu3CAKL3tGWvXgLb/sBgyWtlHaVqlPIPZ/8XgyeTtY38dJQ3+tcLSKBX72AP65+LGlsxAHtL+2AMDlOb5toFoO3YBmuacR63Zw0UbjALUKyr/wt0lShQnBF7QZWLvcZ0yM7hdUCmK8bTEAa8XU7qDNQGwqpuU0C+vT2qnIEjM/NEaHmUwMZofG7i2ricHU0CK74krMNDeefjI8FT3MCY2zE4HETHDj70FsKibrJlRd+BxLyk20rsziEb+bREWlFzFjuLWR/hCVlnvq6FSO338nmAML3+L2Y+F79/ex6p8ShpD5i+DU0RdLG9aKXQNGorHZN1SlBQAAAABJRU5ErkJggg==", "sizes": "72x72", "type": "image/png", "purpose": "any maskable"}, {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAADYklEQVR4nO2cO2sUYRSG31liwHVd1EYbkVReYEEECxEtxMpuyS+wiIWFIbWVf8Boa5GgjZWIlREDaVSECIlYxEuMEBVEwQjrSvAya/E1cXZ3zne/jOcpZy/znmfO981td7J6vQFmOLXQAWKHBRGwIAIWRMCCCFgQAQsiYEEEI2FX3z1/WOZtO2ZXXCcZRub/SFpSyjA8y/InyNBLP35MORdk3Us/Tk05FORBzVYcaXK1F/Nsx90a7XeQfzUF7LaS5Q4Kbsd6BmsdFIOaAlZayU4HRWgHllJZEBSnHYF5NlNBMdsRGCY0EhS/HYFJTn1BqdgRaKfVFJSWHYFeZh1BKdoRaCTnC2YEyoLSbR+Ban41QanbEShVwUOMQEFQNdpHIF+LrKAq2RFIVsRDjEBKUPXaRyBTF3cQAQsioAVVdXwJyOoc3Hq+9ggjo0NfzXNsfkdnAx/fYHUJz+bwo6PzPf2sPcfVCbWoEni/N1+rod5EvYm9B3DsLNqTeHgTD2bx57fvJHIQQ8z5+No2inMTuHhdrVmsUl5jHJP0weMYnwodYjBehtj0BbxdBoAsQ2MXWqfRvoTtO/95z8k2Fm7j87rU93jEbwf1euhs4Mk9zFzuC1LD0TNew8hRJsjhBLTyFOsviwvHWq5WR1FSabg56NNacUlzT4gcBOEEZVlxSa8XIgdBOEH7xopLOl9D5CAI9CPOIyew/1Bx4bsXxKembpS9emUcX94bpRqEd0GN3WidQnuyuDzPsbzgO4wEXgSVb3nB47vEQVAg4jiSfrWIO9OhQwwm8A/J8esn5m9hbkbqZDXEkbR3QXmOzS663/DhNVaXsHh/6OWOOPB7LpYgccxBEcOCCMoEBfyPjWdKKuUOImBBBCyIgBD0P0xD5TXSf0Wo9o1DUIJ4iBHQgqo9ysjquIMIWBCBlKCqjjKZuriDCGQFVa+JJCtS6KAqOZKvhYcYgZqgajSRUhXKHZS6I9X8PMQIdASl20QayTU7KEVHepn1h1hajrTTGs1BqTgyyWk6ScfvyDChhb1YzI7Ms9nZzcfpyEoqyw9YiuQCtsUNZvlAMYZWspvB1UPegrSSi83j6lTDfys5WiM/R5GAn8RJwM9yJQggaCv8NODk4QtmBCyIgAURsCACFkTAgghYEMFfhTnzS6xwdcEAAAAASUVORK5CYII=", "sizes": "96x96", "type": "image/png", "purpose": "any maskable"}, {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAAAEfElEQVR4nO2dv2sUQRTHX6ImXoyKaJoYEQyiEQ0BCxtFjME/wh9FUmhlaWMjFtr4o0qliBgVaxtFokhABKMICiZGTaHGsxIkueRCQLFYOM+77Dmz+2a+b3bfpwu7Wd58P/Nmdu9H0tTW1k4KjmZ0AXlHBYBRAWBUABgVAEYFgFEBYFQAGBUARgWAUQFgVqILsGB+sMf85DU3J91VwkiT5BfjrBJvjFgfEgUw5l6PNBOCBDjNvR4hJvACPOdeD9YEUgA8+mpQGjACREVfjX8NgOcAsekTojavHSA5+hq8tYK/DggoffJYrY8OCCv6Gly3gvMOCDp9cl+/WwGhpx/hdBQOBWQj/Qh3Y3GyB2Qp+hrYtwT+Dshw+uRgdMwCsp1+BO8Y9R0xMJwC8jD9IxhHyiYgP+lHcI2XR0De0o9gGTWDgHymH5F+7LoJg0krIM/TPyJlAqkEaPoRaXLQJQhMcgE6/atJnEZCAZp+Pcky0SUITBIBOv3jSJCMdgAYawE6/Rtjm492ABgVAMZOgK4/JlilpB0Axvt3xK6OUUvB6MylMpVLND9L36fpyyS9H6dvHzmvH8etc/TyYaor2GAhwPf601KglgKt76DObtp7hIjo8wQ9uUuvR72WkYj5wR7DD7AEtQRt3UVDF+jUFWrfgC6FjaAEROw5QKeHqW0tug4eTAXIuv/ZvJ2GLqKL+A+GiQXYARE791HvQXQRDIj5pvy1M/R27O+PLatpUxf1HaKB47F3Nf1H//kVq+uLQWoHLC1S8RM9uE6Xh6hcWv6cbb1UCH4nkCqgQnGaRkeWP9S8grbs8FsNP0YCwDvwu2exh9Zt9FiHNSa5ie8AIir9jD0U/s1oCAIaPHYtzHmswwli7oIasHt/7KHZH6YXOXnJ6LTREbo/bHpNDsR3QGc3DZxY/tDvX/R1ym81/EjtgFWt1NFFff10+Bi1ti1/zvQbKusSxIXhElHN03sO6vCN+CUojqlxmU+2toQpoDhNN86ii+BBzBJkzsRzun2eFmbtfkvqa0FBCZiZosd36NUjdB2cCBawtEjlEpXnqBi9J/yCZj6ga+JHjACpS4RrwtyEM4QKAGMkQMjfOA0Ok9y0A8CoADAqAIwKAGMqQPdhW7L42dAsogLA2P3VRFmfEBWM+YqtHQBGBYCxE6D3QiZYpaQdAEYFgLEWoKtQY2zz0Q4Ak0SANkEcCZLRDgCTUIA2QT3JMkneAeqgmsRp6BIEJpUAbYKINDmk7QB1kDIBXYLAMAjIcxOkHztPB+TTAcuo2ZagvDngGi/nHpAfB4wj1U0YDLOAPDQB7xj5OyDbDthH5/AfOmfsMyyOJpbDPSBLreBuLG434Ww4cDoK53dBoTtwXb/DPaCG4LYEP1PH33NAWK3grVp/HVBBeCt4niiAJ2HJreC/NkAHVBDVCqhpgRQQAdeA7Ui8gAqeTQhZCQUJqODUhJDcK0gUUIHRhLTcK4gWUIOVD7GJ1xCSgEyi74iBUQFgVAAYFQBGBYBRAWBUABgVAEYFgFEBYP4ADHsmtr/5KjMAAAAASUVORK5CYII=", "sizes": "128x128", "type": "image/png", "purpose": "any maskable"}, {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJAAAACQCAIAAABoJHXvAAAFHUlEQVR4nO2dzWsdVRjGn9wEKTGVVisWURKxLtq6iC4kwsWPP8BNFHQlunIjRcSFLqv7rhTalQsVFLQu3AiCBAwIisZCsVCD/VDRWiqVpEZrPlwMXMZcMr1n5pzzvs/M81tmJve+5/3d570nk+HescnJKQgeetYFiDAkjAwJI0PCyJAwMiSMDAkjQ8LIkDAyJIwMCSNDwsiQMDImrAuIwLXnD45+8s1vn0lXSQbG6P69EqRnFLgU0giL7mkYCnPehWXwNIxnc06FmXgaxqE5d8KcqCrjSpsjYQ5VlXGizYUw56rKmGszFkakqoyhNssrHaS2YFq5TcJ4VW0jf9QMEtYaW7BYS25hbbJVkHlF+UZi+1RtI894zJSw1ttCrjXmENYFWwUZVppcWHdsFaReb1phXbNVkHTVCYV101ZBurWnEtZlWwWJOpBEmGwVpOhDfGGyVSZ6N3SbGxmRhSlew8TtSUxhsrUTETsTTZhsVROrP3oPIyOOMMVrFKJ0KYIw2Rqd5r3SSCSjqTDFK5SGHVPCyGgkTPGqR5O+KWFk1BemeDWhdveUMDJqClO8mlOvh0oYGRJGRh1hmoexqNFJu8/p6M/jmVcDzt9Yx9oq/l7FylX8chYXvsfyEi7/lOrpKri+hpcfjfNQ4fB8sMr4BKb2YGoP9t2Fe+5Hfx4AlpeweBLffIatTev6MhE8En3NwwMP4Lk38NJx3H63dSk1Ce1nKzYd987itfdw34PWdeSgFcIA3LQLLxzD9CHrOpITJszXPNzGrkk8exS9ces6ggnqalsSVnDHNB55yrqItLjcJW5u4sjc/34yPoGpvZg5jP48Ds7t8GsAgP6TWPig6dM5hiRhG+v48zJOLeCtI/jwWNWZ+2dw2525yjKARFiZhffx3edVJxyYzVSJBYTCAHz5SdXRW/blqsOAAGGOtoiXzlcd3X1rpjLiMXpvOROGsaqDW1u5yjCAU9j+maqjK39kKsMCl9v6GzL3RNXRlSthj9br4c2vAs5/8aGwx48KYcIeexqzj1edsLyUqxQDSBLWG8fuvZg+jP48Dj1cdeZv53Dl11xlGeBSWOiMKrN4Mmop7iAciRVcuoAvPrIuIi0tEvbPX3jnKDbWretIS1uE/XsdJ17B+dPWdSTH5XtYKOdO493Xb3D5owKqq/Xkwn48hcWP8fWn3bkJh0fY5gbWVrG2imtX8fNZXDyDH77F7xety8qNS2FUMyozbdl0dIYAYebfYtFiRu+tEkaGhJEhYWRIGBkSRkaYMG0UUxDUVSWMDAkjI1iYpmJcQvtZ5+uoHN1Ryk+oMI1EMuoI01SMRY1OKmFkSBgZNYVpKjanXg+VMDLqC1PImlC7e0oYGY2EKWT1aNI3JYyMpsIUslAadkwJIyOCMIVsdJr3Kk7C5GwUonRJI5GMaMIUsmpi9SdmwuRsJyJ2JvJIlLNh4vZE72FkxBemkJWJ3o0kCZOzghR9SDUS5SxRBxK+h3XZWbq1p910dNNZ0lUn3yV2zVnq9ebY1nfHWYaVZvo7rAvO8qyxzr31TWjlffk5X465r3S0L2qZV2RwaapNzvKvJfdILEM9Hq1edpYXf3mjZli5ZcIGEEXN/EXmQliBc23mqgocCStwqM2JqgJ3wgqcaHOlqsCpsAEm5hx6GuBd2IAM5jx7GkAjbEB0cxSeBvAJGyZIIZeeYdogrFPoNjcyJIwMCSNDwsiQMDIkjAwJI0PCyJAwMiSMDAkjQ8LI+A+kgU/WbGwgrwAAAABJRU5ErkJggg==", "sizes": "144x144", "type": "image/png", "purpose": "any maskable"}, {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJgAAACYCAIAAACXoLd2AAAFZUlEQVR4nO2dP4hcVRTGv3lRJJOMQYmoLOLin2LZRkFUSGERkYAWNopNiliICGlFG7UwhZVIgnZaBIUUpkkR01lElES0kE1WjDHZRYOLGHBmdocIMxYPhpeM+5h3/5xz73nfr8y+nT33/OY77737djadbnc3SP4U2gWQMFCkESjSCBRpBIo0AkUagSKNQJFGoEgjUKQRKNIIFGkEijQCRRrhNu0CAjM8tDT/wbs+uxivEmE6WT+PbKRtHvJVm5/I4PK2Iy+p2YgU8zdLFkYzEKmosEriOtMVmYi/WdI0mqLIZBVWSU1nWiKzUFglHZ2piMxOYZUUdCaxs5O1RaRRv3IiU2hBQBSjqZlIYxahuiI1kfYslmitS2G0WlV4C8JjVjqRLbEI8ZWKimyPxRLJ9cqJbJvFErFVC4lsp8USmbVLiGyzxRKBDkQXSYslsfsQVyQtVonajYgiaXGWeD2JJZIWtyNSZ6KIpMV6YvQnicdYxJ/wIhnHeQjepcAiaXF+wvYqpEhabErAjvEcaYRgIhlHN0L1LYxIWvQhSPc4Wo0QQCTj6I9/D5lII/iKZBxD4dlJJtIIXiIZx7D49JOJNAJFGsFdJOdqDJy7ykQawfGzH8HieM8DePfLZt8yGWM0xNYAW0NsXMX6KtZW8euP+PdGxB9azy8/4KPXA76ew+dGMvzLV50CO3vY2QOAhUfw+H4A2Ozj/GmcPYlrl3Wr08LKaO328MzLePsLvHgYt9+hXY0CLiLTvcwpCjx7EG8dx5692qV44dBhK4mscu8iDn+M3Xdp1yGKRZEA7lvEwXe0ixDFqEgAy/uwvE+7CDkaX7WKniCvXcaRV276l6JAdw8WHsUTz+Gp51HsqPv2A69i5ZsAP1SD4aGlRjchuSVyPMbgOn4+h8/fx4evYTSsO3hxuT1nytxEVvntJ5z4oO6AToGlp6WqUSZnkQC+P4P+33UH7F2QKkWZzEVOJriyUndA726pUpTJXCSAzX7dV7s9qTqUaSYyxT2dXXfWfXXzH6k6wtOo25knslPgweW6A/rXpUpRJsOnH1WePIBe7Q3GX783fs37H8Kxcw2OD/0My42cE/nwY3jpzboDJmNc/E6qGmVyS+RNOzsvoKh9I15ZwYCjNQWaTrlb+OrTcKWkTs6jtZ4L37pstGaLUZF/XsXx97SLEMWiyI01HH2jPTceJWmfI5syGePrEzj1CW6M3F8kjcdYTbEicquP82dw9iT+uKRdig4ZipyMMdrEaICtATbWsb6KtQu41OT3Wi2Stsg8p5wKFi92WglFGqGZyBT+N6/2YPqXr8g2UKQRKNIIFGkEijRCY5G8cJWhaZ+ZSCNQpBEo0gguInmajI1Dh7X/PAv5PxxEcrQawVEkp2s83HrLRBrBXSRDGQPnrjKRRqBII3iJ5HQNi08/mUgj+IpkKEPh2Ukm0ggBRDKU/vj3kIk0QhiRDKUPQboXLJF06UaovnG0GiGkSIayKQE7FjiRdDk/YXsVfrTS5TwE7xLPkUaIIpKhrCdGf2Ilki63I1JnIo5WupwlXk/iniPpskrUbkS/2KHLkth9kLhqpUuBDgjdfrTZpcza5e4j2+lSbNWiGwJtcym5Xumdnfa4FF6p46ex/DH8eS6VN6vaXqvVaGqtS3PT3J5LxRWpjdYqBsas+psyicdY6l3wJIX6k0jklOyimYLCkrRElmShMx2FJSmKLElWZ2oKS9IVOSURo2n6m5KByBJFnYkrLMlG5BQxo1n4m5KfyCrBpeYlr0reImdppDZfbbNYE9laktjZIf5QpBEo0ggUaQSKNAJFGoEijUCRRqBII1CkESjSCBRpBIo0wn+5LW3qxqD+WwAAAABJRU5ErkJggg==", "sizes": "152x152", "type": "image/png", "purpose": "any maskable"}, {"src": "data:image/png;base64,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", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"}, {"src": "data:image/png;base64,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", "sizes": "384x384", "type": "image/png", "purpose": "any maskable"}, {"src": "data:image/png;base64,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", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}]}`;
+        const manifestData = `{"name": "PONETE FIT - Panel del Profesor", "short_name": "PONETE FIT", "description": "Panel del Profesor - Gestion de entrenamientos de entrenamiento", "start_url": "./index.html", "display": "standalone", "background_color": "#0a0a0c", "theme_color": "#FF6B35", "orientation": "any", "icons": [{"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEgAAABICAIAAADajyQQAAACd0lEQVR4nO2bv0sbYRjHv14UitGhPxyqdgtioUNLoC04FjqJ4Ooi3aRI/Quk4KKbIN0c7NqhFFrIv9DEyS0ZpCJIghADJf4Ck6vDSb3o3Xvvr+fuvffyGV/u7nk++b735u5yGRgeHoGNOEk3QEVfLG30xdKGtWKDpEc/+/CcvUF+p0pUekD791ikTBh6JXWKSSv50aWnR0yLkh91PVUx7Up+VPSUVkVSK8XjSyZGrXQHiehkEovZSq6isFj8VnJ1xcSSspKoLiCWrJVoD7xiJlh5cHZi7UUwl5g5cXnw9BMtZpqVR2RXWZ2KZsblwe4tk4mZHJcHo0NrEwu9uueKa2kTL2YCxrtXOD9F4w9qFfz+iXaLay8/rotPb6MbABBy7U+TWG4Iow8xVcTcR3z+juJ7kipM6KfigzwW1zD9hrxQL1ofvy2/BgDHwdgzzC7h1bubccfB/ArWF1h76SY4MaX10HVxfIivq2ge3Q5OFPDoqfwxmQR2SzYVux3s7/WMPB6nqhWEtcs92SPu3CAKL3tGWvXgLb/sBgyWtlHaVqlPIPZ/8XgyeTtY38dJQ3+tcLSKBX72AP65+LGlsxAHtL+2AMDlOb5toFoO3YBmuacR63Zw0UbjALUKyr/wt0lShQnBF7QZWLvcZ0yM7hdUCmK8bTEAa8XU7qDNQGwqpuU0C+vT2qnIEjM/NEaHmUwMZofG7i2ricHU0CK74krMNDeefjI8FT3MCY2zE4HETHDj70FsKibrJlRd+BxLyk20rsziEb+bREWlFzFjuLWR/hCVlnvq6FSO338nmAML3+L2Y+F79/ex6p8ShpD5i+DU0RdLG9aKXQNGorHZN1SlBQAAAABJRU5ErkJggg==", "sizes": "72x72", "type": "image/png", "purpose": "any maskable"}, {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAADYklEQVR4nO2cO2sUYRSG31liwHVd1EYbkVReYEEECxEtxMpuyS+wiIWFIbWVf8Boa5GgjZWIlREDaVSECIlYxEuMEBVEwQjrSvAya/E1cXZ3zne/jOcpZy/znmfO981td7J6vQFmOLXQAWKHBRGwIAIWRMCCCFgQAQsiYEEEI2FX3z1/WOZtO2ZXXCcZRub/SFpSyjA8y/InyNBLP35MORdk3Us/Tk05FORBzVYcaXK1F/Nsx90a7XeQfzUF7LaS5Q4Kbsd6BmsdFIOaAlZayU4HRWgHllJZEBSnHYF5NlNBMdsRGCY0EhS/HYFJTn1BqdgRaKfVFJSWHYFeZh1BKdoRaCTnC2YEyoLSbR+Ban41QanbEShVwUOMQEFQNdpHIF+LrKAq2RFIVsRDjEBKUPXaRyBTF3cQAQsioAVVdXwJyOoc3Hq+9ggjo0NfzXNsfkdnAx/fYHUJz+bwo6PzPf2sPcfVCbWoEni/N1+rod5EvYm9B3DsLNqTeHgTD2bx57fvJHIQQ8z5+No2inMTuHhdrVmsUl5jHJP0weMYnwodYjBehtj0BbxdBoAsQ2MXWqfRvoTtO/95z8k2Fm7j87rU93jEbwf1euhs4Mk9zFzuC1LD0TNew8hRJsjhBLTyFOsviwvHWq5WR1FSabg56NNacUlzT4gcBOEEZVlxSa8XIgdBOEH7xopLOl9D5CAI9CPOIyew/1Bx4bsXxKembpS9emUcX94bpRqEd0GN3WidQnuyuDzPsbzgO4wEXgSVb3nB47vEQVAg4jiSfrWIO9OhQwwm8A/J8esn5m9hbkbqZDXEkbR3QXmOzS663/DhNVaXsHh/6OWOOPB7LpYgccxBEcOCCMoEBfyPjWdKKuUOImBBBCyIgBD0P0xD5TXSf0Wo9o1DUIJ4iBHQgqo9ysjquIMIWBCBlKCqjjKZuriDCGQFVa+JJCtS6KAqOZKvhYcYgZqgajSRUhXKHZS6I9X8PMQIdASl20QayTU7KEVHepn1h1hajrTTGs1BqTgyyWk6ScfvyDChhb1YzI7Ms9nZzcfpyEoqyw9YiuQCtsUNZvlAMYZWspvB1UPegrSSi83j6lTDfys5WiM/R5GAn8RJwM9yJQggaCv8NODk4QtmBCyIgAURsCACFkTAgghYEMFfhTnzS6xwdcEAAAAASUVORK5CYII=", "sizes": "96x96", "type": "image/png", "purpose": "any maskable"}, {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAAAEfElEQVR4nO2dv2sUQRTHX6ImXoyKaJoYEQyiEQ0BCxtFjME/wh9FUmhlaWMjFtr4o0qliBgVaxtFokhABKMICiZGTaHGsxIkueRCQLFYOM+77Dmz+2a+b3bfpwu7Wd58P/Nmdu9H0tTW1k4KjmZ0AXlHBYBRAWBUABgVAEYFgFEBYFQAGBUARgWAUQFgVqILsGB+sMf85DU3J91VwkiT5BfjrBJvjFgfEgUw5l6PNBOCBDjNvR4hJvACPOdeD9YEUgA8+mpQGjACREVfjX8NgOcAsekTojavHSA5+hq8tYK/DggoffJYrY8OCCv6Gly3gvMOCDp9cl+/WwGhpx/hdBQOBWQj/Qh3Y3GyB2Qp+hrYtwT+Dshw+uRgdMwCsp1+BO8Y9R0xMJwC8jD9IxhHyiYgP+lHcI2XR0De0o9gGTWDgHymH5F+7LoJg0krIM/TPyJlAqkEaPoRaXLQJQhMcgE6/atJnEZCAZp+Pcky0SUITBIBOv3jSJCMdgAYawE6/Rtjm492ABgVAMZOgK4/JlilpB0Axvt3xK6OUUvB6MylMpVLND9L36fpyyS9H6dvHzmvH8etc/TyYaor2GAhwPf601KglgKt76DObtp7hIjo8wQ9uUuvR72WkYj5wR7DD7AEtQRt3UVDF+jUFWrfgC6FjaAEROw5QKeHqW0tug4eTAXIuv/ZvJ2GLqKL+A+GiQXYARE791HvQXQRDIj5pvy1M/R27O+PLatpUxf1HaKB47F3Nf1H//kVq+uLQWoHLC1S8RM9uE6Xh6hcWv6cbb1UCH4nkCqgQnGaRkeWP9S8grbs8FsNP0YCwDvwu2exh9Zt9FiHNSa5ie8AIir9jD0U/s1oCAIaPHYtzHmswwli7oIasHt/7KHZH6YXOXnJ6LTREbo/bHpNDsR3QGc3DZxY/tDvX/R1ym81/EjtgFWt1NFFff10+Bi1ti1/zvQbKusSxIXhElHN03sO6vCN+CUojqlxmU+2toQpoDhNN86ii+BBzBJkzsRzun2eFmbtfkvqa0FBCZiZosd36NUjdB2cCBawtEjlEpXnqBi9J/yCZj6ga+JHjACpS4RrwtyEM4QKAGMkQMjfOA0Ok9y0A8CoADAqAIwKAGMqQPdhW7L42dAsogLA2P3VRFmfEBWM+YqtHQBGBYCxE6D3QiZYpaQdAEYFgLEWoKtQY2zz0Q4Ak0SANkEcCZLRDgCTUIA2QT3JMkneAeqgmsRp6BIEJpUAbYKINDmk7QB1kDIBXYLAMAjIcxOkHztPB+TTAcuo2ZagvDngGi/nHpAfB4wj1U0YDLOAPDQB7xj5OyDbDthH5/AfOmfsMyyOJpbDPSBLreBuLG434Ww4cDoK53dBoTtwXb/DPaCG4LYEP1PH33NAWK3grVp/HVBBeCt4niiAJ2HJreC/NkAHVBDVCqhpgRQQAdeA7Ui8gAqeTQhZCQUJqODUhJDcK0gUUIHRhLTcK4gWUIOVD7GJ1xCSgEyi74iBUQFgVAAYFQBGBYBRAWBUABgVAEYFgFEBYP4ADHsmtr/5KjMAAAAASUVORK5CYII=", "sizes": "128x128", "type": "image/png", "purpose": "any maskable"}, {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJAAAACQCAIAAABoJHXvAAAFHUlEQVR4nO2dzWsdVRjGn9wEKTGVVisWURKxLtq6iC4kwsWPP8BNFHQlunIjRcSFLqv7rhTalQsVFLQu3AiCBAwIisZCsVCD/VDRWiqVpEZrPlwMXMZcMr1n5pzzvs/M81tmJve+5/3d570nk+HescnJKQgeetYFiDAkjAwJI0PCyJAwMiSMDAkjQ8LIkDAyJIwMCSNDwsiQMDImrAuIwLXnD45+8s1vn0lXSQbG6P69EqRnFLgU0giL7mkYCnPehWXwNIxnc06FmXgaxqE5d8KcqCrjSpsjYQ5VlXGizYUw56rKmGszFkakqoyhNssrHaS2YFq5TcJ4VW0jf9QMEtYaW7BYS25hbbJVkHlF+UZi+1RtI894zJSw1ttCrjXmENYFWwUZVppcWHdsFaReb1phXbNVkHTVCYV101ZBurWnEtZlWwWJOpBEmGwVpOhDfGGyVSZ6N3SbGxmRhSlew8TtSUxhsrUTETsTTZhsVROrP3oPIyOOMMVrFKJ0KYIw2Rqd5r3SSCSjqTDFK5SGHVPCyGgkTPGqR5O+KWFk1BemeDWhdveUMDJqClO8mlOvh0oYGRJGRh1hmoexqNFJu8/p6M/jmVcDzt9Yx9oq/l7FylX8chYXvsfyEi7/lOrpKri+hpcfjfNQ4fB8sMr4BKb2YGoP9t2Fe+5Hfx4AlpeweBLffIatTev6MhE8En3NwwMP4Lk38NJx3H63dSk1Ce1nKzYd987itfdw34PWdeSgFcIA3LQLLxzD9CHrOpITJszXPNzGrkk8exS9ces6ggnqalsSVnDHNB55yrqItLjcJW5u4sjc/34yPoGpvZg5jP48Ds7t8GsAgP6TWPig6dM5hiRhG+v48zJOLeCtI/jwWNWZ+2dw2525yjKARFiZhffx3edVJxyYzVSJBYTCAHz5SdXRW/blqsOAAGGOtoiXzlcd3X1rpjLiMXpvOROGsaqDW1u5yjCAU9j+maqjK39kKsMCl9v6GzL3RNXRlSthj9br4c2vAs5/8aGwx48KYcIeexqzj1edsLyUqxQDSBLWG8fuvZg+jP48Dj1cdeZv53Dl11xlGeBSWOiMKrN4Mmop7iAciRVcuoAvPrIuIi0tEvbPX3jnKDbWretIS1uE/XsdJ17B+dPWdSTH5XtYKOdO493Xb3D5owKqq/Xkwn48hcWP8fWn3bkJh0fY5gbWVrG2imtX8fNZXDyDH77F7xety8qNS2FUMyozbdl0dIYAYebfYtFiRu+tEkaGhJEhYWRIGBkSRkaYMG0UUxDUVSWMDAkjI1iYpmJcQvtZ5+uoHN1Ryk+oMI1EMuoI01SMRY1OKmFkSBgZNYVpKjanXg+VMDLqC1PImlC7e0oYGY2EKWT1aNI3JYyMpsIUslAadkwJIyOCMIVsdJr3Kk7C5GwUonRJI5GMaMIUsmpi9SdmwuRsJyJ2JvJIlLNh4vZE72FkxBemkJWJ3o0kCZOzghR9SDUS5SxRBxK+h3XZWbq1p910dNNZ0lUn3yV2zVnq9ebY1nfHWYaVZvo7rAvO8qyxzr31TWjlffk5X465r3S0L2qZV2RwaapNzvKvJfdILEM9Hq1edpYXf3mjZli5ZcIGEEXN/EXmQliBc23mqgocCStwqM2JqgJ3wgqcaHOlqsCpsAEm5hx6GuBd2IAM5jx7GkAjbEB0cxSeBvAJGyZIIZeeYdogrFPoNjcyJIwMCSNDwsiQMDIkjAwJI0PCyJAwMiSMDAkjQ8LI+A+kgU/WbGwgrwAAAABJRU5ErkJggg==", "sizes": "144x144", "type": "image/png", "purpose": "any maskable"}, {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJgAAACYCAIAAACXoLd2AAAFZUlEQVR4nO2dP4hcVRTGv3lRJJOMQYmoLOLin2LZRkFUSGERkYAWNopNiliICGlFG7UwhZVIgnZaBIUUpkkR01lElES0kE1WjDHZRYOLGHBmdocIMxYPhpeM+5h3/5xz73nfr8y+nT33/OY77737djadbnc3SP4U2gWQMFCkESjSCBRpBIo0AkUagSKNQJFGoEgjUKQRKNIIFGkEijQCRRrhNu0CAjM8tDT/wbs+uxivEmE6WT+PbKRtHvJVm5/I4PK2Iy+p2YgU8zdLFkYzEKmosEriOtMVmYi/WdI0mqLIZBVWSU1nWiKzUFglHZ2piMxOYZUUdCaxs5O1RaRRv3IiU2hBQBSjqZlIYxahuiI1kfYslmitS2G0WlV4C8JjVjqRLbEI8ZWKimyPxRLJ9cqJbJvFErFVC4lsp8USmbVLiGyzxRKBDkQXSYslsfsQVyQtVonajYgiaXGWeD2JJZIWtyNSZ6KIpMV6YvQnicdYxJ/wIhnHeQjepcAiaXF+wvYqpEhabErAjvEcaYRgIhlHN0L1LYxIWvQhSPc4Wo0QQCTj6I9/D5lII/iKZBxD4dlJJtIIXiIZx7D49JOJNAJFGsFdJOdqDJy7ykQawfGzH8HieM8DePfLZt8yGWM0xNYAW0NsXMX6KtZW8euP+PdGxB9azy8/4KPXA76ew+dGMvzLV50CO3vY2QOAhUfw+H4A2Ozj/GmcPYlrl3Wr08LKaO328MzLePsLvHgYt9+hXY0CLiLTvcwpCjx7EG8dx5692qV44dBhK4mscu8iDn+M3Xdp1yGKRZEA7lvEwXe0ixDFqEgAy/uwvE+7CDkaX7WKniCvXcaRV276l6JAdw8WHsUTz+Gp51HsqPv2A69i5ZsAP1SD4aGlRjchuSVyPMbgOn4+h8/fx4evYTSsO3hxuT1nytxEVvntJ5z4oO6AToGlp6WqUSZnkQC+P4P+33UH7F2QKkWZzEVOJriyUndA726pUpTJXCSAzX7dV7s9qTqUaSYyxT2dXXfWfXXzH6k6wtOo25knslPgweW6A/rXpUpRJsOnH1WePIBe7Q3GX783fs37H8Kxcw2OD/0My42cE/nwY3jpzboDJmNc/E6qGmVyS+RNOzsvoKh9I15ZwYCjNQWaTrlb+OrTcKWkTs6jtZ4L37pstGaLUZF/XsXx97SLEMWiyI01HH2jPTceJWmfI5syGePrEzj1CW6M3F8kjcdYTbEicquP82dw9iT+uKRdig4ZipyMMdrEaICtATbWsb6KtQu41OT3Wi2Stsg8p5wKFi92WglFGqGZyBT+N6/2YPqXr8g2UKQRKNIIFGkEijRCY5G8cJWhaZ+ZSCNQpBEo0gguInmajI1Dh7X/PAv5PxxEcrQawVEkp2s83HrLRBrBXSRDGQPnrjKRRqBII3iJ5HQNi08/mUgj+IpkKEPh2Ukm0ggBRDKU/vj3kIk0QhiRDKUPQboXLJF06UaovnG0GiGkSIayKQE7FjiRdDk/YXsVfrTS5TwE7xLPkUaIIpKhrCdGf2Ilki63I1JnIo5WupwlXk/iniPpskrUbkS/2KHLkth9kLhqpUuBDgjdfrTZpcza5e4j2+lSbNWiGwJtcym5Xumdnfa4FF6p46ex/DH8eS6VN6vaXqvVaGqtS3PT3J5LxRWpjdYqBsas+psyicdY6l3wJIX6k0jklOyimYLCkrRElmShMx2FJSmKLElWZ2oKS9IVOSURo2n6m5KByBJFnYkrLMlG5BQxo1n4m5KfyCrBpeYlr0reImdppDZfbbNYE9laktjZIf5QpBEo0ggUaQSKNAJFGoEijUCRRqBII1CkESjSCBRpBIo0wn+5LW3qxqD+WwAAAABJRU5ErkJggg==", "sizes": "152x152", "type": "image/png", "purpose": "any maskable"}, {"src": "data:image/png;base64,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", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"}, {"src": "data:image/png;base64,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", "sizes": "384x384", "type": "image/png", "purpose": "any maskable"}, {"src": "data:image/png;base64,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", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}]}`;
         const blob = new Blob([manifestData], {type: 'application/json'});
         const manifestUrl = URL.createObjectURL(blob);
         const link = document.createElement('link');
@@ -2047,7 +2234,7 @@
         <!-- DESKTOP: tabs normales (ocultas en mobile) -->
         <div class="pf-tabs-desktop max-w-6xl mx-auto hidden sm:flex gap-0">
             <button onclick="showTab('dashboard')" id="tab-dashboard" class="tab-active px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">🏠</span><span class="pf-tab-label">Dashboard</span></button>
-            <button onclick="showTab('rutina')" id="tab-rutina" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">🏋️</span><span class="pf-tab-label">Crear Rutina</span></button>
+            <button onclick="showTab('rutina')" id="tab-rutina" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">🏋️</span><span class="pf-tab-label">Crear Entrenamiento</span></button>
             <button onclick="showTab('repositorio')" id="tab-repositorio" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">📁</span><span class="pf-tab-label">Repositorio</span></button>
             <button onclick="showTab('videoteca')" id="tab-videoteca" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">▶</span><span class="pf-tab-label">Videoteca</span></button>
             <button onclick="showTab('crear-alumno')" id="tab-crear-alumno" class="tab-inactive px-6 py-3 text-sm font-bold uppercase tracking-widest transition-colors"><span class="pf-tab-ico">🧑‍🎓</span><span class="pf-tab-label">Crear Alumno</span></button>
@@ -2078,9 +2265,9 @@
             <span class="mob-bn-pill"><span class="mob-bn-ico">🏠</span></span>
             <span class="mob-bn-label">Home</span>
         </button>
-        <button onclick="showTab('rutina')" id="bn-tab-rutina" class="mob-bn-btn" aria-label="Crear Rutina">
+        <button onclick="showTab('rutina')" id="bn-tab-rutina" class="mob-bn-btn" aria-label="Crear Entrenamiento">
             <span class="mob-bn-pill"><span class="mob-bn-ico">🏋️</span></span>
-            <span class="mob-bn-label">Rutina</span>
+            <span class="mob-bn-label">Entrenamiento</span>
         </button>
         <button onclick="showTab('videoteca')" id="bn-tab-videoteca" class="mob-bn-btn" aria-label="Videoteca">
             <span class="mob-bn-pill"><span class="mob-bn-ico">▶</span></span>
@@ -2101,10 +2288,10 @@
     </nav>
 
     <!-- MOBILE: acciones principales de Crear Rutina, siempre al alcance del pulgar -->
-    <div id="pf-mobile-routine-actions" class="hidden" role="toolbar" aria-label="Acciones de la rutina">
-        <button type="button" class="pf-mobile-action-ai" onclick="generarRutinaIA()" aria-label="Armar rutina con IA">IA</button>
-        <button type="button" class="pf-mobile-action-save" onclick="_pfMobileSaveRoutine()" aria-label="Guardar rutina">Guardar</button>
-        <button type="button" class="pf-mobile-action-share" onclick="_pfMobileShareRoutine()" aria-label="Compartir rutina">Compartir</button>
+    <div id="pf-mobile-routine-actions" class="hidden" role="toolbar" aria-label="Acciones del entrenamiento">
+        <button type="button" class="pf-mobile-action-ai" onclick="generarRutinaIA()" aria-label="Armar entrenamiento con IA">IA</button>
+        <button type="button" class="pf-mobile-action-save" onclick="_pfMobileSaveRoutine()" aria-label="Guardar entrenamiento">Guardar</button>
+        <button type="button" class="pf-mobile-action-share" onclick="_pfMobileShareRoutine()" aria-label="Compartir entrenamiento">Compartir</button>
     </div>
 
     <main id="pf-main-content" class="max-w-6xl mx-auto p-6">
@@ -2136,7 +2323,7 @@
                                 <p class="text-xs text-textoSuave"><span id="dash-nivel" class="text-azul font-bold"></span> <span id="dash-objetivo" class="ml-2"></span></p>
                             </div>
                         </div>
-                        <button onclick="dashCrearRutinaParaAlumno()" class="btn-primary px-4 py-2.5 rounded-xl text-white font-bold text-xs uppercase tracking-wider whitespace-nowrap">+ Crear rutina para este alumno</button>
+                        <button onclick="dashCrearRutinaParaAlumno()" class="btn-primary px-4 py-2.5 rounded-xl text-white font-bold text-xs uppercase tracking-wider whitespace-nowrap">+ Crear entrenamiento para este alumno</button>
                         <button onclick="exportarDashboardPDF()" class="px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider whitespace-nowrap" style="background:rgba(255,213,79,.15);color:#FFD54F;border:1px solid rgba(255,213,79,.3)" onmouseover="this.style.background='rgba(255,213,79,.25)'" onmouseout="this.style.background='rgba(255,213,79,.15)'">📄 Exportar PDF</button>
                         <button onclick="enviarResumenDashboardPorMail()" class="px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider whitespace-nowrap" style="background:rgba(30,136,229,.15);color:#64B5F6;border:1px solid rgba(30,136,229,.3)" onmouseover="this.style.background='rgba(30,136,229,.25)'" onmouseout="this.style.background='rgba(30,136,229,.15)'">✉️ Enviar por mail</button>
                     </div>
@@ -2187,7 +2374,7 @@
                 <!-- Filtro por rango de rutinas: afecta TODO el dashboard (KPIs, ejercicios,
                      mapa de calor, distribución de métodos) y lo que se exporta a PDF -->
                 <div class="bg-tarjeta rounded-2xl border border-borde p-3 mb-6 flex flex-wrap items-center gap-2">
-                    <span class="text-xs font-bold text-textoSuave uppercase tracking-wider">Rango de rutinas:</span>
+                    <span class="text-xs font-bold text-textoSuave uppercase tracking-wider">Rango de entrenamientos:</span>
                     <select id="dash-rango-desde" class="rounded-lg px-2 py-1.5 text-xs bg-fondoAlt border border-borde text-texto"></select>
                     <span class="text-xs text-textoSuave">a</span>
                     <select id="dash-rango-hasta" class="rounded-lg px-2 py-1.5 text-xs bg-fondoAlt border border-borde text-texto"></select>
@@ -2200,7 +2387,7 @@
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                     <div class="kpi-card rounded-2xl p-5 text-center">
                         <p class="text-3xl font-black text-naranja" id="kpi-total-rutinas">0</p>
-                        <p class="text-xs text-textoSuave uppercase tracking-wider mt-1">Total Rutinas</p>
+                        <p class="text-xs text-textoSuave uppercase tracking-wider mt-1">Total Entrenamientos</p>
                     </div>
                     <div class="kpi-card rounded-2xl p-5 text-center">
                         <p class="text-xl font-black text-azul" id="kpi-metodo-dominante">--</p>
@@ -2235,8 +2422,8 @@
                         <div id="dash-cal-dias-semana" class="grid grid-cols-7 gap-1 mb-1 text-[10px] text-textoSuave uppercase text-center"></div>
                         <div id="dash-cal-grid" class="grid grid-cols-7 gap-1"></div>
                         <div class="flex items-center gap-4 mt-3 text-[11px] text-textoSuave flex-wrap">
-                            <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded" style="background:#2d8f5e"></div> Entrenó (tocá el día para ver la rutina)</div>
-                            <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded" style="background:#FFD54F"></div> Solo ingresó, no hizo la rutina</div>
+                            <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded" style="background:#2d8f5e"></div> Entrenó (tocá el día para ver el entrenamiento)</div>
+                            <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded" style="background:#FFD54F"></div> Solo ingresó, no hizo el entrenamiento</div>
                             <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded border border-borde"></div> No entrenó</div>
                             <span id="dash-cal-resumen" class="ml-auto text-texto font-bold"></span>
                         </div>
@@ -2418,7 +2605,7 @@
 
                     <!-- Ultimas 5 rutinas -->
                     <div class="lg:col-span-3 bg-tarjeta rounded-2xl border border-borde p-5">
-                        <h3 class="text-sm font-bold text-amarillo uppercase tracking-wider mb-4">Ultimas 5 Rutinas</h3>
+                        <h3 class="text-sm font-bold text-amarillo uppercase tracking-wider mb-4">Ultimas 5 Entrenamientos</h3>
                         <div class="overflow-x-auto">
                             <table class="w-full text-sm dash-table">
                                 <thead>
@@ -2506,7 +2693,7 @@
             <div class="modal-glass rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 <div class="p-6">
                     <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-bold text-naranja">Detalle de Rutina</h3>
+                        <h3 class="text-lg font-bold text-naranja">Detalle de Entrenamiento</h3>
                         <div class="flex items-center gap-2">
                             <button onclick="_pfToggleVistaDash()" id="btn-toggle-vista-dash" class="text-xs font-bold px-4 py-1.5 rounded-full transition" style="background:rgba(255,213,79,.15);color:#FFD54F">📄 Vista completa</button>
                             <button onclick="document.getElementById('modal-dash-rutina').classList.add('hidden')" class="text-textoSuave hover:text-texto text-2xl leading-none">&times;</button>
@@ -2637,11 +2824,23 @@
         <!-- TAB: CREAR RUTINA -->
         <!-- ═══════════════════════════════════════════ -->
         <section id="sec-rutina" class="hidden">
+            <!-- Stepper visual: navega por scroll a cada sección, no oculta contenido
+                 (los días pueden ser varios, así que cada paso apunta al bloque
+                 correspondiente sin tocar la lógica de multi-día existente). -->
+            <div class="pf-stepper" style="grid-column:1/-1;">
+                <button type="button" class="pf-step-pill" onclick="document.getElementById('pf-datos-entrenamiento').scrollIntoView({behavior:'smooth',block:'start'})"><span class="pf-step-num">1</span><span class="pf-step-label">Configuración</span></button>
+                <span class="pf-step-line"></span>
+                <button type="button" class="pf-step-pill" onclick="document.getElementById('dias-container').scrollIntoView({behavior:'smooth',block:'start'})"><span class="pf-step-num">2</span><span class="pf-step-label">Calentamiento</span></button>
+                <span class="pf-step-line"></span>
+                <button type="button" class="pf-step-pill" onclick="document.getElementById('dias-container').scrollIntoView({behavior:'smooth',block:'center'})"><span class="pf-step-num">3</span><span class="pf-step-label">Bloque Principal</span></button>
+                <span class="pf-step-line"></span>
+                <button type="button" class="pf-step-pill" onclick="document.getElementById('pf-resumen-acciones').scrollIntoView({behavior:'smooth',block:'center'})"><span class="pf-step-num">4</span><span class="pf-step-label">Resumen</span></button>
+            </div>
             <!-- Banner de borrador recuperado (autoguardado en este dispositivo) -->
-            <div id="borrador-card" class="hidden bg-tarjeta rounded-2xl border border-amarillo/40 p-4 mb-4 flex items-center justify-between gap-3 flex-wrap">
+            <div id="borrador-card" class="pf-zone-izq hidden bg-tarjeta rounded-2xl border border-amarillo/40 p-4 mb-4 flex items-center justify-between gap-3 flex-wrap">
                 <div class="text-sm flex-1 min-w-0">
                     <span class="font-bold text-amarillo">💾 Borrador sin guardar</span>
-                    <span class="text-textoSuave"> — encontramos una rutina sin compartir de <span id="borrador-info"></span>. ¿Querés recuperarla?</span>
+                    <span class="text-textoSuave"> — encontramos un entrenamiento sin compartir de <span id="borrador-info"></span>. ¿Querés recuperarla?</span>
                 </div>
                 <div class="flex gap-2 flex-shrink-0">
                     <button onclick="_pfRestaurarBorrador()" class="bg-amarillo/20 text-amarillo px-3 py-2 rounded-lg text-xs font-bold hover:bg-amarillo/30 transition">Restaurar</button>
@@ -2650,8 +2849,14 @@
             </div>
 
             <!-- Paso 1: Nombre del alumno -->
-            <div class="bg-tarjeta rounded-2xl border border-borde p-6 mb-6">
-                <h2 class="pf-seccion-h1 text-lg font-bold text-verde uppercase tracking-wider mb-4">Datos de la Rutina</h2>
+            <div id="pf-datos-entrenamiento" class="pf-zone-izq bg-tarjeta rounded-2xl border border-borde p-6 mb-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <img id="pf-alumno-avatar-grande" class="hidden w-12 h-12 rounded-xl object-cover border border-borde flex-shrink-0" src="" alt="">
+                    <div class="min-w-0">
+                        <h2 class="pf-seccion-h1 text-lg font-bold text-verde uppercase tracking-wider">Datos del Entrenamiento</h2>
+                        <p id="pf-alumno-nombre-grande" class="hidden text-sm font-bold text-texto truncate"></p>
+                    </div>
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Nombre del Alumno</label>
@@ -2659,19 +2864,19 @@
                     </div>
                     <div>
                         <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Descripcion (opcional)</label>
-                        <input id="rutina-desc" type="text" placeholder="Ej: Rutina de fuerza semana 1" class="w-full rounded-lg px-3 py-2.5 text-sm">
+                        <input id="rutina-desc" type="text" placeholder="Ej: Entrenamiento de fuerza semana 1" class="w-full rounded-lg px-3 py-2.5 text-sm">
                     </div>
                 </div>
                 <div id="historial-alumno-card" class="hidden mt-4 bg-fondoAlt rounded-xl border border-amarillo/30 p-3 flex items-center justify-between gap-2 flex-wrap">
                     <div class="text-sm">
                         <span class="font-bold text-amarillo">📋 Historial</span>
-                        <span class="text-textoSuave"> — <span id="historial-alumno-cant">0</span> rutinas de este alumno</span>
+                        <span class="text-textoSuave"> — <span id="historial-alumno-cant">0</span> entrenamientos de este alumno</span>
                     </div>
                     <div class="flex items-center gap-2">
-                        <label class="text-[11px] text-textoSuave" title="Contra cuántas de las últimas rutinas del alumno se avisa &quot;ya se usó&quot; al elegir un ejercicio">
+                        <label class="text-[11px] text-textoSuave" title="Contra cuántas de las últimos entrenamientos del alumno se avisa &quot;ya se usó&quot; al elegir un ejercicio">
                             Avisar "ya se usó" mirando:
                             <select onchange="_pfCambiarCantRutinasAnteriores(this.value)" class="ml-1 rounded-lg px-1.5 py-1 text-[11px] bg-fondo border border-borde">
-                                <option value="1" selected>última rutina</option>
+                                <option value="1" selected>último entrenamiento</option>
                                 <option value="2">últimas 2</option>
                                 <option value="3">últimas 3</option>
                                 <option value="5">últimas 5</option>
@@ -2693,10 +2898,10 @@
             </div>
 
             <!-- Rutinas guardadas en el Repositorio: buscar, filtrar y usar una acá mismo -->
-            <div class="bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
+            <div class="pf-zone-der bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
                 <button type="button" onclick="_pfTogglePanelRepoCrear()" class="pf-panel-toggle w-full flex items-center justify-between gap-2">
                     <span class="text-sm font-bold text-purpura uppercase tracking-wider flex items-center gap-2">
-                        📁 Rutinas del Repositorio
+                        📁 Entrenamientos del Repositorio
                     </span>
                     <svg id="rc-chevron" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-textoSuave transition-transform duration-200 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </button>
@@ -2717,10 +2922,10 @@
             </div>
 
             <!-- Historial de rutinas: de este alumno o de otro, en un solo buscador -->
-            <div class="bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
+            <div class="pf-zone-der bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
                 <button type="button" onclick="_pfTogglePanelOtroAlumno()" class="pf-panel-toggle w-full flex items-center justify-between gap-2">
                     <span class="text-sm font-bold text-azul uppercase tracking-wider flex items-center gap-2">
-                        📋 Historial de Rutinas
+                        📋 Historial de Entrenamientos
                     </span>
                     <svg id="oa-chevron" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-textoSuave transition-transform duration-200 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </button>
@@ -2741,7 +2946,7 @@
             </div>
 
             <!-- Mapa de calor muscular en vivo -->
-            <div class="bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
+            <div class="pf-zone-der bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
                 <button type="button" onclick="toggleMapaCalorVivo()" class="pf-panel-toggle w-full flex items-center justify-between gap-2">
                     <span class="text-sm font-bold text-naranja uppercase tracking-wider flex items-center gap-2">
                         🔥 Balance Muscular en Vivo
@@ -2752,7 +2957,7 @@
                 <div id="mapa-calor-vivo-comparar-wrap" class="hidden mt-3 flex items-center justify-between gap-2 flex-wrap">
                     <label class="flex items-center gap-3 text-textoSuave cursor-pointer select-none" style="font-size:15px;">
                         <input type="checkbox" id="mapa-calor-comparar-check" onchange="_pfToggleCompararAnterior(this.checked)" style="width:22px;height:22px;accent-color:#FF6B35;flex-shrink:0;">
-                        🔁 Comparar con la rutina anterior del alumno
+                        🔁 Comparar con el entrenamiento anterior del alumno
                     </label>
                     <span id="mapa-calor-comparar-info" class="text-xs text-textoSuave"></span>
                 </div>
@@ -2762,12 +2967,13 @@
             </div>
 
             <!-- Barra de progresión semanal (mismos ejercicios, distinta serie/reps/pausa por semana) -->
-            <div id="pf-barra-semanas" class="hidden mb-4 p-3 rounded-2xl border border-borde bg-tarjeta">
+            <div id="pf-barra-semanas" class="pf-zone-centro hidden mb-4 p-3 rounded-2xl border border-borde bg-tarjeta">
                 <div class="flex items-center gap-2">
                     <span class="text-xs font-bold text-textoSuave uppercase tracking-wider flex-shrink-0">📅 Semanas</span>
                     <div id="pf-semanas-lista" class="overflow-x-auto flex items-center gap-1.5 flex-1 min-w-0 pb-0.5" style="-webkit-overflow-scrolling:touch;scrollbar-width:none;"></div>
                     <button id="pf-semana-eliminar" onclick="_pfEliminarSemanaActiva()" title="Eliminar esta semana" class="hidden flex-shrink-0 px-2.5 py-2 rounded-xl border border-rojo/40 text-rojo text-xs font-bold">🗑</button>
                     <button id="pf-semana-progresion" onclick="_pfSugerirProgresionIA()" title="Sugerir progresión de series/reps en base a la semana anterior" class="hidden flex-shrink-0 px-3 py-2 rounded-xl text-white text-xs font-bold uppercase whitespace-nowrap" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);">🤖 Sugerir progresión</button>
+                    <span id="pf-semana-progresion-info" class="hidden flex-shrink-0 text-[11px] text-textoSuave font-semibold whitespace-nowrap"></span>
                     <button id="pf-semana-agregar-desktop" onclick="_pfAgregarSemanaEnCreacion()" class="hidden sm:inline-block flex-shrink-0 px-3 py-2 rounded-xl bg-verde text-white text-xs font-bold uppercase whitespace-nowrap">+ Agregar semana</button>
                 </div>
                 <button id="pf-semana-agregar-mobile" onclick="_pfAgregarSemanaEnCreacion()" class="sm:hidden w-full mt-2.5 py-2.5 rounded-xl bg-verde text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5">
@@ -2777,7 +2983,7 @@
             <style>#pf-semanas-lista::-webkit-scrollbar{display:none;}</style>
 
             <!-- Navegador de dias para mobile: swipe o flechas para moverse entre dias -->
-            <div id="dia-pager-mobile" class="hidden items-center justify-between gap-2 bg-tarjeta rounded-2xl border border-borde px-3 py-2.5 mb-3" style="display:none;">
+            <div id="dia-pager-mobile" class="pf-zone-centro hidden items-center justify-between gap-2 bg-tarjeta rounded-2xl border border-borde px-3 py-2.5 mb-3" style="display:none;">
                 <button onclick="irADia(_diaActivoMobile - 1)" class="text-textoSuave hover:text-texto px-2 py-1.5 text-lg leading-none">‹</button>
                 <div class="flex-1 text-center min-w-0">
                     <p id="dia-pager-titulo" class="text-sm font-bold text-texto truncate"></p>
@@ -2789,21 +2995,21 @@
             <!-- ══════════════════════════════════════════ -->
             <!-- DIAS CONTAINER (multi-dia) -->
             <!-- ══════════════════════════════════════════ -->
-            <div id="dias-container" class="space-y-6 mb-4">
+            <div id="dias-container" class="pf-zone-centro space-y-6 mb-4">
                 <!-- Dia 1 se genera dinamicamente en initMultiDia() -->
             </div>
 
             <!-- Botones Agregar Dia + acción principal -->
-            <div class="pf-acciones-crear flex flex-col sm:flex-row gap-3 mb-6">
+            <div id="pf-resumen-acciones" class="pf-zone-centro pf-acciones-crear flex flex-col sm:flex-row gap-3 mb-6">
                 <button onclick="agregarDia()" class="flex-1 py-3 rounded-2xl border-2 border-dashed border-verde/40 text-verde font-bold text-sm uppercase tracking-wider hover:border-verde hover:bg-verde/5 transition flex items-center justify-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     Agregar Día
                 </button>
-                <button id="btn-vista-compacta-global" onclick="_pfAbrirVistaCompactaRutina()" title="Ver toda la rutina (todos los días) de un vistazo" class="hidden flex-1 py-3 rounded-2xl border-2 border-verde/40 text-verde font-bold text-sm uppercase tracking-wider hover:border-verde hover:bg-verde/5 transition items-center justify-center gap-2">
+                <button id="btn-vista-compacta-global" onclick="_pfAbrirVistaCompactaRutina()" title="Ver todo el entrenamiento (todos los días) de un vistazo" class="hidden flex-1 py-3 rounded-2xl border-2 border-verde/40 text-verde font-bold text-sm uppercase tracking-wider hover:border-verde hover:bg-verde/5 transition items-center justify-center gap-2">
                     ☰ Vista Compacta
                 </button>
                 <button onclick="generarRutinaIA()" class="flex-1 py-3 rounded-2xl font-bold text-sm uppercase tracking-wider transition flex items-center justify-center gap-2" style="background: linear-gradient(135deg, #7c3aed, #4f46e5); box-shadow: 0 8px 24px rgba(124,58,237,0.35); color: #fff;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                    🤖 Armar Rutina con IA
+                    🤖 Armar Entrenamiento con IA
                 </button>
                 <!-- Modo NORMAL: botón guardar en repo + botón compartir -->
                 <button id="btn-guardar-repo-normal" onclick="abrirGuardarPlantilla()" class="flex-1 py-3 rounded-2xl border-2 border-naranja/50 text-naranja font-bold text-sm uppercase tracking-wider hover:border-naranja hover:bg-naranja/5 transition flex items-center justify-center gap-2">
@@ -2811,7 +3017,7 @@
                     Guardar en Repositorio
                 </button>
                 <button id="btn-compartir-rutina" onclick="compartirRutina()" class="btn-primary flex-1 py-3 rounded-2xl text-white font-black text-lg uppercase tracking-wider">
-                    Compartir Rutina
+                    Compartir Entrenamiento
                 </button>
                 <!-- Modo REPOSITORIO: solo guardar en repositorio (reemplaza los dos de arriba) -->
                 <button id="btn-guardar-repo-modo" onclick="guardarEnRepositorioDirecto()" class="hidden btn-primary flex-1 py-3 rounded-2xl text-white font-black text-lg uppercase tracking-wider">
@@ -2855,7 +3061,7 @@
         <section id="sec-repositorio" class="hidden">
             <div class="bg-tarjeta rounded-2xl border border-borde p-6 mb-4">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-1">
-                    <h2 class="pf-seccion-h1 text-lg font-bold text-naranja uppercase tracking-wider">Repositorio de Rutinas</h2>
+                    <h2 class="pf-seccion-h1 text-lg font-bold text-naranja uppercase tracking-wider">Repositorio de Entrenamientos</h2>
                     <div class="pf-acciones-crear flex gap-2 flex-wrap self-start sm:self-auto">
                         <button onclick="pizTogglePanel()" id="btn-pizarra" class="px-5 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wider flex items-center gap-2 transition" style="background:rgba(79,195,247,.15);color:#4FC3F7;border:1px solid rgba(79,195,247,.3)" onmouseover="this.style.background='rgba(79,195,247,.25)'" onmouseout="this.style.background='rgba(79,195,247,.15)'">
                             📷 Digitalizar Pizarra
@@ -2879,7 +3085,7 @@
                             <span class="text-lg">📷</span>
                             <div>
                                 <p class="text-sm font-bold text-azul uppercase tracking-wider">Digitalizar Pizarra</p>
-                                <p class="text-xs text-textoSuave">Subí una foto → la IA extrae los ejercicios → armás la rutina</p>
+                                <p class="text-xs text-textoSuave">Subí una foto → la IA extrae los ejercicios → armás el entrenamiento</p>
                             </div>
                         </div>
                         <button onclick="pizTogglePanel()" class="text-textoSuave hover:text-texto text-2xl leading-none" style="background:none;border:none;cursor:pointer">&times;</button>
@@ -3007,10 +3213,10 @@
 
                                 <!-- Botón armar rutina -->
                                 <button onclick="pizArmarRutina()" class="btn-primary w-full py-3 rounded-xl text-white font-bold text-sm uppercase tracking-wider">
-                                    🏋️ Armar Rutina con estos ejercicios
+                                    🏋️ Armar Entrenamiento con estos ejercicios
                                 </button>
                                 <p id="piz-advertencia" class="text-xs text-amarillo text-center hidden">
-                                    ⚠️ Los ejercicios sin Videoteca no se incluirán en la rutina
+                                    ⚠️ Los ejercicios sin Videoteca no se incluirán en el entrenamiento
                                 </p>
                             </div>
                         </div>
@@ -3030,7 +3236,7 @@
                                         <p class="text-xs text-textoSuave mt-0.5">Sin Videoteca</p>
                                     </div>
                                 </div>
-                                <p class="text-xs text-textoSuave leading-relaxed">Los <span class="text-naranja font-bold">en naranja</span> no tienen video en tu repositorio. Podés guardarlos ahora o usarlos igual en la rutina (sin video).</p>
+                                <p class="text-xs text-textoSuave leading-relaxed">Los <span class="text-naranja font-bold">en naranja</span> no tienen video en tu repositorio. Podés guardarlos ahora o usarlos igual en el entrenamiento (sin video).</p>
                             </div>
 
                             <!-- Log -->
@@ -3049,7 +3255,7 @@
                 </div>
                 <div id="repo-filtro-tipos" class="flex flex-wrap gap-2 mb-4 hidden"></div>
                 <div id="repo-lista" class="space-y-3">
-                    <p class="text-textoSuave text-sm text-center py-12">No hay rutinas guardadas en el repositorio aún.<br><span class="text-xs">Andá a "Crear Rutina", armá tu rutina y guardala aquí.</span></p>
+                    <p class="text-textoSuave text-sm text-center py-12">No hay entrenamientos guardados en el repositorio aún.<br><span class="text-xs">Andá a "Crear Entrenamiento", armá tu entrenamiento y guardala aquí.</span></p>
                 </div>
             </div>
         </section>
@@ -3078,7 +3284,7 @@
                 <div class="space-y-4">
                     <div>
                         <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Nombre de la Plantilla</label>
-                        <input id="repo-nombre-input" type="text" placeholder="Ej: Rutina Fuerza Tren Superior" class="w-full rounded-lg px-3 py-2.5 text-sm" onkeydown="if(event.key==='Enter')guardarEnRepositorio()">
+                        <input id="repo-nombre-input" type="text" placeholder="Ej: Entrenamiento Fuerza Tren Superior" class="w-full rounded-lg px-3 py-2.5 text-sm" onkeydown="if(event.key==='Enter')guardarEnRepositorio()">
                     </div>
                     <p id="repo-status" class="text-xs text-verde text-center min-h-[1.2rem]"></p>
                     <div class="flex gap-3">
@@ -3105,7 +3311,7 @@
                     </button>
                     <button onclick="_repoOpcionCompartir()" class="w-full py-3 rounded-xl border-2 border-verde/50 text-verde font-bold text-sm hover:border-verde hover:bg-verde/5 transition text-left px-4">
                         📤 Compartir a un alumno
-                        <span class="block text-[11px] font-normal text-textoSuave mt-0.5">Asigna esta rutina (con los cambios) a un alumno</span>
+                        <span class="block text-[11px] font-normal text-textoSuave mt-0.5">Asigna este entrenamiento (con los cambios) a un alumno</span>
                     </button>
                 </div>
                 <button onclick="document.getElementById('modal-repo-guardar-opciones').classList.add('hidden')" class="w-full mt-3 py-2.5 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
@@ -3146,10 +3352,10 @@
                         <button onclick="document.getElementById('modal-repo-editar').classList.add('hidden')" class="flex-1 py-2.5 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
                     </div>
                     <div class="border-t border-borde/50 pt-3">
-                        <p class="text-xs text-textoSuave mb-2">Para editar los ejercicios y bloques de la rutina, cargala en el editor:</p>
+                        <p class="text-xs text-textoSuave mb-2">Para editar los ejercicios y bloques del entrenamiento, cargala en el editor:</p>
                         <button onclick="editarRutinaCompleta()" class="w-full py-2.5 rounded-xl border-2 border-azul/50 text-azul font-bold text-sm hover:border-azul hover:bg-azul/5 transition flex items-center justify-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                            Editar Rutina Completa
+                            Editar Entrenamiento Completa
                         </button>
                     </div>
                 </div>
@@ -3249,7 +3455,7 @@
         <!-- ═══════════════════════════════════════════ -->
         <section id="sec-historial" class="hidden">
             <div class="bg-tarjeta rounded-2xl border border-borde p-6">
-                <h2 class="pf-seccion-h1 text-lg font-bold text-purpura uppercase tracking-wider mb-4">Rutinas Compartidas</h2>
+                <h2 class="pf-seccion-h1 text-lg font-bold text-purpura uppercase tracking-wider mb-4">Entrenamientos Compartidas</h2>
                 <div class="flex gap-3 mb-4">
                     <input id="select-alumno" type="text" autocomplete="off" placeholder="Buscar alumno..." class="rounded-lg px-3 py-2.5 text-sm flex-1">
                     <button onclick="cargarListaAlumnos()" class="bg-purpura/20 text-purpura px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition whitespace-nowrap">Actualizar</button>
@@ -3369,7 +3575,7 @@
                 <h3 class="text-sm font-bold text-naranja uppercase tracking-wider">⚠️ Ejercicios sin video</h3>
                 <button onclick="_svResolver(false)" class="text-textoSuave hover:text-texto text-2xl leading-none">&times;</button>
             </div>
-            <p class="text-xs text-textoSuave mb-3">Esta rutina tiene ejercicios que no tienen video asociado en tu Videoteca. El alumno los va a ver sin video de referencia.</p>
+            <p class="text-xs text-textoSuave mb-3">Este entrenamiento tiene ejercicios que no tienen video asociado en tu Videoteca. El alumno los va a ver sin video de referencia.</p>
             <div id="sv-lista" class="space-y-1.5 max-h-52 overflow-y-auto mb-4 rounded-xl p-3" style="background:#141418;border:1px solid #2a2a35"></div>
             <div class="flex gap-3">
                 <button onclick="_svResolver(false)" class="flex-1 py-2.5 rounded-xl border border-borde text-textoSuave text-sm hover:text-texto transition">Cancelar</button>
@@ -3411,8 +3617,8 @@
                 <div class="flex items-center gap-3">
                     <span class="text-2xl">🤖</span>
                     <div>
-                        <h3 class="text-sm font-black text-texto uppercase tracking-widest">Armar Rutina con IA</h3>
-                        <p class="text-xs text-textoSuave mt-0.5">Configurá la lógica y generá una rutina inteligente</p>
+                        <h3 class="text-sm font-black text-texto uppercase tracking-widest">Armar Entrenamiento con IA</h3>
+                        <p class="text-xs text-textoSuave mt-0.5">Configurá la lógica y generá un entrenamiento inteligente</p>
                     </div>
                 </div>
                 <button onclick="document.getElementById('modal-ia-config').classList.add('hidden')" class="text-textoSuave hover:text-texto text-2xl leading-none transition">&times;</button>
@@ -3699,7 +3905,7 @@
                     <span class="text-2xl">👁️</span>
                     <div>
                         <h3 class="text-sm font-black text-texto uppercase tracking-widest">Previsualización</h3>
-                        <p class="text-xs text-textoSuave mt-0.5">Revisá la rutina antes de aplicarla</p>
+                        <p class="text-xs text-textoSuave mt-0.5">Revisá el entrenamiento antes de aplicarla</p>
                     </div>
                 </div>
                 <button onclick="document.getElementById('modal-ia-preview').classList.add('hidden')" class="text-textoSuave hover:text-texto text-2xl leading-none transition">&times;</button>
@@ -3709,7 +3915,7 @@
             <div id="ia-preview-content" class="p-6 space-y-4 max-h-[65vh] overflow-y-auto"></div>
             <div class="px-6 pb-6 flex gap-3">
                 <button onclick="iaAplicarPreview()" class="flex-1 py-3 rounded-2xl text-white font-black text-sm uppercase tracking-wider" style="background: linear-gradient(135deg, #7c3aed, #4f46e5); box-shadow: 0 8px 24px rgba(124,58,237,0.4);">
-                    ✅ Aplicar esta rutina
+                    ✅ Aplicar este entrenamiento
                 </button>
                 <button onclick="iaRegenerarPreview()" class="flex-1 py-3 rounded-2xl text-white font-black text-sm uppercase tracking-wider" style="background: linear-gradient(135deg, #374151, #1f2937);">
                     🔄 Regenerar
@@ -3772,8 +3978,8 @@
     </div>
 
     <!-- Modal Agregar Bloque -->
-    <div id="modal-bloque" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start sm:items-center justify-center p-2 sm:p-6 overflow-y-auto modal-bottom-sheet-mobile">
-        <div class="bg-tarjeta rounded-2xl border border-borde p-3 sm:p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto my-2 sm:my-0">
+    <div id="modal-bloque" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start sm:items-center justify-center p-2 sm:p-6 overflow-y-auto modal-bottom-sheet-mobile pf-inline-editor">
+        <div class="bg-tarjeta rounded-2xl border border-borde p-3 sm:p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto my-2 sm:my-0 pf-inline-editor-inner">
             <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <h3 class="text-sm font-bold text-purpura uppercase tracking-wider">Configurar Bloque</h3>
                 <span id="bp-duracion-viva" class="text-xs font-bold bg-purpura/15 text-purpura px-3 py-1.5 rounded-full flex items-center gap-1.5" title="Duración estimada del bloque">⏱ ~0 min</span>
@@ -3986,7 +4192,7 @@
     <div id="modal-vista-compacta-rutina" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start sm:items-center justify-center p-2 sm:p-6 overflow-y-auto modal-bottom-sheet-mobile">
         <div class="bg-tarjeta rounded-2xl border border-borde p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto my-2 sm:my-0">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-sm font-bold text-verde uppercase tracking-wider">Vista compacta de la rutina</h3>
+                <h3 class="text-sm font-bold text-verde uppercase tracking-wider">Vista compacta del entrenamiento</h3>
                 <button onclick="document.getElementById('modal-vista-compacta-rutina').classList.add('hidden')" class="text-textoSuave hover:text-texto text-xl leading-none px-2">&times;</button>
             </div>
             <div id="vista-compacta-rutina-content"></div>
@@ -5545,6 +5751,18 @@
             if (perfil && perfil.foto) { avatarEl.src = perfil.foto; avatarEl.classList.remove('hidden'); }
             else avatarEl.classList.add('hidden');
         }
+        // Avatar grande del alumno junto al título "Datos del Entrenamiento"
+        // (misma fuente de datos que la Ficha del alumno; no agrega ningún dato nuevo).
+        const avatarGrande = document.getElementById('pf-alumno-avatar-grande');
+        const nombreGrande = document.getElementById('pf-alumno-nombre-grande');
+        if (avatarGrande) {
+            if (perfil && perfil.foto) { avatarGrande.src = perfil.foto; avatarGrande.classList.remove('hidden'); }
+            else avatarGrande.classList.add('hidden');
+        }
+        if (nombreGrande) {
+            if (alumno) { nombreGrande.textContent = (perfil && perfil.nombre) || alumno; nombreGrande.classList.remove('hidden'); }
+            else nombreGrande.classList.add('hidden');
+        }
         document.getElementById('ficha-alumno-edad').textContent = _pfEdadTexto(perfil);
         const lesEl = document.getElementById('ficha-alumno-lesiones');
         if (perfil && perfil.lesiones) { lesEl.textContent = '⚠️ ' + perfil.lesiones; lesEl.classList.remove('hidden'); }
@@ -6604,8 +6822,8 @@
                     </div>
 
                     <!-- Modal de Calentamiento (por dia, se abre con "+ Agregar Calentamiento") -->
-                    <div id="modal-calentamiento-${idx}" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start sm:items-center justify-center p-2 sm:p-6 overflow-y-auto modal-bottom-sheet-mobile">
-                        <div class="bg-tarjeta rounded-2xl border border-borde p-3 sm:p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto my-2 sm:my-0">
+                    <div id="modal-calentamiento-${idx}" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start sm:items-center justify-center p-2 sm:p-6 overflow-y-auto modal-bottom-sheet-mobile pf-inline-editor">
+                        <div class="bg-tarjeta rounded-2xl border border-borde p-3 sm:p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto my-2 sm:my-0 pf-inline-editor-inner">
                             <div class="flex items-center justify-between mb-4">
                                 <h3 class="text-sm font-bold text-azul uppercase tracking-wider">Configurar Calentamiento</h3>
                                 <button onclick="cerrarModalCalentamientoDia(${idx})" class="text-textoSuave hover:text-texto text-xl leading-none px-2">&times;</button>
@@ -7361,6 +7579,7 @@
         if (btnConfirmar) btnConfirmar.textContent = 'Agregar Bloque';
         _pfBloqueResetFases();
         _pfBloquePaso(1);
+        _pfPosicionarModalBloqueInline();
         document.getElementById('modal-bloque').classList.remove('hidden');
     }
 
@@ -7377,9 +7596,16 @@
             return;
         }
         if (sinBloques) sinBloques.style.display = 'none';
+        lista.classList.toggle('pf-bloques-2col', bloques.length === 2);
         const svgHandle = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><circle cx="9" cy="5" r="1.8"/><circle cx="15" cy="5" r="1.8"/><circle cx="9" cy="12" r="1.8"/><circle cx="15" cy="12" r="1.8"/><circle cx="9" cy="19" r="1.8"/><circle cx="15" cy="19" r="1.8"/></svg>';
         lista.innerHTML = bloques.map((b, i) => {
             const colorTipo = _pfColorTipo(b.tipo || '');
+            // "SISTEMA N": solo cuando hay más de un bloque en este día (Caso B del
+            // brief: dos sistemas conviven dentro del mismo Bloque Principal). Con
+            // un solo bloque no se numera (Caso A), tal como pide el brief.
+            const sistemaLabel = bloques.length > 1
+                ? '<span class="pf-sistema-num" style="color:' + colorTipo.bg + ';">SISTEMA ' + (i + 1) + '</span>'
+                : '';
             const ejs = b.ejercicios || [];
             // Listado de ejercicios igual que las tarjetas de "Ver Entrenamiento" del
             // repositorio: cada uno en su propio recuadro, nombre + reps/seg grandes.
@@ -7403,6 +7629,7 @@
                 _flechasHtml('bloques-dia-' + idx, i, bloques.length) +
                 '<div class="flex-1 min-w-0">' +
                 '<div class="flex items-center gap-2 mb-1 flex-wrap">' +
+                sistemaLabel +
                 '<span class="px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider pf-bloque-tipo-h1" style="background:' + colorTipo.bg + ';color:' + colorTipo.fg + ';">' + b.tipo + '</span>' +
                 (detalleBloque ? '<span class="text-[11px] text-textoSuave">' + detalleBloque + '</span>' : '') +
                 '</div>' +
@@ -7462,6 +7689,18 @@
         diaActivoIdx = diaIdx;
         bloquesRutina = diasData[diaIdx].bloquesRutina;
         editarBloque(bloqueIdx);
+    }
+
+    // "modal-bloque" es UN SOLO elemento compartido por todos los días/bloques
+    // (para no duplicar todo su HTML por cada bloque). Antes se mostraba como
+    // ventana flotante sobre toda la pantalla; ahora, antes de mostrarlo, lo
+    // reubicamos en el DOM justo debajo de la lista de bloques del día activo,
+    // así se expande ahí mismo en vez de abrirse como un pop-up aparte. No
+    // cambia ningún dato ni función: solo su posición y su estilo visual.
+    function _pfPosicionarModalBloqueInline() {
+        const modal = document.getElementById('modal-bloque');
+        const destino = document.getElementById('bloques-lista-' + diaActivoIdx) || document.getElementById('dia-card-' + diaActivoIdx);
+        if (modal && destino) destino.insertAdjacentElement('afterend', modal);
     }
 
     function eliminarBloqueDia(diaIdx, bloqueIdx) {
@@ -7659,6 +7898,7 @@
         if (btnConfirmar) btnConfirmar.textContent = 'Agregar Bloque';
         _pfBloqueResetFases();
         _pfBloquePaso(1);
+        _pfPosicionarModalBloqueInline();
         document.getElementById('modal-bloque').classList.remove('hidden');
     }
 
@@ -9043,6 +9283,7 @@
         if (btnConfirmar) btnConfirmar.textContent = 'Guardar Cambios';
         _pfBloqueResetFases();
         _pfBloquePaso(1);
+        _pfPosicionarModalBloqueInline();
         document.getElementById('modal-bloque').classList.remove('hidden');
     }
 
@@ -9580,7 +9821,7 @@
             for (let i = 0; i < totalSemanas; i++) {
                 const activa = (i === semanaActivaIdx);
                 html += '<button type="button" onclick="_pfIrASemana(' + i + ')" class="flex-shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold border transition ' +
-                    (activa ? 'bg-verde text-white border-verde' : 'border-borde text-textoSuave hover:border-verde/50 hover:text-texto') +
+                    (activa ? 'bg-naranja text-white border-naranja shadow-[0_0_0_3px_rgba(255,107,53,0.18)]' : 'border-borde text-textoSuave hover:border-naranja/50 hover:text-texto') +
                     '">Semana ' + (i + 1) + '</button>';
             }
             lista.innerHTML = html;
@@ -9598,6 +9839,11 @@
         // para que la IA le suba reps/series antes de que el profe la edite a mano.
         const btnProgresion = document.getElementById('pf-semana-progresion');
         if (btnProgresion) btnProgresion.classList.toggle('hidden', semanaActivaIdx < 1);
+        const infoProgresion = document.getElementById('pf-semana-progresion-info');
+        if (infoProgresion) {
+            infoProgresion.classList.toggle('hidden', semanaActivaIdx < 1);
+            if (semanaActivaIdx >= 1) infoProgresion.textContent = '📈 Basada en Semana ' + semanaActivaIdx;
+        }
     }
 
     // ====================================================================
@@ -10307,12 +10553,12 @@
                         data.codigo = _pfCodigoEditando; // mostrar el código original en el modal de éxito
                     } catch (eSobre) {
                         console.warn('No se pudo mantener el código original al sobrescribir:', eSobre);
-                        toast('Los cambios se guardaron, pero como rutina nueva (' + (data.codigo||'').toUpperCase() + ')');
+                        toast('Los cambios se guardaron, pero como entrenamiento nuevo (' + (data.codigo||'').toUpperCase() + ')');
                     }
                 }
                 _pfCodigoEditando = null;
                 document.getElementById('modal-codigo-text').innerText = (data.codigo || '').toUpperCase();
-                document.getElementById('modal-info').innerText = 'Rutina asignada a ' + (data.alumno || alumno);
+                document.getElementById('modal-info').innerText = 'Entrenamiento asignado a ' + (data.alumno || alumno);
 
                 // Si esta rutina se armó a partir de una plantilla del Repositorio
                 // (cargada con "Usar acá" o desde "Copiar a Alumno"), registrar acá
@@ -10364,7 +10610,7 @@
                     }
                 } catch(e) {}
                 document.getElementById('modal-codigo').classList.remove('hidden');
-                toast('Rutina compartida!');
+                toast('Entrenamiento compartido!');
                 _pfResetFormularioTrasCompartir();
             } else {
                 toast('Error: ' + data.error);
@@ -10392,7 +10638,7 @@
             toast('Ya fue asignado a ' + alumnoExtra.toUpperCase());
             return;
         }
-        if (!_lastPayload) { toast('Error: no hay rutina guardada'); return; }
+        if (!_lastPayload) { toast('Error: no hay entrenamiento guardado'); return; }
 
         const payloadExtra = Object.assign({}, _lastPayload, { alumno: alumnoExtra });
         try {
@@ -10700,9 +10946,9 @@
     }
 
     async function eliminarRutinaHistorial(codigo) {
-        if (!await pfConfirm('¿Estas seguro de eliminar la rutina ' + codigo.toUpperCase() + '? Esta accion no se puede deshacer.')) return;
+        if (!await pfConfirm('¿Estas seguro de eliminar el entrenamiento ' + codigo.toUpperCase() + '? Esta accion no se puede deshacer.')) return;
 
-        toast('Eliminando rutina...');
+        toast('Eliminando entrenamiento...');
         try {
             const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo), {
                 method: 'DELETE',
@@ -10710,7 +10956,7 @@
             });
             const data = await res.json();
             if (data.ok) {
-                toast('Rutina eliminada. Renumerando...');
+                toast('Entrenamiento eliminado. Renumerando...');
                 // Eliminar del cache local
                 delete historialRutinasCache[codigo];
 
@@ -10726,7 +10972,7 @@
 
                 // Recargar la lista
                 await buscarRutinasAlumno();
-                toast('Rutina eliminada y renumerada correctamente');
+                toast('Entrenamiento eliminado y renumerada correctamente');
             } else {
                 toast('Error al eliminar: ' + (data.error || 'desconocido'));
             }
@@ -10873,7 +11119,7 @@
     // ====================================================================
 
     async function editarRutinaDesdeHistorial(codigo) {
-        toast('Cargando rutina para editar...');
+        toast('Cargando entrenamiento para editar...');
         try {
             // Siempre hacer fetch completo para tener todos los datos
             const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
@@ -11090,7 +11336,7 @@
 
         } catch (e) {
             console.error('Error editando rutina:', e);
-            toast('Error al cargar rutina para editar');
+            toast('Error al cargar entrenamiento para editar');
         }
     }
 
@@ -11770,7 +12016,7 @@
     }
 
     function descargarPDFDesdeModal(modo) {
-        if (!rutinaModalActual) { toast('No hay rutina seleccionada'); return; }
+        if (!rutinaModalActual) { toast('No hay entrenamiento seleccionado'); return; }
         descargarPDF(rutinaModalActual.codigo, modo);
     }
 
@@ -11787,11 +12033,11 @@
         // puede venir "liviana" (con warmup_ejercicios de preview pero sin los bloques
         // completos), y eso hacia que el PDF se generara solo con el calentamiento.
         let r;
-        toast('Cargando rutina para PDF...');
+        toast('Cargando entrenamiento para PDF...');
         try {
             const res  = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
             const data = await res.json();
-            if (!data.ok) { toast('Error cargando rutina'); return; }
+            if (!data.ok) { toast('Error cargando entrenamiento'); return; }
             r = data.rutina;
             historialRutinasCache[codigo] = r;
         } catch (e) { toast('Error de conexion'); return; }
@@ -12447,7 +12693,7 @@
     let _planillaPreviewActual = null;
 
     function mostrarPreviaPlanillaDesdeModal() {
-        if (!rutinaModalActual) { toast('No hay rutina seleccionada'); return; }
+        if (!rutinaModalActual) { toast('No hay entrenamiento seleccionado'); return; }
         mostrarPreviaPlanilla(rutinaModalActual.codigo);
     }
 
@@ -12504,7 +12750,7 @@
         try {
             const res  = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
             const data = await res.json();
-            if (!data.ok) { toast('Error cargando rutina'); return null; }
+            if (!data.ok) { toast('Error cargando entrenamiento'); return null; }
             r = data.rutina;
             historialRutinasCache[codigo] = r;
         } catch (e) { toast('Error de conexion'); return null; }
@@ -13603,7 +13849,7 @@
 
         const rutinas = dashRutinasData || {};
         const keys = _pfKeysDashFiltradas();
-        if (!keys.length) { toast('⚠️ No hay rutinas en el rango seleccionado'); return; }
+        if (!keys.length) { toast('⚠️ No hay entrenamientos en el rango seleccionado'); return; }
         const rangoActivo = (dashRangoDesde && dashRangoHasta) ? (dashRangoDesde.toUpperCase() + ' → ' + dashRangoHasta.toUpperCase()) : null;
 
         // Recalcular los mismos agregados que usa el dashboard en pantalla
@@ -14969,7 +15215,7 @@
             compararCheck.disabled = !hayAnterior;
             if (!hayAnterior && _mapaCalorCompararAnterior) { _mapaCalorCompararAnterior = false; compararCheck.checked = false; }
         }
-        if (compararInfo) compararInfo.textContent = hayAnterior ? '' : 'Sin rutinas previas registradas para este alumno';
+        if (compararInfo) compararInfo.textContent = hayAnterior ? '' : 'Sin entrenamientos previos registrados para este alumno';
 
         if (!_mapaCalorVivoAbierto) return; // no gastar trabajo si el panel esta colapsado
         const content = document.getElementById('mapa-calor-vivo-content');
@@ -15749,6 +15995,46 @@
     let videoPreviewTimer = null;
     let currentPreviewUrl = '';
 
+    // ── Miniaturas reales de video en los chips de ejercicio ────────────────
+    // No agrega ni cambia ningún dato: solo lee el mismo link (data-video-url)
+    // que ya usa el preview al pasar el mouse, y si es de YouTube, pinta una
+    // miniatura real como fondo del ícono ▶ de ese ejercicio (vía variable CSS,
+    // sin tocar el DOM/estructura de la tarjeta ni la lógica de drag&drop).
+    function _pfYoutubeThumbUrl(url) {
+        if (!url) return null;
+        let videoId = null;
+        const m1 = url.match(/[?&]v=([^&#]+)/); if (m1) videoId = m1[1];
+        if (!videoId) { const m2 = url.match(/youtu\.be\/([^?&#]+)/); if (m2) videoId = m2[1]; }
+        if (!videoId) { const m3 = url.match(/youtube\.com\/embed\/([^?&#]+)/); if (m3) videoId = m3[1]; }
+        if (!videoId) { const m4 = url.match(/youtube\.com\/shorts\/([^?&#]+)/); if (m4) videoId = m4[1]; }
+        return videoId ? ('https://img.youtube.com/vi/' + videoId + '/mqdefault.jpg') : null;
+    }
+    function _pfAplicarMiniaturaEj(el) {
+        if (!el || el.dataset.pfThumbDone) return;
+        el.dataset.pfThumbDone = '1';
+        const url = el.getAttribute('data-video-url');
+        const thumb = _pfYoutubeThumbUrl(url);
+        if (thumb) el.style.setProperty('--pf-thumb', 'url("' + thumb + '")');
+    }
+    function _pfEscanearMiniaturas(root) {
+        try {
+            (root || document).querySelectorAll('[data-video-url]:not([data-video-url=""])').forEach(_pfAplicarMiniaturaEj);
+        } catch (e) { /* noop */ }
+    }
+    (function _pfInitObservadorMiniaturas() {
+        const obs = new MutationObserver((mutations) => {
+            for (const m of mutations) {
+                m.addedNodes && m.addedNodes.forEach(node => {
+                    if (node.nodeType !== 1) return;
+                    if (node.matches && node.matches('[data-video-url]')) _pfAplicarMiniaturaEj(node);
+                    if (node.querySelectorAll) _pfEscanearMiniaturas(node);
+                });
+            }
+        });
+        const start = () => { obs.observe(document.body, { childList: true, subtree: true }); _pfEscanearMiniaturas(document); };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+    })();
+
     function getYouTubeEmbedUrl(url) {
         if (!url) return null;
         let videoId = null;
@@ -15911,7 +16197,7 @@
         } catch (e) {
             console.error('Error sincronizando repositorio con la nube:', e);
             if (ind) { ind.textContent = '⚠️ Sin conexión: se guardó solo en esta PC, se sincronizará cuando vuelva la conexión'; ind.className = 'text-xs text-amarillo'; }
-            toast('No se pudo sincronizar con la nube. La rutina quedó guardada en esta PC.');
+            toast('No se pudo sincronizar con la nube. El entrenamiento quedó guardada en esta PC.');
         }
     }
 
@@ -16100,7 +16386,7 @@
             ).then(confirmado => {
                 pfBtnLoadingOff(btnGuardar);
                 if (!confirmado) {
-                    toast('Esta rutina no se guardará');
+                    toast('Este entrenamiento no se guardará');
                     showTab('repositorio');
                     return;
                 }
@@ -16160,7 +16446,7 @@
                 window._repoGuardarCallback = null;
             }
         }, 1200);
-        toast('Rutina guardada en el repositorio');
+        toast('Entrenamiento guardado en el repositorio');
     }
 
     // Nombre legible + color por sistema de entrenamiento (mismos tipos que usa
@@ -16484,12 +16770,12 @@
     }
 
     async function eliminarDelRepositorio(idx) {
-        if (!await pfConfirm('¿Eliminar esta rutina del repositorio?')) return;
+        if (!await pfConfirm('¿Eliminar este entrenamiento del repositorio?')) return;
         const repo = getRepositorio();
         repo.splice(idx, 1);
         setRepositorio(repo);
         renderizarRepositorio();
-        toast('Rutina eliminada del repositorio');
+        toast('Entrenamiento eliminado del repositorio');
     }
 
     function editarPlantilla(idx) {
@@ -16584,7 +16870,7 @@
             await compartirRutina();
 
             document.getElementById('modal-repo-copiar').classList.add('hidden');
-            toast('Rutina copiada y compartida con ' + alumno);
+            toast('Entrenamiento copiado y compartido con ' + alumno);
         } catch(e) {
             document.getElementById('repo-copiar-status').textContent = 'Error al compartir. Intentá de nuevo.';
             document.getElementById('repo-copiar-status').className = 'text-xs text-rojo text-center min-h-[1.2rem]';
@@ -16846,10 +17132,10 @@
         const repo = getRepositorio();
         const r = repo[idx];
         if (!r) return;
-        if (!await pfConfirm('¿Cargar esta plantilla en "Crear Rutina"? Se reemplazará lo que tengas actualmente.', { destructivo: false, textoConfirmar: 'Cargar' })) return;
+        if (!await pfConfirm('¿Cargar esta plantilla en "Crear Entrenamiento"? Se reemplazará lo que tengas actualmente.', { destructivo: false, textoConfirmar: 'Cargar' })) return;
         await cargarPlantillaEnEstado(r, null);
         _pfRepoOrigenIdx = idx;
-        toast('Plantilla cargada en Crear Rutina');
+        toast('Plantilla cargada en Crear Entrenamiento');
     }
 
     // ====================================================================
@@ -16974,7 +17260,7 @@
                     }).join('') + (codigos.length > 8 ? `<p class="text-xs text-textoSuave italic pt-1">+${codigos.length - 8} más...</p>` : '');
                 }
             }
-            if (btnGenerar) btnGenerar.textContent = '🤖 Generar Rutina (' + codigos.length + ' rutinas analizadas)';
+            if (btnGenerar) btnGenerar.textContent = '🤖 Generar Entrenamiento (' + codigos.length + ' entrenamientos analizados)';
         } catch(e) {
             if (panelHist) panelHist.innerHTML = '<p class="text-rojo text-xs">Error de conexión.</p>';
         }
@@ -17729,7 +18015,7 @@
         const numBloques = parseInt(document.getElementById('ia-num-bloques')?.value) || 1;
 
         const tieneContenido = diasData.some(d => d.warmupEjercicios.length > 0 || d.bloquesRutina.length > 0);
-        if (tieneContenido && !await pfConfirm('¿Reemplazar la rutina actual con la generada por IA?', { destructivo: false, textoConfirmar: 'Reemplazar' })) return;
+        if (tieneContenido && !await pfConfirm('¿Reemplazar el entrenamiento actual con la generada por IA?', { destructivo: false, textoConfirmar: 'Reemplazar' })) return;
 
         // Mantenemos el modal abierto con el botón en estado "cargando" en vez de
         // cerrarlo de entrada: así el usuario ve que la IA está trabajando y no
@@ -17755,7 +18041,7 @@
             diasData.forEach((_, idx) => toggleDia(idx, true));
             const fuenteMsg = _iaHistorialCache.length > 0 ? `(basada en ${_iaHistorialCache.length} rutinas de ${_iaAlumnoSeleccionado.toUpperCase()})` : '(basada en repositorio)';
             toast(`✅ Rutina generada ${fuenteMsg}`);
-        } catch(e) { console.error('iaConfirmarGenerar error:', e); toast('Error al generar la rutina.'); }
+        } catch(e) { console.error('iaConfirmarGenerar error:', e); toast('Error al generar el entrenamiento.'); }
         finally { pfBtnLoadingOff(btnGenerar); }
     }
     // ====================================================================
@@ -18794,7 +19080,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
 
     // "Copiar toda la rutina en todos los días": reemplaza por completo lo que hay en Crear Rutina
     async function _pfCopiarRutinaCompletaDesdeHistorial(codigo) {
-        if (!await pfConfirm('¿Copiar esta rutina completa? Se reemplazará todo lo que tengas actualmente en "Crear Rutina".', { destructivo: false, textoConfirmar: 'Copiar' })) return;
+        if (!await pfConfirm('¿Copiar este entrenamiento completo? Se reemplazará todo lo que tengas actualmente en "Crear Entrenamiento".', { destructivo: false, textoConfirmar: 'Copiar' })) return;
         document.getElementById('modal-historial-alumno').classList.add('hidden');
         await editarRutinaDesdeHistorial(codigo);
         _pfAvisarSiProhibidosEnCopia(_pfTodosLosEjerciciosDeDias(diasData));
@@ -18894,7 +19180,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             '<div style="display:flex;gap:24px;max-width:1100px;margin:0 auto;align-items:flex-start;">' +
                 '<div style="width:250px;flex-shrink:0;">' +
                     '<h2 style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;color:#FFD54F;font-weight:700;margin:0 0 10px;">📋 Historial del alumno</h2>' +
-                    '<div id="hv-lista">' + (itemsHtml || '<p style="color:#8a8a9a;font-size:0.75rem;">Sin rutinas previas</p>') + '</div>' +
+                    '<div id="hv-lista">' + (itemsHtml || '<p style="color:#8a8a9a;font-size:0.75rem;">Sin entrenamientos previos</p>') + '</div>' +
                 '</div>' +
                 '<div id="historial-contenido" style="flex:1;min-width:0;">' +
                     '<p style="color:#8a8a9a;font-size:0.85rem;">Cargando...</p>' +
@@ -19252,7 +19538,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
     // como "edición" de la rutina original de ese otro alumno (para no arriesgarnos a
     // sobreescribirla sin querer al guardar), así que se resetea _pfCodigoEditando.
     async function _pfCopiarRutinaCompletaDesdeOtroAlumno(codigo) {
-        if (!await pfConfirm('¿Copiar esta rutina completa a "Crear Rutina"? Se reemplazará todo lo que tengas actualmente.', { destructivo: false, textoConfirmar: 'Copiar' })) return;
+        if (!await pfConfirm('¿Copiar este entrenamiento completo a "Crear Entrenamiento"? Se reemplazará todo lo que tengas actualmente.', { destructivo: false, textoConfirmar: 'Copiar' })) return;
         // Guardamos el alumno/descripción que se estaba armando: es solo una base para una
         // rutina nueva, no queremos que se pise con los datos de la rutina de origen (de otro alumno).
         const alumnoInput = document.getElementById('alumno-nombre');
@@ -19265,7 +19551,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         if (alumnoInput) alumnoInput.value = alumnoActual;
         if (descInput) descInput.value = descActual;
         if (alumnoActual.trim()) { _pfChequearHistorialAlumno(); _pfChequearFichaAlumno(); }
-        toast('Rutina copiada — revisá y ajustá antes de compartir');
+        toast('Entrenamiento copiado — revisá y ajustá antes de compartir');
         _pfAvisarSiProhibidosEnCopia(_pfTodosLosEjerciciosDeDias(diasData));
     }
 
@@ -20132,10 +20418,14 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
                         sel.value = opt.value;
                         sel.dispatchEvent(new Event('change', { bubbles: true }));
                     }
-                    // Mobile: al tocar una tarjeta se pasa directo a la pantalla de
-                    // Parametros de ese modo (sin tener que tocar "Siguiente" aparte).
-                    const avanzar = _pfFaseParamsDeSelect(selectId);
-                    if (avanzar) avanzar();
+                    // El avance automático a la pantalla de "Parametros" es un patrón
+                    // específico de mobile (donde Tipo y Parametros son pantallas
+                    // separadas). En desktop ambos ya se ven juntos, así que la
+                    // tarjeta solo selecciona el sistema sin ocultar nada.
+                    if (window.innerWidth < 640) {
+                        const avanzar = _pfFaseParamsDeSelect(selectId);
+                        if (avanzar) avanzar();
+                    }
                 };
                 wrap.appendChild(card);
             });
