@@ -21573,22 +21573,21 @@ self.addEventListener('fetch', event => {
             var name=document.getElementById('alumno-nombre'); var refName=document.getElementById('pf-reference-alumno'); if(refName && document.activeElement!==refName) refName.value=name ? name.value : '';
             var desc=document.getElementById('rutina-desc'); var refDesc=document.getElementById('pf-reference-desc'); if(refDesc && document.activeElement!==refDesc) refDesc.value=desc ? desc.value : '';
             updateAvatar(refName ? refName.value : (name ? name.value : ''));
-            // Paso 4: Resumen. Se arma con lo mismo que ya se calculó arriba
-            // (calentamiento + bloques), para no duplicar lógica.
+            // Paso 4: Resumen. Ahora se muestra igual que la "vista compacta" de
+            // una rutina ya guardada (mismo renderizador _pfGenerarHTMLCompactoGrande
+            // que usa el modal "Ver Rutina"), con cada calentamiento/bloque y sus
+            // ejercicios uno debajo del otro, en vez de un resumen de una sola linea
+            // por dia.
             var resBody=document.getElementById('pf-ref-resumen-body');
             if (resBody) {
                 var alumnoVal=(refName ? refName.value : (name ? name.value : '')).trim();
                 var descVal=(refDesc ? refDesc.value : (desc ? desc.value : '')).trim();
-                var filas='<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:#8899a4;"></span><span><b>'+e(alumnoVal||'Sin alumno asignado')+'</b><small>'+e(descVal||'Sin nombre de entrenamiento')+'</small></span></div>';
-                // Un mini-resumen por CADA día (no solo el que se está viendo ahora),
-                // para que el paso "Resumen" sirva de verdad con varios días armados.
-                days.forEach(function(d, di){
-                    var dWarm=d.warmupEjercicios||[], dBlocks=d.bloquesRutina||[];
-                    var dwTipo=d._wTipo || (d._warmupCfg && d._warmupCfg.tipo) || '';
-                    var dCol=dayColor(di);
-                    filas += '<div class="pf-ref-block-card" style="border-left:2px solid '+dCol+';"><span class="pf-ref-block-color" style="background:'+dCol+';"></span><span><b>'+e(d.titulo || ('Día '+(di+1)))+'</b><small>'+(dwTipo||dWarm.length ? e('Calentamiento: '+(dwTipo?typeLabel(dwTipo):'sí')+' · ') : 'Sin calentamiento · ')+e(dBlocks.length+' bloque(s), '+dBlocks.reduce(function(a,b){return a+(b.ejercicios||[]).length;},0)+' ejercicios')+'</small></span></div>';
-                });
-                resBody.innerHTML=filas;
+                var headerCard='<div class="pf-vr-header-card">'+
+                    '<div class="pf-vr-header-alumno">'+e(alumnoVal ? alumnoVal.toUpperCase() : 'Sin alumno asignado')+'</div>'+
+                    '<div class="pf-vr-header-codigo">'+e(descVal || 'Sin nombre de entrenamiento')+'</div>'+
+                '</div>';
+                var cuerpoCompacto = (typeof _pfGenerarHTMLCompactoGrande === 'function') ? _pfGenerarHTMLCompactoGrande(days) : '';
+                resBody.innerHTML = '<div style="background:#17171C;border-radius:16px;padding:16px;">' + headerCard + cuerpoCompacto + '</div>';
             }
         }
         // Lleva a la sección del paso tocado (Configuración / Calentamiento / Bloque
