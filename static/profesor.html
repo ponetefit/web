@@ -454,6 +454,38 @@
         .ej-hover-preview {
             cursor: pointer;
         }
+        /* Miniatura (foto) de ejercicio con reproducción de video al hover */
+        .pf-ej-thumb {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            flex-shrink: 0;
+            border-radius: 10px;
+            overflow: hidden;
+            background: linear-gradient(135deg, #26262f, #16161b);
+            cursor: pointer;
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.07);
+            transition: transform .18s cubic-bezier(.2,.8,.3,1.4), box-shadow .18s ease;
+        }
+        .pf-ej-thumb.pf-ej-thumb-xs { width: 22px; height: 22px; border-radius: 7px; }
+        .pf-ej-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .pf-ej-thumb .pf-ej-thumb-ico {
+            position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+            font-size: 12px; color: #fff; background: rgba(0,0,0,0.25);
+            text-shadow: 0 1px 3px rgba(0,0,0,.7);
+        }
+        .pf-ej-thumb-xs .pf-ej-thumb-ico { font-size: 8px; }
+        .pf-ej-thumb.sin-foto { background: linear-gradient(135deg, #FF6B35, #4FC3F7); }
+        .pf-ej-thumb.sin-foto .pf-ej-thumb-ico { font-size: 14px; }
+        .pf-ej-thumb.sin-video { cursor: default; opacity: .45; }
+        .pf-ej-thumb.sin-video .pf-ej-thumb-ico { display: none; }
+        .pf-ej-thumb:not(.sin-video):hover {
+            transform: scale(1.12);
+            box-shadow: 0 0 0 2px rgba(255,107,53,.6), 0 6px 16px rgba(255,107,53,.3);
+        }
         /* Boton de lupa sobre el body map, solo tiene sentido en pantallas
            chicas donde el SVG se achica demasiado para tocar musculos
            pequeños (antebrazo, pantorrillas) con precision. En desktop el
@@ -6186,8 +6218,11 @@
             const linkEsc = link.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
             const nombreEsc = nombre.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
             return `<div class="bg-fondoAlt rounded-xl px-4 py-3 border border-borde/50 hover:border-borde transition group">
-                <div class="flex items-center justify-between">
-                    <span class="font-bold text-sm flex-1 ej-hover-preview" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">${nombre}</span>
+                <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                        ${pfExThumb(linkEsc, nombreEsc)}
+                        <span class="font-bold text-sm flex-1 ej-hover-preview" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">${nombre}</span>
+                    </div>
                     <div class="flex items-center gap-2">
                         ${link ? '<a href="' + link + '" target="_blank" class="text-rojo hover:text-red-400 text-xs font-bold">VIDEO</a>' : ''}
                         <button onclick='editarEjercicioFull(${ejJSON})' class="text-azul hover:text-blue-300 text-xs font-bold">EDITAR</button>
@@ -7521,6 +7556,7 @@
                 '<span class="drag-handle flex-shrink-0" title="Arrastrar">' + svgHandle + '</span>' +
                 _flechasHtml('warmup-dia-' + idx, i, ejs.length) +
                 '<span class="text-xs text-textoSuave font-mono flex-shrink-0">' + (i+1) + '</span>' +
+                pfExThumb(linkEsc, nombreEsc, 'xs') +
                 '<span class="text-sm font-bold ej-hover-preview break-words" data-video-url="' + linkEsc + '" data-ej-nombre="' + nombreEsc + '" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">' + ej.nombre + '</span>' + cargaBadgeW +
                 '</div>' +
                 '<div class="warmup-dia-acciones flex items-center gap-1 flex-shrink-0 ml-2">' +
@@ -7832,6 +7868,7 @@
                     <span class="drag-handle" title="Arrastrar para reordenar"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
                     ${_flechasHtml('warmup', i, warmupEjercicios.length)}
                     <span class="text-xs text-textoSuave font-mono">${i+1}</span>
+                    ${pfExThumb(linkEsc, nombreEsc, 'xs')}
                     <span class="text-sm font-bold ej-hover-preview" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">${ej.nombre}</span>
                     ${repsBadge}${cargaBadge}
                 </div>
@@ -8013,6 +8050,7 @@
         return '<div class="emom-chip flex items-center gap-1.5 bg-fondoAlt rounded-lg px-2 py-1 mt-1">' +
             '<div class="emom-chip-header flex items-center gap-1.5">' +
             '<span class="text-xs font-bold text-amarillo flex-shrink-0">E' + (ei+1) + '</span>' +
+            pfExThumb(videoUrl, nombreEsc, 'xs') +
             '<span class="emom-chip-nombre ej-hover-preview cursor-pointer"' +
             ' data-video-url="' + videoUrl + '" data-ej-nombre="' + nombreEsc + '"' +
             ' onmouseenter="showVideoPreview(event,this)" onmouseleave="hideVideoPreview()">' + ej.nombre + '</span>' +
@@ -9013,6 +9051,7 @@
                     <div class="flex items-center gap-2 min-w-0" style="flex:1;">
                         <span class="drag-handle" title="Arrastrar para reordenar"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
                         ${_flechasHtml('bloque', i, bloqueEjsTemp.length)}
+                        ${pfExThumb(linkEsc, nombreEsc)}
                         <div class="min-w-0" style="flex:1;">
                             <span class="text-sm font-bold ej-hover-preview" data-video-url="${linkEsc}" data-ej-nombre="${nombreEsc}" onmouseenter="showVideoPreview(event, this)" onmouseleave="hideVideoPreview()" style="cursor:pointer;">${i+1}. ${ej.nombre}</span>${cargaBadge}${incompletoBadge}
                             ${resumenHtml}
@@ -15946,6 +15985,31 @@
     let videoPreviewTimer = null;
     let currentPreviewUrl = '';
 
+    // Miniatura (foto) real de un ejercicio a partir de su link de video.
+    // Si es de YouTube usamos la miniatura oficial (carga instantánea, sin
+    // pedirle nada al backend); para otras redes (Facebook/Instagram/TikTok)
+    // no hay una foto directa disponible, así que se muestra un ícono en su
+    // lugar. En los dos casos, al pasar el mouse se reproduce el video real
+    // (mismo tooltip flotante que ya usa toda la app).
+    function pfVideoThumbUrl(url) {
+        if (!url) return null;
+        const m = url.match(/(?:[?&]v=|youtu\.be\/|youtube\.com\/(?:embed|shorts)\/)([\w-]{6,})/);
+        return m ? ('https://img.youtube.com/vi/' + m[1] + '/mqdefault.jpg') : null;
+    }
+
+    // Genera el HTML de una miniatura chica (usada en buscadores y chips de
+    // ejercicios ya agregados). size: '' (default ~40px) | 'xs' (~22px, para
+    // chips angostos como EMOM).
+    function pfExThumb(url, nombre, size) {
+        const safeUrl = (url || '').replace(/"/g, '&quot;');
+        const safeNombre = (nombre || '').replace(/"/g, '&quot;');
+        const thumb = pfVideoThumbUrl(url);
+        const cls = 'pf-ej-thumb' + (size ? ' pf-ej-thumb-' + size : '') + (url ? '' : ' sin-video') + (thumb ? '' : ' sin-foto');
+        const img = thumb ? '<img src="' + thumb + '" alt="" loading="lazy" onerror="this.remove();this.closest(\'.pf-ej-thumb\').classList.add(\'sin-foto\')">' : '';
+        const hover = url ? ' onmouseenter="showVideoPreview(event,this)" onmouseleave="hideVideoPreview()"' : '';
+        return '<span class="' + cls + '" data-video-url="' + safeUrl + '" data-ej-nombre="' + safeNombre + '"' + hover + '>' + img + '<span class="pf-ej-thumb-ico">▶</span></span>';
+    }
+
     function getYouTubeEmbedUrl(url) {
         if (!url) return null;
         let videoId = null;
@@ -21143,40 +21207,44 @@ self.addEventListener('fetch', event => {
     </script>
 
     <style id="pf-reference-theme">
-        .pf-reference-editor { max-width:1120px; margin:0 auto 18px; color:#e7f1f5; }
-        .pf-ref-head { display:flex; align-items:flex-start; justify-content:space-between; gap:22px; margin-bottom:17px; }
-        .pf-ref-crumb { color:#6f8491; font-size:12px; letter-spacing:.12em; text-transform:uppercase; font-weight:800; margin-bottom:7px; }
-        .pf-ref-head h2 { margin:0; color:#f0f6f8; font-size:22px; line-height:1.2; letter-spacing:-.03em; font-weight:800; }
+        .pf-reference-editor { max-width:1120px; margin:0 auto 18px; color:#e7f1f5; font-family:'Inter',sans-serif; }
+        .pf-ref-head { display:flex; align-items:flex-start; justify-content:space-between; gap:22px; margin-bottom:18px; position:relative; padding-bottom:16px; }
+        .pf-ref-head:after { content:''; position:absolute; left:0; right:0; bottom:0; height:1px; background:linear-gradient(90deg, rgba(255,112,67,.5), rgba(79,195,247,.15), transparent); }
+        .pf-ref-crumb { color:#6f8491; font-size:11px; letter-spacing:.16em; text-transform:uppercase; font-weight:800; margin-bottom:7px; }
+        .pf-ref-head h2 { margin:0; background:linear-gradient(135deg,#ffffff 30%,#ffb08a 100%); -webkit-background-clip:text; background-clip:text; color:transparent; font-size:24px; line-height:1.2; letter-spacing:-.03em; font-weight:900; }
         .pf-ref-head p { margin:5px 0 0; color:#728794; font-size:13px; }
         .pf-ref-actions { display:flex; gap:8px; flex-shrink:0; }
-        .pf-ref-btn { border:1px solid #263f4d; background:#10202b; color:#a9bbc3; border-radius:6px; padding:9px 12px; font-size:13px; font-weight:800; cursor:pointer; white-space:nowrap; }
-        .pf-ref-btn:hover { border-color:#6a8796; color:#fff; }
-        .pf-ref-btn.primary { color:#fff; border-color:#ff7043; background:linear-gradient(135deg,#ff784a,#ee5730); box-shadow:0 7px 18px rgba(255,96,49,.2); }
-        .pf-ref-stepper { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; margin-bottom:13px; padding:7px; border:1px solid #1b3341; border-radius:8px; background:#0b1721; }
-        .pf-ref-step { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:5px; color:#607885; font-size:13px; font-weight:800; }
-        .pf-ref-step b { display:grid; place-items:center; width:19px; height:19px; border-radius:50%; border:1px solid #2a4554; color:#78909c; font-size:12px; }
-        .pf-ref-step.active { color:#e6f1f5; background:#142532; box-shadow:inset 0 -2px 0 #ff7043; }
-        .pf-ref-step.active b { color:#fff; border-color:#ff7043; background:#d8532e; }
-        .pf-ref-card { border:1px solid #1b3341; border-radius:8px; background:#0d1a25; margin-bottom:13px; overflow:hidden; }
-        .pf-ref-card-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 14px; border-bottom:1px solid #1a303e; }
+        .pf-ref-btn { border:1px solid #263f4d; background:#10202b; color:#a9bbc3; border-radius:999px; padding:10px 16px; font-size:13px; font-weight:800; cursor:pointer; white-space:nowrap; transition:all .18s ease; }
+        .pf-ref-btn:hover { border-color:#6a8796; color:#fff; transform:translateY(-1px); }
+        .pf-ref-btn.primary { color:#fff; border-color:#ff7043; background:linear-gradient(135deg,#ff8a5c,#ee5730 55%,#d8355c); box-shadow:0 8px 22px rgba(255,96,49,.32); }
+        .pf-ref-btn.primary:hover { box-shadow:0 10px 28px rgba(255,96,49,.45); }
+        .pf-ref-stepper { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; margin-bottom:14px; padding:7px; border:1px solid #1b3341; border-radius:14px; background:rgba(11,23,33,.7); backdrop-filter:blur(10px); }
+        .pf-ref-step { display:flex; align-items:center; gap:8px; padding:9px 10px; border-radius:10px; color:#607885; font-size:13px; font-weight:800; transition:all .18s ease; cursor:pointer; }
+        .pf-ref-step:hover { color:#c9dae1; }
+        .pf-ref-step b { display:grid; place-items:center; width:20px; height:20px; border-radius:50%; border:1px solid #2a4554; color:#78909c; font-size:11px; transition:all .18s ease; }
+        .pf-ref-step.active { color:#e6f1f5; background:linear-gradient(135deg, rgba(255,112,67,.16), rgba(255,112,67,.04)); box-shadow:inset 0 -2px 0 #ff7043; }
+        .pf-ref-step.active b { color:#fff; border-color:#ff7043; background:linear-gradient(135deg,#ff8a5c,#d8532e); box-shadow:0 0 0 3px rgba(255,112,67,.18); }
+        .pf-ref-card { border:1px solid #1b3341; border-radius:14px; background:linear-gradient(180deg, rgba(16,32,43,.75), rgba(13,26,37,.9)); backdrop-filter:blur(6px); margin-bottom:14px; overflow:hidden; box-shadow:0 6px 20px rgba(0,0,0,.18); }
+        .pf-ref-card-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 15px; border-bottom:1px solid #1a303e; }
         .pf-ref-label { color:#7b919c; font-size:12px; font-weight:900; letter-spacing:.13em; text-transform:uppercase; }
-        .pf-ref-card-body { padding:13px 14px; }
+        .pf-ref-card-body { padding:14px 15px; }
         .pf-ref-athlete { display:flex; align-items:center; gap:10px; }
-        .pf-ref-avatar { display:grid; place-items:center; width:34px; height:34px; border-radius:7px; background:linear-gradient(135deg,#365b71,#1a3345); color:#dceaf0; font-weight:900; font-size:14px; }
+        .pf-ref-avatar { display:grid; place-items:center; width:38px; height:38px; border-radius:11px; background:linear-gradient(135deg,#4FC3F7,#365b71 55%,#1a3345); color:#fff; font-weight:900; font-size:14px; box-shadow:0 4px 12px rgba(79,195,247,.25); }
         .pf-ref-athlete strong { display:block; color:#e7f1f5; font-size:14px; }
         .pf-ref-athlete span { display:block; margin-top:3px; color:#6d8490; font-size:12px; }
-        .pf-ref-input { height:33px; min-width:210px; border:1px solid #23404f !important; background:#09151e !important; border-radius:5px !important; padding:0 9px; color:#e6f0f4; font-size:13px; }
-        .pf-ref-status { color:#5cdaa0; font-size:12px; font-weight:800; padding:4px 7px; border-radius:4px; background:rgba(84,211,155,.1); }
+        .pf-ref-input { height:36px; min-width:210px; border:1px solid #23404f !important; background:#09151e !important; border-radius:10px !important; padding:0 12px; color:#e6f0f4; font-size:13px; transition:border-color .15s ease; }
+        .pf-ref-input:focus { border-color:#ff7043 !important; outline:none; }
+        .pf-ref-status { color:#5cdaa0; font-size:12px; font-weight:800; padding:5px 10px; border-radius:999px; background:rgba(84,211,155,.12); }
         .pf-ref-weeks { display:flex; align-items:center; gap:5px; overflow:auto; }
-        .pf-ref-week { border:0; border-bottom:2px solid transparent; background:transparent; color:#6c8290; padding:6px 9px; font-size:12px; font-weight:900; cursor:pointer; white-space:nowrap; }
-        .pf-ref-week.active { color:#f0f6f8; border-bottom-color:#ff7043; }
+        .pf-ref-week { border:1px solid transparent; background:transparent; color:#6c8290; border-radius:999px; padding:6px 12px; font-size:12px; font-weight:900; cursor:pointer; white-space:nowrap; transition:all .15s ease; }
+        .pf-ref-week.active { color:#fff; background:linear-gradient(135deg,#ff8a5c,#ee5730); box-shadow:0 4px 12px rgba(255,96,49,.3); }
         .pf-ref-week.add { color:#ff936f; font-size:16px; }
         .pf-ref-type-panel { border-top:2px solid #d86a3e; }
-        .pf-ref-type-panel .pf-ref-card-head { background:linear-gradient(90deg,rgba(255,112,67,.09),transparent); }
-        .pf-ref-type-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; padding:12px 14px 14px; }
-        .pf-ref-type { min-height:60px; border:1px solid #1c3745; border-radius:6px; background:#10212c; color:#78909d; padding:8px 7px; text-align:left; cursor:pointer; transition:all .15s ease; }
-        .pf-ref-type:hover, .pf-ref-type.selected { transform:translateY(-1px); border-color:#ff7043; background:#172b37; color:#f0f6f8; box-shadow:0 4px 13px rgba(0,0,0,.2); }
-        .pf-ref-type i { display:block; color:#ff8b60; font-style:normal; font-size:18px; line-height:1; margin-bottom:7px; }
+        .pf-ref-type-panel .pf-ref-card-head { background:linear-gradient(90deg,rgba(255,112,67,.1),transparent); }
+        .pf-ref-type-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:7px; padding:12px 14px 14px; }
+        .pf-ref-type { min-height:66px; border:1px solid #1c3745; border-radius:12px; background:#10212c; color:#78909d; padding:9px 8px; text-align:left; cursor:pointer; transition:all .18s cubic-bezier(.2,.8,.3,1.3); }
+        .pf-ref-type:hover, .pf-ref-type.selected { transform:translateY(-2px); border-color:#ff7043; background:#172b37; color:#f0f6f8; box-shadow:0 8px 18px rgba(0,0,0,.25), 0 0 0 1px rgba(255,112,67,.2); }
+        .pf-ref-type i { display:grid; place-items:center; width:26px; height:26px; border-radius:8px; background:linear-gradient(135deg, rgba(255,139,96,.22), rgba(79,195,247,.12)); color:#ff8b60; font-style:normal; font-size:15px; line-height:1; margin-bottom:7px; }
         .pf-ref-type strong { display:block; color:inherit; font-size:12px; line-height:1.25; }
         .pf-ref-type small { display:block; color:#647c88; font-size:12px; margin-top:4px; }
         .pf-ref-stage { border-left:2px solid #43b8e4; }
@@ -21186,32 +21254,55 @@ self.addEventListener('fetch', event => {
         .pf-ref-stage-title b { color:#dcecf2; font-size:14px; }
         .pf-ref-stage-title span { color:#718995; font-size:12px; }
         .pf-ref-exercises { display:grid; grid-template-columns:repeat(5,1fr); gap:7px; }
-        .pf-ref-exercise { min-height:82px; position:relative; overflow:hidden; border:1px solid #294451; border-radius:6px; background:linear-gradient(135deg,#1c3947 0%,#17272e 47%,#503a35 100%); padding:8px; cursor:pointer; }
+        .pf-ref-exercise {
+            aspect-ratio: 4 / 3; min-height:82px; position:relative; overflow:hidden; border:1px solid #294451;
+            border-radius:12px; background:linear-gradient(135deg,#1c3947 0%,#17272e 47%,#503a35 100%);
+            cursor:pointer; transition: transform .22s cubic-bezier(.2,.8,.3,1.3), box-shadow .22s ease, border-color .22s ease;
+        }
         .pf-ref-exercise:nth-child(2n) { background:linear-gradient(135deg,#273d46,#6c4435); }
         .pf-ref-exercise:nth-child(3n) { background:linear-gradient(135deg,#1a354c,#304e68,#1a252b); }
-        .pf-ref-exercise:after { content:'▶'; position:absolute; left:50%; top:36%; transform:translate(-50%,-50%); display:grid; place-items:center; width:24px; height:24px; border-radius:50%; color:#fff; background:rgba(0,0,0,.55); font-size:13px; }
+        .pf-ref-exercise img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transition: transform .35s ease; }
+        .pf-ref-exercise:hover img { transform: scale(1.08); }
+        .pf-ref-exercise-scrim { position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(6,12,16,.85) 100%); }
+        .pf-ref-exercise:after {
+            content:'▶'; position:absolute; left:50%; top:38%; transform:translate(-50%,-50%) scale(1);
+            display:grid; place-items:center; width:28px; height:28px; border-radius:50%; color:#fff;
+            background:rgba(255,112,67,.85); font-size:12px; box-shadow:0 4px 14px rgba(255,112,67,.5);
+            opacity:0; transition: opacity .18s ease, transform .18s ease; z-index:2;
+        }
+        .pf-ref-exercise:hover { transform: translateY(-2px); border-color:#ff7043; box-shadow:0 10px 26px rgba(0,0,0,.4); }
+        .pf-ref-exercise:hover:after { opacity:1; transform:translate(-50%,-50%) scale(1.1); }
         .pf-ref-exercise strong { position:absolute; left:8px; right:5px; bottom:18px; color:#edf6f8; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; z-index:1; }
         .pf-ref-exercise small { position:absolute; left:8px; bottom:7px; color:#9bb0b8; font-size:12px; z-index:1; }
-        .pf-ref-exercise.empty { display:grid; place-items:center; border-style:dashed; background:#0c1a24; color:#6e8793; }
-        .pf-ref-exercise.empty:after { content:'+'; width:auto; height:auto; background:none; font-size:22px; color:#76909d; top:39%; }
-        .pf-ref-exercise.empty strong { top:59%; bottom:auto; text-align:center; color:#718893; }
+        .pf-ref-exercise.sin-video { cursor:default; }
+        .pf-ref-exercise.sin-video:hover { transform:none; box-shadow:none; border-color:#294451; }
+        .pf-ref-exercise.sin-video:after { display:none; }
+        .pf-ref-exercise.empty { display:grid; place-items:center; border-style:dashed; background:#0c1a24; color:#6e8793; aspect-ratio:auto; }
+        .pf-ref-exercise.empty:after { content:'+'; width:auto; height:auto; background:none; box-shadow:none; opacity:1; font-size:22px; color:#76909d; top:39%; }
+        .pf-ref-exercise.empty strong { position:static; text-align:center; color:#718893; }
         .pf-ref-add { border:1px solid #294451; background:#102531; color:#72bedd; border-radius:5px; padding:6px 9px; font-size:12px; font-weight:800; cursor:pointer; }
         .pf-ref-add:hover { border-color:#65c8e9; background:#153441; }
         .pf-ref-ex-list { margin-top:6px; display:grid; gap:3px; }
         .pf-ref-ex-row { display:flex; justify-content:space-between; gap:8px; font-size:12px; padding:5px 8px; background:#0b1720; border:1px solid #1c333f; border-radius:5px; }
         .pf-ref-ex-row span:first-child { color:#dbe8ec; font-weight:700; }
         .pf-ref-ex-row span:last-child { color:#7fd1f0; font-weight:800; white-space:nowrap; }
+        /* Grilla de ejercicios con foto real (miniatura de YouTube) que
+           reproduce el video al pasar el mouse por encima. */
+        .pf-ref-ex-grid { margin-top:8px; display:grid; grid-template-columns:repeat(auto-fill,minmax(108px,1fr)); gap:9px; }
         .pf-ref-block-meta { color:#7e96a1; font-size:12px; }
-        .pf-ref-block-card { display:flex; align-items:center; gap:10px; min-height:57px; border:1px solid #24404c; border-radius:6px; background:#10212c; padding:8px; }
+        .pf-ref-block-card { display:flex; align-items:center; gap:10px; min-height:57px; border:1px solid #24404c; border-radius:11px; background:#10212c; padding:9px; transition:border-color .15s ease; }
+        .pf-ref-block-card:hover { border-color:#3a5c6c; }
         .pf-ref-block-color { width:4px; align-self:stretch; border-radius:3px; background:#55d19a; }
         .pf-ref-block-card b { display:block; color:#e2edf1; font-size:13px; }
         .pf-ref-block-card small { display:block; margin-top:4px; color:#718894; font-size:12px; }
         .pf-ref-block-card button { margin-left:auto; border:0; background:transparent; color:#79929d; cursor:pointer; font-size:14px; }
-        .pf-ref-bottom { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
-        .pf-ref-bottom-card { border:1px solid #1b3341; border-radius:7px; background:#0d1a25; padding:12px; min-height:48px; }
+        .pf-ref-bottom { display:grid; grid-template-columns:repeat(4,1fr); gap:9px; }
+        .pf-ref-bottom-card { border:1px solid #1b3341; border-radius:12px; background:linear-gradient(180deg, rgba(16,32,43,.7), rgba(13,26,37,.9)); padding:13px; min-height:48px; transition:transform .18s ease, border-color .18s ease; }
+        .pf-ref-bottom-card:hover { transform:translateY(-2px); border-color:#3a5c6c; }
         .pf-ref-bottom-card b { color:#dfecef; font-size:13px; }
         .pf-ref-bottom-card p { margin:4px 0 0; color:#718894; font-size:12px; line-height:1.4; }
-        .pf-ref-bottom-card button { margin-top:8px; padding:5px 7px; border:1px solid #2b4b5a; border-radius:4px; color:#7dc9e6; background:#102733; font-size:12px; font-weight:800; cursor:pointer; }
+        .pf-ref-bottom-card button { margin-top:9px; padding:6px 9px; border:1px solid #2b4b5a; border-radius:999px; color:#7dc9e6; background:#102733; font-size:12px; font-weight:800; cursor:pointer; transition:all .15s ease; }
+        .pf-ref-bottom-card button:hover { border-color:#7dc9e6; background:#153441; }
         .pf-ref-history-list { padding: 10px 14px 12px; }
         .pf-ref-history-empty { margin:0; color:#718894; font-size:12px; }
         .pf-ref-history-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:center; padding:9px 0; border-bottom:1px solid #1a303e; }
@@ -21274,9 +21365,15 @@ self.addEventListener('fetch', event => {
         // ejercicio con su rep o pausa) para las tarjetas de Calentamiento y Bloque.
         function exListHtml(items) {
             if (!items || !items.length) return '';
-            return '<div class="pf-ref-ex-list">' + items.map(function(x) {
+            return '<div class="pf-ref-ex-grid">' + items.map(function(x) {
+                var n = exName(x);
                 var r = exReps(x);
-                return '<div class="pf-ref-ex-row"><span>'+e(exName(x))+'</span>'+(r ? '<span>'+e(r)+'</span>' : '')+'</div>';
+                var link = (x && typeof x === 'object' && (x.link || x.url)) || '';
+                var thumb = (typeof pfVideoThumbUrl === 'function') ? pfVideoThumbUrl(link) : null;
+                var media = thumb ? '<img src="'+e(thumb)+'" alt="" loading="lazy" onerror="this.remove();this.parentElement.classList.add(\'sin-foto\')">' : '';
+                var cls = 'pf-ref-exercise' + (link ? '' : ' sin-video') + (thumb ? '' : ' sin-foto');
+                var attrs = link ? ' onmouseenter="showVideoPreview(event,this)" onmouseleave="hideVideoPreview()"' : '';
+                return '<div class="'+cls+'" data-video-url="'+e(link)+'" data-ej-nombre="'+e(n)+'"'+attrs+'>'+media+'<span class="pf-ref-exercise-scrim"></span><strong>'+e(n)+'</strong>'+(r ? '<small>'+e(r)+'</small>' : '')+'</div>';
             }).join('') + '</div>';
         }
         function renderExercises(items, emptyLabel) {
