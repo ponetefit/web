@@ -21573,11 +21573,11 @@ self.addEventListener('fetch', event => {
             var name=document.getElementById('alumno-nombre'); var refName=document.getElementById('pf-reference-alumno'); if(refName && document.activeElement!==refName) refName.value=name ? name.value : '';
             var desc=document.getElementById('rutina-desc'); var refDesc=document.getElementById('pf-reference-desc'); if(refDesc && document.activeElement!==refDesc) refDesc.value=desc ? desc.value : '';
             updateAvatar(refName ? refName.value : (name ? name.value : ''));
-            // Paso 4: Resumen. Ahora se muestra igual que la "vista compacta" de
-            // una rutina ya guardada (mismo renderizador _pfGenerarHTMLCompactoGrande
-            // que usa el modal "Ver Rutina"), con cada calentamiento/bloque y sus
-            // ejercicios uno debajo del otro, en vez de un resumen de una sola linea
-            // por dia.
+            // Paso 4: Resumen. Se muestra igual que en el Historial: pills de
+            // ejercicios agrupadas por calentamiento/bloque cuando es un solo
+            // día, y como acordeón plegable (uno por día, con "Expandir/Colapsar
+            // todos") cuando la rutina tiene varios días — mismo renderizador
+            // _pfGenerarHTMLCompacto que usa el Historial de Rutinas.
             var resBody=document.getElementById('pf-ref-resumen-body');
             if (resBody) {
                 var alumnoVal=(refName ? refName.value : (name ? name.value : '')).trim();
@@ -21586,7 +21586,7 @@ self.addEventListener('fetch', event => {
                     '<div class="pf-vr-header-alumno">'+e(alumnoVal ? alumnoVal.toUpperCase() : 'Sin alumno asignado')+'</div>'+
                     '<div class="pf-vr-header-codigo">'+e(descVal || 'Sin nombre de entrenamiento')+'</div>'+
                 '</div>';
-                var cuerpoCompacto = (typeof _pfGenerarHTMLCompactoGrande === 'function') ? _pfGenerarHTMLCompactoGrande(days) : '';
+                var cuerpoCompacto = (typeof _pfGenerarHTMLCompacto === 'function') ? _pfGenerarHTMLCompacto(days, false) : '';
                 resBody.innerHTML = '<div style="background:#17171C;border-radius:16px;padding:16px;">' + headerCard + cuerpoCompacto + '</div>';
             }
         }
