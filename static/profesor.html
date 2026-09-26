@@ -21121,15 +21121,26 @@ self.addEventListener('fetch', event => {
                 return '<div class="pf-rail-item pf-rail-clickable" onclick="' + goto + '">' + thumb + '<span><b>' + railEsc(x.nombre) + '</b><small>' + railEsc(x.cat) + '</small></span><span class="pf-rail-add" onclick="event.stopPropagation();' + goto + '">＋</span></div>';
             }).join('');
         }
+        var _railAlumnosIntentos = 0;
         function renderRailAlumnos() {
             var cont=document.getElementById('pf-rail-alumnos-items');
             if(!cont) return;
             var alumnos=(typeof _alumnosCache!=='undefined' && Array.isArray(_alumnosCache)) ? _alumnosCache : [];
             if(!alumnos.length){
+                // Reintenta con backoff (500ms) y un tope de intentos: sin esto, si
+                // /api/alumnos no devuelve nunca "alumnos" (caida de backend, sesion
+                // vencida, etc.) esto reintentaba sin pausa para siempre, saturando
+                // pedidos de red y el hilo principal.
+                if (_railAlumnosIntentos >= 20) {
+                    cont.innerHTML='<p style="color:#5f7886;font-size:13px;padding:6px 0;">No se pudieron cargar los alumnos.</p>';
+                    return;
+                }
+                _railAlumnosIntentos++;
                 cont.innerHTML='<p style="color:#5f7886;font-size:13px;padding:6px 0;">Cargando alumnos...</p>';
-                if(typeof _obtenerAlumnosCache==='function') _obtenerAlumnosCache().then(renderRailAlumnos);
+                if(typeof _obtenerAlumnosCache==='function') setTimeout(function(){ _obtenerAlumnosCache().then(renderRailAlumnos).catch(function(){}); }, 500);
                 return;
             }
+            _railAlumnosIntentos = 0;
             cont.innerHTML=alumnos.map(function(nombre){
                 var safe=String(nombre).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
                 var inicial=String(nombre).trim().charAt(0).toUpperCase() || '?';
