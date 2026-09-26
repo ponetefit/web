@@ -21486,13 +21486,10 @@ self.addEventListener('fetch', event => {
             var diaCol=dayColor(_pfRefDay);
             var wTipo=day._wTipo || (day._warmupCfg && day._warmupCfg.tipo) || '';
             var calDayTag=document.getElementById('pf-ref-cal-day'); if(calDayTag){ calDayTag.textContent=diaLabel; calDayTag.style.color=diaCol; }
-            // Tiñe las tarjetas de "Calentamiento" y "Bloque principal" con el
-            // color fijo del día activo, para identificar de un vistazo en qué
-            // día estás parado (mismo color que su pestaña arriba).
-            var secCal=document.getElementById('pf-ref-sec-2');
-            if (secCal){ secCal.style.borderTopColor=diaCol; var headCal=secCal.querySelector('.pf-ref-card-head'); if(headCal) headCal.style.background='linear-gradient(90deg,'+hexToRgba(diaCol,.14)+',transparent)'; }
-            var secBloque=document.getElementById('pf-ref-sec-3');
-            if (secBloque) secBloque.style.borderLeftColor=diaCol;
+            // El color del día ya se ve en la pestaña de arriba y en la etiqueta
+            // "Día X" de acá al lado; las secciones de Calentamiento y Bloque
+            // principal quedan con su color fijo de sección (no el del día), para
+            // que no compita con el color de cada sistema dentro de las tarjetas.
             var warmStatus=document.getElementById('pf-ref-warmup-status');
             if (warmStatus) {
                 // Antes, si wTipo venía vacío (bug ya corregido en actualizarWarmupUIDia),
