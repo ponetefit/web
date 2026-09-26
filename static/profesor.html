@@ -21370,15 +21370,31 @@ self.addEventListener('fetch', event => {
         // en vez de tener siempre fijo el día 1, así el mismo wizard sirve para
         // cualquier cantidad de días (multi-día real, igual que "Modo avanzado").
         var _pfRefDay = 0;
+        // Un color fijo por número de día (Día 1, Día 2, ... y se repite cada 7
+        // si hay más), para poder identificar de un vistazo en qué día estás
+        // parado tanto en la pestaña como en Calentamiento y Bloque principal.
+        var DAY_COLORS = ['#ff7043','#4fc3f7','#66bb6a','#ab47bc','#ffca28','#ef5350','#26c6da'];
+        function dayColor(i){ return DAY_COLORS[((i%DAY_COLORS.length)+DAY_COLORS.length)%DAY_COLORS.length]; }
+        function hexToRgba(hex,a){
+            hex=String(hex||'').replace('#','');
+            if (hex.length===3) hex=hex.split('').map(function(c){return c+c;}).join('');
+            var r=parseInt(hex.substring(0,2),16)||0, g=parseInt(hex.substring(2,4),16)||0, b=parseInt(hex.substring(4,6),16)||0;
+            return 'rgba('+r+','+g+','+b+','+a+')';
+        }
         // Pinta las "pestañas" de días arriba del wizard: una por cada día real
         // (misma fuente de datos que "Agregar Día"), + "Agregar día" y, si hay
-        // más de uno, "Eliminar este día".
+        // más de uno, "Eliminar este día". Cada pestaña usa el color fijo de su
+        // día (mismo color que después se ve en Calentamiento/Bloque principal).
         function renderDayTabs() {
             var wrap = document.getElementById('pf-ref-days-tabs'); if (!wrap) return;
             var days = getDays();
             if (_pfRefDay >= days.length) _pfRefDay = Math.max(days.length - 1, 0);
             var html = days.map(function(d, i) {
-                return '<button class="pf-ref-week' + (i === _pfRefDay ? ' active' : '') + '" onclick="pfRefGoDay(' + i + ')">' + e(d.titulo || ('Día ' + (i + 1))) + '</button>';
+                var col=dayColor(i), activa=(i===_pfRefDay);
+                var st = activa
+                    ? 'background:'+col+';border-color:'+col+';color:#fff;box-shadow:0 4px 12px '+hexToRgba(col,.35)+';'
+                    : 'border-color:'+hexToRgba(col,.45)+';color:'+col+';';
+                return '<button class="pf-ref-week'+(activa?' active':'')+'" style="'+st+'" onclick="pfRefGoDay('+i+')">'+e(d.titulo || ('Día '+(i+1)))+'</button>';
             }).join('');
             html += '<button class="pf-ref-week add" onclick="pfRefAddDay()" title="Agregar un nuevo día">+ Día</button>';
             if (days.length > 1) html += '<button class="pf-ref-week del" onclick="pfRefDelDay()" title="Eliminar el día que estás viendo">🗑</button>';
@@ -21442,8 +21458,16 @@ self.addEventListener('fetch', event => {
             if (_pfRefDay >= days.length) _pfRefDay = Math.max(days.length - 1, 0);
             var day=days[_pfRefDay]||{warmupEjercicios:[],bloquesRutina:[]}, warm=day.warmupEjercicios||[], blocks=day.bloquesRutina||[];
             var diaLabel=day.titulo || ('Día '+(_pfRefDay+1));
+            var diaCol=dayColor(_pfRefDay);
             var wTipo=(day._warmupCfg && day._warmupCfg.tipo) || '';
-            var calDayTag=document.getElementById('pf-ref-cal-day'); if(calDayTag) calDayTag.textContent=diaLabel;
+            var calDayTag=document.getElementById('pf-ref-cal-day'); if(calDayTag){ calDayTag.textContent=diaLabel; calDayTag.style.color=diaCol; }
+            // Tiñe las tarjetas de "Calentamiento" y "Bloque principal" con el
+            // color fijo del día activo, para identificar de un vistazo en qué
+            // día estás parado (mismo color que su pestaña arriba).
+            var secCal=document.getElementById('pf-ref-sec-2');
+            if (secCal){ secCal.style.borderTopColor=diaCol; var headCal=secCal.querySelector('.pf-ref-card-head'); if(headCal) headCal.style.background='linear-gradient(90deg,'+hexToRgba(diaCol,.14)+',transparent)'; }
+            var secBloque=document.getElementById('pf-ref-sec-3');
+            if (secBloque) secBloque.style.borderLeftColor=diaCol;
             var warmStatus=document.getElementById('pf-ref-warmup-status');
             if (warmStatus) {
                 // Antes, si wTipo venía vacío (bug ya corregido en actualizarWarmupUIDia),
@@ -21454,8 +21478,8 @@ self.addEventListener('fetch', event => {
                 // usando la misma lógica que ya arma este texto en el resto de la app.
                 var wDetalle = (typeof _pfDetalleCalentamiento === 'function') ? _pfDetalleCalentamiento(day) : '';
                 warmStatus.innerHTML = (wTipo || warm.length) ?
-                    '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:#43b8e4;"></span><span><b>'+e(wTipo ? typeLabel(wTipo) : 'Calentamiento')+'</b><small>'+e(warm.length+' ejercicios'+(wDetalle ? ' · '+wDetalle : ''))+'</small></span><button onclick="pfRefEditWarmup()" title="Editar calentamiento">✎</button></div>'+exListHtml(warm) :
-                    '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:#2a4554;"></span><span><b>Sin calentamiento</b><small>Elegí un sistema arriba para armarlo</small></span></div>';
+                    '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:'+diaCol+';"></span><span><b>'+e(wTipo ? typeLabel(wTipo) : 'Calentamiento')+'</b><small>'+e(warm.length+' ejercicios'+(wDetalle ? ' · '+wDetalle : ''))+'</small></span><button onclick="pfRefEditWarmup()" title="Editar calentamiento">✎</button></div>'+exListHtml(warm) :
+                    '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:'+hexToRgba(diaCol,.35)+';"></span><span><b>Sin calentamiento</b><small>Elegí un sistema arriba para armarlo</small></span></div>';
             }
             var blockGrid=document.getElementById('pf-ref-block-grid');
             if (blockGrid) {
@@ -21463,8 +21487,8 @@ self.addEventListener('fetch', event => {
                     var xs=b.ejercicios||[];
                     var bDetalle = (typeof _pfDetalleBloque === 'function') ? _pfDetalleBloque(b) : '';
                     var descTxt = [bDetalle, b.descripcion].filter(Boolean).join(' · ') || 'Configurá parámetros y ejercicios';
-                    return '<div class="pf-ref-block-card"><span class="pf-ref-block-color"></span><span><b>'+e(typeLabel(b.tipo))+'</b><small>'+e(xs.length+' ejercicios · '+descTxt)+'</small></span><button onclick="pfRefEditBlock('+i+')" title="Editar bloque, incluido cambiar de sistema">✎</button></div>'+exListHtml(xs);
-                }).join('') : '<div class="pf-ref-block-card"><span class="pf-ref-block-color"></span><span><b>Bloque principal</b><small>Todavía no agregaste un bloque de entrenamiento</small></span></div>';
+                    return '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:'+diaCol+';"></span><span><b>'+e(typeLabel(b.tipo))+'</b><small>'+e(xs.length+' ejercicios · '+descTxt)+'</small></span><button onclick="pfRefEditBlock('+i+')" title="Editar bloque, incluido cambiar de sistema">✎</button></div>'+exListHtml(xs);
+                }).join('') : '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:'+hexToRgba(diaCol,.35)+';"></span><span><b>Bloque principal</b><small>Todavía no agregaste un bloque de entrenamiento</small></span></div>';
             }
             var count=document.getElementById('pf-ref-count'); if(count) count.textContent=diaLabel+' · '+(warm.length+blocks.reduce(function(a,b){return a+(b.ejercicios||[]).length;},0))+' ejercicios';
             var name=document.getElementById('alumno-nombre'); var refName=document.getElementById('pf-reference-alumno'); if(refName && document.activeElement!==refName) refName.value=name ? name.value : '';
@@ -21482,7 +21506,8 @@ self.addEventListener('fetch', event => {
                 days.forEach(function(d, di){
                     var dWarm=d.warmupEjercicios||[], dBlocks=d.bloquesRutina||[];
                     var dwTipo=(d._warmupCfg && d._warmupCfg.tipo) || '';
-                    filas += '<div class="pf-ref-block-card" style="border-left:2px solid #ff8a5c;"><span class="pf-ref-block-color" style="background:#ff8a5c;"></span><span><b>'+e(d.titulo || ('Día '+(di+1)))+'</b><small>'+(dwTipo||dWarm.length ? e('Calentamiento: '+(dwTipo?typeLabel(dwTipo):'sí')+' · ') : 'Sin calentamiento · ')+e(dBlocks.length+' bloque(s), '+dBlocks.reduce(function(a,b){return a+(b.ejercicios||[]).length;},0)+' ejercicios')+'</small></span></div>';
+                    var dCol=dayColor(di);
+                    filas += '<div class="pf-ref-block-card" style="border-left:2px solid '+dCol+';"><span class="pf-ref-block-color" style="background:'+dCol+';"></span><span><b>'+e(d.titulo || ('Día '+(di+1)))+'</b><small>'+(dwTipo||dWarm.length ? e('Calentamiento: '+(dwTipo?typeLabel(dwTipo):'sí')+' · ') : 'Sin calentamiento · ')+e(dBlocks.length+' bloque(s), '+dBlocks.reduce(function(a,b){return a+(b.ejercicios||[]).length;},0)+' ejercicios')+'</small></span></div>';
                 });
                 resBody.innerHTML=filas;
             }
