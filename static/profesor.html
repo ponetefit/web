@@ -4013,7 +4013,7 @@
             <span id="bp-duracion-viva" class="text-xs font-bold bg-purpura/15 text-purpura px-3 py-1.5 rounded-full flex items-center gap-1.5" title="Duración estimada del bloque">⏱ ~0 min</span>
         </div>
         <div class="pf-modal-full-body">
-            <div class="space-y-4">
+            <div class="space-y-4 sm:space-y-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:items-start">
                 <div id="bloque-paso-1">
                     <!-- Fase "Tipo" (mobile): solo las tarjetas de los 7 modos. Al tocar una,
                          se pasa directo a la fase de Parametros (sin boton "Siguiente" aparte). -->
@@ -4046,20 +4046,16 @@
                             <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Descripcion (opcional)</label>
                             <textarea id="bloque-desc" rows="2" placeholder="Ej: Enfocarse en la tecnica..." class="w-full rounded-lg px-3 py-2.5 text-sm"></textarea>
                         </div>
-                        <!-- Avanzar al paso de ejercicios (mobile y desktop) -->
-                        <div class="pt-3">
+                        <!-- Avanzar al paso de ejercicios (SOLO mobile: en desktop ya se ve todo junto) -->
+                        <div class="pt-3 sm:hidden">
                             <button type="button" id="bloque-btn-siguiente" onclick="_pfBloquePaso(2)" class="btn-primary pf-btn-paso-siguiente w-full py-3 rounded-xl text-white font-bold text-sm">
-                                <span class="sm:hidden">Listo: Ver Ejercicios →</span>
-                                <span class="hidden sm:inline">Siguiente: Ejercicios →</span>
+                                Listo: Ver Ejercicios →
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <div id="bloque-paso-2" class="hidden">
-                    <!-- Volver al paso de tipo/parametros (DESKTOP) -->
-                    <button type="button" onclick="_pfBloquePaso(1)" class="hidden sm:flex text-xs text-textoSuave mb-3 items-center gap-1 hover:text-texto transition">← Volver a Tipo y Parámetros</button>
-
+                <div id="bloque-paso-2" class="hidden sm:block sm:col-span-2">
                     <!-- Cabecera pantalla completa (MOBILE): volver + titulo h1 del tipo -->
                     <div class="sm:hidden">
                         <button type="button" onclick="_pfBloquePaso(1)" class="pf-paso2-back"><span class="pf-paso2-back-ico">←</span><span>Volver a Parámetros</span></button>
@@ -6850,71 +6846,70 @@
                             <button onclick="cerrarModalCalentamientoDia(${idx})" class="text-textoSuave hover:text-texto text-2xl leading-none px-2">&times;</button>
                         </div>
                         <div class="pf-modal-full-body">
-                            <div id="warmup-paso-1-${idx}">
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-                                    <!-- Fase "Tipo" (mobile): solo las tarjetas de los 7 modos. Al tocar una,
-                                         se pasa directo a la fase de Parametros (sin boton "Siguiente" aparte). -->
-                                    <div id="warmup-fase-tipo-${idx}">
-                                        <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Tipo</label>
-                                        <select id="warmup-tipo-${idx}" onchange="actualizarWarmupUIDia(${idx})" class="w-full rounded-lg px-3 py-2.5 text-sm">
-                                            ${['Circuito (Vueltas)','Circuito por Tiempo','Por Tiempo','Tabata','EMOM','Series/Reps','Sumando Ejercicio'].map(op => '<option' + ((dia._warmupCfg && dia._warmupCfg.tipo) === op ? ' selected' : '') + '>' + op + '</option>').join('')}
+                            <div class="space-y-4 sm:space-y-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:items-start">
+                                <div id="warmup-paso-1-${idx}">
+                                    <div class="grid grid-cols-1 md:grid-cols-1 gap-4 mb-3">
+                                        <!-- Fase "Tipo" (mobile): solo las tarjetas de los 7 modos. Al tocar una,
+                                             se pasa directo a la fase de Parametros (sin boton "Siguiente" aparte). -->
+                                        <div id="warmup-fase-tipo-${idx}">
+                                            <label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Tipo</label>
+                                            <select id="warmup-tipo-${idx}" onchange="actualizarWarmupUIDia(${idx})" class="w-full rounded-lg px-3 py-2.5 text-sm">
+                                                ${['Circuito (Vueltas)','Circuito por Tiempo','Por Tiempo','Tabata','EMOM','Series/Reps','Sumando Ejercicio'].map(op => '<option' + ((dia._warmupCfg && dia._warmupCfg.tipo) === op ? ' selected' : '') + '>' + op + '</option>').join('')}
+                                            </select>
+                                        </div>
+                                        <!-- Fase "Parametros" (mobile: pantalla propia; desktop: siempre visible junto al select) -->
+                                        <div id="warmup-fase-params-${idx}" class="hidden sm:block">
+                                            <div class="sm:hidden">
+                                                <button type="button" onclick="_pfWarmupFaseTipo(${idx})" class="pf-paso2-back"><span class="pf-paso2-back-ico">←</span><span>Volver a Tipo</span></button>
+                                                <h1 id="warmup-tipo-titulo-h1-${idx}" class="pf-paso2-h1"></h1>
+                                            </div>
+                                            <div id="warmup-params-home-${idx}">
+                                            <div id="warmup-params-container-${idx}"></div>
+                                            </div>
+                                            <div class="pt-3 sm:hidden">
+                                                <button type="button" id="warmup-btn-siguiente-${idx}" onclick="_pfWarmupPaso(${idx},2)" class="btn-primary pf-btn-paso-siguiente w-full py-3 rounded-xl text-white font-bold text-sm">
+                                                    Listo: Ver Ejercicios →
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="warmup-paso-2-${idx}" class="hidden sm:block sm:col-span-2">
+                                    <!-- Cabecera pantalla completa (MOBILE): volver + titulo h1 del tipo -->
+                                    <div class="sm:hidden">
+                                        <button type="button" onclick="_pfWarmupPaso(${idx},1)" class="pf-paso2-back"><span class="pf-paso2-back-ico">←</span><span>Volver a Parámetros</span></button>
+                                        <h1 id="warmup-paso2-h1-${idx}" class="pf-paso2-h1"></h1>
+                                    </div>
+
+                                    <div id="warmup-ej-panel-${idx}">
+                                    <!-- Busqueda DESKTOP/TABLET (sin cambios) -->
+                                    <div class="hidden sm:block mb-2">
+                                        <input id="warmup-buscar-ej-${idx}" type="text" placeholder="Buscar ejercicio..." onkeyup="filtrarEjsWarmupDia(${idx})" class="w-full rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-azul focus:ring-2 focus:ring-azul/30 transition">
+                                    </div>
+                                    <div class="hidden sm:flex gap-2 mb-2 flex-wrap">
+                                        <select id="warmup-cat-select-${idx}" onchange="cargarEjsWarmupDia(${idx})" class="rounded-lg px-3 py-2 text-sm flex-shrink-0"></select>
+                                        <select id="warmup-elemento-select-${idx}" onchange="cargarEjsWarmupDia(${idx})" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
+                                            <option value="">Todo elemento</option>
+                                        </select>
+                                        <select id="warmup-ej-select-${idx}" onchange="_pfActualizarAvisoDuplicadoWarmup(${idx})" class="rounded-lg px-3 py-2 text-sm flex-1"></select>
+                                        <input id="warmup-ej-reps-${idx}" type="text" placeholder="Reps" class="rounded-lg px-3 py-2 text-sm w-20">
+                                        <select id="warmup-ej-unit-${idx}" class="rounded-lg px-3 py-2 text-sm w-20">
+                                            <option>Reps</option><option>Segs</option>
                                         </select>
                                     </div>
-                                    <!-- Fase "Parametros" (mobile: pantalla propia; desktop: siempre visible junto al select) -->
-                                    <div id="warmup-fase-params-${idx}" class="md:col-span-2 hidden sm:block">
-                                        <div class="sm:hidden">
-                                            <button type="button" onclick="_pfWarmupFaseTipo(${idx})" class="pf-paso2-back"><span class="pf-paso2-back-ico">←</span><span>Volver a Tipo</span></button>
-                                            <h1 id="warmup-tipo-titulo-h1-${idx}" class="pf-paso2-h1"></h1>
-                                        </div>
-                                        <div id="warmup-params-home-${idx}">
-                                        <div id="warmup-params-container-${idx}"></div>
-                                        </div>
-                                        <div class="pt-3">
-                                            <button type="button" id="warmup-btn-siguiente-${idx}" onclick="_pfWarmupPaso(${idx},2)" class="btn-primary pf-btn-paso-siguiente w-full py-3 rounded-xl text-white font-bold text-sm hidden sm:block">
-                                                <span class="sm:hidden">Listo: Ver Ejercicios →</span>
-                                                <span class="hidden sm:inline">Siguiente: Ejercicios →</span>
-                                            </button>
-                                        </div>
+                                    <div id="warmup-aviso-duplicado-${idx}" class="hidden text-xs text-amarillo mb-2"></div>
+                                    <div class="hidden sm:flex gap-2 mb-3">
+                                        <button onclick="agregarEjWarmupDia(${idx})" class="bg-azul/20 text-azul px-3 py-2 rounded-lg text-sm font-bold hover:bg-azul/30 transition whitespace-nowrap w-full">+ Agregar</button>
                                     </div>
-                                </div>
-                            </div>
-                            <div id="warmup-paso-2-${idx}" class="hidden">
-                                <button type="button" onclick="_pfWarmupPaso(${idx},1)" class="hidden sm:flex text-xs text-textoSuave mb-3 items-center gap-1 hover:text-texto transition">← Volver a Tipo</button>
-
-                                <!-- Cabecera pantalla completa (MOBILE): volver + titulo h1 del tipo -->
-                                <div class="sm:hidden">
-                                    <button type="button" onclick="_pfWarmupPaso(${idx},1)" class="pf-paso2-back"><span class="pf-paso2-back-ico">←</span><span>Volver a Parámetros</span></button>
-                                    <h1 id="warmup-paso2-h1-${idx}" class="pf-paso2-h1"></h1>
-                                </div>
-
-                                <div id="warmup-ej-panel-${idx}">
-                                <!-- Busqueda DESKTOP/TABLET (sin cambios) -->
-                                <div class="hidden sm:block mb-2">
-                                    <input id="warmup-buscar-ej-${idx}" type="text" placeholder="Buscar ejercicio..." onkeyup="filtrarEjsWarmupDia(${idx})" class="w-full rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-azul focus:ring-2 focus:ring-azul/30 transition">
-                                </div>
-                                <div class="hidden sm:flex gap-2 mb-2 flex-wrap">
-                                    <select id="warmup-cat-select-${idx}" onchange="cargarEjsWarmupDia(${idx})" class="rounded-lg px-3 py-2 text-sm flex-shrink-0"></select>
-                                    <select id="warmup-elemento-select-${idx}" onchange="cargarEjsWarmupDia(${idx})" class="rounded-lg px-3 py-2 text-sm flex-shrink-0">
-                                        <option value="">Todo elemento</option>
-                                    </select>
-                                    <select id="warmup-ej-select-${idx}" onchange="_pfActualizarAvisoDuplicadoWarmup(${idx})" class="rounded-lg px-3 py-2 text-sm flex-1"></select>
-                                    <input id="warmup-ej-reps-${idx}" type="text" placeholder="Reps" class="rounded-lg px-3 py-2 text-sm w-20">
-                                    <select id="warmup-ej-unit-${idx}" class="rounded-lg px-3 py-2 text-sm w-20">
-                                        <option>Reps</option><option>Segs</option>
-                                    </select>
-                                </div>
-                                <div id="warmup-aviso-duplicado-${idx}" class="hidden text-xs text-amarillo mb-2"></div>
-                                <div class="hidden sm:flex gap-2 mb-3">
-                                    <button onclick="agregarEjWarmupDia(${idx})" class="bg-azul/20 text-azul px-3 py-2 rounded-lg text-sm font-bold hover:bg-azul/30 transition whitespace-nowrap w-full">+ Agregar</button>
-                                </div>
-                                <!-- Busqueda MOBILE: un solo buscador con sugerencias tocables -->
-                                <div class="sm:hidden mb-3">
-                                    <input id="warmup-buscar-ej-mobile-${idx}" type="text" autocomplete="off" placeholder="Buscar ejercicio para agregar..." class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-azul focus:ring-2 focus:ring-azul/30 transition">
-                                </div>
-                                </div>
-                                <div id="warmup-ejercicios-lista-${idx}" class="space-y-2"></div>
-                                <div class="pt-3">
-                                    <button onclick="intentarGuardarCalentamientoDia(${idx})" class="btn-primary w-full py-3 rounded-xl text-white font-bold text-sm">Listo</button>
+                                    <!-- Busqueda MOBILE: un solo buscador con sugerencias tocables -->
+                                    <div class="sm:hidden mb-3">
+                                        <input id="warmup-buscar-ej-mobile-${idx}" type="text" autocomplete="off" placeholder="Buscar ejercicio para agregar..." class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondoAlt border border-borde text-texto placeholder-textoSuave focus:border-azul focus:ring-2 focus:ring-azul/30 transition">
+                                    </div>
+                                    </div>
+                                    <div id="warmup-ejercicios-lista-${idx}" class="space-y-2"></div>
+                                    <div class="pt-3">
+                                        <button onclick="intentarGuardarCalentamientoDia(${idx})" class="btn-primary w-full py-3 rounded-xl text-white font-bold text-sm">Listo</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
