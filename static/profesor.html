@@ -21322,12 +21322,20 @@ self.addEventListener('fetch', event => {
         .pf-ref-ex-grid { margin-top:10px; display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:12px; }
         @media (max-width:639px) { .pf-ref-ex-grid { grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:9px; } }
         .pf-ref-block-meta { color:#7e96a1; font-size:12px; }
-        .pf-ref-block-card { display:flex; align-items:center; gap:10px; min-height:57px; border:1px solid #24404c; border-radius:11px; background:#10212c; padding:9px; transition:border-color .15s ease; }
+        .pf-ref-block-card { display:flex; align-items:center; gap:10px; min-height:57px; border:1px solid #24404c; border-radius:11px; background:#10212c; padding:9px; transition:border-color .15s ease, background .15s ease; }
         .pf-ref-block-card:hover { border-color:#3a5c6c; }
         .pf-ref-block-color { width:4px; align-self:stretch; border-radius:3px; background:#55d19a; }
         .pf-ref-block-card b { display:block; color:#e2edf1; font-size:13px; }
         .pf-ref-block-card small { display:block; margin-top:4px; color:#718894; font-size:12px; }
         .pf-ref-block-card button { margin-left:auto; border:0; background:transparent; color:#79929d; cursor:pointer; font-size:14px; }
+        /* Cada sistema (Tabata, EMOM, Circuito, Series, etc.) va envuelto en su
+           propia tarjeta con un riel de color a la izquierda + un ícono redondo
+           de ese mismo color, para distinguirse de un vistazo del resto,
+           en vez de que todos los sistemas se vean como una fila blanca igual. */
+        .pf-ref-block-wrap { border:1px solid #1c333f; border-left:4px solid #55d19a; border-radius:13px; padding:9px; transition:transform .18s cubic-bezier(.2,.8,.3,1.3), box-shadow .18s ease, border-color .18s ease; }
+        .pf-ref-block-wrap:hover { transform:translateY(-2px); box-shadow:0 10px 24px rgba(0,0,0,.35); }
+        .pf-ref-block-card-tipo { border-width:1px; }
+        .pf-ref-block-ico { width:32px; height:32px; border-radius:9px; display:grid; place-items:center; font-size:15px; flex-shrink:0; line-height:1; box-shadow:0 3px 10px rgba(0,0,0,.35); }
         .pf-ref-bottom { display:grid; grid-template-columns:repeat(4,1fr); gap:9px; }
         .pf-ref-bottom-card { border:1px solid #1b3341; border-radius:12px; background:linear-gradient(180deg, rgba(16,32,43,.7), rgba(13,26,37,.9)); padding:13px; min-height:48px; transition:transform .18s ease, border-color .18s ease; }
         .pf-ref-bottom-card:hover { transform:translateY(-2px); border-color:#3a5c6c; }
@@ -21436,8 +21444,14 @@ self.addEventListener('fetch', event => {
             if (pausa) txt = txt ? (txt + ' · ' + pausa + 's pausa') : (pausa + 's pausa');
             return txt;
         }
-        function typeIcon(t) { return ({'Tabata':'⚡','EMOM':'◷','Circuito por Tiempo':'⌁','Circuito':'▦','Circuito (Vueltas)':'▦','Por Tiempo':'◉','Series':'▥','Series/Reps':'▥','Sumando Ejercicio':'＋'})[t] || '◆'; }
+        function typeIcon(t) { return ({'Tabata':'⚡','EMOM':'◷','Circuito por Tiempo':'⏱','Circuito':'🔁','Circuito (Vueltas)':'🔁','Por Tiempo':'⏳','Series':'🏋','Series/Reps':'🏋','Sumando Ejercicio':'➕'})[t] || '◆'; }
         function typeLabel(t) { return t === 'Circuito' ? 'Circuito por vueltas' : t === 'Series' ? 'Series y repeticiones' : t === 'Series/Reps' ? 'Series y repeticiones' : t || 'Bloque principal'; }
+        // Cada sistema de entrenamiento tiene su propio color fijo (además del
+        // ícono de arriba), independiente del color del día: así, dentro de un
+        // mismo día, un Tabata, un Circuito y una Serie se distinguen de un
+        // vistazo en vez de verse todos igual con una sola línea de color.
+        var TIPO_COLORS = {'Tabata':'#FF6B35','EMOM':'#FFD54F','Circuito por Tiempo':'#4FC3F7','Circuito':'#26C6DA','Circuito (Vueltas)':'#26C6DA','Por Tiempo':'#AB47BC','Series':'#66BB6A','Series/Reps':'#66BB6A','Sumando Ejercicio':'#EC407A'};
+        function typeColor(t) { return TIPO_COLORS[t] || '#8a9aa5'; }
         function setOriginalValue(id, value) { var el=document.getElementById(id); if (el && el.value !== value) { el.value=value; el.dispatchEvent(new Event('input',{bubbles:true})); } }
         // Lista compacta (método ya se ve en el título de la tarjeta; acá va cada
         // ejercicio con su rep o pausa) para las tarjetas de Calentamiento y Bloque.
@@ -21488,8 +21502,16 @@ self.addEventListener('fetch', event => {
                 // Descripción real del sistema (seg de actividad/pausa, vueltas, series, etc.)
                 // usando la misma lógica que ya arma este texto en el resto de la app.
                 var wDetalle = (typeof _pfDetalleCalentamiento === 'function') ? _pfDetalleCalentamiento(day) : '';
+                var wc=typeColor(wTipo);
                 warmStatus.innerHTML = (wTipo || warm.length) ?
-                    '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:'+diaCol+';"></span><span><b>'+e(wTipo ? typeLabel(wTipo) : 'Calentamiento')+'</b><small>'+e(warm.length+' ejercicios'+(wDetalle ? ' · '+wDetalle : ''))+'</small></span><button onclick="pfRefEditWarmup()" title="Editar calentamiento">✎</button></div>'+exListHtml(warm) :
+                    '<div class="pf-ref-block-wrap" style="border-left-color:'+wc+';">'+
+                        '<div class="pf-ref-block-card pf-ref-block-card-tipo" style="background:'+hexToRgba(wc,.12)+';border-color:'+hexToRgba(wc,.4)+';">'+
+                            '<span class="pf-ref-block-ico" style="background:'+wc+';">'+(wTipo ? typeIcon(wTipo) : '🔥')+'</span>'+
+                            '<span><b>'+e(wTipo ? typeLabel(wTipo) : 'Calentamiento')+'</b><small>'+e(warm.length+' ejercicios'+(wDetalle ? ' · '+wDetalle : ''))+'</small></span>'+
+                            '<button onclick="pfRefEditWarmup()" title="Editar calentamiento">✎</button>'+
+                        '</div>'+
+                        exListHtml(warm)+
+                    '</div>' :
                     '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:'+hexToRgba(diaCol,.35)+';"></span><span><b>Sin calentamiento</b><small>Elegí un sistema arriba para armarlo</small></span></div>';
             }
             var blockGrid=document.getElementById('pf-ref-block-grid');
@@ -21498,7 +21520,15 @@ self.addEventListener('fetch', event => {
                     var xs=b.ejercicios||[];
                     var bDetalle = (typeof _pfDetalleBloque === 'function') ? _pfDetalleBloque(b) : '';
                     var descTxt = [bDetalle, b.descripcion].filter(Boolean).join(' · ') || 'Configurá parámetros y ejercicios';
-                    return '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:'+diaCol+';"></span><span><b>'+e(typeLabel(b.tipo))+'</b><small>'+e(xs.length+' ejercicios · '+descTxt)+'</small></span><button onclick="pfRefEditBlock('+i+')" title="Editar bloque, incluido cambiar de sistema">✎</button></div>'+exListHtml(xs);
+                    var tc=typeColor(b.tipo);
+                    return '<div class="pf-ref-block-wrap" style="border-left-color:'+tc+';">'+
+                        '<div class="pf-ref-block-card pf-ref-block-card-tipo" style="background:'+hexToRgba(tc,.12)+';border-color:'+hexToRgba(tc,.4)+';">'+
+                            '<span class="pf-ref-block-ico" style="background:'+tc+';">'+typeIcon(b.tipo)+'</span>'+
+                            '<span><b>'+e(typeLabel(b.tipo))+'</b><small>'+e(xs.length+' ejercicios · '+descTxt)+'</small></span>'+
+                            '<button onclick="pfRefEditBlock('+i+')" title="Editar bloque, incluido cambiar de sistema">✎</button>'+
+                        '</div>'+
+                        exListHtml(xs)+
+                    '</div>';
                 }).join('') : '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:'+hexToRgba(diaCol,.35)+';"></span><span><b>Bloque principal</b><small>Todavía no agregaste un bloque de entrenamiento</small></span></div>';
             }
             var count=document.getElementById('pf-ref-count'); if(count) count.textContent=diaLabel+' · '+(warm.length+blocks.reduce(function(a,b){return a+(b.ejercicios||[]).length;},0))+' ejercicios';
