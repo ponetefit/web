@@ -4361,50 +4361,12 @@
     let _alumnosCache = [];
     let _alumnosCacheLoaded = false;
 
-    // ── Cache GET con "dedupe" de pedidos en vuelo ──────────────────────
-    // Varias partes del panel (badges de asistencia, dashboard, autocompletados)
-    // piden los mismos endpoints (alumnos, rutinas de un alumno, asistencia de
-    // un codigo) casi al mismo tiempo al cargar la pagina. Sin esto, cada
-    // llamada dispara su propio fetch aunque haya uno identico en curso, lo
-    // que multiplicaba por 3-4 los pedidos y hacia mas lenta la carga.
-    // - Si hay un pedido IGUAL en vuelo, todos los que lo pidan de nuevo
-    //   esperan esa misma promesa (no se dispara un fetch nuevo).
-    // - Si hay un resultado reciente (dentro de ttlMs), se devuelve al toque
-    //   sin ir a la red.
-    const _pfGetCache = new Map();     // url -> { data, ts }
-    const _pfGetPendientes = new Map(); // url -> Promise en curso
-    async function _pfFetchCacheado(url, ttlMs) {
-        ttlMs = ttlMs || 0;
-        const cacheado = _pfGetCache.get(url);
-        if (cacheado && ttlMs > 0 && (Date.now() - cacheado.ts) < ttlMs) {
-            return cacheado.data;
-        }
-        if (_pfGetPendientes.has(url)) {
-            return _pfGetPendientes.get(url);
-        }
-        const promesa = (async () => {
-            try {
-                const res = await fetch(url);
-                const data = await res.json();
-                _pfGetCache.set(url, { data, ts: Date.now() });
-                return data;
-            } finally {
-                _pfGetPendientes.delete(url);
-            }
-        })();
-        _pfGetPendientes.set(url, promesa);
-        return promesa;
-    }
-
     // Trae (o refresca) la lista de alumnos desde el backend y la cachea.
     async function _obtenerAlumnosCache(forzar) {
         if (_alumnosCacheLoaded && !forzar) return _alumnosCache;
         try {
-            // ttlMs=0 cuando se fuerza: igual se "dedupea" con cualquier pedido
-            // identico que ya este en curso (ver _pfFetchCacheado), asi que si
-            // 3 lugares distintos llaman a esto al mismo tiempo, solo viaja UN
-            // pedido a la red.
-            const data = await _pfFetchCacheado(API_BASE + '/api/alumnos', forzar ? 0 : 5000);
+            const res = await fetch(API_BASE + '/api/alumnos');
+            const data = await res.json();
             if (data.ok && data.alumnos) {
                 _alumnosCache = data.alumnos.slice().sort((a, b) => a.localeCompare(b));
                 _alumnosCacheLoaded = true;
@@ -5401,22 +5363,22 @@
     // el dashboard) y revisa, por código, cuándo fue su último acceso.
     async function _pfCargarBadgesAsistencia(targets) {
         if (!targets || !targets.length) return;
-        const CONCURRENCIA = 8;
+        const CONCURRENCIA = 4;
         let idx = 0;
         async function _procesarUno() {
             while (idx < targets.length) {
                 const t = targets[idx++];
                 try {
-                    // Cacheado 15s: si el Dashboard pide lo mismo para este alumno
-                    // poco despues, no vuelve a viajar a la red.
-                    const data = await _pfFetchCacheado(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(t.nombre), 15000);
+                    const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(t.nombre));
+                    const data = await res.json();
                     if (!data.ok) continue;
                     const codigos = Object.keys(data.rutinas || {});
                     if (!codigos.length) continue;
                     let ultimo = 0;
                     await Promise.all(codigos.map(async (cod) => {
                         try {
-                            const d = await _pfFetchCacheado(API_BASE + '/api/asistencia/' + encodeURIComponent(cod), 15000);
+                            const r = await fetch(API_BASE + '/api/asistencia/' + encodeURIComponent(cod));
+                            const d = await r.json();
                             const val = (d && d.ok && d.asistencia) ? d.asistencia.ultimo : null;
                             if (val && val > ultimo) ultimo = val;
                         } catch (e) {}
@@ -7232,7 +7194,13 @@
             const dur = _cfg.duracion_bloque || 3;
             html = '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Duracion (minutos)</label><input id="warmup-duracion-' + idx + '" type="number" value="' + dur + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>';
         } else if (tipo === 'Tabata') {
-            html = '<div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Trabajo (seg)</label><input id="warmup-trabajo-' + idx + '" type="number" value="' + (_cfg.trabajo||20) + '" min="5" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label><input id="warmup-pausa-' + idx + '" type="number" value="' + (_cfg.pausa||10) + '" min="5" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de ejercicios</label><input id="warmup-cantidad-' + idx + '" type="number" value="' + (diasData[idx] ? diasData[idx].warmupEjercicios.length : 0) + '" min="0" readonly class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondo/50 text-textoSuave cursor-not-allowed"></div></div><p class="text-xs text-textoSuave mt-1">Se actualiza automáticamente según los ejercicios agregados abajo</p>';
+            html = '<div class="space-y-3">' +
+                '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Trabajo (seg)</label><input id="warmup-trabajo-' + idx + '" type="number" value="' + (_cfg.trabajo||20) + '" min="5" oninput="guardarWarmupCfgDia(' + idx + ');_pfActualizarDuracionTabataWarmupDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>' +
+                '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label><input id="warmup-pausa-' + idx + '" type="number" value="' + (_cfg.pausa||10) + '" min="5" oninput="guardarWarmupCfgDia(' + idx + ');_pfActualizarDuracionTabataWarmupDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>' +
+                '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Ejercicios</label><input id="warmup-cantidad-' + idx + '" type="number" value="' + (diasData[idx] ? diasData[idx].warmupEjercicios.length : 0) + '" min="0" readonly class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondo/50 text-textoSuave cursor-not-allowed"></div>' +
+                '<p class="text-xs text-textoSuave">Se actualiza automáticamente según los ejercicios agregados abajo</p>' +
+                '<div class="rounded-xl p-3 flex items-center gap-3" style="background:#0f0f13;border:1px solid #2a2a35"><span class="text-xl">⏱</span><div><p class="text-[10px] text-textoSuave uppercase tracking-wider">Duración estimada</p><p id="warmup-duracion-est-' + idx + '" class="text-lg font-black text-azul">0:00 <span class="text-xs font-normal text-textoSuave">min</span></p></div></div>' +
+                '</div>';
         } else if (tipo === 'EMOM') {
             html = '<div class="grid grid-cols-2 gap-3">' +
                    '<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Minutos totales</label><input id="warmup-minutos-' + idx + '" type="number" inputmode="numeric" value="' + (_cfg.minutos||5) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ')" onchange="actualizarEMOMWarmupMinutosConfig(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>' +
@@ -7447,6 +7415,23 @@
         toast('Repeticiones actualizadas en ' + diasData[idx].warmupEjercicios.length + ' ejercicio(s) del calentamiento');
     }
 
+    // Misma idea que _pfAplicarDefaultsCircuitoATodosWarmup, para el modal
+    // standalone de calentamiento (un solo día, sin índice de día).
+    function _pfAplicarDefaultsCircuitoATodosWarmupStandalone() {
+        if (!warmupEjercicios || warmupEjercicios.length === 0) return;
+        const numVueltas = parseInt(document.getElementById('warmup-vueltas')?.value) || 2;
+        const nReps = (document.getElementById('warmup-circ-reps')?.value || '').trim() || 12;
+        warmupEjercicios.forEach(ej => {
+            ej.reps = nReps;
+            ej.reps_por_vuelta = [];
+            for (let v = 0; v < numVueltas; v++) {
+                ej.reps_por_vuelta.push(nReps);
+            }
+        });
+        renderWarmupEjs();
+        toast('Repeticiones actualizadas en ' + warmupEjercicios.length + ' ejercicio(s) del calentamiento');
+    }
+
     function _pfAplicarDefaultsSeriesATodosWarmup(idx) {
         if (!diasData[idx] || diasData[idx].warmupEjercicios.length === 0) return;
         const nSeries = parseInt(document.getElementById('warmup-series-' + idx)?.value) || 3;
@@ -7495,6 +7480,7 @@
         // Auto-actualizar el contador "Cantidad de ejercicios" para Tabata calentamiento
         const cantidadEl = document.getElementById('warmup-cantidad-' + idx);
         if (cantidadEl) { cantidadEl.value = ejs.length || 0; }
+        _pfActualizarDuracionTabataWarmupDia(idx);
         if (ejs.length === 0) {
             lista.innerHTML = '';
             actualizarMiniTimelineDia(idx);
@@ -7819,22 +7805,31 @@
         const tipo = document.getElementById('warmup-tipo').value;
         const container = document.getElementById('warmup-params-container');
         let html = '';
+        let _sinGrid = false;
         if (tipo === 'Circuito (Vueltas)') {
             html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Vueltas</label>
                     <input id="warmup-vueltas" type="number" value="2" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                     <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre vueltas (seg)</label>
-                    <input id="warmup-pausa-vuelta" type="number" value="30" min="0" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>`;
+                    <input id="warmup-pausa-vuelta" type="number" value="30" min="0" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+                    <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones</label>
+                    <input id="warmup-circ-reps" type="text" value="12" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+                    <p class="text-xs text-textoSuave col-span-2 mt-2">Se aplica a los ejercicios nuevos que agregues (todas las vueltas). Podés ajustar reps por vuelta de cada ejercicio individualmente abajo.</p>
+                    <button type="button" onclick="_pfAplicarDefaultsCircuitoATodosWarmupStandalone()" class="w-full col-span-2 mt-2 text-xs font-bold py-2 rounded-lg" style="background:rgba(105,240,174,.12);color:#69F0AE;border:1px solid rgba(105,240,174,.3);cursor:pointer">⟳ Aplicar estos valores a TODOS los ejercicios ya cargados</button>`;
         } else if (tipo === 'Circuito por Tiempo') {
             html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Duracion (minutos)</label>
                     <input id="warmup-duracion" type="number" value="3" min="1" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>`;
         } else if (tipo === 'Tabata') {
-            html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Trabajo (seg)</label>
-                    <input id="warmup-trabajo" type="number" value="20" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+            _sinGrid = true;
+            html = `<div class="space-y-3">
+                    <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Trabajo (seg)</label>
+                    <input id="warmup-trabajo" type="number" value="20" min="5" oninput="_pfActualizarDuracionTabataWarmupStandalone()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                     <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label>
-                    <input id="warmup-pausa" type="number" value="10" min="5" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
-                    <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de ejercicios</label>
+                    <input id="warmup-pausa" type="number" value="10" min="5" oninput="_pfActualizarDuracionTabataWarmupStandalone()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+                    <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Ejercicios</label>
                     <input id="warmup-cantidad" type="number" value="${warmupEjercicios.length}" min="0" readonly class="w-full rounded-lg px-3 py-2.5 text-sm bg-fondo/50 text-textoSuave cursor-not-allowed"></div>
-                    <p class="text-xs text-textoSuave col-span-2 mt-1">Se actualiza automáticamente según los ejercicios agregados abajo</p>`;
+                    <p class="text-xs text-textoSuave">Se actualiza automáticamente según los ejercicios agregados abajo</p>
+                    <div class="rounded-xl p-3 flex items-center gap-3" style="background:#0f0f13;border:1px solid #2a2a35"><span class="text-xl">⏱</span><div><p class="text-[10px] text-textoSuave uppercase tracking-wider">Duración estimada</p><p id="warmup-duracion-est" class="text-lg font-black text-azul">0:00 <span class="text-xs font-normal text-textoSuave">min</span></p></div></div>
+                    </div>`;
         } else if (tipo === 'EMOM') {
             html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Minutos</label>
                     <input id="warmup-minutos" type="number" value="5" min="1" oninput="actualizarEMOMWarmupMinutosConfig('standalone')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
@@ -7850,7 +7845,8 @@
             html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre vueltas (seg, opcional)</label>
                     <input id="warmup-se-pausa" type="number" value="0" min="0" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>`;
         }
-        container.innerHTML = '<div class="grid grid-cols-2 gap-3">' + html + '</div>';
+        container.innerHTML = _sinGrid ? html : ('<div class="grid grid-cols-2 gap-3">' + html + '</div>');
+        if (tipo === 'Tabata') _pfActualizarDuracionTabataWarmupStandalone();
     }
 
     function agregarEjWarmup() {
@@ -7904,6 +7900,7 @@
         // Auto-actualizar el contador "Cantidad de ejercicios" para Tabata calentamiento standalone
         const cantidadEl = document.getElementById('warmup-cantidad');
         if (cantidadEl) { cantidadEl.value = warmupEjercicios.length; }
+        _pfActualizarDuracionTabataWarmupStandalone();
         if (warmupEjercicios.length === 0) {
             lista.innerHTML = '';
             return;
@@ -8019,17 +8016,19 @@
             html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Duracion (minutos)</label>
                 <input id="bp-duracion" type="number" value="5" min="1" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>`;
         } else if (tipo === 'Tabata') {
-            html = `<div class="grid grid-cols-2 gap-3">
+            html = `<div class="space-y-3">
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Trabajo (seg)</label>
                 <input id="bp-trabajo" type="number" value="20" min="5" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label>
                 <input id="bp-pausa" type="number" value="10" min="5" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
-                <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de ejercicios (opcional, solo si querés que se valide al guardar)</label>
+                <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Ejercicios</label>
                 <input id="bp-cantidad" type="number" value="${bloqueEjsTemp.length > 0 ? bloqueEjsTemp.length : ''}" min="1" placeholder="Ej: 4" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+                <p class="text-xs text-textoSuave">Opcional: solo si querés validar la cantidad al guardar. Se actualiza automáticamente según los ejercicios agregados abajo</p>
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Rondas</label>
                 <input id="bp-rondas" type="number" value="1" min="1" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre rondas (seg)</label>
                 <input id="bp-pausa-rondas" type="number" value="0" min="0" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+                <div class="rounded-xl p-3 flex items-center gap-3" style="background:#0f0f13;border:1px solid #2a2a35"><span class="text-xl">⏱</span><div><p class="text-[10px] text-textoSuave uppercase tracking-wider">Duración estimada</p><p id="bp-duracion-est" class="text-lg font-black text-azul">0:00 <span class="text-xs font-normal text-textoSuave">min</span></p></div></div>
             </div>`;
         } else if (tipo === 'EMOM') {
             html = `<div class="grid grid-cols-2 gap-3">
@@ -8873,9 +8872,49 @@
 
     function _pfActualizarDuracionViva() {
         const el = document.getElementById('bp-duracion-viva');
-        if (!el) return;
         const mins = _pfEstimarDuracionBloqueActual();
-        el.innerHTML = '⏱ ~' + mins + ' min';
+        if (el) el.innerHTML = '⏱ ~' + mins + ' min';
+        // Caja "Duración estimada" dentro del panel de configuración del Tabata (bloque principal)
+        const boxEl = document.getElementById('bp-duracion-est');
+        if (boxEl) {
+            const tipo = document.getElementById('bloque-tipo')?.value || '';
+            if (tipo === 'Tabata') {
+                const val = (id, def) => { const e = document.getElementById(id); const n = parseFloat(e?.value); return isNaN(n) ? def : n; };
+                const trabajo = val('bp-trabajo', 20), pausa = val('bp-pausa', 10);
+                const cantidad = val('bp-cantidad', bloqueEjsTemp.length || 4);
+                const rondas = val('bp-rondas', 1), pausaRondas = val('bp-pausa-rondas', 0);
+                const segs = rondas * cantidad * (trabajo + pausa) + rondas * pausaRondas;
+                boxEl.innerHTML = _pfFormatMinSeg(segs) + ' <span class="text-xs font-normal text-textoSuave">min</span>';
+            }
+        }
+    }
+
+    // Formatea segundos totales como "M:SS" para las cajas de "Duración estimada"
+    function _pfFormatMinSeg(totalSeg) {
+        totalSeg = Math.max(0, Math.round(totalSeg || 0));
+        const m = Math.floor(totalSeg / 60);
+        const s = totalSeg % 60;
+        return m + ':' + String(s).padStart(2, '0');
+    }
+
+    // Duración estimada del Tabata de calentamiento (por día, dentro del modal multi-día)
+    function _pfActualizarDuracionTabataWarmupDia(idx) {
+        const el = document.getElementById('warmup-duracion-est-' + idx);
+        if (!el) return;
+        const trabajo = parseFloat(document.getElementById('warmup-trabajo-' + idx)?.value) || 0;
+        const pausa = parseFloat(document.getElementById('warmup-pausa-' + idx)?.value) || 0;
+        const cantidad = diasData[idx] ? diasData[idx].warmupEjercicios.length : 0;
+        el.innerHTML = _pfFormatMinSeg(cantidad * (trabajo + pausa)) + ' <span class="text-xs font-normal text-textoSuave">min</span>';
+    }
+
+    // Duración estimada del Tabata de calentamiento (modal standalone, un solo día)
+    function _pfActualizarDuracionTabataWarmupStandalone() {
+        const el = document.getElementById('warmup-duracion-est');
+        if (!el) return;
+        const trabajo = parseFloat(document.getElementById('warmup-trabajo')?.value) || 0;
+        const pausa = parseFloat(document.getElementById('warmup-pausa')?.value) || 0;
+        const cantidad = (typeof warmupEjercicios !== 'undefined' && warmupEjercicios) ? warmupEjercicios.length : 0;
+        el.innerHTML = _pfFormatMinSeg(cantidad * (trabajo + pausa)) + ' <span class="text-xs font-normal text-textoSuave">min</span>';
     }
 
     // ── Detecta si a un ejercicio del bloque le falta algun dato clave (reps/pausa) ──
@@ -13229,7 +13268,8 @@
 
         // Cargar lista de rutinas del alumno
         try {
-            const data = await _pfFetchCacheado(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre), 15000);
+            const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre));
+            const data = await res.json();
             if (data.ok) {
                 const rutinasResumen = data.rutinas || {};
                 const codigos = Object.keys(rutinasResumen);
@@ -13303,7 +13343,8 @@
                 dashAsistenciaUltimo = 0;
                 const fetchesAsistencia = codigos.map(async (cod) => {
                     try {
-                        const dAsi = await _pfFetchCacheado(API_BASE + '/api/asistencia/' + encodeURIComponent(cod), 15000);
+                        const rAsi = await fetch(API_BASE + '/api/asistencia/' + encodeURIComponent(cod));
+                        const dAsi = await rAsi.json();
                         const remoto = (dAsi && dAsi.ok) ? dAsi.asistencia : null;
                         if (!remoto) return;
                         if (remoto.fechas) {
@@ -21573,21 +21614,22 @@ self.addEventListener('fetch', event => {
             var name=document.getElementById('alumno-nombre'); var refName=document.getElementById('pf-reference-alumno'); if(refName && document.activeElement!==refName) refName.value=name ? name.value : '';
             var desc=document.getElementById('rutina-desc'); var refDesc=document.getElementById('pf-reference-desc'); if(refDesc && document.activeElement!==refDesc) refDesc.value=desc ? desc.value : '';
             updateAvatar(refName ? refName.value : (name ? name.value : ''));
-            // Paso 4: Resumen. Se muestra igual que en el Historial: pills de
-            // ejercicios agrupadas por calentamiento/bloque cuando es un solo
-            // día, y como acordeón plegable (uno por día, con "Expandir/Colapsar
-            // todos") cuando la rutina tiene varios días — mismo renderizador
-            // _pfGenerarHTMLCompacto que usa el Historial de Rutinas.
+            // Paso 4: Resumen. Se arma con lo mismo que ya se calculó arriba
+            // (calentamiento + bloques), para no duplicar lógica.
             var resBody=document.getElementById('pf-ref-resumen-body');
             if (resBody) {
                 var alumnoVal=(refName ? refName.value : (name ? name.value : '')).trim();
                 var descVal=(refDesc ? refDesc.value : (desc ? desc.value : '')).trim();
-                var headerCard='<div class="pf-vr-header-card">'+
-                    '<div class="pf-vr-header-alumno">'+e(alumnoVal ? alumnoVal.toUpperCase() : 'Sin alumno asignado')+'</div>'+
-                    '<div class="pf-vr-header-codigo">'+e(descVal || 'Sin nombre de entrenamiento')+'</div>'+
-                '</div>';
-                var cuerpoCompacto = (typeof _pfGenerarHTMLCompacto === 'function') ? _pfGenerarHTMLCompacto(days, false) : '';
-                resBody.innerHTML = '<div style="background:#17171C;border-radius:16px;padding:16px;">' + headerCard + cuerpoCompacto + '</div>';
+                var filas='<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:#8899a4;"></span><span><b>'+e(alumnoVal||'Sin alumno asignado')+'</b><small>'+e(descVal||'Sin nombre de entrenamiento')+'</small></span></div>';
+                // Un mini-resumen por CADA día (no solo el que se está viendo ahora),
+                // para que el paso "Resumen" sirva de verdad con varios días armados.
+                days.forEach(function(d, di){
+                    var dWarm=d.warmupEjercicios||[], dBlocks=d.bloquesRutina||[];
+                    var dwTipo=d._wTipo || (d._warmupCfg && d._warmupCfg.tipo) || '';
+                    var dCol=dayColor(di);
+                    filas += '<div class="pf-ref-block-card" style="border-left:2px solid '+dCol+';"><span class="pf-ref-block-color" style="background:'+dCol+';"></span><span><b>'+e(d.titulo || ('Día '+(di+1)))+'</b><small>'+(dwTipo||dWarm.length ? e('Calentamiento: '+(dwTipo?typeLabel(dwTipo):'sí')+' · ') : 'Sin calentamiento · ')+e(dBlocks.length+' bloque(s), '+dBlocks.reduce(function(a,b){return a+(b.ejercicios||[]).length;},0)+' ejercicios')+'</small></span></div>';
+                });
+                resBody.innerHTML=filas;
             }
         }
         // Lleva a la sección del paso tocado (Configuración / Calentamiento / Bloque
