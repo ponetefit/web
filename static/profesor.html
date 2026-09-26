@@ -2879,7 +2879,7 @@
             </div>
 
             <!-- Rutinas guardadas en el Repositorio: buscar, filtrar y usar una acá mismo -->
-            <div class="bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
+            <div id="pf-panel-repo-crear" class="bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
                 <button type="button" onclick="_pfTogglePanelRepoCrear()" class="pf-panel-toggle w-full flex items-center justify-between gap-2">
                     <span class="text-sm font-bold text-purpura uppercase tracking-wider flex items-center gap-2">
                         📁 Rutinas del Repositorio
@@ -2903,7 +2903,7 @@
             </div>
 
             <!-- Historial de rutinas: de este alumno o de otro, en un solo buscador -->
-            <div class="bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
+            <div id="pf-panel-historial-otro" class="bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
                 <button type="button" onclick="_pfTogglePanelOtroAlumno()" class="pf-panel-toggle w-full flex items-center justify-between gap-2">
                     <span class="text-sm font-bold text-azul uppercase tracking-wider flex items-center gap-2">
                         📋 Historial de Rutinas
@@ -21197,13 +21197,17 @@ self.addEventListener('fetch', event => {
         .pf-ref-exercise.empty strong { top:59%; bottom:auto; text-align:center; color:#718893; }
         .pf-ref-add { border:1px solid #294451; background:#102531; color:#72bedd; border-radius:5px; padding:6px 9px; font-size:12px; font-weight:800; cursor:pointer; }
         .pf-ref-add:hover { border-color:#65c8e9; background:#153441; }
+        .pf-ref-ex-list { margin-top:6px; display:grid; gap:3px; }
+        .pf-ref-ex-row { display:flex; justify-content:space-between; gap:8px; font-size:12px; padding:5px 8px; background:#0b1720; border:1px solid #1c333f; border-radius:5px; }
+        .pf-ref-ex-row span:first-child { color:#dbe8ec; font-weight:700; }
+        .pf-ref-ex-row span:last-child { color:#7fd1f0; font-weight:800; white-space:nowrap; }
         .pf-ref-block-meta { color:#7e96a1; font-size:12px; }
         .pf-ref-block-card { display:flex; align-items:center; gap:10px; min-height:57px; border:1px solid #24404c; border-radius:6px; background:#10212c; padding:8px; }
         .pf-ref-block-color { width:4px; align-self:stretch; border-radius:3px; background:#55d19a; }
         .pf-ref-block-card b { display:block; color:#e2edf1; font-size:13px; }
         .pf-ref-block-card small { display:block; margin-top:4px; color:#718894; font-size:12px; }
         .pf-ref-block-card button { margin-left:auto; border:0; background:transparent; color:#79929d; cursor:pointer; font-size:14px; }
-        .pf-ref-bottom { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+        .pf-ref-bottom { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
         .pf-ref-bottom-card { border:1px solid #1b3341; border-radius:7px; background:#0d1a25; padding:12px; min-height:48px; }
         .pf-ref-bottom-card b { color:#dfecef; font-size:13px; }
         .pf-ref-bottom-card p { margin:4px 0 0; color:#718894; font-size:12px; line-height:1.4; }
@@ -21223,6 +21227,7 @@ self.addEventListener('fetch', event => {
         @media (max-width:900px) and (min-width:640px) {
             .pf-ref-type-grid { grid-template-columns:repeat(4,1fr); }
             .pf-ref-exercises { grid-template-columns:repeat(3,1fr); }
+            .pf-ref-bottom { grid-template-columns:repeat(2,1fr); }
         }
         @media (max-width:639px) {
             .pf-ref-head { flex-direction:column; gap:12px; }
@@ -21249,10 +21254,31 @@ self.addEventListener('fetch', event => {
         var BLOCK_TYPES = [['Tabata','Intervalos de alta intensidad','⚡'],['EMOM','Cada minuto','◷'],['Circuito por Tiempo','Trabajo continuo','⌁'],['Circuito','Vueltas','▦'],['Por Tiempo','Cronómetro','◉'],['Series','Fuerza y reps','▥'],['Sumando Ejercicio','Progresivo','＋']];
         function getDays() { return (typeof diasData !== 'undefined' && Array.isArray(diasData)) ? diasData : []; }
         function exName(x) { return typeof x === 'string' ? x : (x && x.nombre) || (Array.isArray(x) ? x[0] : 'Ejercicio'); }
-        function exReps(x) { if (!x || typeof x !== 'object') return ''; return x.reps || x.repeticiones || (x.series ? x.series + ' series' : '') || ''; }
+        function exReps(x) {
+            if (!x || typeof x !== 'object') return '';
+            var unidad = (x.unit === 'Segs') ? 'seg' : 'reps';
+            // Circuito por vueltas / Series por serie: si hay valores por vuelta/serie,
+            // usar el primero como referencia (el detalle vuelta a vuelta se edita en el modal).
+            var val = (Array.isArray(x.reps_por_vuelta) && x.reps_por_vuelta.length) ? x.reps_por_vuelta[0]
+                    : (Array.isArray(x.reps_por_serie) && x.reps_por_serie.length) ? x.reps_por_serie[0]
+                    : (x.reps || x.repeticiones || (x.series ? x.series + ' series' : ''));
+            var txt = val ? (val + ' ' + unidad) : '';
+            var pausa = (Array.isArray(x.pausa_por_serie) && x.pausa_por_serie.length) ? x.pausa_por_serie[0] : (x.descanso || x.pausa || '');
+            if (pausa) txt = txt ? (txt + ' · ' + pausa + 's pausa') : (pausa + 's pausa');
+            return txt;
+        }
         function typeIcon(t) { return ({'Tabata':'⚡','EMOM':'◷','Circuito por Tiempo':'⌁','Circuito':'▦','Circuito (Vueltas)':'▦','Por Tiempo':'◉','Series':'▥','Series/Reps':'▥','Sumando Ejercicio':'＋'})[t] || '◆'; }
         function typeLabel(t) { return t === 'Circuito' ? 'Circuito por vueltas' : t === 'Series' ? 'Series y repeticiones' : t === 'Series/Reps' ? 'Series y repeticiones' : t || 'Bloque principal'; }
         function setOriginalValue(id, value) { var el=document.getElementById(id); if (el && el.value !== value) { el.value=value; el.dispatchEvent(new Event('input',{bubbles:true})); } }
+        // Lista compacta (método ya se ve en el título de la tarjeta; acá va cada
+        // ejercicio con su rep o pausa) para las tarjetas de Calentamiento y Bloque.
+        function exListHtml(items) {
+            if (!items || !items.length) return '';
+            return '<div class="pf-ref-ex-list">' + items.map(function(x) {
+                var r = exReps(x);
+                return '<div class="pf-ref-ex-row"><span>'+e(exName(x))+'</span>'+(r ? '<span>'+e(r)+'</span>' : '')+'</div>';
+            }).join('') + '</div>';
+        }
         function renderExercises(items, emptyLabel) {
             var arr=(items||[]).slice(0,5);
             // Las tarjetas del editor no son accesos a Videoteca: al tocar una
@@ -21272,12 +21298,12 @@ self.addEventListener('fetch', event => {
                 // etiqueta quedaba mal puesta acá en la tarjeta de Calentamiento. Ahora,
                 // si no hay tipo guardado, se usa directamente 'Calentamiento'.
                 warmStatus.innerHTML = (wTipo || warm.length) ?
-                    '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:#43b8e4;"></span><span><b>'+e(wTipo ? typeLabel(wTipo) : 'Calentamiento')+'</b><small>'+e(warm.length+' ejercicios de calentamiento')+'</small></span><button onclick="pfRefEditWarmup()" title="Editar calentamiento">✎</button></div>' :
+                    '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:#43b8e4;"></span><span><b>'+e(wTipo ? typeLabel(wTipo) : 'Calentamiento')+'</b><small>'+e(warm.length+' ejercicios de calentamiento')+'</small></span><button onclick="pfRefEditWarmup()" title="Editar calentamiento">✎</button></div>'+exListHtml(warm) :
                     '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:#2a4554;"></span><span><b>Sin calentamiento</b><small>Elegí un sistema arriba para armarlo</small></span></div>';
             }
             var blockGrid=document.getElementById('pf-ref-block-grid');
             if (blockGrid) {
-                blockGrid.innerHTML=blocks.length ? blocks.map(function(b,i){var xs=b.ejercicios||[];return '<div class="pf-ref-block-card"><span class="pf-ref-block-color"></span><span><b>'+e(typeLabel(b.tipo))+'</b><small>'+e(xs.length+' ejercicios · '+(b.descripcion||'Configurá parámetros y ejercicios'))+'</small></span><button onclick="pfRefEditBlock('+i+')" title="Editar bloque, incluido cambiar de sistema">✎</button></div>';}).join('') : '<div class="pf-ref-block-card"><span class="pf-ref-block-color"></span><span><b>Bloque principal</b><small>Todavía no agregaste un bloque de entrenamiento</small></span></div>';
+                blockGrid.innerHTML=blocks.length ? blocks.map(function(b,i){var xs=b.ejercicios||[];return '<div class="pf-ref-block-card"><span class="pf-ref-block-color"></span><span><b>'+e(typeLabel(b.tipo))+'</b><small>'+e(xs.length+' ejercicios · '+(b.descripcion||'Configurá parámetros y ejercicios'))+'</small></span><button onclick="pfRefEditBlock('+i+')" title="Editar bloque, incluido cambiar de sistema">✎</button></div>'+exListHtml(xs);}).join('') : '<div class="pf-ref-block-card"><span class="pf-ref-block-color"></span><span><b>Bloque principal</b><small>Todavía no agregaste un bloque de entrenamiento</small></span></div>';
             }
             var count=document.getElementById('pf-ref-count'); if(count) count.textContent=(warm.length+blocks.reduce(function(a,b){return a+(b.ejercicios||[]).length;},0))+' ejercicios';
             var name=document.getElementById('alumno-nombre'); var refName=document.getElementById('pf-reference-alumno'); if(refName && document.activeElement!==refName) refName.value=name ? name.value : '';
@@ -21353,6 +21379,33 @@ self.addEventListener('fetch', event => {
         window.pfRefAddWarmup=function(){ pfRefSetWarmup('Circuito (Vueltas)'); };
         window.pfRefEditWarmup=function(){ pfRefSetWarmup((getDays()[0] && getDays()[0]._warmupCfg && getDays()[0]._warmupCfg.tipo) || 'Circuito (Vueltas)'); };
         window.pfRefOpenVideo=function(){ if(typeof showTab==='function') showTab('videoteca'); };
+        // Abre el Repositorio y el Historial de otros alumnos EN el mismo lugar
+        // (sin cambiar de pantalla): la primera vez, mueve los paneles ya
+        // existentes (rc-content / oa-content, del formulario clásico) adentro
+        // del modal; después solo los muestra/oculta. Los ids de esos paneles no
+        // cambian, así que toda la lógica de buscar/filtrar/copiar sigue igual.
+        window.pfRefOpenRepo=function(){
+            var slot=document.getElementById('pf-ref-repo-slot');
+            var modal=document.getElementById('pf-ref-repo-modal');
+            if(!slot||!modal) return;
+            if(!slot.dataset.lleno){
+                var pRepo=document.getElementById('pf-panel-repo-crear');
+                var pOtro=document.getElementById('pf-panel-historial-otro');
+                if(pRepo) slot.appendChild(pRepo);
+                if(pOtro) slot.appendChild(pOtro);
+                slot.dataset.lleno='1';
+            }
+            modal.style.display='flex';
+            modal.classList.remove('hidden');
+            var rcContent=document.getElementById('rc-content');
+            if(rcContent && rcContent.classList.contains('hidden') && typeof _pfTogglePanelRepoCrear==='function') _pfTogglePanelRepoCrear();
+            var oaContent=document.getElementById('oa-content');
+            if(oaContent && oaContent.classList.contains('hidden') && typeof _pfTogglePanelOtroAlumno==='function') _pfTogglePanelOtroAlumno();
+        };
+        window.pfRefCloseRepo=function(){
+            var modal=document.getElementById('pf-ref-repo-modal');
+            if(modal){ modal.style.display='none'; modal.classList.add('hidden'); }
+        };
         window.pfRefSave=function(){ var b=document.getElementById('btn-guardar-repo-normal'); if(b && !b.classList.contains('hidden')) b.click(); else if(typeof compartirRutina==='function') compartirRutina(); };
         window.pfRefShare=function(){ if(typeof compartirRutina==='function') compartirRutina(); };
         window.pfRefAdvanced=function(){
@@ -21417,7 +21470,18 @@ self.addEventListener('fetch', event => {
                 '<section class="pf-ref-card pf-ref-stage main" id="pf-ref-sec-3"><div class="pf-ref-card-head"><div class="pf-ref-stage-title"><b>Bloque principal</b><span id="pf-ref-count">0 ejercicios</span></div></div><div style="color:#758b97;font-size:12px;padding:12px 14px 0;">Elegí un sistema para agregarlo al entrenamiento</div><div class="pf-ref-type-grid">'+
                 BLOCK_TYPES.map(function(a){return '<button class="pf-ref-type" onclick="pfRefAddBlock(\''+a[0]+'\')"><i>'+a[2]+'</i><strong>'+e(a[0])+'</strong><small>'+e(a[1])+'</small></button>';}).join('')+'</div><div class="pf-ref-card-body" style="padding-top:0;"><div id="pf-ref-block-grid" style="display:grid;gap:7px;"></div></div></section>'+
                 '<section class="pf-ref-card pf-ref-stage" id="pf-ref-sec-4" style="border-left-color:#ff8a65;"><div class="pf-ref-card-head"><div class="pf-ref-stage-title"><b>Resumen del entrenamiento</b></div></div><div class="pf-ref-card-body"><div id="pf-ref-resumen-body" style="display:grid;gap:7px;"></div><button class="pf-ref-btn primary" style="margin-top:12px;width:100%;" onclick="pfRefShare()">↗ Compartir</button></div></section>'+
-                '<div class="pf-ref-bottom"><div class="pf-ref-bottom-card"><b>▣ Videoteca</b><p>Buscá ejercicios y agregalos a tu entrenamiento.</p><button onclick="pfRefOpenVideo()">ABRIR VIDEOTECA</button></div><div class="pf-ref-bottom-card"><b>▤ Crear con IA</b><p>Generá una propuesta según el objetivo del alumno.</p><button onclick="generarRutinaIA()">GENERAR CON IA</button></div><div class="pf-ref-bottom-card"><b>◌ Digitalizar pizarra</b><p>Convertí una foto en ejercicios editables.</p><button onclick="showTab(\'repositorio\');setTimeout(function(){typeof pizTogglePanel===\'function\'&&pizTogglePanel()},120)">DIGITALIZAR</button></div></div>'+
+                '<div class="pf-ref-bottom"><div class="pf-ref-bottom-card"><b>▣ Videoteca</b><p>Buscá ejercicios y agregalos a tu entrenamiento.</p><button onclick="pfRefOpenVideo()">ABRIR VIDEOTECA</button></div><div class="pf-ref-bottom-card"><b>▤ Crear con IA</b><p>Generá una propuesta según el objetivo del alumno.</p><button onclick="generarRutinaIA()">GENERAR CON IA</button></div><div class="pf-ref-bottom-card"><b>📁 Repositorio</b><p>Copiá una rutina guardada (entera o por días) o una de otro alumno.</p><button onclick="pfRefOpenRepo()">VER REPOSITORIO</button></div><div class="pf-ref-bottom-card"><b>◌ Digitalizar pizarra</b><p>Convertí una foto en ejercicios editables.</p><button onclick="showTab(\'repositorio\');setTimeout(function(){typeof pizTogglePanel===\'function\'&&pizTogglePanel()},120)">DIGITALIZAR</button></div></div>'+
+                // Modal de Repositorio / rutinas de otros alumnos: NO navega a otra pantalla.
+                // Los paneles reales (rc-content, oa-content) viven en el formulario clásico
+                // (pf-legacy-form) y la primera vez que se abre este modal se los "trae" acá
+                // (moviendo los mismos elementos del DOM, no una copia) para no duplicar IDs
+                // ni la lógica ya existente de buscar/filtrar/copiar.
+                '<div id="pf-ref-repo-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:60;display:none;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;">'+
+                    '<div style="background:#0d1a25;border:1px solid #1b3341;border-radius:10px;max-width:720px;width:100%;margin-top:24px;padding:16px;">'+
+                        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><b style="color:#e7f1f5;font-size:15px;">📁 Repositorio y rutinas de otros alumnos</b><button onclick="pfRefCloseRepo()" style="background:none;border:0;color:#9bb0b8;font-size:20px;cursor:pointer;line-height:1;">&times;</button></div>'+
+                        '<div id="pf-ref-repo-slot"></div>'+
+                    '</div>'+
+                '</div>'+
                 '</div>';
             sec.insertAdjacentHTML('afterbegin',html);
             var n=document.getElementById('alumno-nombre'); if(n) n.addEventListener('input',render);
