@@ -7171,6 +7171,12 @@
         if (emomMinRow) emomMinRow.style.display = 'none'; // siempre oculto (ya no se usa)
         // Re-render exercise chips when warmup type changes
         renderWarmupEjsDia(idx);
+        // Guardar el sistema elegido en diasData YA, apenas se elige (antes esto
+        // recién quedaba guardado si el profesor tocaba algún campo de parámetros
+        // como "Vueltas" o "Pausa"). Si elegía el sistema y agregaba ejercicios sin
+        // tocar esos campos, el tipo se perdía y la tarjeta resumen del calentamiento
+        // mostraba "Bloque principal" en vez del sistema real (Tabata, EMOM, etc).
+        guardarWarmupCfgDia(idx);
     }
 
     // Persiste los valores actuales del warmup en diasData para que no se pierdan al re-renderizar
@@ -21258,11 +21264,15 @@ self.addEventListener('fetch', event => {
         function render() {
             var root=document.getElementById('pf-reference-editor'); if(!root) return;
             var days=getDays(), day=days[0]||{warmupEjercicios:[],bloquesRutina:[]}, warm=day.warmupEjercicios||[], blocks=day.bloquesRutina||[];
+            var wTipo=(day._warmupCfg && day._warmupCfg.tipo) || '';
             var warmStatus=document.getElementById('pf-ref-warmup-status');
             if (warmStatus) {
-                var wTipo=(day._warmupCfg && day._warmupCfg.tipo) || '';
+                // Antes, si wTipo venía vacío (bug ya corregido en actualizarWarmupUIDia),
+                // typeLabel('') devolvía 'Bloque principal' como valor por defecto y esa
+                // etiqueta quedaba mal puesta acá en la tarjeta de Calentamiento. Ahora,
+                // si no hay tipo guardado, se usa directamente 'Calentamiento'.
                 warmStatus.innerHTML = (wTipo || warm.length) ?
-                    '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:#43b8e4;"></span><span><b>'+e(typeLabel(wTipo)||'Calentamiento')+'</b><small>'+e(warm.length+' ejercicios de calentamiento')+'</small></span><button onclick="pfRefEditWarmup()" title="Editar calentamiento">✎</button></div>' :
+                    '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:#43b8e4;"></span><span><b>'+e(wTipo ? typeLabel(wTipo) : 'Calentamiento')+'</b><small>'+e(warm.length+' ejercicios de calentamiento')+'</small></span><button onclick="pfRefEditWarmup()" title="Editar calentamiento">✎</button></div>' :
                     '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:#2a4554;"></span><span><b>Sin calentamiento</b><small>Elegí un sistema arriba para armarlo</small></span></div>';
             }
             var blockGrid=document.getElementById('pf-ref-block-grid');
@@ -21273,7 +21283,31 @@ self.addEventListener('fetch', event => {
             var name=document.getElementById('alumno-nombre'); var refName=document.getElementById('pf-reference-alumno'); if(refName && document.activeElement!==refName) refName.value=name ? name.value : '';
             var desc=document.getElementById('rutina-desc'); var refDesc=document.getElementById('pf-reference-desc'); if(refDesc && document.activeElement!==refDesc) refDesc.value=desc ? desc.value : '';
             updateAvatar(refName ? refName.value : (name ? name.value : ''));
+            // Paso 4: Resumen. Se arma con lo mismo que ya se calculó arriba
+            // (calentamiento + bloques), para no duplicar lógica.
+            var resBody=document.getElementById('pf-ref-resumen-body');
+            if (resBody) {
+                var alumnoVal=(refName ? refName.value : (name ? name.value : '')).trim();
+                var descVal=(refDesc ? refDesc.value : (desc ? desc.value : '')).trim();
+                var filas='<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:#8899a4;"></span><span><b>'+e(alumnoVal||'Sin alumno asignado')+'</b><small>'+e(descVal||'Sin nombre de entrenamiento')+'</small></span></div>';
+                filas += (wTipo || warm.length) ?
+                    '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:#43b8e4;"></span><span><b>Calentamiento: '+e(wTipo ? typeLabel(wTipo) : 'Sin sistema')+'</b><small>'+e(warm.length+' ejercicios')+'</small></span></div>' :
+                    '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:#2a4554;"></span><span><b>Sin calentamiento</b><small>Todavía no se armó</small></span></div>';
+                filas += blocks.length ? blocks.map(function(b){var xs=b.ejercicios||[];return '<div class="pf-ref-block-card"><span class="pf-ref-block-color"></span><span><b>Bloque: '+e(typeLabel(b.tipo))+'</b><small>'+e(xs.length+' ejercicios')+'</small></span></div>';}).join('') :
+                    '<div class="pf-ref-block-card"><span class="pf-ref-block-color"></span><span><b>Sin bloque principal</b><small>Todavía no se agregó</small></span></div>';
+                resBody.innerHTML=filas;
+            }
         }
+        // Lleva a la sección del paso tocado (Configuración / Calentamiento / Bloque
+        // principal / Resumen) y marca ese paso como activo en la barra de arriba.
+        window.pfRefGoStep=function(n){
+            var sec=document.getElementById('pf-ref-sec-'+n);
+            if (sec) sec.scrollIntoView({behavior:'smooth',block:'start'});
+            for (var i=1;i<=4;i++){
+                var step=document.getElementById('pf-ref-step-'+i);
+                if (step) step.classList.toggle('active', i===n);
+            }
+        };
         // Muestra la foto de perfil del alumno asignado si ya está cargada en la base;
         // si no tiene foto (o no está guardado todavía), muestra sus iniciales.
         function updateAvatar(nombre) {
@@ -21370,13 +21404,19 @@ self.addEventListener('fetch', event => {
             var sec=document.getElementById('sec-rutina'); if(!sec || document.getElementById('pf-reference-editor')) return;
             var html='<div id="pf-reference-editor" class="pf-reference-editor">'+
                 '<div class="pf-ref-head"><div><div class="pf-ref-crumb">ENTRENAMIENTOS / NUEVO</div><h2>Crear entrenamiento</h2><p>Diseñá y organizá un entrenamiento de forma simple y rápida.</p></div><div class="pf-ref-actions"><button class="pf-ref-btn primary" onclick="pfRefSave()">✓ Guardar entrenamiento</button></div></div>'+
-                '<div class="pf-ref-stepper"><div class="pf-ref-step active"><b>1</b> Configuración</div><div class="pf-ref-step"><b>2</b> Calentamiento</div><div class="pf-ref-step"><b>3</b> Bloque principal</div><div class="pf-ref-step"><b>4</b> Resumen</div></div>'+
-                '<section class="pf-ref-card"><div class="pf-ref-card-head"><span class="pf-ref-label">Alumno</span><span class="pf-ref-status">● Activo</span></div><div class="pf-ref-card-body"><div class="pf-ref-athlete"><span class="pf-ref-avatar" id="pf-ref-avatar">PF</span><span><strong>Asignar alumno</strong><span>El entrenamiento se guardará en su historial</span></span><input id="pf-reference-alumno" class="pf-ref-input" placeholder="Nombre del alumno" oninput="pfRefSyncName()"><input id="pf-reference-desc" class="pf-ref-input" placeholder="Nombre del entrenamiento" oninput="pfRefSyncDesc()"></div></div></section>'+
+                '<div class="pf-ref-stepper" id="pf-ref-stepper">'+
+                    '<div class="pf-ref-step active" id="pf-ref-step-1" onclick="pfRefGoStep(1)"><b>1</b> Configuración</div>'+
+                    '<div class="pf-ref-step" id="pf-ref-step-2" onclick="pfRefGoStep(2)"><b>2</b> Calentamiento</div>'+
+                    '<div class="pf-ref-step" id="pf-ref-step-3" onclick="pfRefGoStep(3)"><b>3</b> Bloque principal</div>'+
+                    '<div class="pf-ref-step" id="pf-ref-step-4" onclick="pfRefGoStep(4)"><b>4</b> Resumen</div>'+
+                '</div>'+
+                '<section class="pf-ref-card" id="pf-ref-sec-1"><div class="pf-ref-card-head"><span class="pf-ref-label">Alumno</span><span class="pf-ref-status">● Activo</span></div><div class="pf-ref-card-body"><div class="pf-ref-athlete"><span class="pf-ref-avatar" id="pf-ref-avatar">PF</span><span><strong>Asignar alumno</strong><span>El entrenamiento se guardará en su historial</span></span><input id="pf-reference-alumno" class="pf-ref-input" placeholder="Nombre del alumno" oninput="pfRefSyncName()"><input id="pf-reference-desc" class="pf-ref-input" placeholder="Nombre del entrenamiento" oninput="pfRefSyncDesc()"></div></div></section>'+
                 '<section class="pf-ref-card pf-ref-history"><div class="pf-ref-card-head"><span id="pf-ref-history-title" class="pf-ref-label">Rutinas anteriores</span></div><div id="pf-ref-history-list" class="pf-ref-history-list"><p class="pf-ref-history-empty">Escribí el nombre del alumno para ver sus rutinas anteriores.</p></div></section>'+
-                '<section class="pf-ref-card pf-ref-type-panel pf-ref-stage"><div class="pf-ref-card-head"><div><span class="pf-ref-label">En calentamiento, ¿qué sistema querés elegir?</span><div style="color:#758b97;font-size:12px;margin-top:4px;">Elegí el sistema para armar el calentamiento</div></div></div><div class="pf-ref-type-grid">'+
+                '<section class="pf-ref-card pf-ref-type-panel pf-ref-stage" id="pf-ref-sec-2"><div class="pf-ref-card-head"><div><span class="pf-ref-label">En calentamiento, ¿qué sistema querés elegir?</span><div style="color:#758b97;font-size:12px;margin-top:4px;">Elegí el sistema para armar el calentamiento</div></div></div><div class="pf-ref-type-grid">'+
                 WARMUP_TYPES.map(function(a){return '<button class="pf-ref-type" onclick="pfRefSetWarmup(\''+a[0]+'\')"><i>'+a[2]+'</i><strong>'+e(a[0])+'</strong><small>'+e(a[1])+'</small></button>';}).join('')+'</div><div class="pf-ref-card-body" style="padding-top:0;"><div id="pf-ref-warmup-status" style="display:grid;gap:7px;"></div></div></section>'+
-                '<section class="pf-ref-card pf-ref-stage main"><div class="pf-ref-card-head"><div class="pf-ref-stage-title"><b>Bloque principal</b><span id="pf-ref-count">0 ejercicios</span></div></div><div style="color:#758b97;font-size:12px;padding:12px 14px 0;">Elegí un sistema para agregarlo al entrenamiento</div><div class="pf-ref-type-grid">'+
+                '<section class="pf-ref-card pf-ref-stage main" id="pf-ref-sec-3"><div class="pf-ref-card-head"><div class="pf-ref-stage-title"><b>Bloque principal</b><span id="pf-ref-count">0 ejercicios</span></div></div><div style="color:#758b97;font-size:12px;padding:12px 14px 0;">Elegí un sistema para agregarlo al entrenamiento</div><div class="pf-ref-type-grid">'+
                 BLOCK_TYPES.map(function(a){return '<button class="pf-ref-type" onclick="pfRefAddBlock(\''+a[0]+'\')"><i>'+a[2]+'</i><strong>'+e(a[0])+'</strong><small>'+e(a[1])+'</small></button>';}).join('')+'</div><div class="pf-ref-card-body" style="padding-top:0;"><div id="pf-ref-block-grid" style="display:grid;gap:7px;"></div></div></section>'+
+                '<section class="pf-ref-card pf-ref-stage" id="pf-ref-sec-4" style="border-left-color:#ff8a65;"><div class="pf-ref-card-head"><div class="pf-ref-stage-title"><b>Resumen del entrenamiento</b></div></div><div class="pf-ref-card-body"><div id="pf-ref-resumen-body" style="display:grid;gap:7px;"></div><button class="pf-ref-btn primary" style="margin-top:12px;width:100%;" onclick="pfRefShare()">↗ Compartir</button></div></section>'+
                 '<div class="pf-ref-bottom"><div class="pf-ref-bottom-card"><b>▣ Videoteca</b><p>Buscá ejercicios y agregalos a tu entrenamiento.</p><button onclick="pfRefOpenVideo()">ABRIR VIDEOTECA</button></div><div class="pf-ref-bottom-card"><b>▤ Crear con IA</b><p>Generá una propuesta según el objetivo del alumno.</p><button onclick="generarRutinaIA()">GENERAR CON IA</button></div><div class="pf-ref-bottom-card"><b>◌ Digitalizar pizarra</b><p>Convertí una foto en ejercicios editables.</p><button onclick="showTab(\'repositorio\');setTimeout(function(){typeof pizTogglePanel===\'function\'&&pizTogglePanel()},120)">DIGITALIZAR</button></div></div>'+
                 '</div>';
             sec.insertAdjacentHTML('afterbegin',html);
