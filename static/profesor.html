@@ -4361,12 +4361,50 @@
     let _alumnosCache = [];
     let _alumnosCacheLoaded = false;
 
+    // ── Cache GET con "dedupe" de pedidos en vuelo ──────────────────────
+    // Varias partes del panel (badges de asistencia, dashboard, autocompletados)
+    // piden los mismos endpoints (alumnos, rutinas de un alumno, asistencia de
+    // un codigo) casi al mismo tiempo al cargar la pagina. Sin esto, cada
+    // llamada dispara su propio fetch aunque haya uno identico en curso, lo
+    // que multiplicaba por 3-4 los pedidos y hacia mas lenta la carga.
+    // - Si hay un pedido IGUAL en vuelo, todos los que lo pidan de nuevo
+    //   esperan esa misma promesa (no se dispara un fetch nuevo).
+    // - Si hay un resultado reciente (dentro de ttlMs), se devuelve al toque
+    //   sin ir a la red.
+    const _pfGetCache = new Map();     // url -> { data, ts }
+    const _pfGetPendientes = new Map(); // url -> Promise en curso
+    async function _pfFetchCacheado(url, ttlMs) {
+        ttlMs = ttlMs || 0;
+        const cacheado = _pfGetCache.get(url);
+        if (cacheado && ttlMs > 0 && (Date.now() - cacheado.ts) < ttlMs) {
+            return cacheado.data;
+        }
+        if (_pfGetPendientes.has(url)) {
+            return _pfGetPendientes.get(url);
+        }
+        const promesa = (async () => {
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                _pfGetCache.set(url, { data, ts: Date.now() });
+                return data;
+            } finally {
+                _pfGetPendientes.delete(url);
+            }
+        })();
+        _pfGetPendientes.set(url, promesa);
+        return promesa;
+    }
+
     // Trae (o refresca) la lista de alumnos desde el backend y la cachea.
     async function _obtenerAlumnosCache(forzar) {
         if (_alumnosCacheLoaded && !forzar) return _alumnosCache;
         try {
-            const res = await fetch(API_BASE + '/api/alumnos');
-            const data = await res.json();
+            // ttlMs=0 cuando se fuerza: igual se "dedupea" con cualquier pedido
+            // identico que ya este en curso (ver _pfFetchCacheado), asi que si
+            // 3 lugares distintos llaman a esto al mismo tiempo, solo viaja UN
+            // pedido a la red.
+            const data = await _pfFetchCacheado(API_BASE + '/api/alumnos', forzar ? 0 : 5000);
             if (data.ok && data.alumnos) {
                 _alumnosCache = data.alumnos.slice().sort((a, b) => a.localeCompare(b));
                 _alumnosCacheLoaded = true;
@@ -5363,22 +5401,22 @@
     // el dashboard) y revisa, por código, cuándo fue su último acceso.
     async function _pfCargarBadgesAsistencia(targets) {
         if (!targets || !targets.length) return;
-        const CONCURRENCIA = 4;
+        const CONCURRENCIA = 8;
         let idx = 0;
         async function _procesarUno() {
             while (idx < targets.length) {
                 const t = targets[idx++];
                 try {
-                    const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(t.nombre));
-                    const data = await res.json();
+                    // Cacheado 15s: si el Dashboard pide lo mismo para este alumno
+                    // poco despues, no vuelve a viajar a la red.
+                    const data = await _pfFetchCacheado(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(t.nombre), 15000);
                     if (!data.ok) continue;
                     const codigos = Object.keys(data.rutinas || {});
                     if (!codigos.length) continue;
                     let ultimo = 0;
                     await Promise.all(codigos.map(async (cod) => {
                         try {
-                            const r = await fetch(API_BASE + '/api/asistencia/' + encodeURIComponent(cod));
-                            const d = await r.json();
+                            const d = await _pfFetchCacheado(API_BASE + '/api/asistencia/' + encodeURIComponent(cod), 15000);
                             const val = (d && d.ok && d.asistencia) ? d.asistencia.ultimo : null;
                             if (val && val > ultimo) ultimo = val;
                         } catch (e) {}
@@ -13191,8 +13229,7 @@
 
         // Cargar lista de rutinas del alumno
         try {
-            const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre));
-            const data = await res.json();
+            const data = await _pfFetchCacheado(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre), 15000);
             if (data.ok) {
                 const rutinasResumen = data.rutinas || {};
                 const codigos = Object.keys(rutinasResumen);
@@ -13266,8 +13303,7 @@
                 dashAsistenciaUltimo = 0;
                 const fetchesAsistencia = codigos.map(async (cod) => {
                     try {
-                        const rAsi = await fetch(API_BASE + '/api/asistencia/' + encodeURIComponent(cod));
-                        const dAsi = await rAsi.json();
+                        const dAsi = await _pfFetchCacheado(API_BASE + '/api/asistencia/' + encodeURIComponent(cod), 15000);
                         const remoto = (dAsi && dAsi.ok) ? dAsi.asistencia : null;
                         if (!remoto) return;
                         if (remoto.fechas) {
