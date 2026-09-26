@@ -21353,10 +21353,9 @@ self.addEventListener('fetch', event => {
             if(title) title.textContent=name ? ('Rutinas anteriores de '+name.toUpperCase()) : 'Rutinas anteriores';
             if(!name){ list.innerHTML='<p class="pf-ref-history-empty">Escribí el nombre del alumno para ver sus rutinas anteriores.</p>'; return; }
             if(!rows.length){ list.innerHTML='<p class="pf-ref-history-empty">Todavía no hay rutinas anteriores para este alumno.</p>'; return; }
-            list.innerHTML=rows.slice(0,8).map(function(r,i){
-                var fecha=r.timestamp ? new Date(r.timestamp*1000).toLocaleDateString('es-AR') : '';
-                return '<div class="pf-ref-history-row"><div><b>'+e((r.tipo||'ENTRENAMIENTO'))+'</b><small>'+e(fecha || 'Sin fecha')+' · '+e(r.codigo || '')+'</small></div><button onclick="pfRefViewHistory('+i+')">Ver</button></div>';
-            }).join('');
+            // No se despliega cada rutina acá: se muestra solo un resumen, y "Ver"
+            // abre recién ahí la ventana nueva con el detalle (y el resto del historial al costado).
+            list.innerHTML='<div class="pf-ref-history-row"><div><b>Estas son las rutinas de '+e(name.toUpperCase())+'</b><small>'+rows.length+(rows.length===1?' rutina registrada':' rutinas registradas')+'</small></div><button onclick="pfRefViewHistory(0)">Ver</button></div>';
         }
         window.pfRefRenderHistory=renderModernHistory;
         window.pfRefViewHistory=function(i){
