@@ -460,24 +460,24 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 40px;
-            height: 40px;
+            width: 58px;
+            height: 58px;
             flex-shrink: 0;
-            border-radius: 10px;
+            border-radius: 12px;
             overflow: hidden;
             background: linear-gradient(135deg, #26262f, #16161b);
             cursor: pointer;
             box-shadow: 0 0 0 1px rgba(255,255,255,0.07);
             transition: transform .18s cubic-bezier(.2,.8,.3,1.4), box-shadow .18s ease;
         }
-        .pf-ej-thumb.pf-ej-thumb-xs { width: 22px; height: 22px; border-radius: 7px; }
+        .pf-ej-thumb.pf-ej-thumb-xs { width: 38px; height: 38px; border-radius: 9px; }
         .pf-ej-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .pf-ej-thumb .pf-ej-thumb-ico {
             position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-            font-size: 12px; color: #fff; background: rgba(0,0,0,0.25);
+            font-size: 16px; color: #fff; background: rgba(0,0,0,0.25);
             text-shadow: 0 1px 3px rgba(0,0,0,.7);
         }
-        .pf-ej-thumb-xs .pf-ej-thumb-ico { font-size: 8px; }
+        .pf-ej-thumb-xs .pf-ej-thumb-ico { font-size: 11px; }
         .pf-ej-thumb.sin-foto { background: linear-gradient(135deg, #FF6B35, #4FC3F7); }
         .pf-ej-thumb.sin-foto .pf-ej-thumb-ico { font-size: 14px; }
         .pf-ej-thumb.sin-video { cursor: default; opacity: .45; }
@@ -485,6 +485,20 @@
         .pf-ej-thumb:not(.sin-video):hover {
             transform: scale(1.12);
             box-shadow: 0 0 0 2px rgba(255,107,53,.6), 0 6px 16px rgba(255,107,53,.3);
+        }
+        /* Modales "Configurar Calentamiento" / "Configurar Bloque": pantalla completa
+           (header fijo arriba + contenido con scroll debajo), igual que el Repositorio. */
+        .pf-modal-full { padding: 0 !important; }
+        .pf-modal-full-head {
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            padding: 16px 20px; border-bottom: 1px solid #2a2a35; flex-shrink: 0; background: #141418;
+        }
+        .pf-modal-full-body {
+            flex: 1; overflow-y: auto; padding: 20px; width: 100%; max-width: 1100px;
+            margin: 0 auto; box-sizing: border-box;
+        }
+        @media (max-width: 639px) {
+            .pf-modal-full-body { padding: 14px; }
         }
         /* Boton de lupa sobre el body map, solo tiene sentido en pantallas
            chicas donde el SVG se achica demasiado para tocar musculos
@@ -3993,12 +4007,12 @@
     </div>
 
     <!-- Modal Agregar Bloque -->
-    <div id="modal-bloque" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start sm:items-center justify-center p-2 sm:p-6 overflow-y-auto modal-bottom-sheet-mobile">
-        <div class="bg-tarjeta rounded-2xl border border-borde p-3 sm:p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto my-2 sm:my-0">
-            <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <h3 class="text-sm font-bold text-purpura uppercase tracking-wider">Configurar Bloque</h3>
-                <span id="bp-duracion-viva" class="text-xs font-bold bg-purpura/15 text-purpura px-3 py-1.5 rounded-full flex items-center gap-1.5" title="Duración estimada del bloque">⏱ ~0 min</span>
-            </div>
+    <div id="modal-bloque" class="hidden fixed inset-0 bg-fondo z-50 flex flex-col pf-modal-full">
+        <div class="pf-modal-full-head">
+            <h3 class="text-sm font-bold text-purpura uppercase tracking-wider">Configurar Bloque</h3>
+            <span id="bp-duracion-viva" class="text-xs font-bold bg-purpura/15 text-purpura px-3 py-1.5 rounded-full flex items-center gap-1.5" title="Duración estimada del bloque">⏱ ~0 min</span>
+        </div>
+        <div class="pf-modal-full-body">
             <div class="space-y-4">
                 <div id="bloque-paso-1">
                     <!-- Fase "Tipo" (mobile): solo las tarjetas de los 7 modos. Al tocar una,
@@ -6830,12 +6844,12 @@
                     </div>
 
                     <!-- Modal de Calentamiento (por dia, se abre con "+ Agregar Calentamiento") -->
-                    <div id="modal-calentamiento-${idx}" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start sm:items-center justify-center p-2 sm:p-6 overflow-y-auto modal-bottom-sheet-mobile">
-                        <div class="bg-tarjeta rounded-2xl border border-borde p-3 sm:p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto my-2 sm:my-0">
-                            <div class="flex items-center justify-between mb-4">
-                                <h3 class="text-sm font-bold text-azul uppercase tracking-wider">Configurar Calentamiento</h3>
-                                <button onclick="cerrarModalCalentamientoDia(${idx})" class="text-textoSuave hover:text-texto text-xl leading-none px-2">&times;</button>
-                            </div>
+                    <div id="modal-calentamiento-${idx}" class="hidden fixed inset-0 bg-fondo z-50 flex flex-col pf-modal-full">
+                        <div class="pf-modal-full-head">
+                            <h3 class="text-sm font-bold text-azul uppercase tracking-wider">Configurar Calentamiento</h3>
+                            <button onclick="cerrarModalCalentamientoDia(${idx})" class="text-textoSuave hover:text-texto text-2xl leading-none px-2">&times;</button>
+                        </div>
+                        <div class="pf-modal-full-body">
                             <div id="warmup-paso-1-${idx}">
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
                                     <!-- Fase "Tipo" (mobile): solo las tarjetas de los 7 modos. Al tocar una,
