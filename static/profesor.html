@@ -21406,6 +21406,29 @@ self.addEventListener('fetch', event => {
             var modal=document.getElementById('pf-ref-repo-modal');
             if(modal){ modal.style.display='none'; modal.classList.add('hidden'); }
         };
+        // Abre "Digitalizar pizarra" EN el mismo lugar (sin cambiar de pantalla):
+        // mueve el panel #piz-panel, que ya existía adentro de la pestaña
+        // Repositorio, a un modal acá arriba de "Crear entrenamiento".
+        window.pfRefOpenPizarra=function(){
+            var slot=document.getElementById('pf-ref-piz-slot');
+            var modal=document.getElementById('pf-ref-piz-modal');
+            var panel=document.getElementById('piz-panel');
+            if(!slot||!modal||!panel) return;
+            if(panel.parentElement!==slot) slot.appendChild(panel);
+            panel.classList.remove('hidden');
+            // El "×" propio del panel solo lo ocultaba a él (pizTogglePanel); acá
+            // además hay que cerrar el modal completo que lo envuelve.
+            var closeBtn=panel.querySelector('button[onclick="pizTogglePanel()"]');
+            if(closeBtn) closeBtn.setAttribute('onclick','pfRefClosePizarra()');
+            modal.style.display='flex';
+            modal.classList.remove('hidden');
+        };
+        window.pfRefClosePizarra=function(){
+            var modal=document.getElementById('pf-ref-piz-modal');
+            var panel=document.getElementById('piz-panel');
+            if(panel) panel.classList.add('hidden');
+            if(modal){ modal.style.display='none'; modal.classList.add('hidden'); }
+        };
         window.pfRefSave=function(){ var b=document.getElementById('btn-guardar-repo-normal'); if(b && !b.classList.contains('hidden')) b.click(); else if(typeof compartirRutina==='function') compartirRutina(); };
         window.pfRefShare=function(){ if(typeof compartirRutina==='function') compartirRutina(); };
         window.pfRefAdvanced=function(){
@@ -21470,7 +21493,7 @@ self.addEventListener('fetch', event => {
                 '<section class="pf-ref-card pf-ref-stage main" id="pf-ref-sec-3"><div class="pf-ref-card-head"><div class="pf-ref-stage-title"><b>Bloque principal</b><span id="pf-ref-count">0 ejercicios</span></div></div><div style="color:#758b97;font-size:12px;padding:12px 14px 0;">Elegí un sistema para agregarlo al entrenamiento</div><div class="pf-ref-type-grid">'+
                 BLOCK_TYPES.map(function(a){return '<button class="pf-ref-type" onclick="pfRefAddBlock(\''+a[0]+'\')"><i>'+a[2]+'</i><strong>'+e(a[0])+'</strong><small>'+e(a[1])+'</small></button>';}).join('')+'</div><div class="pf-ref-card-body" style="padding-top:0;"><div id="pf-ref-block-grid" style="display:grid;gap:7px;"></div></div></section>'+
                 '<section class="pf-ref-card pf-ref-stage" id="pf-ref-sec-4" style="border-left-color:#ff8a65;"><div class="pf-ref-card-head"><div class="pf-ref-stage-title"><b>Resumen del entrenamiento</b></div></div><div class="pf-ref-card-body"><div id="pf-ref-resumen-body" style="display:grid;gap:7px;"></div><button class="pf-ref-btn primary" style="margin-top:12px;width:100%;" onclick="pfRefShare()">↗ Compartir</button></div></section>'+
-                '<div class="pf-ref-bottom"><div class="pf-ref-bottom-card"><b>▣ Videoteca</b><p>Buscá ejercicios y agregalos a tu entrenamiento.</p><button onclick="pfRefOpenVideo()">ABRIR VIDEOTECA</button></div><div class="pf-ref-bottom-card"><b>▤ Crear con IA</b><p>Generá una propuesta según el objetivo del alumno.</p><button onclick="generarRutinaIA()">GENERAR CON IA</button></div><div class="pf-ref-bottom-card"><b>📁 Repositorio</b><p>Copiá una rutina guardada (entera o por días) o una de otro alumno.</p><button onclick="pfRefOpenRepo()">VER REPOSITORIO</button></div><div class="pf-ref-bottom-card"><b>◌ Digitalizar pizarra</b><p>Convertí una foto en ejercicios editables.</p><button onclick="showTab(\'repositorio\');setTimeout(function(){typeof pizTogglePanel===\'function\'&&pizTogglePanel()},120)">DIGITALIZAR</button></div></div>'+
+                '<div class="pf-ref-bottom"><div class="pf-ref-bottom-card"><b>▣ Videoteca</b><p>Buscá ejercicios y agregalos a tu entrenamiento.</p><button onclick="pfRefOpenVideo()">ABRIR VIDEOTECA</button></div><div class="pf-ref-bottom-card"><b>▤ Crear con IA</b><p>Generá una propuesta según el objetivo del alumno.</p><button onclick="generarRutinaIA()">GENERAR CON IA</button></div><div class="pf-ref-bottom-card"><b>📁 Repositorio</b><p>Copiá una rutina guardada (entera o por días) o una de otro alumno.</p><button onclick="pfRefOpenRepo()">VER REPOSITORIO</button></div><div class="pf-ref-bottom-card"><b>◌ Digitalizar pizarra</b><p>Convertí una foto en ejercicios editables.</p><button onclick="pfRefOpenPizarra()">DIGITALIZAR</button></div></div>'+
                 // Modal de Repositorio / rutinas de otros alumnos: NO navega a otra pantalla.
                 // Los paneles reales (rc-content, oa-content) viven en el formulario clásico
                 // (pf-legacy-form) y la primera vez que se abre este modal se los "trae" acá
@@ -21481,6 +21504,12 @@ self.addEventListener('fetch', event => {
                         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><b style="color:#e7f1f5;font-size:15px;">📁 Repositorio y rutinas de otros alumnos</b><button onclick="pfRefCloseRepo()" style="background:none;border:0;color:#9bb0b8;font-size:20px;cursor:pointer;line-height:1;">&times;</button></div>'+
                         '<div id="pf-ref-repo-slot"></div>'+
                     '</div>'+
+                '</div>'+
+                // Modal de "Digitalizar pizarra": mueve el mismo panel #piz-panel que ya
+                // existía (adentro de la pestaña Repositorio) para acá, así se abre
+                // encima de "Crear entrenamiento" sin cambiar de pantalla.
+                '<div id="pf-ref-piz-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:60;display:none;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;">'+
+                    '<div id="pf-ref-piz-slot" style="max-width:900px;width:100%;margin-top:24px;"></div>'+
                 '</div>'+
                 '</div>';
             sec.insertAdjacentHTML('afterbegin',html);
