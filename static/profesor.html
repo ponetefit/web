@@ -21518,11 +21518,16 @@ self.addEventListener('fetch', event => {
                     var bDetalle = (typeof _pfDetalleBloque === 'function') ? _pfDetalleBloque(b) : '';
                     var descTxt = [bDetalle, b.descripcion].filter(Boolean).join(' · ') || 'Configurá parámetros y ejercicios';
                     var tc=typeColor(b.tipo);
+                    var subirOff=i===0, bajarOff=i===blocks.length-1;
                     return '<div class="pf-ref-block-wrap" style="border-left-color:'+tc+';">'+
                         '<div class="pf-ref-block-card pf-ref-block-card-tipo" style="background:'+hexToRgba(tc,.12)+';border-color:'+hexToRgba(tc,.4)+';">'+
                             '<span class="pf-ref-block-ico" style="background:'+tc+';">'+typeIcon(b.tipo)+'</span>'+
                             '<span><b>'+e(typeLabel(b.tipo))+'</b><small>'+e(xs.length+' ejercicios · '+descTxt)+'</small></span>'+
-                            '<button onclick="pfRefEditBlock('+i+')" title="Editar bloque, incluido cambiar de sistema">✎</button>'+
+                            '<span class="pf-ref-block-tools" style="margin-left:auto;display:flex;align-items:center;gap:2px;">'+
+                                '<button type="button" onclick="pfRefMoveBlock('+i+',-1)" title="Subir" style="margin-left:0;'+(subirOff?'opacity:.25;pointer-events:none;':'')+'">▲</button>'+
+                                '<button type="button" onclick="pfRefMoveBlock('+i+',1)" title="Bajar" style="margin-left:0;'+(bajarOff?'opacity:.25;pointer-events:none;':'')+'">▼</button>'+
+                                '<button onclick="pfRefEditBlock('+i+')" title="Editar bloque, incluido cambiar de sistema" style="margin-left:0;">✎</button>'+
+                            '</span>'+
                         '</div>'+
                         exListHtml(xs)+
                     '</div>';
@@ -21602,6 +21607,15 @@ self.addEventListener('fetch', event => {
             },80);
         };
         window.pfRefEditBlock=function(i){ if(typeof editarBloqueDia==='function') editarBloqueDia(_pfRefDay,i); };
+        // Cambia el orden de un bloque dentro del día activo (subir/bajar). Reusa
+        // moverEjercicio/getDataArray, que ya saben mover un item dentro de
+        // diasData[_pfRefDay].bloquesRutina sin duplicar esa lógica; después se
+        // vuelve a pintar esta pantalla (el render viejo que dispara de paso no
+        // afecta, esta es la que se ve).
+        window.pfRefMoveBlock=function(i,dir){
+            if (typeof moverEjercicio==='function') moverEjercicio('bloques-dia-'+_pfRefDay, i, dir);
+            render();
+        };
         window.pfRefAddWarmup=function(){ pfRefSetWarmup('Circuito (Vueltas)'); };
         window.pfRefEditWarmup=function(){ var d=getDays()[_pfRefDay]; pfRefSetWarmup((d && (d._wTipo || (d._warmupCfg && d._warmupCfg.tipo))) || 'Circuito (Vueltas)'); };
         window.pfRefOpenVideo=function(){ if(typeof showTab==='function') showTab('videoteca'); };
