@@ -21253,6 +21253,12 @@ self.addEventListener('fetch', event => {
         .pf-ref-week { border:1px solid transparent; background:transparent; color:#6c8290; border-radius:999px; padding:6px 12px; font-size:12px; font-weight:900; cursor:pointer; white-space:nowrap; transition:all .15s ease; }
         .pf-ref-week.active { color:#fff; background:linear-gradient(135deg,#ff8a5c,#ee5730); box-shadow:0 4px 12px rgba(255,96,49,.3); }
         .pf-ref-week.add { color:#ff936f; font-size:16px; }
+        .pf-ref-week.del { color:#ff6b6b; margin-left:2px; }
+        .pf-ref-days-card .pf-ref-card-body { padding-top:10px; padding-bottom:10px; }
+        /* Barra real de Semanas (misma que usaba "Modo avanzado"): se mueve acá
+           adentro y se reviste para que combine con las tarjetas de arriba. */
+        #pf-ref-semanas-slot #pf-barra-semanas { background:transparent !important; border:0 !important; padding:0 !important; margin:0 !important; }
+        #pf-ref-semanas-slot #pf-semanas-lista button { border-radius:999px !important; font-weight:900 !important; text-transform:uppercase; letter-spacing:.04em; }
         .pf-ref-type-panel { border-top:2px solid #d86a3e; }
         .pf-ref-type-panel .pf-ref-card-head { background:linear-gradient(90deg,rgba(255,112,67,.1),transparent); }
         .pf-ref-type-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:7px; padding:12px 14px 14px; }
@@ -21359,6 +21365,36 @@ self.addEventListener('fetch', event => {
         // Sistemas disponibles para un bloque principal (valores iguales a las opciones de bloque-tipo)
         var BLOCK_TYPES = [['Tabata','Intervalos de alta intensidad','⚡'],['EMOM','Cada minuto','◷'],['Circuito por Tiempo','Trabajo continuo','⌁'],['Circuito','Vueltas','▦'],['Por Tiempo','Cronómetro','◉'],['Series','Fuerza y reps','▥'],['Sumando Ejercicio','Progresivo','＋']];
         function getDays() { return (typeof diasData !== 'undefined' && Array.isArray(diasData)) ? diasData : []; }
+        // Día que se está editando ahora mismo en el diseño nuevo (0-based).
+        // Todas las acciones de Calentamiento/Bloque principal usan este índice
+        // en vez de tener siempre fijo el día 1, así el mismo wizard sirve para
+        // cualquier cantidad de días (multi-día real, igual que "Modo avanzado").
+        var _pfRefDay = 0;
+        // Pinta las "pestañas" de días arriba del wizard: una por cada día real
+        // (misma fuente de datos que "Agregar Día"), + "Agregar día" y, si hay
+        // más de uno, "Eliminar este día".
+        function renderDayTabs() {
+            var wrap = document.getElementById('pf-ref-days-tabs'); if (!wrap) return;
+            var days = getDays();
+            if (_pfRefDay >= days.length) _pfRefDay = Math.max(days.length - 1, 0);
+            var html = days.map(function(d, i) {
+                return '<button class="pf-ref-week' + (i === _pfRefDay ? ' active' : '') + '" onclick="pfRefGoDay(' + i + ')">' + e(d.titulo || ('Día ' + (i + 1))) + '</button>';
+            }).join('');
+            html += '<button class="pf-ref-week add" onclick="pfRefAddDay()" title="Agregar un nuevo día">+ Día</button>';
+            if (days.length > 1) html += '<button class="pf-ref-week del" onclick="pfRefDelDay()" title="Eliminar el día que estás viendo">🗑</button>';
+            wrap.innerHTML = html;
+        }
+        window.pfRefGoDay = function(i) { _pfRefDay = i; render(); };
+        window.pfRefAddDay = function() {
+            if (typeof agregarDia === 'function') agregarDia();
+            _pfRefDay = getDays().length - 1;
+            render();
+        };
+        window.pfRefDelDay = function() {
+            if (typeof eliminarDia === 'function') eliminarDia(_pfRefDay);
+            _pfRefDay = Math.max(_pfRefDay - 1, 0);
+            render();
+        };
         function exName(x) { return typeof x === 'string' ? x : (x && x.nombre) || (Array.isArray(x) ? x[0] : 'Ejercicio'); }
         function exReps(x) {
             if (!x || typeof x !== 'object') return '';
@@ -21401,8 +21437,13 @@ self.addEventListener('fetch', event => {
         }
         function render() {
             var root=document.getElementById('pf-reference-editor'); if(!root) return;
-            var days=getDays(), day=days[0]||{warmupEjercicios:[],bloquesRutina:[]}, warm=day.warmupEjercicios||[], blocks=day.bloquesRutina||[];
+            renderDayTabs();
+            var days=getDays();
+            if (_pfRefDay >= days.length) _pfRefDay = Math.max(days.length - 1, 0);
+            var day=days[_pfRefDay]||{warmupEjercicios:[],bloquesRutina:[]}, warm=day.warmupEjercicios||[], blocks=day.bloquesRutina||[];
+            var diaLabel=day.titulo || ('Día '+(_pfRefDay+1));
             var wTipo=(day._warmupCfg && day._warmupCfg.tipo) || '';
+            var calDayTag=document.getElementById('pf-ref-cal-day'); if(calDayTag) calDayTag.textContent=diaLabel;
             var warmStatus=document.getElementById('pf-ref-warmup-status');
             if (warmStatus) {
                 // Antes, si wTipo venía vacío (bug ya corregido en actualizarWarmupUIDia),
@@ -21425,7 +21466,7 @@ self.addEventListener('fetch', event => {
                     return '<div class="pf-ref-block-card"><span class="pf-ref-block-color"></span><span><b>'+e(typeLabel(b.tipo))+'</b><small>'+e(xs.length+' ejercicios · '+descTxt)+'</small></span><button onclick="pfRefEditBlock('+i+')" title="Editar bloque, incluido cambiar de sistema">✎</button></div>'+exListHtml(xs);
                 }).join('') : '<div class="pf-ref-block-card"><span class="pf-ref-block-color"></span><span><b>Bloque principal</b><small>Todavía no agregaste un bloque de entrenamiento</small></span></div>';
             }
-            var count=document.getElementById('pf-ref-count'); if(count) count.textContent=(warm.length+blocks.reduce(function(a,b){return a+(b.ejercicios||[]).length;},0))+' ejercicios';
+            var count=document.getElementById('pf-ref-count'); if(count) count.textContent=diaLabel+' · '+(warm.length+blocks.reduce(function(a,b){return a+(b.ejercicios||[]).length;},0))+' ejercicios';
             var name=document.getElementById('alumno-nombre'); var refName=document.getElementById('pf-reference-alumno'); if(refName && document.activeElement!==refName) refName.value=name ? name.value : '';
             var desc=document.getElementById('rutina-desc'); var refDesc=document.getElementById('pf-reference-desc'); if(refDesc && document.activeElement!==refDesc) refDesc.value=desc ? desc.value : '';
             updateAvatar(refName ? refName.value : (name ? name.value : ''));
@@ -21436,11 +21477,13 @@ self.addEventListener('fetch', event => {
                 var alumnoVal=(refName ? refName.value : (name ? name.value : '')).trim();
                 var descVal=(refDesc ? refDesc.value : (desc ? desc.value : '')).trim();
                 var filas='<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:#8899a4;"></span><span><b>'+e(alumnoVal||'Sin alumno asignado')+'</b><small>'+e(descVal||'Sin nombre de entrenamiento')+'</small></span></div>';
-                filas += (wTipo || warm.length) ?
-                    '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:#43b8e4;"></span><span><b>Calentamiento: '+e(wTipo ? typeLabel(wTipo) : 'Sin sistema')+'</b><small>'+e(warm.length+' ejercicios')+'</small></span></div>' :
-                    '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:#2a4554;"></span><span><b>Sin calentamiento</b><small>Todavía no se armó</small></span></div>';
-                filas += blocks.length ? blocks.map(function(b){var xs=b.ejercicios||[];return '<div class="pf-ref-block-card"><span class="pf-ref-block-color"></span><span><b>Bloque: '+e(typeLabel(b.tipo))+'</b><small>'+e(xs.length+' ejercicios')+'</small></span></div>';}).join('') :
-                    '<div class="pf-ref-block-card"><span class="pf-ref-block-color"></span><span><b>Sin bloque principal</b><small>Todavía no se agregó</small></span></div>';
+                // Un mini-resumen por CADA día (no solo el que se está viendo ahora),
+                // para que el paso "Resumen" sirva de verdad con varios días armados.
+                days.forEach(function(d, di){
+                    var dWarm=d.warmupEjercicios||[], dBlocks=d.bloquesRutina||[];
+                    var dwTipo=(d._warmupCfg && d._warmupCfg.tipo) || '';
+                    filas += '<div class="pf-ref-block-card" style="border-left:2px solid #ff8a5c;"><span class="pf-ref-block-color" style="background:#ff8a5c;"></span><span><b>'+e(d.titulo || ('Día '+(di+1)))+'</b><small>'+(dwTipo||dWarm.length ? e('Calentamiento: '+(dwTipo?typeLabel(dwTipo):'sí')+' · ') : 'Sin calentamiento · ')+e(dBlocks.length+' bloque(s), '+dBlocks.reduce(function(a,b){return a+(b.ejercicios||[]).length;},0)+' ejercicios')+'</small></span></div>';
+                });
                 resBody.innerHTML=filas;
             }
         }
@@ -21468,20 +21511,20 @@ self.addEventListener('fetch', event => {
         }
         window.pfRefSetWarmup=function(type){
             if(typeof abrirModalCalentamientoDia!=='function') return;
-            abrirModalCalentamientoDia(0);
+            abrirModalCalentamientoDia(_pfRefDay);
             setTimeout(function(){
-                var s=document.getElementById('warmup-tipo-0');
+                var s=document.getElementById('warmup-tipo-'+_pfRefDay);
                 if(s){
                     s.value=type || 'Circuito (Vueltas)';
                     s.dispatchEvent(new Event('change',{bubbles:true}));
-                    if(typeof actualizarWarmupUIDia==='function') actualizarWarmupUIDia(0);
-                    if(typeof _pfWarmupFaseParams==='function') _pfWarmupFaseParams(0);
+                    if(typeof actualizarWarmupUIDia==='function') actualizarWarmupUIDia(_pfRefDay);
+                    if(typeof _pfWarmupFaseParams==='function') _pfWarmupFaseParams(_pfRefDay);
                 }
             },80);
         };
         window.pfRefAddBlock=function(type){
             if(typeof agregarBloqueDia!=='function') return;
-            agregarBloqueDia(0);
+            agregarBloqueDia(_pfRefDay);
             setTimeout(function(){
                 var s=document.getElementById('bloque-tipo');
                 if(s){
@@ -21495,9 +21538,9 @@ self.addEventListener('fetch', event => {
                 }
             },80);
         };
-        window.pfRefEditBlock=function(i){ if(typeof editarBloqueDia==='function') editarBloqueDia(0,i); };
+        window.pfRefEditBlock=function(i){ if(typeof editarBloqueDia==='function') editarBloqueDia(_pfRefDay,i); };
         window.pfRefAddWarmup=function(){ pfRefSetWarmup('Circuito (Vueltas)'); };
-        window.pfRefEditWarmup=function(){ pfRefSetWarmup((getDays()[0] && getDays()[0]._warmupCfg && getDays()[0]._warmupCfg.tipo) || 'Circuito (Vueltas)'); };
+        window.pfRefEditWarmup=function(){ var d=getDays()[_pfRefDay]; pfRefSetWarmup((d && d._warmupCfg && d._warmupCfg.tipo) || 'Circuito (Vueltas)'); };
         window.pfRefOpenVideo=function(){ if(typeof showTab==='function') showTab('videoteca'); };
         // Abre el Repositorio y el Historial de otros alumnos EN el mismo lugar
         // (sin cambiar de pantalla): la primera vez, mueve los paneles ya
@@ -21549,16 +21592,9 @@ self.addEventListener('fetch', event => {
             if(panel) panel.classList.add('hidden');
             if(modal){ modal.style.display='none'; modal.classList.add('hidden'); }
         };
+        window.pfRefVistaCompacta=function(){ if(typeof _pfAbrirVistaCompactaRutina==='function') _pfAbrirVistaCompactaRutina(); };
         window.pfRefSave=function(){ var b=document.getElementById('btn-guardar-repo-normal'); if(b && !b.classList.contains('hidden')) b.click(); else if(typeof compartirRutina==='function') compartirRutina(); };
         window.pfRefShare=function(){ if(typeof compartirRutina==='function') compartirRutina(); };
-        window.pfRefAdvanced=function(){
-            var legacy=document.getElementById('pf-legacy-form'); if(!legacy) return;
-            var abierto = legacy.style.display !== 'none';
-            legacy.style.display = abierto ? 'none' : '';
-            var btn = document.querySelector('.pf-ref-actions .pf-ref-btn:not(.primary)');
-            if (btn) btn.innerHTML = abierto ? '☷ Modo avanzado' : '✕ Cerrar modo avanzado';
-            if (!abierto) { legacy.scrollIntoView({behavior:'smooth',block:'start'}); if(typeof toast==='function') toast('Modo avanzado: multi-día, semanas e historial'); }
-        };
         var _pfRefHistoryTimer=null;
         window.pfRefSyncName=function(){
             var input=document.getElementById('pf-reference-alumno');
@@ -21599,7 +21635,7 @@ self.addEventListener('fetch', event => {
         function build(){
             var sec=document.getElementById('sec-rutina'); if(!sec || document.getElementById('pf-reference-editor')) return;
             var html='<div id="pf-reference-editor" class="pf-reference-editor">'+
-                '<div class="pf-ref-head"><div><div class="pf-ref-crumb">ENTRENAMIENTOS / NUEVO</div><h2>Crear entrenamiento</h2><p>Diseñá y organizá un entrenamiento de forma simple y rápida.</p></div><div class="pf-ref-actions"><button class="pf-ref-btn" onclick="pfRefAdvanced()">☷ Modo avanzado</button><button class="pf-ref-btn primary" onclick="pfRefSave()">✓ Guardar entrenamiento</button></div></div>'+
+                '<div class="pf-ref-head"><div><div class="pf-ref-crumb">ENTRENAMIENTOS / NUEVO</div><h2>Crear entrenamiento</h2><p>Diseñá y organizá un entrenamiento de forma simple y rápida.</p></div><div class="pf-ref-actions"><button class="pf-ref-btn primary" onclick="pfRefSave()">✓ Guardar entrenamiento</button></div></div>'+
                 '<div class="pf-ref-stepper" id="pf-ref-stepper">'+
                     '<div class="pf-ref-step active" id="pf-ref-step-1" onclick="pfRefGoStep(1)"><b>1</b> Configuración</div>'+
                     '<div class="pf-ref-step" id="pf-ref-step-2" onclick="pfRefGoStep(2)"><b>2</b> Calentamiento</div>'+
@@ -21608,12 +21644,14 @@ self.addEventListener('fetch', event => {
                 '</div>'+
                 '<section class="pf-ref-card" id="pf-ref-sec-1"><div class="pf-ref-card-head"><span class="pf-ref-label">Alumno</span><span class="pf-ref-status">● Activo</span></div><div class="pf-ref-card-body"><div class="pf-ref-athlete"><span class="pf-ref-avatar" id="pf-ref-avatar">PF</span><span><strong>Asignar alumno</strong><span>El entrenamiento se guardará en su historial</span></span><input id="pf-reference-alumno" class="pf-ref-input" placeholder="Nombre del alumno" oninput="pfRefSyncName()"><input id="pf-reference-desc" class="pf-ref-input" placeholder="Nombre del entrenamiento" oninput="pfRefSyncDesc()"></div></div></section>'+
                 '<section class="pf-ref-card pf-ref-history"><div class="pf-ref-card-head"><span id="pf-ref-history-title" class="pf-ref-label">Rutinas anteriores</span></div><div id="pf-ref-history-list" class="pf-ref-history-list"><p class="pf-ref-history-empty">Escribí el nombre del alumno para ver sus rutinas anteriores.</p></div></section>'+
-                '<section class="pf-ref-card pf-ref-type-panel pf-ref-stage" id="pf-ref-sec-2"><div class="pf-ref-card-head"><div><span class="pf-ref-label">En calentamiento, ¿qué sistema querés elegir?</span><div style="color:#758b97;font-size:12px;margin-top:4px;">Elegí el sistema para armar el calentamiento</div></div></div><div class="pf-ref-type-grid">'+
+                '<section class="pf-ref-card pf-ref-days-card"><div class="pf-ref-card-head"><span class="pf-ref-label">Días de entrenamiento</span></div><div class="pf-ref-card-body"><div class="pf-ref-weeks" id="pf-ref-days-tabs"></div></div></section>'+
+                '<section class="pf-ref-card" id="pf-ref-sec-semanas"><div class="pf-ref-card-head"><span class="pf-ref-label">Progresión semanal</span></div><div class="pf-ref-card-body"><div id="pf-ref-semanas-slot"></div></div></section>'+
+                '<section class="pf-ref-card pf-ref-type-panel pf-ref-stage" id="pf-ref-sec-2"><div class="pf-ref-card-head"><div><span class="pf-ref-label">En calentamiento, ¿qué sistema querés elegir?</span><div style="color:#758b97;font-size:12px;margin-top:4px;">Elegí el sistema para armar el calentamiento de <b id="pf-ref-cal-day" style="color:#c9dae1;">Día 1</b></div></div></div><div class="pf-ref-type-grid">'+
                 WARMUP_TYPES.map(function(a){return '<button class="pf-ref-type" onclick="pfRefSetWarmup(\''+a[0]+'\')"><i>'+a[2]+'</i><strong>'+e(a[0])+'</strong><small>'+e(a[1])+'</small></button>';}).join('')+'</div><div class="pf-ref-card-body" style="padding-top:0;"><div id="pf-ref-warmup-status" style="display:grid;gap:7px;"></div></div></section>'+
                 '<section class="pf-ref-card pf-ref-stage main" id="pf-ref-sec-3"><div class="pf-ref-card-head"><div class="pf-ref-stage-title"><b>Bloque principal</b><span id="pf-ref-count">0 ejercicios</span></div></div><div style="color:#758b97;font-size:12px;padding:12px 14px 0;">Elegí un sistema para agregarlo al entrenamiento</div><div class="pf-ref-type-grid">'+
                 BLOCK_TYPES.map(function(a){return '<button class="pf-ref-type" onclick="pfRefAddBlock(\''+a[0]+'\')"><i>'+a[2]+'</i><strong>'+e(a[0])+'</strong><small>'+e(a[1])+'</small></button>';}).join('')+'</div><div class="pf-ref-card-body" style="padding-top:0;"><div id="pf-ref-block-grid" style="display:grid;gap:7px;"></div></div></section>'+
                 '<section class="pf-ref-card pf-ref-stage" id="pf-ref-sec-4" style="border-left-color:#ff8a65;"><div class="pf-ref-card-head"><div class="pf-ref-stage-title"><b>Resumen del entrenamiento</b></div></div><div class="pf-ref-card-body"><div id="pf-ref-resumen-body" style="display:grid;gap:7px;"></div><button class="pf-ref-btn primary" style="margin-top:12px;width:100%;" onclick="pfRefShare()">↗ Compartir</button></div></section>'+
-                '<div class="pf-ref-bottom"><div class="pf-ref-bottom-card"><b>▣ Videoteca</b><p>Buscá ejercicios y agregalos a tu entrenamiento.</p><button onclick="pfRefOpenVideo()">ABRIR VIDEOTECA</button></div><div class="pf-ref-bottom-card"><b>▤ Crear con IA</b><p>Generá una propuesta según el objetivo del alumno.</p><button onclick="generarRutinaIA()">GENERAR CON IA</button></div><div class="pf-ref-bottom-card"><b>📁 Repositorio</b><p>Copiá una rutina guardada (entera o por días) o una de otro alumno.</p><button onclick="pfRefOpenRepo()">VER REPOSITORIO</button></div><div class="pf-ref-bottom-card"><b>◌ Digitalizar pizarra</b><p>Convertí una foto en ejercicios editables.</p><button onclick="pfRefOpenPizarra()">DIGITALIZAR</button></div></div>'+
+                '<div class="pf-ref-bottom"><div class="pf-ref-bottom-card"><b>▣ Videoteca</b><p>Buscá ejercicios y agregalos a tu entrenamiento.</p><button onclick="pfRefOpenVideo()">ABRIR VIDEOTECA</button></div><div class="pf-ref-bottom-card"><b>▤ Crear con IA</b><p>Generá una propuesta según el objetivo del alumno.</p><button onclick="generarRutinaIA()">GENERAR CON IA</button></div><div class="pf-ref-bottom-card"><b>📁 Repositorio</b><p>Copiá una rutina guardada (entera o por días) o una de otro alumno.</p><button onclick="pfRefOpenRepo()">VER REPOSITORIO</button></div><div class="pf-ref-bottom-card"><b>◌ Digitalizar pizarra</b><p>Convertí una foto en ejercicios editables.</p><button onclick="pfRefOpenPizarra()">DIGITALIZAR</button></div><div class="pf-ref-bottom-card"><b>☰ Vista Compacta</b><p>Mirá todos los días de la rutina de un vistazo.</p><button onclick="pfRefVistaCompacta()">VER TODOS LOS DÍAS</button></div></div>'+
                 // Modal de Repositorio / rutinas de otros alumnos: NO navega a otra pantalla.
                 // Los paneles reales (rc-content, oa-content) viven en el formulario clásico
                 // (pf-legacy-form) y la primera vez que se abre este modal se los "trae" acá
@@ -21634,6 +21672,18 @@ self.addEventListener('fetch', event => {
                 '</div>'+
                 '</div>';
             sec.insertAdjacentHTML('afterbegin',html);
+            // Mover la barra REAL de "Semanas" (Agregar semana / Sugerir progresión IA /
+            // Eliminar semana), que ya vivía adentro del formulario clásico, a su lugar
+            // acá en el diseño nuevo. Mismo mecanismo que ya se usa para el Repositorio
+            // y la Pizarra: se mueve el mismo elemento del DOM (no una copia), así toda
+            // su lógica (semanasBorrador, _pfIrASemana, IA de progresión) sigue intacta.
+            var semanasSlot=document.getElementById('pf-ref-semanas-slot');
+            var semanasBar=document.getElementById('pf-barra-semanas');
+            if (semanasSlot && semanasBar && semanasBar.parentElement!==semanasSlot) {
+                semanasSlot.appendChild(semanasBar);
+                semanasBar.classList.remove('hidden');
+                if (typeof _pfActualizarBarraSemanas==='function') _pfActualizarBarraSemanas();
+            }
             var n=document.getElementById('alumno-nombre'); if(n) n.addEventListener('input',render);
             var d=document.getElementById('rutina-desc'); if(d) d.addEventListener('input',render);
             if(typeof _obtenerAlumnosCache==='function' && typeof _initAutocompleteAlumno==='function'){
