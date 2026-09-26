@@ -21459,7 +21459,7 @@ self.addEventListener('fetch', event => {
             var day=days[_pfRefDay]||{warmupEjercicios:[],bloquesRutina:[]}, warm=day.warmupEjercicios||[], blocks=day.bloquesRutina||[];
             var diaLabel=day.titulo || ('Día '+(_pfRefDay+1));
             var diaCol=dayColor(_pfRefDay);
-            var wTipo=(day._warmupCfg && day._warmupCfg.tipo) || '';
+            var wTipo=day._wTipo || (day._warmupCfg && day._warmupCfg.tipo) || '';
             var calDayTag=document.getElementById('pf-ref-cal-day'); if(calDayTag){ calDayTag.textContent=diaLabel; calDayTag.style.color=diaCol; }
             // Tiñe las tarjetas de "Calentamiento" y "Bloque principal" con el
             // color fijo del día activo, para identificar de un vistazo en qué
@@ -21505,7 +21505,7 @@ self.addEventListener('fetch', event => {
                 // para que el paso "Resumen" sirva de verdad con varios días armados.
                 days.forEach(function(d, di){
                     var dWarm=d.warmupEjercicios||[], dBlocks=d.bloquesRutina||[];
-                    var dwTipo=(d._warmupCfg && d._warmupCfg.tipo) || '';
+                    var dwTipo=d._wTipo || (d._warmupCfg && d._warmupCfg.tipo) || '';
                     var dCol=dayColor(di);
                     filas += '<div class="pf-ref-block-card" style="border-left:2px solid '+dCol+';"><span class="pf-ref-block-color" style="background:'+dCol+';"></span><span><b>'+e(d.titulo || ('Día '+(di+1)))+'</b><small>'+(dwTipo||dWarm.length ? e('Calentamiento: '+(dwTipo?typeLabel(dwTipo):'sí')+' · ') : 'Sin calentamiento · ')+e(dBlocks.length+' bloque(s), '+dBlocks.reduce(function(a,b){return a+(b.ejercicios||[]).length;},0)+' ejercicios')+'</small></span></div>';
                 });
@@ -21565,7 +21565,7 @@ self.addEventListener('fetch', event => {
         };
         window.pfRefEditBlock=function(i){ if(typeof editarBloqueDia==='function') editarBloqueDia(_pfRefDay,i); };
         window.pfRefAddWarmup=function(){ pfRefSetWarmup('Circuito (Vueltas)'); };
-        window.pfRefEditWarmup=function(){ var d=getDays()[_pfRefDay]; pfRefSetWarmup((d && d._warmupCfg && d._warmupCfg.tipo) || 'Circuito (Vueltas)'); };
+        window.pfRefEditWarmup=function(){ var d=getDays()[_pfRefDay]; pfRefSetWarmup((d && (d._wTipo || (d._warmupCfg && d._warmupCfg.tipo))) || 'Circuito (Vueltas)'); };
         window.pfRefOpenVideo=function(){ if(typeof showTab==='function') showTab('videoteca'); };
         // Abre el Repositorio y el Historial de otros alumnos EN el mismo lugar
         // (sin cambiar de pantalla): la primera vez, mueve los paneles ya
