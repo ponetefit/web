@@ -21272,8 +21272,8 @@ self.addEventListener('fetch', event => {
         }
         .pf-ref-exercise:hover { transform: translateY(-2px); border-color:#ff7043; box-shadow:0 10px 26px rgba(0,0,0,.4); }
         .pf-ref-exercise:hover:after { opacity:1; transform:translate(-50%,-50%) scale(1.1); }
-        .pf-ref-exercise strong { position:absolute; left:8px; right:5px; bottom:18px; color:#edf6f8; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; z-index:1; }
-        .pf-ref-exercise small { position:absolute; left:8px; bottom:7px; color:#9bb0b8; font-size:12px; z-index:1; }
+        .pf-ref-exercise strong { position:absolute; left:10px; right:8px; bottom:22px; color:#edf6f8; font-size:13px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; z-index:1; }
+        .pf-ref-exercise small { position:absolute; left:10px; bottom:8px; color:#c3d3d9; font-size:12px; z-index:1; }
         .pf-ref-exercise.sin-video { cursor:default; }
         .pf-ref-exercise.sin-video:hover { transform:none; box-shadow:none; border-color:#294451; }
         .pf-ref-exercise.sin-video:after { display:none; }
@@ -21288,7 +21288,8 @@ self.addEventListener('fetch', event => {
         .pf-ref-ex-row span:last-child { color:#7fd1f0; font-weight:800; white-space:nowrap; }
         /* Grilla de ejercicios con foto real (miniatura de YouTube) que
            reproduce el video al pasar el mouse por encima. */
-        .pf-ref-ex-grid { margin-top:8px; display:grid; grid-template-columns:repeat(auto-fill,minmax(108px,1fr)); gap:9px; }
+        .pf-ref-ex-grid { margin-top:10px; display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:12px; }
+        @media (max-width:639px) { .pf-ref-ex-grid { grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:9px; } }
         .pf-ref-block-meta { color:#7e96a1; font-size:12px; }
         .pf-ref-block-card { display:flex; align-items:center; gap:10px; min-height:57px; border:1px solid #24404c; border-radius:11px; background:#10212c; padding:9px; transition:border-color .15s ease; }
         .pf-ref-block-card:hover { border-color:#3a5c6c; }
@@ -21394,13 +21395,21 @@ self.addEventListener('fetch', event => {
                 // typeLabel('') devolvía 'Bloque principal' como valor por defecto y esa
                 // etiqueta quedaba mal puesta acá en la tarjeta de Calentamiento. Ahora,
                 // si no hay tipo guardado, se usa directamente 'Calentamiento'.
+                // Descripción real del sistema (seg de actividad/pausa, vueltas, series, etc.)
+                // usando la misma lógica que ya arma este texto en el resto de la app.
+                var wDetalle = (typeof _pfDetalleCalentamiento === 'function') ? _pfDetalleCalentamiento(day) : '';
                 warmStatus.innerHTML = (wTipo || warm.length) ?
-                    '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:#43b8e4;"></span><span><b>'+e(wTipo ? typeLabel(wTipo) : 'Calentamiento')+'</b><small>'+e(warm.length+' ejercicios de calentamiento')+'</small></span><button onclick="pfRefEditWarmup()" title="Editar calentamiento">✎</button></div>'+exListHtml(warm) :
+                    '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:#43b8e4;"></span><span><b>'+e(wTipo ? typeLabel(wTipo) : 'Calentamiento')+'</b><small>'+e(warm.length+' ejercicios'+(wDetalle ? ' · '+wDetalle : ''))+'</small></span><button onclick="pfRefEditWarmup()" title="Editar calentamiento">✎</button></div>'+exListHtml(warm) :
                     '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:#2a4554;"></span><span><b>Sin calentamiento</b><small>Elegí un sistema arriba para armarlo</small></span></div>';
             }
             var blockGrid=document.getElementById('pf-ref-block-grid');
             if (blockGrid) {
-                blockGrid.innerHTML=blocks.length ? blocks.map(function(b,i){var xs=b.ejercicios||[];return '<div class="pf-ref-block-card"><span class="pf-ref-block-color"></span><span><b>'+e(typeLabel(b.tipo))+'</b><small>'+e(xs.length+' ejercicios · '+(b.descripcion||'Configurá parámetros y ejercicios'))+'</small></span><button onclick="pfRefEditBlock('+i+')" title="Editar bloque, incluido cambiar de sistema">✎</button></div>'+exListHtml(xs);}).join('') : '<div class="pf-ref-block-card"><span class="pf-ref-block-color"></span><span><b>Bloque principal</b><small>Todavía no agregaste un bloque de entrenamiento</small></span></div>';
+                blockGrid.innerHTML=blocks.length ? blocks.map(function(b,i){
+                    var xs=b.ejercicios||[];
+                    var bDetalle = (typeof _pfDetalleBloque === 'function') ? _pfDetalleBloque(b) : '';
+                    var descTxt = [bDetalle, b.descripcion].filter(Boolean).join(' · ') || 'Configurá parámetros y ejercicios';
+                    return '<div class="pf-ref-block-card"><span class="pf-ref-block-color"></span><span><b>'+e(typeLabel(b.tipo))+'</b><small>'+e(xs.length+' ejercicios · '+descTxt)+'</small></span><button onclick="pfRefEditBlock('+i+')" title="Editar bloque, incluido cambiar de sistema">✎</button></div>'+exListHtml(xs);
+                }).join('') : '<div class="pf-ref-block-card"><span class="pf-ref-block-color"></span><span><b>Bloque principal</b><small>Todavía no agregaste un bloque de entrenamiento</small></span></div>';
             }
             var count=document.getElementById('pf-ref-count'); if(count) count.textContent=(warm.length+blocks.reduce(function(a,b){return a+(b.ejercicios||[]).length;},0))+' ejercicios';
             var name=document.getElementById('alumno-nombre'); var refName=document.getElementById('pf-reference-alumno'); if(refName && document.activeElement!==refName) refName.value=name ? name.value : '';
@@ -21596,11 +21605,12 @@ self.addEventListener('fetch', event => {
                 // (pf-legacy-form) y la primera vez que se abre este modal se los "trae" acá
                 // (moviendo los mismos elementos del DOM, no una copia) para no duplicar IDs
                 // ni la lógica ya existente de buscar/filtrar/copiar.
-                '<div id="pf-ref-repo-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:60;display:none;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;">'+
-                    '<div style="background:#0d1a25;border:1px solid #1b3341;border-radius:10px;max-width:720px;width:100%;margin-top:24px;padding:16px;">'+
-                        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><b style="color:#e7f1f5;font-size:15px;">📁 Repositorio y rutinas de otros alumnos</b><button onclick="pfRefCloseRepo()" style="background:none;border:0;color:#9bb0b8;font-size:20px;cursor:pointer;line-height:1;">&times;</button></div>'+
-                        '<div id="pf-ref-repo-slot"></div>'+
+                '<div id="pf-ref-repo-modal" class="hidden" style="position:fixed;inset:0;background:#0a141c;z-index:60;display:none;flex-direction:column;">'+
+                    '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid #1b3341;flex-shrink:0;background:#0d1a25;">'+
+                        '<b style="color:#e7f1f5;font-size:16px;">📁 Repositorio y rutinas de otros alumnos</b>'+
+                        '<button onclick="pfRefCloseRepo()" style="background:none;border:0;color:#9bb0b8;font-size:24px;cursor:pointer;line-height:1;">&times;</button>'+
                     '</div>'+
+                    '<div id="pf-ref-repo-slot" style="flex:1;overflow-y:auto;padding:20px;width:100%;max-width:1100px;margin:0 auto;box-sizing:border-box;"></div>'+
                 '</div>'+
                 // Modal de "Digitalizar pizarra": mueve el mismo panel #piz-panel que ya
                 // existía (adentro de la pestaña Repositorio) para acá, así se abre
