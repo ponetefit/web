@@ -21294,6 +21294,16 @@ self.addEventListener('fetch', event => {
             var legacy = document.getElementById('pf-legacy-form');
             if (!legacy) return;
             legacy.querySelectorAll('[id^="modal-calentamiento-"]').forEach(function (m) {
+                // renderDias() reconstruye TODOS los dias (innerHTML completo) cada vez
+                // que se agrega/quita un dia, asi que un dia ya escapado antes (ej. Dia 1)
+                // vuelve a generarse acá adentro con el MISMO id que el que ya vive en
+                // <body>. Si no se saca el duplicado viejo, quedan dos elementos con el
+                // mismo id y getElementById puede devolver el viejo (desactualizado) en
+                // vez del que se acaba de crear: eso es lo que hacía que, con 2 o 3 dias,
+                // el calentamiento de los dias ya existentes se viera o guardara mal.
+                Array.prototype.slice.call(document.body.children).forEach(function (viejo) {
+                    if (viejo !== m && viejo.id === m.id) viejo.remove();
+                });
                 if (m.parentElement !== document.body) document.body.appendChild(m);
             });
         }
@@ -21365,31 +21375,37 @@ self.addEventListener('fetch', event => {
         .pf-ref-stage-title span { color:#718995; font-size:12px; }
         .pf-ref-exercises { display:grid; grid-template-columns:repeat(5,1fr); gap:7px; }
         .pf-ref-exercise {
-            aspect-ratio: 4 / 3; min-height:82px; position:relative; overflow:hidden; border:1px solid #294451;
+            min-height:82px; position:relative; overflow:hidden; border:1px solid #294451;
             border-radius:12px; background:linear-gradient(135deg,#1c3947 0%,#17272e 47%,#503a35 100%);
             cursor:pointer; transition: transform .22s cubic-bezier(.2,.8,.3,1.3), box-shadow .22s ease, border-color .22s ease;
+            display:flex; flex-direction:column;
         }
         .pf-ref-exercise:nth-child(2n) { background:linear-gradient(135deg,#273d46,#6c4435); }
         .pf-ref-exercise:nth-child(3n) { background:linear-gradient(135deg,#1a354c,#304e68,#1a252b); }
-        .pf-ref-exercise img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transition: transform .35s ease; }
-        .pf-ref-exercise:hover img { transform: scale(1.08); }
-        .pf-ref-exercise-scrim { position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(6,12,16,.85) 100%); }
-        .pf-ref-exercise:after {
-            content:'▶'; position:absolute; left:50%; top:38%; transform:translate(-50%,-50%) scale(1);
+        /* Franja de imagen con relación fija arriba de la tarjeta; el nombre y las
+           reps/series/pausa van DEBAJO, en flujo normal, para que el nombre pueda
+           ocupar 2 o 3 líneas completas en vez de cortarse con "...". */
+        .pf-ref-exercise-media { position:relative; aspect-ratio:4/3; overflow:hidden; flex-shrink:0; }
+        .pf-ref-exercise.sin-video .pf-ref-exercise-media, .pf-ref-exercise.sin-foto .pf-ref-exercise-media { aspect-ratio:16/9; }
+        .pf-ref-exercise-media img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transition: transform .35s ease; }
+        .pf-ref-exercise:hover .pf-ref-exercise-media img { transform: scale(1.08); }
+        .pf-ref-exercise-scrim { position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(6,12,16,.55) 100%); }
+        .pf-ref-exercise-media:after {
+            content:'▶'; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) scale(1);
             display:grid; place-items:center; width:28px; height:28px; border-radius:50%; color:#fff;
             background:rgba(255,112,67,.85); font-size:12px; box-shadow:0 4px 14px rgba(255,112,67,.5);
             opacity:0; transition: opacity .18s ease, transform .18s ease; z-index:2;
         }
         .pf-ref-exercise:hover { transform: translateY(-2px); border-color:#ff7043; box-shadow:0 10px 26px rgba(0,0,0,.4); }
-        .pf-ref-exercise:hover:after { opacity:1; transform:translate(-50%,-50%) scale(1.1); }
-        .pf-ref-exercise strong { position:absolute; left:10px; right:8px; bottom:22px; color:#edf6f8; font-size:13px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; z-index:1; }
-        .pf-ref-exercise small { position:absolute; left:10px; bottom:8px; color:#c3d3d9; font-size:12px; z-index:1; }
+        .pf-ref-exercise:hover .pf-ref-exercise-media:after { opacity:1; transform:translate(-50%,-50%) scale(1.1); }
+        .pf-ref-exercise strong { display:block; padding:8px 10px 2px; color:#edf6f8; font-size:13px; font-weight:800; white-space:normal; overflow-wrap:break-word; line-height:1.28; }
+        .pf-ref-exercise small { display:block; padding:0 10px 8px; color:#c3d3d9; font-size:12px; margin-top:auto; }
         .pf-ref-exercise.sin-video { cursor:default; }
         .pf-ref-exercise.sin-video:hover { transform:none; box-shadow:none; border-color:#294451; }
-        .pf-ref-exercise.sin-video:after { display:none; }
-        .pf-ref-exercise.empty { display:grid; place-items:center; border-style:dashed; background:#0c1a24; color:#6e8793; aspect-ratio:auto; }
-        .pf-ref-exercise.empty:after { content:'+'; width:auto; height:auto; background:none; box-shadow:none; opacity:1; font-size:22px; color:#76909d; top:39%; }
-        .pf-ref-exercise.empty strong { position:static; text-align:center; color:#718893; }
+        .pf-ref-exercise.sin-video .pf-ref-exercise-media:after { display:none; }
+        .pf-ref-exercise.empty { display:grid; place-items:center; border-style:dashed; background:#0c1a24; color:#6e8793; }
+        .pf-ref-exercise.empty:after { content:'+'; width:auto; height:auto; background:none; box-shadow:none; opacity:1; font-size:22px; color:#76909d; }
+        .pf-ref-exercise.empty strong { text-align:center; color:#718893; }
         .pf-ref-add { border:1px solid #294451; background:#102531; color:#72bedd; border-radius:5px; padding:6px 9px; font-size:12px; font-weight:800; cursor:pointer; }
         .pf-ref-add:hover { border-color:#65c8e9; background:#153441; }
         .pf-ref-ex-list { margin-top:6px; display:grid; gap:3px; }
@@ -21400,6 +21416,14 @@ self.addEventListener('fetch', event => {
            reproduce el video al pasar el mouse por encima. */
         .pf-ref-ex-grid { margin-top:10px; display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:12px; }
         @media (max-width:639px) { .pf-ref-ex-grid { grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:9px; } }
+        /* EMOM: una tarjeta por minuto del ciclo, cada una con su propia mini-grilla
+           de ejercicios adentro (reusa .pf-ref-ex-grid, por eso el margin-top:0). */
+        .pf-ref-emom-nota { font-size:12px; font-weight:700; color:#FFD54F; margin-top:10px; padding:9px 12px; background:rgba(255,213,79,.08); border:1px solid rgba(255,213,79,.25); border-radius:10px; }
+        .pf-ref-emom-grid { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
+        .pf-ref-emom-min { border:1px solid #2a3f4a; border-radius:12px; padding:10px 10px 12px; background:#0e1f27; }
+        .pf-ref-emom-min-tag { display:inline-block; font-size:11px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; color:#161300; background:#FFD54F; border-radius:999px; padding:3px 10px; }
+        .pf-ref-emom-min .pf-ref-ex-grid { margin-top:8px; }
+        .pf-ref-emom-empty { font-size:12px; color:#8a9aa5; font-style:italic; margin:6px 0 0; }
         .pf-ref-block-meta { color:#7e96a1; font-size:12px; }
         .pf-ref-block-card { display:flex; align-items:center; gap:10px; min-height:57px; border:1px solid #24404c; border-radius:11px; background:#10212c; padding:9px; transition:border-color .15s ease, background .15s ease; }
         .pf-ref-block-card:hover { border-color:#3a5c6c; }
@@ -21510,8 +21534,17 @@ self.addEventListener('fetch', event => {
             render();
         };
         function exName(x) { return typeof x === 'string' ? x : (x && x.nombre) || (Array.isArray(x) ? x[0] : 'Ejercicio'); }
-        function exReps(x) {
+        // Los tipos de Calentamiento usan otros nombres ('Circuito (Vueltas)',
+        // 'Series/Reps') que los de Bloque principal ('Circuito','Series') para
+        // el mismo sistema; _pfResumenEjBloque espera los nombres de Bloque.
+        function tipoParaResumen(t) { return t === 'Circuito (Vueltas)' ? 'Circuito' : (t === 'Series/Reps' ? 'Series' : t); }
+        function exReps(x, tipo) {
             if (!x || typeof x !== 'object') return '';
+            // Reusa el resumen de 1 linea que ya arma bien el editor clasico
+            // (ej: "4x12 reps · 60s"), para que ademas de las reps y la pausa se
+            // vea SIEMPRE cuántas series/vueltas hay que hacer, y no solo la
+            // primera. Si no se sabe el tipo del bloque, se cae al calculo simple.
+            if (tipo && typeof _pfResumenEjBloque === 'function') return _pfResumenEjBloque(x, tipoParaResumen(tipo)) || '';
             var unidad = (x.unit === 'Segs') ? 'seg' : 'reps';
             // Circuito por vueltas / Series por serie: si hay valores por vuelta/serie,
             // usar el primero como referencia (el detalle vuelta a vuelta se edita en el modal).
@@ -21534,18 +21567,45 @@ self.addEventListener('fetch', event => {
         function setOriginalValue(id, value) { var el=document.getElementById(id); if (el && el.value !== value) { el.value=value; el.dispatchEvent(new Event('input',{bubbles:true})); } }
         // Lista compacta (método ya se ve en el título de la tarjeta; acá va cada
         // ejercicio con su rep o pausa) para las tarjetas de Calentamiento y Bloque.
-        function exListHtml(items) {
+        function exListHtml(items, tipo) {
             if (!items || !items.length) return '';
             return '<div class="pf-ref-ex-grid">' + items.map(function(x) {
                 var n = exName(x);
-                var r = exReps(x);
+                var r = exReps(x, tipo);
                 var link = (x && typeof x === 'object' && (x.link || x.url)) || '';
                 var thumb = (typeof pfVideoThumbUrl === 'function') ? pfVideoThumbUrl(link) : null;
-                var media = thumb ? '<img src="'+e(thumb)+'" alt="" loading="lazy" onerror="this.remove();this.parentElement.classList.add(\'sin-foto\')">' : '';
+                var media = thumb ? '<img src="'+e(thumb)+'" alt="" loading="lazy" onerror="this.remove();this.closest(\'.pf-ref-exercise\').classList.add(\'sin-foto\')">' : '';
                 var cls = 'pf-ref-exercise' + (link ? '' : ' sin-video') + (thumb ? '' : ' sin-foto');
                 var attrs = link ? ' onmouseenter="showVideoPreview(event,this)" onmouseleave="hideVideoPreview()"' : '';
-                return '<div class="'+cls+'" data-video-url="'+e(link)+'" data-ej-nombre="'+e(n)+'"'+attrs+'>'+media+'<span class="pf-ref-exercise-scrim"></span><strong>'+e(n)+'</strong>'+(r ? '<small>'+e(r)+'</small>' : '')+'</div>';
+                return '<div class="'+cls+'" data-video-url="'+e(link)+'" data-ej-nombre="'+e(n)+'"'+attrs+'>'+
+                    '<div class="pf-ref-exercise-media">'+media+'<span class="pf-ref-exercise-scrim"></span></div>'+
+                    '<strong>'+e(n)+'</strong>'+(r ? '<small>'+e(r)+'</small>' : '')+
+                    '</div>';
             }).join('') + '</div>';
+        }
+        // EMOM no es una simple lista de ejercicios: es "minuto a minuto", y ese
+        // orden/agrupación es lo que define el sistema. Mostrarlo como una grilla
+        // plana (como los demás sistemas) pierde justamente lo que lo hace EMOM.
+        // Estas dos funciones arman una tarjeta por minuto, cada una con su propia
+        // mini-grilla de ejercicios (reusando exListHtml adentro de cada minuto).
+        function emomMinutoHtml(minCfg, minNum) {
+            var ejs = (minCfg && minCfg.ejercicios) || [];
+            var body = ejs.length ? exListHtml(ejs, 'EMOM') : '<p class="pf-ref-emom-empty">Descanso · sin ejercicios este minuto</p>';
+            return '<div class="pf-ref-emom-min">' +
+                '<span class="pf-ref-emom-min-tag">Minuto ' + minNum + '</span>' +
+                body +
+                '</div>';
+        }
+        function emomBlockHtml(configPorMinuto, ciclo, totalMin) {
+            var full = configPorMinuto || [];
+            var largoCiclo = ciclo || full.length || 1;
+            var mins = full.slice(0, largoCiclo);
+            if (!mins.length || !mins.some(function(m){ return m && m.ejercicios && m.ejercicios.length; })) {
+                return '<p class="pf-ref-emom-empty">Todavía no cargaste ejercicios en ningún minuto</p>';
+            }
+            var nota = (totalMin && largoCiclo < totalMin) ?
+                '<div class="pf-ref-emom-nota">🔁 Este ciclo de ' + largoCiclo + ' min se repite hasta completar los ' + totalMin + ' min totales</div>' : '';
+            return nota + '<div class="pf-ref-emom-grid">' + mins.map(function(m, i) { return emomMinutoHtml(m, i + 1); }).join('') + '</div>';
         }
         function renderExercises(items, emptyLabel) {
             var arr=(items||[]).slice(0,5);
@@ -21579,14 +21639,21 @@ self.addEventListener('fetch', event => {
                 // usando la misma lógica que ya arma este texto en el resto de la app.
                 var wDetalle = (typeof _pfDetalleCalentamiento === 'function') ? _pfDetalleCalentamiento(day) : '';
                 var wc=typeColor(wTipo);
+                // EMOM se arma minuto a minuto, no como una lista plana de ejercicios:
+                // usa su propia grilla (una tarjeta por minuto) en vez de exListHtml.
+                var wCuerpo = (wTipo === 'EMOM') ? emomBlockHtml(day.warmupEmomConfig, day.warmupEmomCiclo, (day._warmupCfg && day._warmupCfg.minutos)) : exListHtml(warm, wTipo);
+                var wCantLabel = (wTipo === 'EMOM') ? (warm.length+' ejercicios distintos') : (warm.length+' ejercicios');
                 warmStatus.innerHTML = (wTipo || warm.length) ?
                     '<div class="pf-ref-block-wrap" style="border-left-color:'+wc+';">'+
                         '<div class="pf-ref-block-card pf-ref-block-card-tipo" style="background:'+hexToRgba(wc,.12)+';border-color:'+hexToRgba(wc,.4)+';">'+
                             '<span class="pf-ref-block-ico" style="background:'+wc+';">'+(wTipo ? typeIcon(wTipo) : '🔥')+'</span>'+
-                            '<span><b>'+e(wTipo ? typeLabel(wTipo) : 'Calentamiento')+'</b><small>'+e(warm.length+' ejercicios'+(wDetalle ? ' · '+wDetalle : ''))+'</small></span>'+
-                            '<button onclick="pfRefEditWarmup()" title="Editar calentamiento">✎</button>'+
+                            '<span><b>'+e(wTipo ? typeLabel(wTipo) : 'Calentamiento')+'</b><small>'+e(wCantLabel+(wDetalle ? ' · '+wDetalle : ''))+'</small></span>'+
+                            '<span class="pf-ref-block-tools" style="margin-left:auto;display:flex;align-items:center;gap:2px;">'+
+                                '<button onclick="pfRefEditWarmup()" title="Editar calentamiento" style="margin-left:0;">✎</button>'+
+                                '<button onclick="pfRefDeleteWarmup()" title="Eliminar calentamiento" style="margin-left:0;color:#ff6b6b;">🗑</button>'+
+                            '</span>'+
                         '</div>'+
-                        exListHtml(warm)+
+                        wCuerpo+
                     '</div>' :
                     '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:'+hexToRgba(diaCol,.35)+';"></span><span><b>Sin calentamiento</b><small>Elegí un sistema arriba para armarlo</small></span></div>';
             }
@@ -21598,17 +21665,22 @@ self.addEventListener('fetch', event => {
                     var descTxt = [bDetalle, b.descripcion].filter(Boolean).join(' · ') || 'Configurá parámetros y ejercicios';
                     var tc=typeColor(b.tipo);
                     var subirOff=i===0, bajarOff=i===blocks.length-1;
+                    // EMOM se arma minuto a minuto, no como una lista plana de ejercicios:
+                    // usa su propia grilla (una tarjeta por minuto) en vez de exListHtml.
+                    var bCuerpo = (b.tipo === 'EMOM') ? emomBlockHtml(b.emom_config_por_minuto, b.emom_ciclo_minutos, b.minutos_totales) : exListHtml(xs, b.tipo);
+                    var bCantLabel = (b.tipo === 'EMOM') ? (xs.length+' ejercicios distintos') : (xs.length+' ejercicios');
                     return '<div class="pf-ref-block-wrap" style="border-left-color:'+tc+';">'+
                         '<div class="pf-ref-block-card pf-ref-block-card-tipo" style="background:'+hexToRgba(tc,.12)+';border-color:'+hexToRgba(tc,.4)+';">'+
                             '<span class="pf-ref-block-ico" style="background:'+tc+';">'+typeIcon(b.tipo)+'</span>'+
-                            '<span><b>'+e(typeLabel(b.tipo))+'</b><small>'+e(xs.length+' ejercicios · '+descTxt)+'</small></span>'+
+                            '<span><b>'+e(typeLabel(b.tipo))+'</b><small>'+e(bCantLabel+' · '+descTxt)+'</small></span>'+
                             '<span class="pf-ref-block-tools" style="margin-left:auto;display:flex;align-items:center;gap:2px;">'+
                                 '<button type="button" onclick="pfRefMoveBlock('+i+',-1)" title="Subir" style="margin-left:0;'+(subirOff?'opacity:.25;pointer-events:none;':'')+'">▲</button>'+
                                 '<button type="button" onclick="pfRefMoveBlock('+i+',1)" title="Bajar" style="margin-left:0;'+(bajarOff?'opacity:.25;pointer-events:none;':'')+'">▼</button>'+
                                 '<button onclick="pfRefEditBlock('+i+')" title="Editar bloque, incluido cambiar de sistema" style="margin-left:0;">✎</button>'+
+                                '<button type="button" onclick="pfRefDeleteBlock('+i+')" title="Eliminar bloque" style="margin-left:0;color:#ff6b6b;">🗑</button>'+
                             '</span>'+
                         '</div>'+
-                        exListHtml(xs)+
+                        bCuerpo+
                     '</div>';
                 }).join('') : '<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:'+hexToRgba(diaCol,.35)+';"></span><span><b>Bloque principal</b><small>Todavía no agregaste un bloque de entrenamiento</small></span></div>';
             }
@@ -21694,6 +21766,30 @@ self.addEventListener('fetch', event => {
         window.pfRefMoveBlock=function(i,dir){
             if (typeof moverEjercicio==='function') moverEjercicio('bloques-dia-'+_pfRefDay, i, dir);
             render();
+        };
+        // Elimina un bloque principal del dia activo. Reusa eliminarBloqueDia (ya
+        // guarda un snapshot para deshacer y muestra el toast "Bloque eliminado"),
+        // así no se duplica esa lógica acá.
+        window.pfRefDeleteBlock=function(i){
+            if (typeof eliminarBloqueDia==='function') eliminarBloqueDia(_pfRefDay,i);
+            render();
+        };
+        // Elimina el calentamiento del dia activo. eliminarCalentamientoDia ya pide
+        // confirmación (pfConfirm) antes de borrar; sólo si el usuario confirma
+        // queda warmupEjercicios vacío, y ahí limpiamos el tipo guardado para que
+        // la tarjeta vuelva a mostrar "Sin calentamiento" en vez de quedar con el
+        // tipo anterior pegado.
+        window.pfRefDeleteWarmup=function(){
+            if (typeof eliminarCalentamientoDia!=='function') return;
+            var idx=_pfRefDay;
+            Promise.resolve(eliminarCalentamientoDia(idx)).then(function(){
+                var d=getDays()[idx];
+                if (d && (!d.warmupEjercicios || !d.warmupEjercicios.length)) {
+                    d._wTipo='';
+                    if (d._warmupCfg) d._warmupCfg.tipo='';
+                }
+                render();
+            });
         };
         window.pfRefAddWarmup=function(){ pfRefSetWarmup('Circuito (Vueltas)'); };
         window.pfRefEditWarmup=function(){ var d=getDays()[_pfRefDay]; pfRefSetWarmup((d && (d._wTipo || (d._warmupCfg && d._warmupCfg.tipo))) || 'Circuito (Vueltas)'); };
