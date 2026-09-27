@@ -9601,7 +9601,19 @@
             if (_mEl) {
                 const _minutosReal = b.minutos_totales || (b.emom_config_por_minuto ? b.emom_config_por_minuto.length : 5);
                 _mEl.value = _minutosReal;
-                if (_cEl) _cEl.value = b.emom_ciclo_minutos || _minutosReal;
+                if (_cEl) {
+                    // Si el bloque no trae guardado explicitamente el largo del ciclo
+                    // (emom_ciclo_minutos), no asumir que el ciclo dura lo mismo que el
+                    // total: detectarlo del patron que se repite en
+                    // emom_config_por_minuto (misma logica que usa el resto de la app,
+                    // _pfDetectarCicloEMOM). Si no, al editar un EMOM de 36 min armado
+                    // con un ciclo de 6, se abria mostrando los 36 minutos desplegados
+                    // en vez de solo los 6 del ciclo.
+                    const _cicloGuardado = b.emom_ciclo_minutos;
+                    const _cicloDetectado = (b.emom_config_por_minuto && b.emom_config_por_minuto.length)
+                        ? _pfDetectarCicloEMOM(b.emom_config_por_minuto) : _minutosReal;
+                    _cEl.value = (_cicloGuardado && _cicloGuardado > 0) ? _cicloGuardado : _cicloDetectado;
+                }
                 // Re-renderizar config EMOM con valor correcto y datos de restauración ya seteados
                 actualizarEMOMMinutosConfig();
             }
@@ -10064,7 +10076,15 @@
                     } else if (dia._wTipo === 'EMOM') {
                         const minutosReal = cfg.minutos || (dia.warmupEmomConfig ? dia.warmupEmomConfig.length : 5);
                         const m = document.getElementById('warmup-minutos-' + i); if (m) m.value = minutosReal;
-                        const c = document.getElementById('warmup-emom-ciclo-' + i); if (c) c.value = cfg.emom_ciclo || dia.warmupEmomCiclo || minutosReal;
+                        const c = document.getElementById('warmup-emom-ciclo-' + i);
+                        if (c) {
+                            // No asumir ciclo = total si no vino guardado explicitamente:
+                            // detectarlo del patron que se repite (mismo bug que en el
+                            // bloque principal, ver editarBloque).
+                            const cicloDetectado = (dia.warmupEmomConfig && dia.warmupEmomConfig.length)
+                                ? _pfDetectarCicloEMOM(dia.warmupEmomConfig) : minutosReal;
+                            c.value = cfg.emom_ciclo || dia.warmupEmomCiclo || cicloDetectado;
+                        }
                         actualizarEMOMWarmupMinutosConfig(i);
                     } else if (dia._wTipo === 'Series/Reps') {
                         const s = document.getElementById('warmup-series-' + i); if (s) s.value = cfg.series || 3;
@@ -11647,7 +11667,12 @@
                         } else if (dia._wTipo === 'EMOM') {
                             const minutosReal = cfg.minutos || (dia.warmupEmomConfig ? dia.warmupEmomConfig.length : 5);
                             const m = document.getElementById('warmup-minutos-' + i); if (m) m.value = minutosReal;
-                            const c = document.getElementById('warmup-emom-ciclo-' + i); if (c) c.value = cfg.emom_ciclo || dia.warmupEmomCiclo || minutosReal;
+                            const c = document.getElementById('warmup-emom-ciclo-' + i);
+                            if (c) {
+                                const cicloDetectado = (dia.warmupEmomConfig && dia.warmupEmomConfig.length)
+                                    ? _pfDetectarCicloEMOM(dia.warmupEmomConfig) : minutosReal;
+                                c.value = cfg.emom_ciclo || dia.warmupEmomCiclo || cicloDetectado;
+                            }
                             actualizarEMOMWarmupMinutosConfig(i);
                         } else if (dia._wTipo === 'Series/Reps') {
                             const s = document.getElementById('warmup-series-' + i); if (s) s.value = cfg.series || 3;
