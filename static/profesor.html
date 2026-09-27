@@ -10809,6 +10809,7 @@
                         ? (semanasAEnviar.length + ' semanas nuevas guardadas en ' + _pfCodigoEditando.toUpperCase() + ' (hasta Semana ' + ultimaGuardada + ') 🎉')
                         : ('Semana ' + ultimaGuardada + ' guardada en ' + _pfCodigoEditando.toUpperCase() + ' 🎉');
                     toast(msg);
+                    _pfGuardarUltimoAlumnoEntrenado(alumno);
                     _pfResetFormularioTrasCompartir();
                     showTab('historial');
                 } catch (eSemana) {
@@ -10864,6 +10865,7 @@
                     }
                 }
                 _pfCodigoEditando = null;
+                _pfGuardarUltimoAlumnoEntrenado(data.alumno || alumno);
                 document.getElementById('modal-codigo-text').innerText = (data.codigo || '').toUpperCase();
                 document.getElementById('modal-info').innerText = 'Rutina asignada a ' + (data.alumno || alumno);
 
@@ -13448,6 +13450,17 @@
     let dashCalMesActivo = new Date(); // primer día del mes que se está mostrando en el calendario
     let dashCalDiaSeleccionado = null; // fechaISO del día que el profesor tocó en el calendario (distinto de "hoy")
 
+    // Recuerda con qué alumno se entrenó/trabajó por última vez en esta PC, para
+    // que al abrir la app de nuevo el Dashboard arranque directo con ese alumno
+    // cargado (ver buildModernChrome). Se llama al compartir una rutina y al
+    // elegir un alumno a mano en el Dashboard.
+    const PF_ULTIMO_ALUMNO_KEY = 'pf_ultimo_alumno_entrenado';
+    function _pfGuardarUltimoAlumnoEntrenado(nombre) {
+        nombre = (nombre || '').trim();
+        if (!nombre) return;
+        try { localStorage.setItem(PF_ULTIMO_ALUMNO_KEY, nombre); } catch (e) {}
+    }
+
     async function cargarAlumnosDash() {
         const inp = document.getElementById('dash-select-alumno');
         if (!inp) return;
@@ -13463,6 +13476,7 @@
         const selDash = document.getElementById('dash-select-alumno');
         if (!selDash) return;
         const nombre = selDash.value;
+        _pfGuardarUltimoAlumnoEntrenado(nombre);
         try { if (typeof pfNotifProfSeleccionar === 'function') pfNotifProfSeleccionar(nombre); } catch (e) { console.warn('notif:', e); }
         const contenido = document.getElementById('dash-contenido');
         const vacio = document.getElementById('dash-vacio');
@@ -21767,7 +21781,20 @@ self.addEventListener('fetch', event => {
                 cargarPerfilesAlumnos().then(function () { renderRailAlumnos(); }).catch(function () {});
             }
             relabel(document.body);
-            setTimeout(function () { if (typeof showTab === 'function') showTab('rutina'); }, 40);
+            // Al abrir la app: Dashboard (no "Crear Rutina") con el último alumno
+            // con el que se entrenó/trabajó, si hay uno guardado en esta PC.
+            setTimeout(function () {
+                if (typeof showTab === 'function') showTab('dashboard');
+                var ultimo = null;
+                try { ultimo = localStorage.getItem('pf_ultimo_alumno_entrenado'); } catch (e) {}
+                if (ultimo) {
+                    var inp = document.getElementById('dash-select-alumno');
+                    if (inp) {
+                        inp.value = ultimo;
+                        if (typeof cargarDashboard === 'function') cargarDashboard();
+                    }
+                }
+            }, 40);
         }
         document.addEventListener('DOMContentLoaded', function () {
             buildModernChrome();
