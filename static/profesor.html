@@ -22069,6 +22069,12 @@ self.addEventListener('fetch', event => {
         // en vez de tener siempre fijo el día 1, así el mismo wizard sirve para
         // cualquier cantidad de días (multi-día real, igual que "Modo avanzado").
         var _pfRefDay = 0;
+        // Qué días quedan desplegados en el paso "Resumen" (por índice de día).
+        // render() se llama cada 900ms (setInterval) para reflejar cambios en vivo,
+        // así que el estado de abierto/cerrado de cada día se guarda ACÁ afuera,
+        // no en el DOM: si no, cada re-render volvía a pintar todo cerrado y el
+        // día que se acababa de abrir se cerraba solo un instante después.
+        var _pfRefResumenAbiertos = {};
         // Un color fijo por número de día (Día 1, Día 2, ... y se repite cada 7
         // si hay más), para poder identificar de un vistazo en qué día estás
         // parado tanto en la pestaña como en Calentamiento y Bloque principal.
@@ -22369,6 +22375,7 @@ self.addEventListener('fetch', event => {
                     var dCol=dayColor(di);
                     var totalEjs = dWarm.length + dBlocks.reduce(function(a,b){return a+((b.ejercicios||[]).length);},0);
                     var bodyId = 'pf-ref-resumen-diabody-' + di;
+                    var abierto = !!_pfRefResumenAbiertos[di];
                     var cuerpoDia = '';
                     // Calentamiento del día, con el mismo detalle (sistema + reps/pausas) que en el paso 2
                     if (dwTipo || dWarm.length) {
@@ -22394,23 +22401,26 @@ self.addEventListener('fetch', event => {
                     // hacía muy largo para scrollear. Tocando el título del día se
                     // despliega/pliega su contenido (calentamiento + bloques) sin recargar nada.
                     filas += '<div class="pf-ref-resumen-diawrap">' +
-                        '<button type="button" class="pf-ref-resumen-day" style="color:'+dCol+';" onclick="pfRefToggleResumenDia(\''+bodyId+'\', this)">' +
+                        '<button type="button" class="pf-ref-resumen-day" style="color:'+dCol+';" onclick="pfRefToggleResumenDia('+di+',this)">' +
                             '<span>'+e(d.titulo || ('Día '+(di+1)))+'</span>' +
-                            '<span class="pf-ref-resumen-day-meta">'+totalEjs+' ejerc. <span class="pf-ref-resumen-chevron">▾</span></span>' +
+                            '<span class="pf-ref-resumen-day-meta">'+totalEjs+' ejerc. <span class="pf-ref-resumen-chevron">'+(abierto?'▴':'▾')+'</span></span>' +
                         '</button>' +
-                        '<div id="'+bodyId+'" class="pf-ref-resumen-diabody hidden">' + cuerpoDia + '</div>' +
+                        '<div id="'+bodyId+'" class="pf-ref-resumen-diabody'+(abierto?'':' hidden')+'">' + cuerpoDia + '</div>' +
                     '</div>';
                 });
                 resBody.innerHTML=filas;
             }
         }
         // Pliega/despliega el contenido (calentamiento + bloques) de un día dentro
-        // del paso 4 (Resumen), sin volver a pintar todo el resumen.
-        window.pfRefToggleResumenDia=function(bodyId, btn){
-            var el=document.getElementById(bodyId); if(!el) return;
-            var abierto = el.classList.toggle('hidden') === false;
-            var chevron = btn && btn.querySelector('.pf-ref-resumen-chevron');
-            if (chevron) chevron.textContent = abierto ? '▴' : '▾';
+        // del paso 4 (Resumen). Guarda el estado en _pfRefResumenAbiertos (no solo
+        // en el DOM) porque render() se repite cada 900ms para reflejar cambios en
+        // vivo, y necesita saber qué días dejar abiertos en cada repintado.
+        window.pfRefToggleResumenDia=function(di, btn){
+            _pfRefResumenAbiertos[di] = !_pfRefResumenAbiertos[di];
+            var el=document.getElementById('pf-ref-resumen-diabody-'+di);
+            var chevron=btn && btn.querySelector('.pf-ref-resumen-chevron');
+            if (el) el.classList.toggle('hidden', !_pfRefResumenAbiertos[di]);
+            if (chevron) chevron.textContent = _pfRefResumenAbiertos[di] ? '▴' : '▾';
         };
         // Lleva a la sección del paso tocado (Configuración / Calentamiento / Bloque
         // principal / Resumen) y marca ese paso como activo en la barra de arriba.
