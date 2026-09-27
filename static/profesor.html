@@ -3163,7 +3163,7 @@
             </div>
 
             <!-- Mapa de calor muscular en vivo -->
-            <div class="bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
+            <div id="pf-panel-mapa-calor" class="bg-tarjeta rounded-2xl border border-borde p-4 mb-6">
                 <button type="button" onclick="toggleMapaCalorVivo()" class="pf-panel-toggle w-full flex items-center justify-between gap-2">
                     <span class="text-sm font-bold text-naranja uppercase tracking-wider flex items-center gap-2">
                         🔥 Balance Muscular en Vivo
@@ -22058,7 +22058,16 @@ self.addEventListener('fetch', event => {
             if (days.length > 1) html += '<button class="pf-ref-week del" onclick="pfRefDelDay()" title="Eliminar el día que estás viendo">🗑</button>';
             wrap.innerHTML = html;
         }
-        window.pfRefGoDay = function(i) { _pfRefDay = i; render(); };
+        window.pfRefGoDay = function(i) {
+            _pfRefDay = i;
+            // El mapa de calor y varias funciones del formulario clásico usan
+            // diaActivoIdx (variable global compartida) para saber qué día
+            // mostrar; se sincroniza acá para que "Balance Muscular en Vivo"
+            // siga al día que se está viendo en este wizard.
+            if (typeof diaActivoIdx !== 'undefined') diaActivoIdx = i;
+            if (typeof actualizarMapaCalorEnVivo === 'function') actualizarMapaCalorEnVivo(i);
+            render();
+        };
         window.pfRefAddDay = function() {
             if (typeof agregarDia === 'function') agregarDia();
             _pfRefDay = getDays().length - 1;
@@ -22401,6 +22410,7 @@ self.addEventListener('fetch', event => {
                         renderModernHistory();
                     });
                 }
+                if(typeof _pfChequearFichaAlumno==='function') _pfChequearFichaAlumno();
             },250);
         };
         window.pfRefSyncDesc=function(){ setOriginalValue('rutina-desc',document.getElementById('pf-reference-desc').value); };
@@ -22429,17 +22439,19 @@ self.addEventListener('fetch', event => {
         function build(){
             var sec=document.getElementById('sec-rutina'); if(!sec || document.getElementById('pf-reference-editor')) return;
             var html='<div id="pf-reference-editor" class="pf-reference-editor">'+
-                '<div class="pf-ref-head"><div><div class="pf-ref-crumb">ENTRENAMIENTOS / NUEVO</div><h2>Crear entrenamiento</h2><p>Diseñá y organizá un entrenamiento de forma simple y rápida.</p></div><div class="pf-ref-actions"><button class="pf-ref-btn primary" onclick="pfRefSave()">✓ Guardar entrenamiento</button></div></div>'+
+                '<div id="pf-ref-borrador-slot"></div>'+
+                '<div class="pf-ref-head"><div><div class="pf-ref-crumb">ENTRENAMIENTOS / NUEVO</div><h2>Crear entrenamiento</h2><p>Diseñá y organizá un entrenamiento de forma simple y rápida.</p></div><div class="pf-ref-actions"><div id="pf-ref-vista-compacta-slot"></div><button class="pf-ref-btn primary" onclick="pfRefSave()">✓ Guardar entrenamiento</button></div></div>'+
                 '<div class="pf-ref-stepper" id="pf-ref-stepper">'+
                     '<div class="pf-ref-step active" id="pf-ref-step-1" onclick="pfRefGoStep(1)"><b>1</b> Configuración</div>'+
                     '<div class="pf-ref-step" id="pf-ref-step-2" onclick="pfRefGoStep(2)"><b>2</b> Calentamiento</div>'+
                     '<div class="pf-ref-step" id="pf-ref-step-3" onclick="pfRefGoStep(3)"><b>3</b> Bloque principal</div>'+
                     '<div class="pf-ref-step" id="pf-ref-step-4" onclick="pfRefGoStep(4)"><b>4</b> Resumen</div>'+
                 '</div>'+
-                '<section class="pf-ref-card" id="pf-ref-sec-1"><div class="pf-ref-card-head"><span class="pf-ref-label">Alumno</span><span class="pf-ref-status">● Activo</span></div><div class="pf-ref-card-body"><div class="pf-ref-athlete"><span class="pf-ref-avatar" id="pf-ref-avatar">PF</span><span><strong>Asignar alumno</strong><span>El entrenamiento se guardará en su historial</span></span><input id="pf-reference-alumno" class="pf-ref-input" placeholder="Nombre del alumno" oninput="pfRefSyncName()"><input id="pf-reference-desc" class="pf-ref-input" placeholder="Nombre del entrenamiento" oninput="pfRefSyncDesc()"></div></div></section>'+
-                '<section class="pf-ref-card pf-ref-history"><div class="pf-ref-card-head"><span id="pf-ref-history-title" class="pf-ref-label">Rutinas anteriores</span></div><div id="pf-ref-history-list" class="pf-ref-history-list"><p class="pf-ref-history-empty">Escribí el nombre del alumno para ver sus rutinas anteriores.</p></div></section>'+
+                '<section class="pf-ref-card" id="pf-ref-sec-1"><div class="pf-ref-card-head"><span class="pf-ref-label">Alumno</span><span class="pf-ref-status">● Activo</span></div><div class="pf-ref-card-body"><div class="pf-ref-athlete"><span class="pf-ref-avatar" id="pf-ref-avatar">PF</span><span><strong>Asignar alumno</strong><span>El entrenamiento se guardará en su historial</span></span><input id="pf-reference-alumno" class="pf-ref-input" placeholder="Nombre del alumno" oninput="pfRefSyncName()"><input id="pf-reference-desc" class="pf-ref-input" placeholder="Nombre del entrenamiento" oninput="pfRefSyncDesc()"></div><div id="pf-ref-ficha-slot" style="margin-top:10px;"></div></div></section>'+
+                '<section class="pf-ref-card pf-ref-history"><div class="pf-ref-card-head"><span id="pf-ref-history-title" class="pf-ref-label">Rutinas anteriores</span></div><div id="pf-ref-history-list" class="pf-ref-history-list"><p class="pf-ref-history-empty">Escribí el nombre del alumno para ver sus rutinas anteriores.</p></div><div id="pf-ref-historial-select-slot" style="padding:0 14px 12px;"></div></section>'+
                 '<section class="pf-ref-card pf-ref-days-card"><div class="pf-ref-card-head"><span class="pf-ref-label">Días de entrenamiento</span></div><div class="pf-ref-card-body"><div class="pf-ref-weeks" id="pf-ref-days-tabs"></div></div></section>'+
                 '<section class="pf-ref-card" id="pf-ref-sec-semanas"><div class="pf-ref-card-head"><span class="pf-ref-label">Progresión semanal</span></div><div class="pf-ref-card-body"><div id="pf-ref-semanas-slot"></div></div></section>'+
+                '<section class="pf-ref-card" id="pf-ref-sec-mapa"><div class="pf-ref-card-head"><span class="pf-ref-label">Balance muscular</span></div><div class="pf-ref-card-body"><div id="pf-ref-mapa-calor-slot"></div></div></section>'+
                 '<section class="pf-ref-card pf-ref-type-panel pf-ref-stage" id="pf-ref-sec-2"><div class="pf-ref-card-head"><div><span class="pf-ref-label">En calentamiento, ¿qué sistema querés elegir?</span><div style="color:#758b97;font-size:12px;margin-top:4px;">Elegí el sistema para armar el calentamiento de <b id="pf-ref-cal-day" style="color:#c9dae1;">Día 1</b></div></div></div><div class="pf-ref-type-grid">'+
                 WARMUP_TYPES.map(function(a){return '<button class="pf-ref-type" onclick="pfRefSetWarmup(\''+a[0]+'\')"><i>'+a[2]+'</i><strong>'+e(a[0])+'</strong><small>'+e(a[1])+'</small></button>';}).join('')+'</div><div class="pf-ref-card-body" style="padding-top:0;"><div id="pf-ref-warmup-status" style="display:grid;gap:7px;"></div></div></section>'+
                 '<section class="pf-ref-card pf-ref-stage main" id="pf-ref-sec-3"><div class="pf-ref-card-head"><div class="pf-ref-stage-title"><b>Bloque principal</b><span id="pf-ref-count">0 ejercicios</span></div></div><div style="color:#758b97;font-size:12px;padding:12px 14px 0;">Elegí un sistema para agregarlo al entrenamiento</div><div class="pf-ref-type-grid">'+
@@ -22477,6 +22489,42 @@ self.addEventListener('fetch', event => {
                 semanasSlot.appendChild(semanasBar);
                 semanasBar.classList.remove('hidden');
                 if (typeof _pfActualizarBarraSemanas==='function') _pfActualizarBarraSemanas();
+            }
+            // Banner "Borrador sin guardar": mismo elemento del formulario clásico
+            // (_pfChequearBorradorAlIniciar ya lo muestra/oculta por su id, sin
+            // importar dónde esté parado en el DOM).
+            var borradorSlot=document.getElementById('pf-ref-borrador-slot');
+            var borradorCard=document.getElementById('borrador-card');
+            if (borradorSlot && borradorCard && borradorCard.parentElement!==borradorSlot) {
+                borradorSlot.appendChild(borradorCard);
+            }
+            // Botón "☰ Vista Compacta": mismo botón real (_pfActualizarVisibilidadVistaCompacta
+            // sigue decidiendo cuándo mostrarlo: solo si algún día tiene calentamiento Y bloque).
+            var vcSlot=document.getElementById('pf-ref-vista-compacta-slot');
+            var vcBtn=document.getElementById('btn-vista-compacta-global');
+            if (vcSlot && vcBtn && vcBtn.parentElement!==vcSlot) {
+                vcSlot.appendChild(vcBtn);
+            }
+            // Ficha del alumno (🩺 lesiones, ejercicios prohibidos, ejercicios que le costaron):
+            // mismo elemento; _pfChequearFichaAlumno() sigue llenándolo/mostrándolo por su id.
+            var fichaSlot=document.getElementById('pf-ref-ficha-slot');
+            var fichaCard=document.getElementById('ficha-alumno-card');
+            if (fichaSlot && fichaCard && fichaCard.parentElement!==fichaSlot) {
+                fichaSlot.appendChild(fichaCard);
+            }
+            // Selector "Avisar 'ya se usó' mirando: última/2/3/5 rutinas": mismo elemento
+            // (_pfChequearHistorialAlumno ya lo muestra/completa por su id).
+            var histSelSlot=document.getElementById('pf-ref-historial-select-slot');
+            var histCard=document.getElementById('historial-alumno-card');
+            if (histSelSlot && histCard && histCard.parentElement!==histSelSlot) {
+                histSelSlot.appendChild(histCard);
+            }
+            // Mapa de Calor Muscular en Vivo: mismo panel completo (toggleMapaCalorVivo,
+            // actualizarMapaCalorEnVivo y el checkbox de comparar siguen intactos).
+            var mapaSlot=document.getElementById('pf-ref-mapa-calor-slot');
+            var mapaPanel=document.getElementById('pf-panel-mapa-calor');
+            if (mapaSlot && mapaPanel && mapaPanel.parentElement!==mapaSlot) {
+                mapaSlot.appendChild(mapaPanel);
             }
             var n=document.getElementById('alumno-nombre'); if(n) n.addEventListener('input',render);
             var d=document.getElementById('rutina-desc'); if(d) d.addEventListener('input',render);
