@@ -3084,18 +3084,13 @@
                         <input id="rutina-desc" type="text" placeholder="Ej: Rutina de fuerza semana 1" class="w-full rounded-lg px-3 py-2.5 text-sm">
                     </div>
                 </div>
-                <div id="historial-alumno-card" class="hidden mt-4 bg-fondoAlt rounded-xl border border-amarillo/30 p-3 flex items-center justify-between gap-2 flex-wrap">
-                    <span id="historial-alumno-cant" class="hidden">0</span>
-                    <label class="text-[11px] text-textoSuave" title="Contra cuántas de las últimas rutinas del alumno se avisa &quot;ya se usó&quot; al elegir un ejercicio">
-                        Avisar "ya se usó" mirando:
-                        <select onchange="_pfCambiarCantRutinasAnteriores(this.value)" class="ml-1 rounded-lg px-1.5 py-1 text-[11px] bg-fondo border border-borde">
-                            <option value="1" selected>última rutina</option>
-                            <option value="2">últimas 2</option>
-                            <option value="3">últimas 3</option>
-                            <option value="5">últimas 5</option>
-                        </select>
-                    </label>
-                </div>
+                <span id="historial-alumno-cant" class="hidden">0</span>
+                <select id="historial-alumno-cant-rutinas" onchange="_pfCambiarCantRutinasAnteriores(this.value)" class="hidden">
+                    <option value="1" selected>última rutina</option>
+                    <option value="2">últimas 2</option>
+                    <option value="3">últimas 3</option>
+                    <option value="5">últimas 5</option>
+                </select>
                 <div id="ficha-alumno-card" class="hidden mt-3 bg-fondoAlt rounded-xl border border-rojo/30 p-3">
                     <div class="flex items-center justify-between gap-2 flex-wrap mb-1">
                         <span class="font-bold text-rojo text-sm flex items-center gap-2"><img id="ficha-alumno-avatar" class="hidden w-6 h-6 rounded-full object-cover border border-borde" src="" alt="">🩺 Ficha del alumno</span>
@@ -19565,11 +19560,9 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         // reflejarlo en el selector, para no arrastrar sin querer una preferencia (ej. "últimas
         // 5") que el profe haya elegido para un alumno anterior.
         _pfCantRutinasAnteriores = 1;
-        if (card) {
-            const selCant = card.querySelector('select');
-            if (selCant) selCant.value = '1';
-        }
-        if (!nombre) { _pfHistorialAlumnoCache = []; if (card) card.classList.add('hidden'); _pfSincronizarHistorialEsteAlumno(); return; }
+        const selCant = document.getElementById('historial-alumno-cant-rutinas');
+        if (selCant) selCant.value = '1';
+        if (!nombre) { _pfHistorialAlumnoCache = []; _pfSincronizarHistorialEsteAlumno(); return; }
         try {
             const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre));
             const data = await res.json();
@@ -19580,7 +19573,6 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
                 _pfCompararDiaAnteriorIdx = 0;
                 const cantEl = document.getElementById('historial-alumno-cant');
                 if (cantEl) cantEl.textContent = _pfHistorialAlumnoCache.length;
-                if (card) card.classList.remove('hidden');
                 _pfSincronizarHistorialEsteAlumno();
                 // Traer siempre las rutinas anteriores completas (no solo si el checkbox del
                 // mapa de calor está tildado): las necesitamos para poder avisar "ya se usó en
