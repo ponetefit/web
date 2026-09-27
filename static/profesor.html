@@ -19785,7 +19785,12 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
                     contenido +
                 '</div>';
             }
-            // Multi-día: acordeón plegado por defecto, con resumen (calentamiento + cantidad de bloques)
+            // Multi-día: antes arrancaba plegado (class "hidden") y solo el título de
+            // cada día se veía hasta tocarlo. Eso hacía que, apenas la rutina tenía más
+            // de 1 día, la Vista Compacta pareciera "vacía" comparada con 1 solo día
+            // (que siempre mostraba el contenido directo). Ahora arranca desplegado -
+            // igual de visible que con 1 día- y "Colapsar todos" sigue disponible para
+            // quien prefiera la vista condensada.
             const cantBloques = (d.bloquesRutina || []).length;
             const resumenPartes = [];
             if (calEjs.length) resumenPartes.push('🔥 calentamiento');
@@ -19797,10 +19802,10 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
                     '<span class="text-sm font-bold text-texto uppercase tracking-wider">' + titulo + '</span>' +
                     '<span class="flex items-center gap-2 flex-shrink-0">' +
                         (resumen ? '<span class="text-[11px] text-textoSuave normal-case font-normal">' + resumen + '</span>' : '') +
-                        '<svg class="pf-acc-chevron w-4 h-4 text-textoSuave transition-transform duration-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>' +
+                        '<svg class="pf-acc-chevron w-4 h-4 text-textoSuave transition-transform duration-200" style="transform:rotate(180deg);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>' +
                     '</span>' +
                 '</button>' +
-                '<div id="' + bodyId + '" class="hidden px-3 py-2.5 border-t border-borde/50">' + contenido + '</div>' +
+                '<div id="' + bodyId + '" class="px-3 py-2.5 border-t border-borde/50">' + contenido + '</div>' +
             '</div>';
         }).join('');
         if (!multiDia) return diasHtml;
