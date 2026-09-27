@@ -21975,6 +21975,22 @@ self.addEventListener('fetch', event => {
         .pf-ref-block-wrap:hover { transform:translateY(-2px); box-shadow:0 10px 24px rgba(0,0,0,.35); }
         .pf-ref-block-card-tipo { border-width:1px; }
         .pf-ref-block-ico { width:32px; height:32px; border-radius:9px; display:grid; place-items:center; font-size:15px; flex-shrink:0; line-height:1; box-shadow:0 3px 10px rgba(0,0,0,.35); }
+        /* ── Vista de Resumen (paso 4): tarjetas compactas con "chips" por
+           ejercicio en vez de la grilla con fotos que usan Calentamiento y
+           Bloque principal. Pensado para leer de un vistazo toda la rutina. */
+        .pf-ref-resumen-day { margin:18px 0 8px; font-size:12px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
+        .pf-ref-resumen-alumno { display:flex; flex-direction:column; gap:2px; padding:11px 14px; border:1px solid #223540; border-radius:12px; background:#0d1920; margin-bottom:4px; }
+        .pf-ref-resumen-alumno b { color:#e2edf1; font-size:14px; }
+        .pf-ref-resumen-alumno small { color:#718894; font-size:12px; }
+        .pf-ref-resumen-block { border:1px solid #223540; border-radius:14px; padding:14px; margin-bottom:10px; background:#0d1920; }
+        .pf-ref-resumen-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+        .pf-ref-resumen-badge { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:8px; border:1px solid; font-size:12px; font-weight:800; letter-spacing:.02em; white-space:nowrap; }
+        .pf-ref-resumen-type { color:#9fb4bd; font-size:13px; font-weight:600; }
+        .pf-ref-resumen-sub { color:#6f8a95; font-size:12px; margin-top:6px; }
+        .pf-ref-resumen-chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+        .pf-ref-resumen-chip { background:#152731; border:1px solid #26404c; border-radius:8px; padding:7px 12px; font-size:11.5px; font-weight:700; color:#d7e6ec; text-transform:uppercase; letter-spacing:.02em; }
+        .pf-ref-resumen-chip b { color:#fff; font-weight:800; margin-left:2px; text-transform:none; }
+        .pf-ref-resumen-empty { font-size:12px; color:#6f8a95; font-style:italic; margin-top:10px; }
         .pf-ref-bottom { display:grid; grid-template-columns:repeat(4,1fr); gap:9px; }
         .pf-ref-bottom-card { border:1px solid #1b3341; border-radius:12px; background:linear-gradient(180deg, rgba(16,32,43,.7), rgba(13,26,37,.9)); padding:13px; min-height:48px; transition:transform .18s ease, border-color .18s ease; }
         .pf-ref-bottom-card:hover { transform:translateY(-2px); border-color:#3a5c6c; }
@@ -22247,44 +22263,51 @@ self.addEventListener('fetch', event => {
             if (resBody) {
                 var alumnoVal=(refName ? refName.value : (name ? name.value : '')).trim();
                 var descVal=(refDesc ? refDesc.value : (desc ? desc.value : '')).trim();
-                var filas='<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:#8899a4;"></span><span><b>'+e(alumnoVal||'Sin alumno asignado')+'</b><small>'+e(descVal||'Sin nombre de entrenamiento')+'</small></span></div>';
+                // Chips compactos por ejercicio (nombre + reps/pausa), en vez de la
+                // grilla con miniatura de video que usan Calentamiento/Bloque principal:
+                // acá el objetivo es leer TODA la rutina de un vistazo.
+                function resumenChips(items, tipo) {
+                    if (!items || !items.length) return '<p class="pf-ref-resumen-empty">Sin ejercicios cargados</p>';
+                    return '<div class="pf-ref-resumen-chips">' + items.map(function(x) {
+                        var n = exName(x), r = exReps(x, tipo);
+                        return '<span class="pf-ref-resumen-chip">'+e(n)+(r ? ' <b>· '+e(r)+'</b>' : '')+'</span>';
+                    }).join('') + '</div>';
+                }
+                function resumenBloque(badgeTxt, color, tipoTxt, detalle, cuerpoHtml) {
+                    return '<div class="pf-ref-resumen-block">'+
+                        '<div class="pf-ref-resumen-head">'+
+                            '<span class="pf-ref-resumen-badge" style="background:'+hexToRgba(color,.16)+';color:'+color+';border-color:'+hexToRgba(color,.4)+';">'+badgeTxt+'</span>'+
+                            (tipoTxt ? '<span class="pf-ref-resumen-type">'+e(tipoTxt)+'</span>' : '')+
+                        '</div>'+
+                        (detalle ? '<div class="pf-ref-resumen-sub">'+e(detalle)+'</div>' : '')+
+                        cuerpoHtml+
+                    '</div>';
+                }
+                var filas='<div class="pf-ref-resumen-alumno"><b>'+e(alumnoVal||'Sin alumno asignado')+'</b><small>'+e(descVal||'Sin nombre de entrenamiento')+'</small></div>';
                 days.forEach(function(d, di){
                     var dWarm=d.warmupEjercicios||[], dBlocks=d.bloquesRutina||[];
                     var dwTipo=d._wTipo || (d._warmupCfg && d._warmupCfg.tipo) || '';
                     var dCol=dayColor(di);
-                    filas += '<div style="margin:10px 0 2px;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:'+dCol+';">'+e(d.titulo || ('Día '+(di+1)))+'</div>';
+                    filas += '<div class="pf-ref-resumen-day" style="color:'+dCol+';">'+e(d.titulo || ('Día '+(di+1)))+'</div>';
                     // Calentamiento del día, con el mismo detalle (sistema + reps/pausas) que en el paso 2
                     if (dwTipo || dWarm.length) {
                         var wDetalle = (typeof _pfDetalleCalentamiento === 'function') ? _pfDetalleCalentamiento(d) : '';
-                        var wc=typeColor(dwTipo);
-                        var wCuerpo = (dwTipo === 'EMOM') ? emomBlockHtml(d.warmupEmomConfig, d.warmupEmomCiclo, (d._warmupCfg && d._warmupCfg.minutos)) : exListHtml(dWarm, dwTipo);
-                        filas += '<div class="pf-ref-block-wrap" style="border-left-color:'+wc+';margin-bottom:6px;">'+
-                            '<div class="pf-ref-block-card pf-ref-block-card-tipo" style="background:'+hexToRgba(wc,.12)+';border-color:'+hexToRgba(wc,.4)+';">'+
-                                '<span class="pf-ref-block-ico" style="background:'+wc+';">'+(dwTipo ? typeIcon(dwTipo) : '🔥')+'</span>'+
-                                '<span><b>'+e(dwTipo ? typeLabel(dwTipo) : 'Calentamiento')+'</b><small>'+e(wDetalle||'')+'</small></span>'+
-                            '</div>'+
-                            wCuerpo+
-                        '</div>';
+                        var wCuerpo = (dwTipo === 'EMOM') ? emomBlockHtml(d.warmupEmomConfig, d.warmupEmomCiclo, (d._warmupCfg && d._warmupCfg.minutos)) : resumenChips(dWarm, dwTipo);
+                        filas += resumenBloque((dwTipo?typeIcon(dwTipo):'🔥')+' CALENTAMIENTO', '#FF6B35', dwTipo ? dwTipo : '', wDetalle, wCuerpo);
                     } else {
-                        filas += '<div class="pf-ref-block-card" style="margin-bottom:6px;"><span class="pf-ref-block-color" style="background:'+hexToRgba(dCol,.35)+';"></span><span><b>Sin calentamiento</b></span></div>';
+                        filas += resumenBloque('🔥 CALENTAMIENTO', '#FF6B35', '', '', '<p class="pf-ref-resumen-empty">Sin calentamiento</p>');
                     }
                     // Cada bloque principal del día, con su sistema, reps y pausas
                     if (dBlocks.length) {
-                        dBlocks.forEach(function(b){
+                        dBlocks.forEach(function(b, bi){
                             var xs=b.ejercicios||[];
                             var bDetalle = (typeof _pfDetalleBloque === 'function') ? _pfDetalleBloque(b) : '';
                             var tc=typeColor(b.tipo);
-                            var bCuerpo = (b.tipo === 'EMOM') ? emomBlockHtml(b.emom_config_por_minuto, b.emom_ciclo_minutos, b.minutos_totales) : exListHtml(xs, b.tipo);
-                            filas += '<div class="pf-ref-block-wrap" style="border-left-color:'+tc+';margin-bottom:6px;">'+
-                                '<div class="pf-ref-block-card pf-ref-block-card-tipo" style="background:'+hexToRgba(tc,.12)+';border-color:'+hexToRgba(tc,.4)+';">'+
-                                    '<span class="pf-ref-block-ico" style="background:'+tc+';">'+typeIcon(b.tipo)+'</span>'+
-                                    '<span><b>'+e(typeLabel(b.tipo))+'</b><small>'+e(bDetalle||'')+'</small></span>'+
-                                '</div>'+
-                                bCuerpo+
-                            '</div>';
+                            var bCuerpo = (b.tipo === 'EMOM') ? emomBlockHtml(b.emom_config_por_minuto, b.emom_ciclo_minutos, b.minutos_totales) : resumenChips(xs, b.tipo);
+                            filas += resumenBloque((bi+1)+'. '+e((b.tipo||'BLOQUE').toUpperCase()), tc, '', bDetalle, bCuerpo);
                         });
                     } else {
-                        filas += '<div class="pf-ref-block-card" style="margin-bottom:10px;"><span class="pf-ref-block-color" style="background:'+hexToRgba(dCol,.35)+';"></span><span><b>Sin bloques</b></span></div>';
+                        filas += resumenBloque('BLOQUE', '#8a9aa5', '', '', '<p class="pf-ref-resumen-empty">Todavía no agregaste un bloque de entrenamiento</p>');
                     }
                 });
                 resBody.innerHTML=filas;
