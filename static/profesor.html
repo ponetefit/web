@@ -685,8 +685,9 @@
 
             /* ── Mejora: botones ⧉/Editar/✕ de las tarjetas de bloque y calentamiento, mas grandes y separados ── */
             button[onclick*="abrirModalCopiarBloque"]:not(.pf-add-card-btn), button[onclick*="eliminarBloqueDia"]:not(.pf-add-card-btn), button[onclick*="editarBloqueDia"]:not(.pf-add-card-btn),
+            button[onclick*="abrirModalTrasladarBloque"]:not(.pf-add-card-btn),
             button[onclick*="abrirModalCopiarCalentamiento"]:not(.pf-add-card-btn), button[onclick*="eliminarCalentamientoDia"]:not(.pf-add-card-btn), button[onclick*="abrirModalCalentamientoDia"]:not(.pf-add-card-btn) {
-                min-width: 40px; min-height: 40px; padding: 9px 13px !important; font-size: 0.8rem !important;
+                min-width: 44px; min-height: 44px; padding: 10px 14px !important; font-size: 0.85rem !important;
             }
             .flex.gap-1\.5.flex-shrink-0 { gap: 10px !important; }
 
@@ -1597,9 +1598,9 @@
                 padding: 10px 12px !important;
             }
             .pf-cr-title p { text-align: center; }
-            .pf-cr-actions { width: 100%; }
+            .pf-cr-actions { width: 100%; flex-wrap: wrap; }
             .pf-cr-actions button {
-                flex: 1 1 0;
+                flex: 1 1 calc(50% - 4px);
                 min-width: 0;
                 white-space: nowrap;
             }
@@ -7850,9 +7851,10 @@
                 '</div>' +
                 '</div>' +
                 '<div class="pf-cr-actions">' +
-                '<button onclick="abrirModalCopiarBloque(' + idx + ',' + i + ')" title="Duplicar bloque" class="bg-purpura/20 text-purpura px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">⧉ Copiar</button>' +
-                '<button onclick="editarBloqueDia(' + idx + ',' + i + ')" class="bg-azul/20 text-azul px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition">Editar</button>' +
-                '<button onclick="eliminarBloqueDia(' + idx + ',' + i + ')" class="bg-rojo/20 text-rojo px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition">✕</button>' +
+                '<button onclick="abrirModalCopiarBloque(' + idx + ',' + i + ')" title="Duplicar bloque" class="bg-purpura/20 text-purpura px-3 py-2 rounded-lg text-xs font-bold hover:bg-purpura/30 transition">⧉ Copiar</button>' +
+                '<button onclick="abrirModalTrasladarBloque(' + idx + ',' + i + ')" title="Trasladar bloque a otro día" class="bg-amarillo/20 text-amarillo px-3 py-2 rounded-lg text-xs font-bold hover:bg-amarillo/30 transition">➜ Trasladar</button>' +
+                '<button onclick="editarBloqueDia(' + idx + ',' + i + ')" class="bg-azul/20 text-azul px-3 py-2 rounded-lg text-xs font-bold hover:bg-azul/30 transition">Editar</button>' +
+                '<button onclick="eliminarBloqueDia(' + idx + ',' + i + ')" class="bg-rojo/20 text-rojo px-3 py-2 rounded-lg text-xs font-bold hover:bg-rojo/30 transition">✕ Eliminar</button>' +
                 '</div>' +
                 '<div class="pf-cr-exercises">' +
                 '<button type="button" onclick="_pfToggleResumenPills(\'' + pillsId + '\', this)" class="pf-toggle-ej-btn text-xs font-bold flex items-center gap-1" style="color:' + colorTipo.bg + ';">' +
@@ -20354,6 +20356,21 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         document.getElementById('modal-copiar-destino').classList.remove('hidden');
     }
 
+    function abrirModalTrasladarBloque(diaIdx, bloqueIdx) {
+        _pfCopiarContexto = { tipo: 'bloque-mover', diaIdx, bloqueIdx };
+        document.getElementById('modal-copiar-titulo').textContent = 'Trasladar bloque a...';
+        const opciones = document.getElementById('modal-copiar-opciones');
+        const otrosDias = diasData.map((d, i) => i).filter(i => i !== diaIdx);
+        if (otrosDias.length === 0) {
+            opciones.innerHTML = '<p class="text-xs text-textoSuave">No hay otros días a los que trasladar.</p>';
+        } else {
+            opciones.innerHTML = otrosDias.map(i => {
+                return '<button onclick="_pfConfirmarCopiar(' + i + ')" class="w-full text-left px-4 py-2.5 rounded-lg bg-fondoAlt hover:bg-borde text-sm text-texto transition">' + diasData[i].titulo + '</button>';
+            }).join('');
+        }
+        document.getElementById('modal-copiar-destino').classList.remove('hidden');
+    }
+
     function abrirModalCopiarCalentamiento(diaIdx) {
         _pfCopiarContexto = { tipo: 'calentamiento', diaIdx };
         document.getElementById('modal-copiar-titulo').textContent = 'Copiar calentamiento a...';
@@ -20406,22 +20423,43 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         document.getElementById('modal-aviso-prohibidos-copia').classList.remove('hidden');
     }
 
-    function _pfConfirmarCopiar(targetIdx) {
+    async function _pfConfirmarCopiar(targetIdx) {
         if (!_pfCopiarContexto) return;
         const ctx = _pfCopiarContexto;
         const origenDias = ctx.origenExterno || diasData; // de donde se copia: rutina actual o una historica parseada
         if (ctx.tipo === 'bloque') {
             const bloqueOriginal = origenDias[ctx.diaIdx] && origenDias[ctx.diaIdx].bloquesRutina[ctx.bloqueIdx];
             if (!bloqueOriginal) return;
+            const destinoLabel = diasData[targetIdx].titulo + (targetIdx === ctx.diaIdx && !ctx.origenExterno ? ' (este mismo día)' : '');
+            if (!await pfConfirm('¿Copiar este bloque a ' + destinoLabel + '?', { destructivo: false, textoConfirmar: 'Copiar' })) return;
             const copia = JSON.parse(JSON.stringify(bloqueOriginal));
             diasData[targetIdx].bloquesRutina.push(copia);
             renderBloquesDia(targetIdx);
             actualizarBadgeDia(targetIdx);
             toast('Bloque copiado a ' + diasData[targetIdx].titulo);
             _pfAvisarSiProhibidosEnCopia(copia.ejercicios || []);
+            document.getElementById('modal-copiar-destino').classList.add('hidden');
+            _pfCopiarContexto = null;
+            return;
+        } else if (ctx.tipo === 'bloque-mover') {
+            const diaOrigen = diasData[ctx.diaIdx];
+            const bloqueOriginal = diaOrigen && diaOrigen.bloquesRutina[ctx.bloqueIdx];
+            if (!bloqueOriginal) return;
+            if (!await pfConfirm('¿Trasladar este bloque a ' + diasData[targetIdx].titulo + '? Se quitará de ' + diaOrigen.titulo + '.', { destructivo: false, textoConfirmar: 'Trasladar' })) return;
+            const [bloqueMovido] = diaOrigen.bloquesRutina.splice(ctx.bloqueIdx, 1);
+            diasData[targetIdx].bloquesRutina.push(bloqueMovido);
+            renderBloquesDia(ctx.diaIdx);
+            renderBloquesDia(targetIdx);
+            actualizarBadgeDia(ctx.diaIdx);
+            actualizarBadgeDia(targetIdx);
+            toast('Bloque trasladado a ' + diasData[targetIdx].titulo);
+            document.getElementById('modal-copiar-destino').classList.add('hidden');
+            _pfCopiarContexto = null;
+            return;
         } else if (ctx.tipo === 'calentamiento') {
             // El chequeo de "mismo dia" solo aplica cuando se copia dentro de la rutina actual
             if (!ctx.origenExterno && targetIdx === ctx.diaIdx) { toast('Elegí un día distinto'); return; }
+            if (!await pfConfirm('¿Copiar el calentamiento a ' + diasData[targetIdx].titulo + '?', { destructivo: false, textoConfirmar: 'Copiar' })) return;
             const origen = origenDias[ctx.diaIdx];
             if (!origen) return;
             diasData[targetIdx].warmupEjercicios = JSON.parse(JSON.stringify(origen.warmupEjercicios || []));
