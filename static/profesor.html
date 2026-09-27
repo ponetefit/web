@@ -857,6 +857,23 @@
             html.pf-high-contrast nav {
                 border-color: #fff !important;
             }
+            /* Tarjeta del Repositorio (lista.innerHTML en cargarRepositorio): el
+               bloque de info (título/fecha/badges) y el de acciones (6 botones,
+               algunos con textos largos como "Ver días y copiar por partes") se
+               peleaban el mismo renglón entre los ~640px de Tailwind y un
+               desktop angosto: como "acciones" no encoge (flex-shrink-0) y
+               "info" sí (flex-1 min-w-0), info terminaba aplastado a un hilo y
+               cada badge envolvía letra por letra. Por eso se veía bien en
+               mobile (Tailwind ya apila con flex-col) y en pantallas MUY
+               anchas, pero mal en el medio. Con este breakpoint más generoso,
+               se apila (info arriba, acciones abajo, ambos a lo ancho de la
+               tarjeta) hasta que realmente entran los dos lado a lado.
+            */
+            .pf-repo-card-row { flex-direction: column; }
+            @media (min-width: 900px) {
+                .pf-repo-card-row { flex-direction: row; align-items: center; flex-wrap: wrap; }
+                .pf-repo-card-row .pf-repo-full-info { min-width: 260px; }
+            }
             /* Espacio para que la barra inferior no tape el contenido del resto de secciones */
             @media (max-width: 639px) {
                 main { padding-bottom: calc(var(--pf-bottomnav-h) + 12px) !important; }
@@ -974,11 +991,8 @@
                apiladas, texto centrado y botones grandes de ancho completo. */
             #repo-lista { gap: 16px !important; }
             #repo-lista .pf-repo-full-card {
-                flex-direction: column !important;
-                align-items: stretch !important;
                 border-radius: 18px !important;
                 padding: 18px 16px !important;
-                gap: 14px !important;
             }
             #repo-lista .pf-repo-full-info { text-align: center; }
             #repo-lista .pf-repo-full-title-row { justify-content: center !important; }
@@ -16652,7 +16666,7 @@
 
             return `
             <div class="pf-repo-full-card bg-fondoAlt rounded-xl border border-borde p-4">
-                <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                <div class="pf-repo-card-row flex gap-3">
                     <div class="pf-repo-full-info flex-1 min-w-0">
                         <div class="pf-repo-full-title-row flex items-center gap-2 mb-1 flex-wrap">
                             <span class="pf-repo-full-title font-bold text-texto text-sm truncate">${escapeHtml(r.nombre)}</span>
