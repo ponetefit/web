@@ -1741,7 +1741,6 @@
                Parametros, o se vuelve inusable. */
             #emom-minutos-config, [id^="emom-warmup-config-"] {
                 text-align: left;
-                grid-template-columns: 1fr !important;
             }
             #emom-minutos-config label, #emom-minutos-config p,
             [id^="emom-warmup-config-"] label, [id^="emom-warmup-config-"] p {
@@ -7372,7 +7371,7 @@
                    '</div>' +
                    '<p class="text-xs text-textoSuave mt-2">Cargá los ejercicios de UN ciclo (ej: 5 min = 5 ejercicios) y se repite automáticamente hasta completar los minutos totales</p>' +
                    '<div id="emom-warmup-repeat-note-' + idx + '" class="text-xs font-bold mt-1" style="color:#FFD54F"></div>' +
-                   '<div id="emom-warmup-config-' + idx + '" class="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2"></div>';
+                   '<div id="emom-warmup-config-' + idx + '" class="mt-3 space-y-2"></div>';
             setTimeout(() => actualizarEMOMWarmupMinutosConfig(idx), 0);
         } else if (tipo === 'Series/Reps') {
             html = '<div class="grid grid-cols-3 gap-3"><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Series</label><input id="warmup-series-' + idx + '" type="number" value="' + (_cfg.series||3) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ');renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones (default)</label><input id="warmup-reps-val-' + idx + '" type="number" value="' + (_cfg.reps||10) + '" min="1" oninput="guardarWarmupCfgDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div><div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg, default)</label><input id="warmup-pausa-ser-' + idx + '" type="number" value="' + (_cfg.pausa||60) + '" min="0" oninput="guardarWarmupCfgDia(' + idx + ');renderWarmupEjsDia(' + idx + ')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div></div><p class="text-xs text-textoSuave mt-2">Se aplica a los ejercicios nuevos que agregues. Podés ajustar reps y pausa de cada ejercicio individualmente abajo.</p><button type="button" onclick="_pfAplicarDefaultsSeriesATodosWarmup(' + idx + ')" class="w-full mt-2 text-xs font-bold py-2 rounded-lg" style="background:rgba(105,240,174,.12);color:#69F0AE;border:1px solid rgba(105,240,174,.3);cursor:pointer">⟳ Aplicar estos valores a TODOS los ejercicios ya cargados</button>';
@@ -8006,7 +8005,7 @@
             html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Minutos</label>
                     <input id="warmup-minutos" type="number" value="5" min="1" oninput="actualizarEMOMWarmupMinutosConfig('standalone')" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                     <p class="text-xs text-textoSuave mt-2">En cada minuto, buscá y agregá los ejercicios con sus repeticiones</p>
-                    <div id="emom-warmup-config-standalone" class="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2"></div>`;
+                    <div id="emom-warmup-config-standalone" class="mt-3 space-y-2"></div>`;
             setTimeout(() => actualizarEMOMWarmupMinutosConfig('standalone'), 0);
         } else if (tipo === 'Series/Reps') {
             html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Series</label>
@@ -8211,7 +8210,7 @@
             </div>
             <p class="text-xs text-textoSuave mt-2">Cargá los ejercicios de UN ciclo (ej: 5 min = 5 ejercicios) y se repite automáticamente hasta completar los minutos totales</p>
             <div id="emom-repeat-note" class="text-xs font-bold mt-1" style="color:#FFD54F"></div>
-            <div id="emom-minutos-config" class="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2"></div>`;
+            <div id="emom-minutos-config" class="mt-3 space-y-2"></div>`;
             setTimeout(() => actualizarEMOMMinutosConfig(), 0);
         } else if (tipo === 'Por Tiempo') {
             html = `<div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Cantidad de Vueltas</label>
@@ -8367,7 +8366,7 @@
             const ejsGuardados = prevEjs[m] || [];
             const chipsHtml = ejsGuardados.map((ej, ei) => emomChipHtml(ej, ei, m, 'bloque', null)).join('');
             const cantLabel = ejsGuardados.length + ' ejercicio' + (ejsGuardados.length !== 1 ? 's' : '');
-            html += '<div class="bg-fondo rounded-xl p-3 border border-borde/40">' +
+            html += '<div class="bg-fondo rounded-xl p-3 border border-borde/40 mb-2">' +
                 '<div class="flex items-center gap-2 mb-2">' +
                 '<span class="text-xs font-bold text-amarillo uppercase">Minuto ' + (m+1) + '</span>' +
                 '<span id="emom-min-' + m + '-cnt" class="text-xs text-textoSuave">' + cantLabel + '</span>' +
@@ -8561,7 +8560,7 @@
             const ejsGuardados = prevEjs[m] || [];
             const chipsHtml = ejsGuardados.map((ej, ei) => emomChipHtml(ej, ei, m, 'warmup', idxOrKey)).join('');
             const cantLabel = ejsGuardados.length + ' ejercicio' + (ejsGuardados.length !== 1 ? 's' : '');
-            html += '<div class="bg-fondo rounded-xl p-3 border border-borde/40">' +
+            html += '<div class="bg-fondo rounded-xl p-3 border border-borde/40 mb-2">' +
                 '<div class="flex items-center gap-2 mb-2">' +
                 '<span class="text-xs font-bold text-amarillo uppercase">Minuto ' + (m+1) + '</span>' +
                 '<span id="emow-min-' + idxOrKey + '-' + m + '-cnt" class="text-xs text-textoSuave">' + cantLabel + '</span>' +
@@ -21870,7 +21869,8 @@ self.addEventListener('fetch', event => {
         /* EMOM: una tarjeta por minuto del ciclo, cada una con su propia mini-grilla
            de ejercicios adentro (reusa .pf-ref-ex-grid, por eso el margin-top:0). */
         .pf-ref-emom-nota { font-size:12px; font-weight:700; color:#FFD54F; margin-top:10px; padding:9px 12px; background:rgba(255,213,79,.08); border:1px solid rgba(255,213,79,.25); border-radius:10px; }
-        .pf-ref-emom-grid { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
+        .pf-ref-emom-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; margin-top:10px; align-items:start; }
+        @media (max-width:639px) { .pf-ref-emom-grid { grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:10px; } }
         .pf-ref-emom-min { border:1px solid #2a3f4a; border-radius:12px; padding:10px 10px 12px; background:#0e1f27; }
         .pf-ref-emom-min-tag { display:inline-block; font-size:11px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; color:#161300; background:#FFD54F; border-radius:999px; padding:3px 10px; }
         .pf-ref-emom-min .pf-ref-ex-grid { margin-top:8px; }
