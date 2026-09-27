@@ -21835,15 +21835,13 @@ self.addEventListener('fetch', event => {
         .pf-ref-btn.primary { color:#fff; border-color:#ff7043; background:linear-gradient(135deg,#ff8a5c,#ee5730 55%,#d8355c); box-shadow:0 8px 22px rgba(255,96,49,.32); }
         .pf-ref-btn.primary:hover { box-shadow:0 10px 28px rgba(255,96,49,.45); }
         .pf-ref-stepper { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; margin-bottom:14px; padding:7px; border:1px solid #1b3341; border-radius:14px; background:rgba(11,23,33,.7); backdrop-filter:blur(10px); }
-        /* Días de entrenamiento + Progresión semanal: una vez que se llega a esta
-           parte de la pantalla, queda fija arriba (sticky) mientras se sigue
-           bajando por Calentamiento/Bloque/Resumen, para siempre saber en qué
-           día y semana se está parado. El offset (--pf-ref-sticky-top) lo calcula
-           JS a partir de la altura real del header mobile (0 en desktop, donde
-           ese header está oculto), así no tapa nada en ningún tamaño de pantalla. */
+        /* Días de entrenamiento / Progresión semanal: cada una queda sticky (fija
+           arriba al scrollear) SOLO si tiene más de un ítem (más de 1 día / más de
+           1 semana) — si hay uno solo no hace falta anclarla. Si las dos están
+           activas, se apilan una debajo de la otra (JS calcula el "top" de cada
+           una según lo que haya sticky arriba, incluido el header mobile). */
         :root { --pf-ref-sticky-top: 0px; }
-        .pf-ref-sticky-dias { position:sticky; top:var(--pf-ref-sticky-top); z-index:20; background:#070e16; padding-top:2px; box-shadow:0 10px 22px rgba(0,0,0,.35); }
-        .pf-ref-sticky-dias .pf-ref-card:last-child { margin-bottom:14px; }
+        .pf-ref-sticky { position:sticky; z-index:20; background:#070e16; box-shadow:0 10px 22px rgba(0,0,0,.35); }
         .pf-ref-step { display:flex; align-items:center; gap:8px; padding:9px 10px; border-radius:10px; color:#607885; font-size:13px; font-weight:800; transition:all .18s ease; cursor:pointer; }
         .pf-ref-step:hover { color:#c9dae1; }
         .pf-ref-step b { display:grid; place-items:center; width:20px; height:20px; border-radius:50%; border:1px solid #2a4554; color:#78909c; font-size:11px; transition:all .18s ease; }
@@ -22090,13 +22088,35 @@ self.addEventListener('fetch', event => {
             render();
         };
         function exName(x) { return typeof x === 'string' ? x : (x && x.nombre) || (Array.isArray(x) ? x[0] : 'Ejercicio'); }
-        // Altura real del header mobile (0 en desktop, donde ese header está oculto):
-        // se usa como offset del "top" del bloque sticky de Días/Semana, para que en
-        // mobile no quede tapado por el header y en desktop quede pegado arriba del todo.
+        // Altura real del header mobile (0 en desktop, donde ese header está
+        // oculto): primer offset sticky, arriba de todo.
+        // Además decide, cada vez que se llama, si "Días" y/o "Semanas" deben
+        // quedar fijos (sticky) según cuántos ítems tiene cada uno: con uno
+        // solo no hace falta anclarlo; con más de uno, sí. Si los dos quedan
+        // sticky, se apilan (Semanas debajo de Días).
         function _pfActualizarStickyDiasOffset() {
             var h = document.getElementById('pf-main-header');
-            var alto = (h && h.offsetParent !== null) ? h.offsetHeight : 0;
-            document.documentElement.style.setProperty('--pf-ref-sticky-top', alto + 'px');
+            var headerH = (h && h.offsetParent !== null) ? h.offsetHeight : 0;
+            document.documentElement.style.setProperty('--pf-ref-sticky-top', headerH + 'px');
+            var diasCard = document.getElementById('pf-ref-days-card');
+            var semCard = document.getElementById('pf-ref-sec-semanas');
+            if (!diasCard || !semCard) return;
+            var numDias = (typeof getDays === 'function') ? getDays().length : 1;
+            var numSemanas = (typeof semanasBorrador !== 'undefined' && typeof semanaActivaIdx !== 'undefined')
+                ? Math.max(semanasBorrador.length, semanaActivaIdx + 1) : 1;
+            var diasSticky = numDias > 1;
+            var semSticky = numSemanas > 1;
+            diasCard.classList.toggle('pf-ref-sticky', diasSticky);
+            semCard.classList.toggle('pf-ref-sticky', semSticky);
+            diasCard.style.top = diasSticky ? headerH + 'px' : '';
+            if (semSticky) {
+                // Si Días también está sticky, Semanas se apila justo debajo (usa su
+                // altura real); si no, Semanas queda sola pegada arriba de todo.
+                var extra = diasSticky ? diasCard.offsetHeight : 0;
+                semCard.style.top = (headerH + extra) + 'px';
+            } else {
+                semCard.style.top = '';
+            }
         }
         window.addEventListener('resize', _pfActualizarStickyDiasOffset);
         // Los tipos de Calentamiento usan otros nombres ('Circuito (Vueltas)',
@@ -22510,10 +22530,8 @@ self.addEventListener('fetch', event => {
                 '</div>'+
                 '<section class="pf-ref-card" id="pf-ref-sec-1"><div class="pf-ref-card-head"><span class="pf-ref-label">Alumno</span><span class="pf-ref-status">● Activo</span></div><div class="pf-ref-card-body"><div class="pf-ref-athlete"><span class="pf-ref-avatar" id="pf-ref-avatar">PF</span><span><strong>Asignar alumno</strong><span>El entrenamiento se guardará en su historial</span></span><input id="pf-reference-alumno" class="pf-ref-input" placeholder="Nombre del alumno" oninput="pfRefSyncName()"><input id="pf-reference-desc" class="pf-ref-input" placeholder="Nombre del entrenamiento" oninput="pfRefSyncDesc()"></div><div id="pf-ref-ficha-slot" style="margin-top:10px;"></div></div></section>'+
                 '<section class="pf-ref-card pf-ref-history"><div class="pf-ref-card-head"><span id="pf-ref-history-title" class="pf-ref-label">Rutinas anteriores</span></div><div id="pf-ref-history-list" class="pf-ref-history-list"><p class="pf-ref-history-empty">Escribí el nombre del alumno para ver sus rutinas anteriores.</p></div><div id="pf-ref-historial-select-slot" style="padding:0 14px 12px;"></div></section>'+
-                '<div class="pf-ref-sticky-dias" id="pf-ref-sticky-dias">'+
-                '<section class="pf-ref-card pf-ref-days-card"><div class="pf-ref-card-head"><span class="pf-ref-label">Días de entrenamiento</span></div><div class="pf-ref-card-body"><div class="pf-ref-weeks" id="pf-ref-days-tabs"></div></div></section>'+
+                '<section class="pf-ref-card pf-ref-days-card" id="pf-ref-days-card"><div class="pf-ref-card-head"><span class="pf-ref-label">Días de entrenamiento</span></div><div class="pf-ref-card-body"><div class="pf-ref-weeks" id="pf-ref-days-tabs"></div></div></section>'+
                 '<section class="pf-ref-card" id="pf-ref-sec-semanas"><div class="pf-ref-card-head"><span class="pf-ref-label">Progresión semanal</span></div><div class="pf-ref-card-body"><div id="pf-ref-semanas-slot"></div></div></section>'+
-                '</div>'+
                 '<section class="pf-ref-card pf-ref-type-panel pf-ref-stage" id="pf-ref-sec-2"><div class="pf-ref-card-head"><div><span class="pf-ref-label">En calentamiento, ¿qué sistema querés elegir?</span><div style="color:#758b97;font-size:12px;margin-top:4px;">Elegí el sistema para armar el calentamiento de <b id="pf-ref-cal-day" style="color:#c9dae1;">Día 1</b></div></div></div><div class="pf-ref-type-grid">'+
                 WARMUP_TYPES.map(function(a){return '<button class="pf-ref-type" onclick="pfRefSetWarmup(\''+a[0]+'\')"><i>'+a[2]+'</i><strong>'+e(a[0])+'</strong><small>'+e(a[1])+'</small></button>';}).join('')+'</div><div class="pf-ref-card-body" style="padding-top:0;"><div id="pf-ref-warmup-status" style="display:grid;gap:7px;"></div></div></section>'+
                 '<section class="pf-ref-card pf-ref-stage main" id="pf-ref-sec-3"><div class="pf-ref-card-head"><div class="pf-ref-stage-title"><b>Bloque principal</b><span id="pf-ref-count">0 ejercicios</span></div></div><div style="color:#758b97;font-size:12px;padding:12px 14px 0;">Elegí un sistema para agregarlo al entrenamiento</div><div class="pf-ref-type-grid">'+
