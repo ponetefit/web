@@ -7225,7 +7225,18 @@
                 (d.warmupEjercicios && d.warmupEjercicios.length > 0) || (d.bloquesRutina && d.bloquesRutina.length > 0)
             );
             if (!alumno.trim() && !hayContenido) return; // nada que guardar todavia
-            const payload = { alumno, desc, diasData, ts: Date.now() };
+            // Si hay progresion semanal (mas de 1 semana), "congelar" primero la
+            // semana activa (con los cambios recien hechos) en semanasBorrador y
+            // guardar TODAS las semanas en el borrador, no solo diasData (que es
+            // unicamente la semana que se esta viendo ahora). Antes, al cerrar la
+            // pestana y volver a abrirla, se perdian todas las semanas menos la activa.
+            let semanasParaGuardar = null, semanaActivaParaGuardar = 0;
+            if (typeof semanasBorrador !== 'undefined' && (semanasBorrador.length > 1 || (typeof semanaActivaIdx !== 'undefined' && semanaActivaIdx > 0))) {
+                if (typeof _pfSincronizarSemanaActivaEnBorrador === 'function') _pfSincronizarSemanaActivaEnBorrador();
+                semanasParaGuardar = JSON.parse(JSON.stringify(semanasBorrador));
+                semanaActivaParaGuardar = semanaActivaIdx;
+            }
+            const payload = { alumno, desc, diasData, semanas: semanasParaGuardar, semanaActivaIdx: semanaActivaParaGuardar, ts: Date.now() };
             const serial = JSON.stringify(payload);
             if (serial === _pfUltimoBorradorGuardado) return; // sin cambios, no reescribir
             localStorage.setItem(PF_BORRADOR_KEY, serial);
@@ -7267,6 +7278,17 @@
             diaActivoIdx = 0;
             warmupEjercicios = diasData[0].warmupEjercicios;
             bloquesRutina = diasData[0].bloquesRutina;
+            // Restaurar tambien la progresion semanal (todas las semanas), no solo
+            // la semana que estaba activa cuando se guardo el borrador.
+            if (borrador.semanas && Array.isArray(borrador.semanas) && borrador.semanas.length > 1) {
+                semanasBorrador = borrador.semanas;
+                semanaActivaIdx = (typeof borrador.semanaActivaIdx === 'number' && borrador.semanaActivaIdx >= 0 && borrador.semanaActivaIdx < semanasBorrador.length)
+                    ? borrador.semanaActivaIdx : semanasBorrador.length - 1;
+            } else {
+                semanasBorrador = [];
+                semanaActivaIdx = 0;
+            }
+            if (typeof _pfActualizarBarraSemanas === 'function') _pfActualizarBarraSemanas();
             renderDias();
             diasData.forEach((_, i) => toggleDia(i, true));
             _pfActualizarVisibilidadVistaCompacta();
@@ -22001,7 +22023,7 @@ self.addEventListener('fetch', event => {
         .pf-ref-resumen-diawrap { margin:18px 0 8px; }
         .pf-ref-resumen-day { width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px; background:none; border:none; padding:0; margin:0; font-size:12px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; text-align:left; }
         .pf-ref-resumen-day-meta { display:flex; align-items:center; gap:8px; color:#6f8a95; font-size:11px; font-weight:700; letter-spacing:.02em; text-transform:none; flex-shrink:0; }
-        .pf-ref-resumen-chevron { display:inline-block; transition:transform .18s ease; }
+        .pf-ref-resumen-chevron { display:inline-block; font-size:18px; line-height:1; font-weight:900; transition:transform .18s ease; }
         .pf-ref-resumen-diabody { margin-top:8px; }
         .pf-ref-resumen-diabody.hidden { display:none; }
         .pf-ref-resumen-alumno { display:flex; flex-direction:column; gap:2px; padding:11px 14px; border:1px solid #223540; border-radius:12px; background:#0d1920; margin-bottom:4px; }
