@@ -295,18 +295,33 @@
             [id^="warmup-grid-"].pf-emom-grid [id^="warmup-paso-2-"] { display: none !important; }
             #emom-minutos-config, [id^="emom-warmup-config-"] {
                 display: grid;
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: repeat(2, minmax(0, 1fr));
                 gap: 10px;
             }
         }
         @media (min-width: 1024px) {
             #emom-minutos-config, [id^="emom-warmup-config-"] {
-                grid-template-columns: repeat(3, 1fr);
+                grid-template-columns: repeat(3, minmax(0, 1fr));
             }
         }
+        /* Los items de grid no se achican por debajo del ancho "natural" de su
+           contenido (min-width:auto por default), y un <input>/<select> con
+           width:100% igual tiene un ancho minimo propio bastante grande: eso
+           empujaba la grilla mas alla del ancho de la pantalla y aparecia un
+           scroll horizontal. min-width:0 deja que cada tarjeta de minuto se
+           achique de verdad al ancho de su columna. */
         #emom-minutos-config > div, [id^="emom-warmup-config-"] > div {
             margin-top: 0 !important;
             margin-bottom: 0 !important;
+            min-width: 0;
+            max-width: 100%;
+            overflow: hidden;
+        }
+        #emom-minutos-config input, #emom-minutos-config select,
+        [id^="emom-warmup-config-"] input, [id^="emom-warmup-config-"] select {
+            min-width: 0;
+            max-width: 100%;
+            box-sizing: border-box;
         }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-4px); }
