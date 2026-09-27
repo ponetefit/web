@@ -22239,20 +22239,53 @@ self.addEventListener('fetch', event => {
             var name=document.getElementById('alumno-nombre'); var refName=document.getElementById('pf-reference-alumno'); if(refName && document.activeElement!==refName) refName.value=name ? name.value : '';
             var desc=document.getElementById('rutina-desc'); var refDesc=document.getElementById('pf-reference-desc'); if(refDesc && document.activeElement!==refDesc) refDesc.value=desc ? desc.value : '';
             updateAvatar(refName ? refName.value : (name ? name.value : ''));
-            // Paso 4: Resumen. Se arma con lo mismo que ya se calculó arriba
-            // (calentamiento + bloques), para no duplicar lógica.
+            // Paso 4: Resumen. Muestra, por cada día, el mismo detalle que ya se ve
+            // en Calentamiento/Bloque principal (sistema, ejercicios con sus reps y
+            // pausas) en vez de solo contar ejercicios: esto es lo que reemplaza a
+            // la vieja "Vista Compacta".
             var resBody=document.getElementById('pf-ref-resumen-body');
             if (resBody) {
                 var alumnoVal=(refName ? refName.value : (name ? name.value : '')).trim();
                 var descVal=(refDesc ? refDesc.value : (desc ? desc.value : '')).trim();
                 var filas='<div class="pf-ref-block-card"><span class="pf-ref-block-color" style="background:#8899a4;"></span><span><b>'+e(alumnoVal||'Sin alumno asignado')+'</b><small>'+e(descVal||'Sin nombre de entrenamiento')+'</small></span></div>';
-                // Un mini-resumen por CADA día (no solo el que se está viendo ahora),
-                // para que el paso "Resumen" sirva de verdad con varios días armados.
                 days.forEach(function(d, di){
                     var dWarm=d.warmupEjercicios||[], dBlocks=d.bloquesRutina||[];
                     var dwTipo=d._wTipo || (d._warmupCfg && d._warmupCfg.tipo) || '';
                     var dCol=dayColor(di);
-                    filas += '<div class="pf-ref-block-card" style="border-left:2px solid '+dCol+';"><span class="pf-ref-block-color" style="background:'+dCol+';"></span><span><b>'+e(d.titulo || ('Día '+(di+1)))+'</b><small>'+(dwTipo||dWarm.length ? e('Calentamiento: '+(dwTipo?typeLabel(dwTipo):'sí')+' · ') : 'Sin calentamiento · ')+e(dBlocks.length+' bloque(s), '+dBlocks.reduce(function(a,b){return a+(b.ejercicios||[]).length;},0)+' ejercicios')+'</small></span></div>';
+                    filas += '<div style="margin:10px 0 2px;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:'+dCol+';">'+e(d.titulo || ('Día '+(di+1)))+'</div>';
+                    // Calentamiento del día, con el mismo detalle (sistema + reps/pausas) que en el paso 2
+                    if (dwTipo || dWarm.length) {
+                        var wDetalle = (typeof _pfDetalleCalentamiento === 'function') ? _pfDetalleCalentamiento(d) : '';
+                        var wc=typeColor(dwTipo);
+                        var wCuerpo = (dwTipo === 'EMOM') ? emomBlockHtml(d.warmupEmomConfig, d.warmupEmomCiclo, (d._warmupCfg && d._warmupCfg.minutos)) : exListHtml(dWarm, dwTipo);
+                        filas += '<div class="pf-ref-block-wrap" style="border-left-color:'+wc+';margin-bottom:6px;">'+
+                            '<div class="pf-ref-block-card pf-ref-block-card-tipo" style="background:'+hexToRgba(wc,.12)+';border-color:'+hexToRgba(wc,.4)+';">'+
+                                '<span class="pf-ref-block-ico" style="background:'+wc+';">'+(dwTipo ? typeIcon(dwTipo) : '🔥')+'</span>'+
+                                '<span><b>'+e(dwTipo ? typeLabel(dwTipo) : 'Calentamiento')+'</b><small>'+e(wDetalle||'')+'</small></span>'+
+                            '</div>'+
+                            wCuerpo+
+                        '</div>';
+                    } else {
+                        filas += '<div class="pf-ref-block-card" style="margin-bottom:6px;"><span class="pf-ref-block-color" style="background:'+hexToRgba(dCol,.35)+';"></span><span><b>Sin calentamiento</b></span></div>';
+                    }
+                    // Cada bloque principal del día, con su sistema, reps y pausas
+                    if (dBlocks.length) {
+                        dBlocks.forEach(function(b){
+                            var xs=b.ejercicios||[];
+                            var bDetalle = (typeof _pfDetalleBloque === 'function') ? _pfDetalleBloque(b) : '';
+                            var tc=typeColor(b.tipo);
+                            var bCuerpo = (b.tipo === 'EMOM') ? emomBlockHtml(b.emom_config_por_minuto, b.emom_ciclo_minutos, b.minutos_totales) : exListHtml(xs, b.tipo);
+                            filas += '<div class="pf-ref-block-wrap" style="border-left-color:'+tc+';margin-bottom:6px;">'+
+                                '<div class="pf-ref-block-card pf-ref-block-card-tipo" style="background:'+hexToRgba(tc,.12)+';border-color:'+hexToRgba(tc,.4)+';">'+
+                                    '<span class="pf-ref-block-ico" style="background:'+tc+';">'+typeIcon(b.tipo)+'</span>'+
+                                    '<span><b>'+e(typeLabel(b.tipo))+'</b><small>'+e(bDetalle||'')+'</small></span>'+
+                                '</div>'+
+                                bCuerpo+
+                            '</div>';
+                        });
+                    } else {
+                        filas += '<div class="pf-ref-block-card" style="margin-bottom:10px;"><span class="pf-ref-block-color" style="background:'+hexToRgba(dCol,.35)+';"></span><span><b>Sin bloques</b></span></div>';
+                    }
                 });
                 resBody.innerHTML=filas;
             }
