@@ -22048,13 +22048,19 @@ self.addEventListener('fetch', event => {
         }
         function emomBlockHtml(configPorMinuto, ciclo, totalMin) {
             var full = configPorMinuto || [];
-            var largoCiclo = ciclo || full.length || 1;
+            // No confiar solo en el "ciclo" guardado (rutinas viejas pueden no tenerlo):
+            // detectar siempre el patrón real que se repite, igual que en el resto de
+            // las vistas de la app (_pfDetectarCicloEMOM), y usar el más chico de los dos.
+            var detectado = full.length ? _pfDetectarCicloEMOM(full) : (ciclo || full.length || 1);
+            var largoCiclo = (ciclo && ciclo > 0) ? Math.min(ciclo, detectado) : detectado;
+            if (!largoCiclo || largoCiclo < 1) largoCiclo = full.length || 1;
             var mins = full.slice(0, largoCiclo);
             if (!mins.length || !mins.some(function(m){ return m && m.ejercicios && m.ejercicios.length; })) {
                 return '<p class="pf-ref-emom-empty">Todavía no cargaste ejercicios en ningún minuto</p>';
             }
-            var nota = (totalMin && largoCiclo < totalMin) ?
-                '<div class="pf-ref-emom-nota">🔁 Este ciclo de ' + largoCiclo + ' min se repite hasta completar los ' + totalMin + ' min totales</div>' : '';
+            var totalReal = totalMin || full.length;
+            var nota = (totalReal && largoCiclo < totalReal) ?
+                '<div class="pf-ref-emom-nota">🔁 Este ciclo de ' + largoCiclo + ' min se repite hasta completar los ' + totalReal + ' min totales</div>' : '';
             return nota + '<div class="pf-ref-emom-grid">' + mins.map(function(m, i) { return emomMinutoHtml(m, i + 1); }).join('') + '</div>';
         }
         function renderExercises(items, emptyLabel) {
