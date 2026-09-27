@@ -21998,7 +21998,12 @@ self.addEventListener('fetch', event => {
         /* ── Vista de Resumen (paso 4): tarjetas compactas con "chips" por
            ejercicio en vez de la grilla con fotos que usan Calentamiento y
            Bloque principal. Pensado para leer de un vistazo toda la rutina. */
-        .pf-ref-resumen-day { margin:18px 0 8px; font-size:12px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
+        .pf-ref-resumen-diawrap { margin:18px 0 8px; }
+        .pf-ref-resumen-day { width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px; background:none; border:none; padding:0; margin:0; font-size:12px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; text-align:left; }
+        .pf-ref-resumen-day-meta { display:flex; align-items:center; gap:8px; color:#6f8a95; font-size:11px; font-weight:700; letter-spacing:.02em; text-transform:none; flex-shrink:0; }
+        .pf-ref-resumen-chevron { display:inline-block; transition:transform .18s ease; }
+        .pf-ref-resumen-diabody { margin-top:8px; }
+        .pf-ref-resumen-diabody.hidden { display:none; }
         .pf-ref-resumen-alumno { display:flex; flex-direction:column; gap:2px; padding:11px 14px; border:1px solid #223540; border-radius:12px; background:#0d1920; margin-bottom:4px; }
         .pf-ref-resumen-alumno b { color:#e2edf1; font-size:14px; }
         .pf-ref-resumen-alumno small { color:#718894; font-size:12px; }
@@ -22325,6 +22330,28 @@ self.addEventListener('fetch', event => {
                         return '<span class="pf-ref-resumen-chip">'+e(n)+(r ? ' <b>· '+e(r)+'</b>' : '')+'</span>';
                     }).join('') + '</div>';
                 }
+                // EMOM en el Resumen: acá el objetivo es leer todo de un vistazo, así que
+                // se arma minuto a minuto pero con chips de texto (como el resto de los
+                // sistemas) en vez de reusar emomBlockHtml, que trae la grilla con
+                // miniatura de video pensada para el editor (Calentamiento/Bloque principal).
+                function resumenChipsEmom(configPorMinuto, ciclo) {
+                    var full = configPorMinuto || [];
+                    var detectado = full.length ? _pfDetectarCicloEMOM(full) : (ciclo || full.length || 1);
+                    var largoCiclo = (ciclo && ciclo > 0) ? Math.min(ciclo, detectado) : detectado;
+                    if (!largoCiclo || largoCiclo < 1) largoCiclo = full.length || 1;
+                    var mins = full.slice(0, largoCiclo);
+                    if (!mins.length || !mins.some(function(m){ return m && m.ejercicios && m.ejercicios.length; })) {
+                        return '<p class="pf-ref-resumen-empty">Sin ejercicios cargados</p>';
+                    }
+                    return '<div class="pf-ref-resumen-chips">' + mins.map(function(m, mi) {
+                        var ejs = (m && m.ejercicios) || [];
+                        var txt = ejs.length ? ejs.map(function(x) {
+                            var n = exName(x), r = exReps(x, 'EMOM');
+                            return n + (r ? ' · '+r : '');
+                        }).join(' + ') : 'Descanso';
+                        return '<span class="pf-ref-resumen-chip"><b>Min '+(mi+1)+':</b> '+e(txt)+'</span>';
+                    }).join('') + '</div>';
+                }
                 function resumenBloque(badgeTxt, color, tipoTxt, detalle, cuerpoHtml) {
                     return '<div class="pf-ref-resumen-block">'+
                         '<div class="pf-ref-resumen-head">'+
@@ -22340,14 +22367,16 @@ self.addEventListener('fetch', event => {
                     var dWarm=d.warmupEjercicios||[], dBlocks=d.bloquesRutina||[];
                     var dwTipo=d._wTipo || (d._warmupCfg && d._warmupCfg.tipo) || '';
                     var dCol=dayColor(di);
-                    filas += '<div class="pf-ref-resumen-day" style="color:'+dCol+';">'+e(d.titulo || ('Día '+(di+1)))+'</div>';
+                    var totalEjs = dWarm.length + dBlocks.reduce(function(a,b){return a+((b.ejercicios||[]).length);},0);
+                    var bodyId = 'pf-ref-resumen-diabody-' + di;
+                    var cuerpoDia = '';
                     // Calentamiento del día, con el mismo detalle (sistema + reps/pausas) que en el paso 2
                     if (dwTipo || dWarm.length) {
                         var wDetalle = (typeof _pfDetalleCalentamiento === 'function') ? _pfDetalleCalentamiento(d) : '';
-                        var wCuerpo = (dwTipo === 'EMOM') ? emomBlockHtml(d.warmupEmomConfig, d.warmupEmomCiclo, (d._warmupCfg && d._warmupCfg.minutos)) : resumenChips(dWarm, dwTipo);
-                        filas += resumenBloque((dwTipo?typeIcon(dwTipo):'🔥')+' CALENTAMIENTO', '#FF6B35', dwTipo ? dwTipo : '', wDetalle, wCuerpo);
+                        var wCuerpo = (dwTipo === 'EMOM') ? resumenChipsEmom(d.warmupEmomConfig, d.warmupEmomCiclo) : resumenChips(dWarm, dwTipo);
+                        cuerpoDia += resumenBloque((dwTipo?typeIcon(dwTipo):'🔥')+' CALENTAMIENTO', '#FF6B35', dwTipo ? dwTipo : '', wDetalle, wCuerpo);
                     } else {
-                        filas += resumenBloque('🔥 CALENTAMIENTO', '#FF6B35', '', '', '<p class="pf-ref-resumen-empty">Sin calentamiento</p>');
+                        cuerpoDia += resumenBloque('🔥 CALENTAMIENTO', '#FF6B35', '', '', '<p class="pf-ref-resumen-empty">Sin calentamiento</p>');
                     }
                     // Cada bloque principal del día, con su sistema, reps y pausas
                     if (dBlocks.length) {
@@ -22355,16 +22384,34 @@ self.addEventListener('fetch', event => {
                             var xs=b.ejercicios||[];
                             var bDetalle = (typeof _pfDetalleBloque === 'function') ? _pfDetalleBloque(b) : '';
                             var tc=typeColor(b.tipo);
-                            var bCuerpo = (b.tipo === 'EMOM') ? emomBlockHtml(b.emom_config_por_minuto, b.emom_ciclo_minutos, b.minutos_totales) : resumenChips(xs, b.tipo);
-                            filas += resumenBloque((bi+1)+'. '+e((b.tipo||'BLOQUE').toUpperCase()), tc, '', bDetalle, bCuerpo);
+                            var bCuerpo = (b.tipo === 'EMOM') ? resumenChipsEmom(b.emom_config_por_minuto, b.emom_ciclo_minutos) : resumenChips(xs, b.tipo);
+                            cuerpoDia += resumenBloque((bi+1)+'. '+e((b.tipo||'BLOQUE').toUpperCase()), tc, '', bDetalle, bCuerpo);
                         });
                     } else {
-                        filas += resumenBloque('BLOQUE', '#8a9aa5', '', '', '<p class="pf-ref-resumen-empty">Todavía no agregaste un bloque de entrenamiento</p>');
+                        cuerpoDia += resumenBloque('BLOQUE', '#8a9aa5', '', '', '<p class="pf-ref-resumen-empty">Todavía no agregaste un bloque de entrenamiento</p>');
                     }
+                    // Cada día arranca oculto (colapsado): con varias días el resumen se
+                    // hacía muy largo para scrollear. Tocando el título del día se
+                    // despliega/pliega su contenido (calentamiento + bloques) sin recargar nada.
+                    filas += '<div class="pf-ref-resumen-diawrap">' +
+                        '<button type="button" class="pf-ref-resumen-day" style="color:'+dCol+';" onclick="pfRefToggleResumenDia(\''+bodyId+'\', this)">' +
+                            '<span>'+e(d.titulo || ('Día '+(di+1)))+'</span>' +
+                            '<span class="pf-ref-resumen-day-meta">'+totalEjs+' ejerc. <span class="pf-ref-resumen-chevron">▾</span></span>' +
+                        '</button>' +
+                        '<div id="'+bodyId+'" class="pf-ref-resumen-diabody hidden">' + cuerpoDia + '</div>' +
+                    '</div>';
                 });
                 resBody.innerHTML=filas;
             }
         }
+        // Pliega/despliega el contenido (calentamiento + bloques) de un día dentro
+        // del paso 4 (Resumen), sin volver a pintar todo el resumen.
+        window.pfRefToggleResumenDia=function(bodyId, btn){
+            var el=document.getElementById(bodyId); if(!el) return;
+            var abierto = el.classList.toggle('hidden') === false;
+            var chevron = btn && btn.querySelector('.pf-ref-resumen-chevron');
+            if (chevron) chevron.textContent = abierto ? '▴' : '▾';
+        };
         // Lleva a la sección del paso tocado (Configuración / Calentamiento / Bloque
         // principal / Resumen) y marca ese paso como activo en la barra de arriba.
         window.pfRefGoStep=function(n){
