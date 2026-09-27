@@ -281,6 +281,33 @@
             min-height: 38px !important;
             padding: 8px 10px !important;
         }
+        /* EMOM en "Configurar Bloque" / "Configurar Calentamiento": antes la lista
+           de minutos quedaba encajonada en la columna angosta de "Parametros" (1
+           de las 3 columnas del modal), dejando vacia toda la mitad derecha de la
+           pantalla en desktop. Con EMOM seleccionado, esa columna pasa a ocupar
+           el ancho completo del modal (se oculta la columna de "Ejercicios", que
+           para EMOM no se usa) y las tarjetas de minuto se acomodan en varias
+           columnas para aprovechar el espacio en vez de una sola lista larga. */
+        @media (min-width: 640px) {
+            #bloque-grid.pf-emom-grid { grid-template-columns: 1fr !important; }
+            #bloque-grid.pf-emom-grid #bloque-paso-2 { display: none !important; }
+            [id^="warmup-grid-"].pf-emom-grid { grid-template-columns: 1fr !important; }
+            [id^="warmup-grid-"].pf-emom-grid [id^="warmup-paso-2-"] { display: none !important; }
+            #emom-minutos-config, [id^="emom-warmup-config-"] {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+        }
+        @media (min-width: 1024px) {
+            #emom-minutos-config, [id^="emom-warmup-config-"] {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        #emom-minutos-config > div, [id^="emom-warmup-config-"] > div {
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+        }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-4px); }
             to { opacity: 1; transform: translateY(0); }
@@ -4193,7 +4220,7 @@
             <span id="bp-duracion-viva" class="text-xs font-bold bg-purpura/15 text-purpura px-3 py-1.5 rounded-full flex items-center gap-1.5" title="Duración estimada del bloque">⏱ ~0 min</span>
         </div>
         <div class="pf-modal-full-body">
-            <div class="space-y-4 sm:space-y-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:items-start">
+            <div id="bloque-grid" class="space-y-4 sm:space-y-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:items-start">
                 <div id="bloque-paso-1">
                     <!-- Fase "Tipo" (mobile): solo las tarjetas de los 7 modos. Al tocar una,
                          se pasa directo a la fase de Parametros (sin boton "Siguiente" aparte). -->
@@ -7025,7 +7052,7 @@
                             <button onclick="cerrarModalCalentamientoDia(${idx})" class="text-textoSuave hover:text-texto text-2xl leading-none px-2">&times;</button>
                         </div>
                         <div class="pf-modal-full-body">
-                            <div class="space-y-4 sm:space-y-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:items-start">
+                            <div id="warmup-grid-${idx}" class="space-y-4 sm:space-y-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:items-start">
                                 <div id="warmup-paso-1-${idx}">
                                     <div class="grid grid-cols-1 md:grid-cols-1 gap-4 mb-3">
                                         <!-- Fase "Tipo" (mobile): solo las tarjetas de los 7 modos. Al tocar una,
@@ -7398,6 +7425,10 @@
         const emomMinRow = document.getElementById('warmup-emom-min-row-' + idx);
         if (ejPanel) ejPanel.style.display = (tipo === 'EMOM') ? 'none' : '';
         if (emomMinRow) emomMinRow.style.display = 'none'; // siempre oculto (ya no se usa)
+        // EMOM: igual que en "Configurar Bloque", la columna de parametros pasa a
+        // ocupar el ancho completo (la de ejercicios no se usa para EMOM).
+        const warmupGrid = document.getElementById('warmup-grid-' + idx);
+        if (warmupGrid) warmupGrid.classList.toggle('pf-emom-grid', tipo === 'EMOM');
         // Tabata: no tiene reps por ejercicio (es por tiempo, configurado en el
         // bloque) → ocultar los inputs de Reps/unidad al buscar ejercicios.
         const repsInputBuscador = document.getElementById('warmup-ej-reps-' + idx);
@@ -8250,6 +8281,11 @@
         // Ocultar el panel generico de ejercicios cuando el tipo es EMOM
         // (el EMOM tiene su propia UI de ejercicios por minuto dentro de bloque-params-container)
         if (ejPanel) ejPanel.style.display = (tipo === 'EMOM') ? 'none' : '';
+        // EMOM: la columna de "Ejercicios" no se usa (ver arriba), asi que en vez de
+        // dejarla vacia ocupando 2/3 de la pantalla, la columna de "Parametros" pasa
+        // a usar el ancho completo del modal (ver CSS #bloque-grid.pf-emom-grid).
+        const bloqueGrid = document.getElementById('bloque-grid');
+        if (bloqueGrid) bloqueGrid.classList.toggle('pf-emom-grid', tipo === 'EMOM');
         _pfActualizarDuracionViva();
     }
 
