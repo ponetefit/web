@@ -1011,11 +1011,14 @@
             #repo-lista .pf-repo-full-badges span { font-size: 0.8rem !important; }
             #repo-lista .pf-repo-full-desc { text-align: center; white-space: normal !important; }
             #repo-lista .pf-repo-full-info p[style*="69F0AE"] { text-align: center; }
-            #repo-lista .pf-repo-full-actions {
+            #repo-lista .pf-repo-actions-main,
+            #repo-lista .pf-repo-actions-sec {
                 flex-direction: column !important;
                 gap: 10px !important;
+                width: 100%;
             }
-            #repo-lista .pf-repo-full-actions button {
+            #repo-lista .pf-repo-actions-main button,
+            #repo-lista .pf-repo-actions-sec button {
                 width: 100% !important;
                 font-family: 'Inter', sans-serif !important;
                 font-size: 0.95rem !important;
@@ -1413,6 +1416,120 @@
             /* Selector de día destino (modal que aparece al copiar un bloque/calentamiento
                puntual): un botón por fila, ya son full-width, solo se agranda el toque */
             #modal-copiar-destino button { padding: 12px 14px !important; font-size: 0.9rem !important; }
+        }
+
+        /* ── Repositorio de Rutinas: layout con sidebar de filtros (Sistema / Duración) ── */
+        .pf-repo-layout {
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+        @media (max-width: 900px) {
+            .pf-repo-layout { grid-template-columns: 1fr; }
+        }
+        .pf-repo-sidebar {
+            background: #0f0f13;
+            border: 1px solid #2a2a35;
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        @media (min-width: 901px) {
+            .pf-repo-sidebar { position: sticky; top: 12px; }
+        }
+        .pf-repo-filter-title {
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: #8a8a9a;
+            margin-bottom: 8px;
+        }
+        .pf-repo-filter-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .pf-repo-check {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: #f0f0f5;
+            cursor: pointer;
+        }
+        .pf-repo-check input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: #FF6B35;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .pf-repo-check .pf-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: inline-block;
+        }
+        .pf-repo-main { min-width: 0; }
+        .pf-repo-actions-main {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .pf-repo-actions-main button { flex: 1 1 auto; white-space: nowrap; }
+        .pf-repo-actions-sec {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            padding-top: 6px;
+            border-top: 1px dashed rgba(255,255,255,.08);
+        }
+        .pf-repo-actions-sec button { font-size: 0.7rem !important; padding: 4px 8px !important; opacity: .85; }
+
+        /* ── Historial de Entrenamientos (debajo del repositorio) ── */
+        .pf-hist-tab {
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            background: #1a1a20;
+            color: #8a8a9a;
+            border: 1px solid #2a2a35;
+            transition: all .15s;
+            cursor: pointer;
+        }
+        .pf-hist-tab.activo {
+            background: #4FC3F7;
+            color: #0a0a0c;
+            border-color: #4FC3F7;
+        }
+        .pf-hist-day-title {
+            font-size: 0.72rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #FFD54F;
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #2a2a35;
+        }
+        .pf-hist-card {
+            background: #141418;
+            border: 1px solid #2a2a35;
+            border-radius: 14px;
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        @media (max-width: 640px) {
             /* Buscador y filtros del panel, mas grandes y apilados para tocar facil */
             #rc-content .flex.flex-col.sm\\:flex-row.gap-2.mb-3 { gap: 10px !important; }
             #rc-content #rc-buscador,
@@ -3293,12 +3410,48 @@
                     </div>
                 </div>
                 <!-- ── FIN PANEL PIZARRA ── -->
-                <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
-                    <input id="repo-buscador" type="text" placeholder="🔍 Buscar por nombre, alumno o descripción..." class="rounded-lg px-3 py-2 text-sm flex-1" oninput="renderizarRepositorio()">
+
+                <div class="pf-repo-layout">
+                    <!-- Sidebar de filtros -->
+                    <aside class="pf-repo-sidebar">
+                        <div>
+                            <p class="pf-repo-filter-title">Sistema</p>
+                            <div id="repo-filtro-sistema-list" class="pf-repo-filter-list"></div>
+                        </div>
+                        <div>
+                            <p class="pf-repo-filter-title">Duración</p>
+                            <div id="repo-filtro-duracion-list" class="pf-repo-filter-list"></div>
+                        </div>
+                    </aside>
+
+                    <!-- Buscador + lista de rutinas -->
+                    <div class="pf-repo-main">
+                        <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+                            <input id="repo-buscador" type="text" placeholder="🔍 Buscar por nombre, alumno o descripción..." class="rounded-lg px-3 py-2 text-sm flex-1" oninput="renderizarRepositorio()">
+                        </div>
+                        <div id="repo-lista" class="space-y-3">
+                            <p class="text-textoSuave text-sm text-center py-12">No hay rutinas guardadas en el repositorio aún.<br><span class="text-xs">Andá a "Crear Rutina", armá tu rutina y guardala aquí.</span></p>
+                        </div>
+                    </div>
                 </div>
-                <div id="repo-filtro-tipos" class="flex flex-wrap gap-2 mb-4 hidden"></div>
-                <div id="repo-lista" class="space-y-3">
-                    <p class="text-textoSuave text-sm text-center py-12">No hay rutinas guardadas en el repositorio aún.<br><span class="text-xs">Andá a "Crear Rutina", armá tu rutina y guardala aquí.</span></p>
+
+                <!-- ── HISTORIAL DE ENTRENAMIENTOS ── -->
+                <div class="mt-8 pt-6" style="border-top:1px solid #2a2a35;">
+                    <h3 class="text-sm font-bold text-azul uppercase tracking-wider mb-3">📋 Historial de Entrenamientos</h3>
+                    <div class="flex items-center gap-2 mb-3 flex-wrap">
+                        <button type="button" id="rh-tab-semana" onclick="_pfRepoHistSetModo('semana')" class="pf-hist-tab activo">Esta semana</button>
+                        <button type="button" id="rh-tab-otro" onclick="_pfRepoHistSetModo('otro')" class="pf-hist-tab">Otro alumno</button>
+                        <select id="rh-filtro-tipo" class="rounded-lg px-3 py-2 text-sm bg-fondoAlt border border-borde text-texto sm:ml-auto" onchange="_pfRepoHistRender()">
+                            <option value="TODOS">Todos los bloques</option>
+                        </select>
+                    </div>
+                    <div id="rh-buscador-wrap" class="hidden flex flex-col sm:flex-row gap-2 mb-3">
+                        <input id="rh-buscador-alumno" type="text" placeholder="🔍 Buscar alumno..." class="rounded-lg px-3 py-2 text-sm flex-1" onkeydown="if(event.key==='Enter'){event.preventDefault();_pfRepoHistBuscarOtro();}">
+                        <button onclick="_pfRepoHistBuscarOtro()" class="bg-azul/20 text-azul px-4 py-2 rounded-lg text-sm font-bold hover:bg-azul/30 transition whitespace-nowrap">Buscar</button>
+                    </div>
+                    <div id="rh-lista" class="space-y-5">
+                        <p class="text-textoSuave text-xs text-center py-6">Elegí "Esta semana" o buscá un alumno para ver su historial.</p>
+                    </div>
                 </div>
             </div>
         </section>
@@ -16570,34 +16723,66 @@
         return Array.from(set);
     }
 
-    let repoFiltroTipoActivo = 'TODOS';
+    // Filtros de la sidebar del Repositorio: Sistema (multi-select, vacío = todos)
+    // y Duración en semanas (multi-select, vacío = todas).
+    let repoFiltroSistemas = new Set();   // ej: {'Tabata','EMOM'} — vacío = TODOS
+    let repoFiltroDuraciones = new Set(); // ej: {'1-2','3-4'} — vacío = TODAS
 
-    function _repoFiltrarPorTipo(tipo) {
-        repoFiltroTipoActivo = tipo;
+    // Cuántas semanas de progresión tiene guardada una rutina del repo (mínimo 1)
+    function pfDuracionSemanasRepo(r) {
+        return Array.isArray(r.semanas) && r.semanas.length > 0 ? r.semanas.length : 1;
+    }
+    function pfBucketDuracion(n) {
+        if (n <= 2) return '1-2';
+        if (n <= 4) return '3-4';
+        return '5+';
+    }
+
+    function _repoToggleSistema(valor, checked) {
+        if (checked) repoFiltroSistemas.add(valor); else repoFiltroSistemas.delete(valor);
+        renderizarRepositorio();
+    }
+    function _repoToggleDuracion(valor, checked) {
+        if (checked) repoFiltroDuraciones.add(valor); else repoFiltroDuraciones.delete(valor);
         renderizarRepositorio();
     }
 
-    function renderizarFiltroTiposRepositorio(repo) {
-        const cont = document.getElementById('repo-filtro-tipos');
-        if (!cont) return;
-        if (!repo.length) { cont.classList.add('hidden'); cont.innerHTML = ''; return; }
-        const tiposSet = new Set();
-        repo.forEach(r => pfSistemasDeRutinaRepo(r).forEach(t => tiposSet.add(t)));
-        const tipos = Array.from(tiposSet).sort();
-        if (tipos.length <= 1) { cont.classList.add('hidden'); cont.innerHTML = ''; return; }
-        const chip = (valor, label, colores) => {
-            const activo = repoFiltroTipoActivo === valor;
-            const style = activo && colores ? `background:${colores[0]};color:#fff;` : '';
-            return `<button onclick="_repoFiltrarPorTipo('${valor}')" class="px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition ${activo ? '' : 'bg-fondoAlt text-textoSuave border border-borde hover:text-texto'}" style="${style}">${label}</button>`;
-        };
-        cont.innerHTML = chip('TODOS', 'Todos', ['#7C3AED']) + tipos.map(t => chip(t, pfNombreSistema(t), pfColorSistema(t))).join('');
-        cont.classList.remove('hidden');
+    function renderizarSidebarFiltrosRepo(repo) {
+        // ── Sistema ──
+        const contSis = document.getElementById('repo-filtro-sistema-list');
+        if (contSis) {
+            const tiposSet = new Set();
+            repo.forEach(r => pfSistemasDeRutinaRepo(r).forEach(t => tiposSet.add(t)));
+            const tipos = Array.from(tiposSet).sort();
+            if (!tipos.length) {
+                contSis.innerHTML = '<p class="text-xs text-textoSuave">Todavía no hay rutinas.</p>';
+            } else {
+                contSis.innerHTML = tipos.map(t => {
+                    const [color] = pfColorSistema(t);
+                    const checked = repoFiltroSistemas.has(t) ? 'checked' : '';
+                    return `<label class="pf-repo-check"><input type="checkbox" ${checked} onchange="_repoToggleSistema('${t}', this.checked)"><span class="pf-dot" style="background:${color}"></span>${escapeHtml(pfNombreSistema(t))}</label>`;
+                }).join('');
+            }
+        }
+        // ── Duración ──
+        const contDur = document.getElementById('repo-filtro-duracion-list');
+        if (contDur) {
+            const opciones = [['1-2','1 - 2 semanas'], ['3-4','3 - 4 semanas'], ['5+','5+ semanas']];
+            contDur.innerHTML = opciones.map(([valor, label]) => {
+                const checked = repoFiltroDuraciones.has(valor) ? 'checked' : '';
+                return `<label class="pf-repo-check"><input type="checkbox" ${checked} onchange="_repoToggleDuracion('${valor}', this.checked)">${label}</label>`;
+            }).join('');
+        }
     }
 
     function renderizarRepositorio() {
         const repoCompleto = getRepositorio();
         const lista = document.getElementById('repo-lista');
-        renderizarFiltroTiposRepositorio(repoCompleto);
+        renderizarSidebarFiltrosRepo(repoCompleto);
+        if (document.getElementById('rh-lista')) {
+            if (_rhModo === 'semana' && _rhSemanaCache === null) _pfRepoHistCargarSemana();
+            else _pfRepoHistRender();
+        }
 
         if (!repoCompleto.length) {
             lista.innerHTML = '<p class="text-textoSuave text-sm text-center py-12">No hay rutinas guardadas en el repositorio aún.<br><span class="text-xs">Andá a "Crear Rutina", armá tu rutina y guardala desde el repositorio.</span></p>';
@@ -16612,8 +16797,11 @@
         // rutina correcta aunque la lista visible esté filtrada.
         repo = repo.map((r, idxOriginal) => ({ r, idxOriginal }));
 
-        if (repoFiltroTipoActivo !== 'TODOS') {
-            repo = repo.filter(({r}) => pfSistemasDeRutinaRepo(r).includes(repoFiltroTipoActivo));
+        if (repoFiltroSistemas.size > 0) {
+            repo = repo.filter(({r}) => pfSistemasDeRutinaRepo(r).some(t => repoFiltroSistemas.has(t)));
+        }
+        if (repoFiltroDuraciones.size > 0) {
+            repo = repo.filter(({r}) => repoFiltroDuraciones.has(pfBucketDuracion(pfDuracionSemanasRepo(r))));
         }
         if (q) {
             repo = repo.filter(({r}) => {
@@ -16682,13 +16870,17 @@
                         ${r.rutinaDesc ? `<p class="pf-repo-full-desc text-xs text-textoSuave mt-1 truncate">${escapeHtml(r.rutinaDesc)}</p>` : ''}
                         ${usoInfo}
                     </div>
-                    <div class="pf-repo-full-actions flex gap-2 flex-shrink-0 flex-wrap">
-                        <button onclick="_pfRepoVerInline(${idx}, 'repo-ver-inline-${idx}')" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition whitespace-nowrap">👁 Ver</button>
-                        <button onclick="cargarPlantillaEnCrear(${idx})" class="bg-verde/20 text-verde px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-verde/30 transition whitespace-nowrap">📋 Copiar toda la rutina</button>
-                        <button onclick="_pfDesglosarRepoInline(${idx}, 'repo-dias-${idx}')" class="bg-purpura/20 text-purpura px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition whitespace-nowrap">Ver días y copiar por partes</button>
-                        <button onclick="copiarAAlumnoDesdeRepo(${idx})" class="bg-naranja/20 text-naranja px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition whitespace-nowrap">Copiar a Alumno</button>
-                        <button onclick="editarPlantilla(${idx})" class="bg-fondoAlt border border-borde text-texto px-3 py-1.5 rounded-lg text-xs font-bold hover:border-azul transition whitespace-nowrap">Editar</button>
-                        <button onclick="eliminarDelRepositorio(${idx})" class="bg-rojo/20 text-rojo px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition whitespace-nowrap">Eliminar</button>
+                    <div class="flex-shrink-0" style="min-width:0;">
+                        <div class="pf-repo-actions-main">
+                            <button onclick="_pfRepoVerInline(${idx}, 'repo-ver-inline-${idx}')" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition whitespace-nowrap">👁 Ver</button>
+                            <button onclick="cargarPlantillaEnCrear(${idx})" class="bg-verde/20 text-verde px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-verde/30 transition whitespace-nowrap">📋 Copiar en mi rutina</button>
+                            <button onclick="_pfDesglosarRepoInline(${idx}, 'repo-dias-${idx}')" class="bg-purpura/20 text-purpura px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-purpura/30 transition whitespace-nowrap">📐 Ver en armado</button>
+                        </div>
+                        <div class="pf-repo-actions-sec">
+                            <button onclick="copiarAAlumnoDesdeRepo(${idx})" class="bg-naranja/20 text-naranja px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition whitespace-nowrap">Copiar a Alumno</button>
+                            <button onclick="editarPlantilla(${idx})" class="bg-fondoAlt border border-borde text-texto px-3 py-1.5 rounded-lg text-xs font-bold hover:border-azul transition whitespace-nowrap">Editar</button>
+                            <button onclick="eliminarDelRepositorio(${idx})" class="bg-rojo/20 text-rojo px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rojo/30 transition whitespace-nowrap">Eliminar</button>
+                        </div>
                     </div>
                 </div>
                 <div id="repo-ver-inline-${idx}" class="hidden mt-3 space-y-2"></div>
@@ -16700,6 +16892,207 @@
     function escapeHtml(str) {
         if (!str) return '';
         return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // HISTORIAL DE ENTRENAMIENTOS (debajo del Repositorio de Rutinas):
+    // "Esta semana" junta las rutinas de TODOS los alumnos creadas esta
+    // semana (lunes a domingo) agrupadas por día. "Otro alumno" busca
+    // el historial de un alumno puntual, igual que el panel de
+    // "Crear Entrenamiento" pero con su propia lista independiente.
+    // ══════════════════════════════════════════════════════════
+    let _rhModo = 'semana';
+    let _rhSemanaCache = null;   // null = todavía no se cargó
+    let _rhOtroCache = [];
+    let _rhOtroNombreActual = '';
+    let _rhVerInlineCache = {};
+
+    function _pfRepoHistSetModo(modo) {
+        _rhModo = modo;
+        const tabSemana = document.getElementById('rh-tab-semana');
+        const tabOtro = document.getElementById('rh-tab-otro');
+        const buscadorWrap = document.getElementById('rh-buscador-wrap');
+        if (tabSemana) tabSemana.classList.toggle('activo', modo === 'semana');
+        if (tabOtro) tabOtro.classList.toggle('activo', modo === 'otro');
+        if (buscadorWrap) buscadorWrap.classList.toggle('hidden', modo !== 'otro');
+        if (modo === 'semana') {
+            if (_rhSemanaCache === null) _pfRepoHistCargarSemana();
+            else _pfRepoHistRender();
+        } else {
+            _pfRepoHistRender();
+        }
+    }
+
+    // Lunes 00:00 y domingo 23:59:59 de la semana actual (hora local)
+    function _pfRangoSemanaActual() {
+        const hoy = new Date();
+        const diaSemana = hoy.getDay(); // 0=domingo .. 6=sabado
+        const offsetLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
+        const lunes = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + offsetLunes, 0, 0, 0);
+        const domingo = new Date(lunes.getFullYear(), lunes.getMonth(), lunes.getDate() + 6, 23, 59, 59);
+        return { desde: lunes.getTime() / 1000, hasta: domingo.getTime() / 1000 };
+    }
+
+    // Junta, para todos los alumnos, las rutinas cuyo timestamp cae en esta semana
+    async function _pfRepoHistCargarSemana() {
+        const lista = document.getElementById('rh-lista');
+        if (lista) lista.innerHTML = '<p class="text-textoSuave text-xs text-center py-6">Cargando historial de esta semana...</p>';
+        try {
+            const alumnos = await _obtenerAlumnosCache();
+            const { desde, hasta } = _pfRangoSemanaActual();
+            const resultados = await Promise.all(alumnos.map(async (nombre) => {
+                try {
+                    const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre));
+                    const data = await res.json();
+                    if (!data.ok || !data.rutinas) return [];
+                    return Object.keys(data.rutinas)
+                        .map(k => Object.assign({ codigo: k, alumno: nombre }, data.rutinas[k]))
+                        .filter(r => r.timestamp && r.timestamp >= desde && r.timestamp <= hasta);
+                } catch (e) {
+                    return [];
+                }
+            }));
+            _rhSemanaCache = resultados.flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        } catch (e) {
+            _rhSemanaCache = [];
+        }
+        _pfRepoHistRender();
+    }
+
+    // Busca el historial de un alumno puntual (independiente del panel de Crear Entrenamiento)
+    async function _pfRepoHistBuscarOtro() {
+        const input = document.getElementById('rh-buscador-alumno');
+        const nombre = (input?.value || '').trim();
+        const lista = document.getElementById('rh-lista');
+        if (!nombre) { if (lista) lista.innerHTML = '<p class="text-textoSuave text-xs text-center py-6">Escribí el nombre de un alumno para buscar.</p>'; return; }
+        _rhOtroNombreActual = nombre;
+        if (lista) lista.innerHTML = '<p class="text-textoSuave text-xs text-center py-6">Buscando...</p>';
+        try {
+            const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre));
+            const data = await res.json();
+            if (data.ok && data.rutinas && Object.keys(data.rutinas).length > 0) {
+                const keys = Object.keys(data.rutinas).sort().reverse().slice(0, 30);
+                _rhOtroCache = keys.map(k => Object.assign({ codigo: k, alumno: nombre }, data.rutinas[k]));
+            } else {
+                _rhOtroCache = [];
+            }
+        } catch (e) {
+            _rhOtroCache = [];
+            if (lista) lista.innerHTML = '<p class="text-xs text-rojo text-center py-6">Error de conexión al buscar.</p>';
+            return;
+        }
+        _pfRepoHistRender();
+    }
+
+    const _RH_DIAS_NOMBRES = ['DOMINGO','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SÁBADO'];
+
+    function _pfRepoHistRender() {
+        const lista = document.getElementById('rh-lista');
+        const selTipo = document.getElementById('rh-filtro-tipo');
+        if (!lista) return;
+
+        if (_rhModo === 'semana' && _rhSemanaCache === null) return; // todavía cargando
+
+        const itemsBase = _rhModo === 'semana' ? (_rhSemanaCache || []) : _rhOtroCache;
+
+        // Poblar el filtro "Todos los bloques" con los sistemas realmente presentes
+        const tiposSet = new Set();
+        itemsBase.forEach(r => tiposSet.add((r.tipo || 'ENTRENAMIENTO').toUpperCase()));
+        if (selTipo) {
+            const valActual = selTipo.value || 'TODOS';
+            selTipo.innerHTML = '<option value="TODOS">Todos los bloques</option>' +
+                Array.from(tiposSet).sort().map(t => '<option value="' + t + '">' + escapeHtml(pfNombreSistema(t)) + '</option>').join('');
+            selTipo.value = tiposSet.has(valActual) ? valActual : 'TODOS';
+        }
+        const filtroTipo = selTipo ? selTipo.value : 'TODOS';
+        const items = filtroTipo === 'TODOS' ? itemsBase : itemsBase.filter(r => (r.tipo || 'ENTRENAMIENTO').toUpperCase() === filtroTipo);
+
+        if (_rhModo === 'otro' && !_rhOtroNombreActual) {
+            lista.innerHTML = '<p class="text-textoSuave text-xs text-center py-6">Escribí el nombre de un alumno arriba para ver su historial.</p>';
+            return;
+        }
+        if (!items.length) {
+            lista.innerHTML = _rhModo === 'semana'
+                ? '<p class="text-textoSuave text-xs text-center py-6">Todavía no se creó ninguna rutina esta semana.</p>'
+                : '<p class="text-textoSuave text-xs text-center py-6">' + escapeHtml(_rhOtroNombreActual.toUpperCase()) + ' no tiene rutinas guardadas.</p>';
+            return;
+        }
+
+        if (_rhModo === 'semana') {
+            // Agrupar por día de la semana (lunes primero)
+            const grupos = {};
+            items.forEach(r => {
+                const d = new Date(r.timestamp * 1000);
+                const nombreDia = _RH_DIAS_NOMBRES[d.getDay()];
+                (grupos[nombreDia] = grupos[nombreDia] || []).push(r);
+            });
+            const ordenDias = ['LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SÁBADO','DOMINGO'];
+            lista.innerHTML = ordenDias.filter(d => grupos[d]).map(d =>
+                '<div><p class="pf-hist-day-title">' + d + '</p><div class="space-y-2">' +
+                grupos[d].map((r, i) => _pfRepoHistCardHTML(r, d + '-' + i)).join('') +
+                '</div></div>'
+            ).join('');
+        } else {
+            lista.innerHTML = '<p class="text-[11px] text-textoSuave uppercase tracking-wider mb-1">' + escapeHtml(_rhOtroNombreActual.toUpperCase()) + ' — ' + items.length + ' rutina(s)</p>' +
+                '<div class="space-y-2">' + items.map((r, i) => _pfRepoHistCardHTML(r, 'otro-' + i)).join('') + '</div>';
+        }
+    }
+
+    function _pfRepoHistCardHTML(r, idKey) {
+        const fecha = r.timestamp ? new Date(r.timestamp * 1000).toLocaleDateString('es-AR') : '';
+        const [color, bg] = pfColorSistema(r.tipo);
+        return '<div class="pf-hist-card">' +
+            '<div class="flex items-center justify-between gap-2 flex-wrap">' +
+                '<div>' +
+                    '<span class="font-mono font-bold text-amarillo text-sm">' + escapeHtml((r.codigo || '').toUpperCase()) + '</span>' +
+                    (fecha ? '<span class="text-xs text-textoSuave"> · ' + fecha + '</span>' : '') +
+                    (r.alumno ? '<span class="text-xs text-textoSuave"> · ' + escapeHtml(r.alumno) + '</span>' : '') +
+                '</div>' +
+                '<span class="text-xs font-bold px-2 py-0.5 rounded-full" style="color:' + color + ';background:' + bg + '">' + escapeHtml(pfNombreSistema(r.tipo)) + '</span>' +
+            '</div>' +
+            '<div class="flex flex-wrap gap-2">' +
+                '<button onclick="_pfRepoHistVerInline(\'' + r.codigo + '\', \'' + idKey + '\')" class="bg-azul/20 text-azul px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-azul/30 transition whitespace-nowrap">📄 Ver lista completa</button>' +
+                '<button onclick="_pfCopiarRutinaCompletaDesdeOtroAlumno(\'' + r.codigo + '\')" class="bg-verde/20 text-verde px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-verde/30 transition whitespace-nowrap">📋 Copiar rutina</button>' +
+            '</div>' +
+            '<div id="rh-ver-' + idKey + '" class="hidden space-y-2"></div>' +
+        '</div>';
+    }
+
+    async function _pfRepoHistVerInline(codigo, idKey) {
+        const cont = document.getElementById('rh-ver-' + idKey);
+        if (!cont) return;
+        if (!cont.classList.contains('hidden')) { cont.classList.add('hidden'); return; }
+        cont.innerHTML = '<p class="text-xs text-textoSuave">Cargando...</p>';
+        cont.classList.remove('hidden');
+        try {
+            const res = await fetch(API_BASE + '/api/rutina/' + encodeURIComponent(codigo));
+            const data = await res.json();
+            if (!data.ok) { cont.innerHTML = '<p class="text-xs text-rojo">Error al cargar</p>'; return; }
+            const r = data.rutina;
+            historialRutinasCache[codigo] = r;
+            const semanas = _pfObtenerSemanasParaDesglose(r);
+            _rhVerInlineCache[idKey] = { semanas, activa: semanas[semanas.length - 1].numero };
+            _pfRepoHistRenderVerInline(idKey);
+        } catch (e) {
+            cont.innerHTML = '<p class="text-xs text-rojo">Error de conexión</p>';
+        }
+    }
+
+    function _pfRepoHistRenderVerInline(idKey) {
+        const cont = document.getElementById('rh-ver-' + idKey);
+        const cache = _rhVerInlineCache[idKey];
+        if (!cont || !cache) return;
+        const semanaObj = cache.semanas.find(s => s.numero === cache.activa) || cache.semanas[0];
+        const dias = _pfParsearDiasHistorial(semanaObj.shape);
+        const tabs = _pfRenderTabsSemanas(cache.semanas, cache.activa, '_pfRepoHistCambiarSemana(\'' + idKey + '\',__N__)');
+        cont.innerHTML = tabs + _pfGenerarHTMLCompacto(dias, false);
+    }
+
+    function _pfRepoHistCambiarSemana(idKey, numero) {
+        const cache = _rhVerInlineCache[idKey];
+        if (!cache) return;
+        cache.activa = numero;
+        _pfRepoHistRenderVerInline(idKey);
     }
 
     // Convierte los datos del repositorio (diasData format) al formato que entiende generarHTMLRutina
