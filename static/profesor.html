@@ -13613,7 +13613,9 @@
                                     // series: cantidad total de series del bloque, si
                                     // se pudo identificar. Ambos opcionales.
                                     reps: (r.reps !== undefined && r.reps !== null) ? r.reps : null,
-                                    series: (r.series !== undefined && r.series !== null) ? r.series : null
+                                    series: (r.series !== undefined && r.series !== null) ? r.series : null,
+                                    // tiempo en segundos (sistemas por tiempo: Por Tiempo, Sumando, Tabata...)
+                                    tiempo: (r.tiempo !== undefined && r.tiempo !== null) ? r.tiempo : null
                                 });
                             });
                         });
@@ -13908,7 +13910,9 @@
             // registro ese día, se muestra igual como "S1" para consistencia.
             const chipsSeries = registrosDia.map((r, i) => {
                 const repsNum = _pfRepsNumero(r.reps);
-                return 'S' + (i + 1) + ' <b>' + r.v + 'kg</b>' + (repsNum !== null ? ' × ' + repsNum : '');
+                const tSeg = _pfTiempoRegistro(r);
+                const letra = tSeg !== null ? _pfEtiquetaUnidad(r.metodo).charAt(0).toUpperCase() : 'S';
+                return letra + (i + 1) + ' <b>' + r.v + 'kg</b>' + (repsNum !== null ? ' × ' + repsNum : '') + (tSeg !== null ? ' · ⏱ ' + _pfFmtTiempo(tSeg) : '');
             }).join(' &nbsp;·&nbsp; ');
 
             const pesos = registrosDia.map(r => r.v);
@@ -13917,7 +13921,11 @@
             const rangoTxt = registrosDia.length > 1
                 ? (pesoMin === pesoMax ? (pesoMax + ' kg') : (pesoMin + '–' + pesoMax + ' kg'))
                 : (pesoMax + ' kg');
-            const resumenTxt = registrosDia.length + ' serie' + (registrosDia.length === 1 ? '' : 's') + ' · ' + rangoTxt;
+            const _tiemposDia = registrosDia.map(r => _pfTiempoRegistro(r)).filter(t => t !== null);
+            const _tiempoRes = _tiemposDia.length
+                ? (' · ⏱ ' + (Math.min(..._tiemposDia) === Math.max(..._tiemposDia) ? _pfFmtTiempo(_tiemposDia[0]) : _pfFmtTiempo(Math.min(..._tiemposDia)) + '–' + _pfFmtTiempo(Math.max(..._tiemposDia))))
+                : '';
+            const resumenTxt = registrosDia.length + ' serie' + (registrosDia.length === 1 ? '' : 's') + ' · ' + rangoTxt + _tiempoRes;
 
             let volLinea = (actual && actual.volumen !== null) ? ('Volumen total: ' + actual.volumen + ' kg') : '';
 
@@ -15950,8 +15958,28 @@
     // sin desglose por serie, guardado con la meta de la tarjeta). Esta
     // funcion intenta sacar un numero de reps utilizable de cualquiera de
     // los dos formatos. Devuelve null si no se puede interpretar.
+    // Tiempo (en segundos) de un registro de carga. Usa el campo nuevo `tiempo`
+    // y, para registros viejos, lo deduce de textos tipo "30 SEGS c/vuelta".
+    function _pfTiempoRegistro(r) {
+        if (!r) return null;
+        if (typeof r.tiempo === 'number' && r.tiempo > 0) return r.tiempo;
+        if (typeof r.reps === 'string') {
+            const m = r.reps.match(/(\d+(?:[.,]\d+)?)\s*(seg|segs|segundos?|min|mins|minutos?)\b/i);
+            if (m) {
+                const n = parseFloat(m[1].replace(',', '.'));
+                return Math.round(/^min/i.test(m[2]) ? n * 60 : n);
+            }
+        }
+        return null;
+    }
+    function _pfFmtTiempo(seg) {
+        if (seg === null || seg === undefined) return '';
+        if (seg >= 60) { const m = Math.floor(seg / 60), s = seg % 60; return s ? (m + 'min ' + s + 's') : (m + 'min'); }
+        return seg + 's';
+    }
     function _pfRepsNumero(reps) {
         if (reps === null || reps === undefined || reps === '') return null;
+        if (typeof reps === 'string' && /\d\s*(seg|segs|segundos?|min|mins|minutos?)\b/i.test(reps)) return null; // es tiempo, no reps
         if (typeof reps === 'number' && !isNaN(reps)) return reps;
         const m = String(reps).match(/(\d+(?:[.,]\d+)?)/);
         if (!m) return null;
@@ -15994,9 +16022,9 @@
             if (r.t > porFecha[f].t) porFecha[f].t = r.t;
         });
         return Object.values(porFecha).sort((a, b) => a.t - b.t).map((dia) => {
-            let pesoDia = -Infinity, repsDelPesoMax = null, volumenDia = 0, volumenCompleto = true, seriesDeclaradas = 0;
+            let pesoDia = -Infinity, repsDelPesoMax = null, tiempoDelPesoMax = null, volumenDia = 0, volumenCompleto = true, seriesDeclaradas = 0;
             dia.items.forEach((it) => {
-                if (it.v > pesoDia) { pesoDia = it.v; repsDelPesoMax = _pfRepsNumero(it.reps); }
+                if (it.v > pesoDia) { pesoDia = it.v; repsDelPesoMax = _pfRepsNumero(it.reps); tiempoDelPesoMax = _pfTiempoRegistro(it); }
                 const repsNum = _pfRepsNumero(it.reps);
                 if (repsNum !== null) volumenDia += it.v * repsNum;
                 else volumenCompleto = false;
@@ -16009,6 +16037,7 @@
                 metodo: dia.metodo,
                 peso: pesoDia,
                 reps: repsDelPesoMax,
+                tiempo: tiempoDelPesoMax,
                 series: seriesDia,
                 volumen: volumenCompleto ? Math.round(volumenDia) : null,
                 cantidadRegistros: dia.items.length
@@ -16060,7 +16089,7 @@
         const maximo = Math.max(...pesos);
         const variacionPeso = ultimoDia.peso - primerDia.peso;
 
-        setText3('dash-carga-ultima', ultimoDia.peso + ' kg' + (ultimoDia.reps ? ' × ' + ultimoDia.reps + (ultimoDia.series > 1 ? ' × ' + ultimoDia.series + ' ' + _pfEtiquetaUnidad(ultimoDia.metodo) : '') : ''));
+        setText3('dash-carga-ultima', ultimoDia.tiempo ? (ultimoDia.peso + ' kg · ' + _pfFmtTiempo(ultimoDia.tiempo) + (ultimoDia.series > 1 ? ' × ' + ultimoDia.series + ' ' + _pfEtiquetaUnidad(ultimoDia.metodo) : '')) : ultimoDia.peso + ' kg' + (ultimoDia.reps ? ' × ' + ultimoDia.reps + (ultimoDia.series > 1 ? ' × ' + ultimoDia.series + ' ' + _pfEtiquetaUnidad(ultimoDia.metodo) : '') : ''));
         setText3('dash-carga-max', maximo + ' kg');
         setText3('dash-carga-variacion', (variacionPeso >= 0 ? '+' : '') + variacionPeso + ' kg');
 
@@ -16110,7 +16139,17 @@
                 insightEl.classList.add('hidden');
             }
         }
-        if (notaSinReps) notaSinReps.classList.toggle('hidden', hayAlgunVolumen);
+        // Ejercicios por tiempo (Por Tiempo, Sumando, Tabata...): no llevan reps, se compara carga y tiempo.
+        const diasConTiempo = dias.filter(d => d.tiempo);
+        if (insightEl && diasConVolumen.length < 2 && diasConTiempo.length >= 2) {
+            const act = diasConTiempo[diasConTiempo.length - 1];
+            const ant = diasConTiempo[diasConTiempo.length - 2];
+            const dP = act.peso - ant.peso;
+            insightEl.className = 'text-xs rounded-xl p-3 mb-4 border ' + (dP > 0 ? 'bg-verde/10 border-verde/30 text-verde' : (dP < 0 ? 'bg-rojo/10 border-rojo/30 text-rojo' : 'bg-fondoAlt border-borde text-textoSuave'));
+            insightEl.textContent = '⏱️ ' + ant.peso + 'kg · ' + _pfFmtTiempo(ant.tiempo) + ' → ' + act.peso + 'kg · ' + _pfFmtTiempo(act.tiempo) + (dP > 0 ? ' (subió la carga)' : (dP < 0 ? ' (bajó la carga)' : ' (misma carga)'));
+            insightEl.classList.remove('hidden');
+        }
+        if (notaSinReps) notaSinReps.classList.toggle('hidden', hayAlgunVolumen || diasConTiempo.length > 0);
 
         const datasets = [{
             label: 'Peso (kg)',
@@ -16161,6 +16200,7 @@
                             afterLabel: (item) => {
                                 const d = dias[item.dataIndex];
                                 const partes = [];
+                                if (d.tiempo) partes.push('Tiempo: ' + _pfFmtTiempo(d.tiempo) + (d.series > 1 ? ' × ' + d.series + ' ' + _pfEtiquetaUnidad(d.metodo) : ''));
                                 if (d.reps) partes.push(d.reps + ' reps' + (d.series > 1 ? ' × ' + d.series + ' ' + _pfEtiquetaUnidad(d.metodo) : ''));
                                 if (d.metodo) partes.push('Metodo: ' + d.metodo);
                                 return partes;
