@@ -6029,6 +6029,7 @@
         var mainContent = document.getElementById('pf-main-content');
         if (mainContent) mainContent.classList.toggle('pf-tab-dashboard', tab === 'dashboard' || tab === 'repositorio');
         if (mainContent) mainContent.classList.toggle('pf-tab-historial', tab === 'historial');
+        if (tab === 'rutina' && typeof renderRailVideoteca === 'function') renderRailVideoteca();
         if (window.innerWidth < 640 && typeof _pfAplicarFontScale === 'function' && typeof _pfLeerFontScale === 'function') {
             _pfAplicarFontScale(_pfLeerFontScale(tab), tab, false);
         }
@@ -19729,7 +19730,7 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
         _pfCantRutinasAnteriores = 1;
         const selCant = document.getElementById('historial-alumno-cant-rutinas');
         if (selCant) selCant.value = '1';
-        if (!nombre) { _pfHistorialAlumnoCache = []; _pfSincronizarHistorialEsteAlumno(); return; }
+        if (!nombre) { _pfHistorialAlumnoCache = []; _pfSincronizarHistorialEsteAlumno(); if (typeof renderRailVideoteca === 'function') renderRailVideoteca(); return; }
         try {
             const res = await fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre));
             const data = await res.json();
@@ -19763,7 +19764,37 @@ Extraé TODOS los ejercicios que sean ejercicios reales. Si un ejercicio aparece
             if (card) card.classList.add('hidden');
             _pfSincronizarHistorialEsteAlumno();
         }
+        if (typeof renderRailVideoteca === 'function') renderRailVideoteca();
     }
+
+    // Recorre las rutinas anteriores del alumno tipeado (_pfHistorialAlumnoCache, ya
+    // scopeado a ese alumno por _pfChequearHistorialAlumno) y cuenta cuántas veces
+    // aparece cada ejercicio, para poder mostrarle al profesor "lo que más usó con
+    // este alumno" en el panel de Videoteca de la derecha. Recorre el JSON entero de
+    // cada rutina en vez de parsear cada sistema de entrenamiento (Series, Circuito,
+    // Tabata, EMOM, etc.) por separado: cualquier objeto con "nombre" + algún campo
+    // típico de ejercicio (reps/series/link/unit) cuenta como un uso.
+    function _pfEjerciciosMasUsadosAlumno(limite) {
+        const cache = (typeof _pfHistorialAlumnoCache !== 'undefined' && Array.isArray(_pfHistorialAlumnoCache)) ? _pfHistorialAlumnoCache : [];
+        if (!cache.length) return [];
+        const conteo = {};
+        const CAMPOS_EJ = ['reps', 'series', 'link', 'unit', 'reps_por_serie', 'reps_por_vuelta'];
+        function visitar(nodo) {
+            if (!nodo || typeof nodo !== 'object') return;
+            if (Array.isArray(nodo)) { nodo.forEach(visitar); return; }
+            if (typeof nodo.nombre === 'string' && nodo.nombre.trim() && CAMPOS_EJ.some(c => nodo[c] !== undefined)) {
+                const clave = nodo.nombre.trim().toUpperCase();
+                conteo[clave] = (conteo[clave] || 0) + 1;
+            }
+            Object.keys(nodo).forEach(k => visitar(nodo[k]));
+        }
+        cache.forEach(visitar);
+        return Object.keys(conteo)
+            .map(nombre => ({ nombre: nombre, usos: conteo[nombre] }))
+            .sort((a, b) => b.usos - a.usos)
+            .slice(0, limite || 6);
+    }
+
 
     // El botón "Ver" de la tarjeta de historial ahora abre el panel unificado "Historial de
     // Rutinas" (más abajo) en modo "Este alumno", en vez de un modal aparte.
@@ -21857,8 +21888,30 @@ self.addEventListener('fetch', event => {
                 });
             });
             var q = (_pfRailQuery || '').trim().toLowerCase();
-            var lista = q ? todos.filter(function (x) { return x.nombre.toLowerCase().indexOf(q) !== -1; }) : todos;
-            lista = lista.slice(0, 6);
+            // En "Crear Entrenamiento", si hay un alumno tipeado con rutinas anteriores y
+            // el profe no está buscando nada puntual, mostrar sus ejercicios más usados
+            // en vez de la videoteca genérica (para elegir rápido lo que ya sabe hacer).
+            var lista = null;
+            var masUsadoAlumno = '';
+            if (!q && typeof _pfActiveTab !== 'undefined' && _pfActiveTab === 'rutina' && typeof _pfEjerciciosMasUsadosAlumno === 'function') {
+                var masUsados = _pfEjerciciosMasUsadosAlumno(6);
+                if (masUsados.length) {
+                    var porNombre = {};
+                    todos.forEach(function (x) { porNombre[x.nombre.trim().toUpperCase()] = x; });
+                    lista = masUsados.map(function (u) {
+                        var match = porNombre[u.nombre];
+                        return { nombre: match ? match.nombre : u.nombre, link: match ? match.link : '', cat: match ? match.cat : '', usos: u.usos };
+                    });
+                    var nombreAlumnoActual = (document.getElementById('alumno-nombre')?.value || '').trim();
+                    masUsadoAlumno = nombreAlumnoActual;
+                }
+            }
+            var headEl = document.getElementById('pf-rail-videoteca-head');
+            if (headEl) headEl.textContent = masUsadoAlumno ? ('Más usados con ' + masUsadoAlumno) : 'Videoteca';
+            if (!lista) {
+                lista = q ? todos.filter(function (x) { return x.nombre.toLowerCase().indexOf(q) !== -1; }) : todos;
+                lista = lista.slice(0, 6);
+            }
             if (!lista.length) { cont.innerHTML = '<p style="color:#5f7886;font-size:13px;padding:6px 0;">Sin resultados.</p>'; return; }
             cont.innerHTML = lista.map(function (x) {
                 var vid = pfRailYtId(x.link);
@@ -21866,7 +21919,8 @@ self.addEventListener('fetch', event => {
                     ? '<img class="pf-rail-thumb-img" loading="lazy" src="https://img.youtube.com/vi/' + vid + '/mqdefault.jpg" alt="">'
                     : '<span class="pf-rail-thumb">▶</span>';
                 var goto = "pfRailAbrirEjercicio('" + x.nombre.replace(/'/g, "\\'") + "')";
-                return '<div class="pf-rail-item pf-rail-clickable" onclick="' + goto + '">' + thumb + '<span><b>' + railEsc(x.nombre) + '</b><small>' + railEsc(x.cat) + '</small></span><span class="pf-rail-add" onclick="event.stopPropagation();' + goto + '">＋</span></div>';
+                var sub = x.usos ? (x.usos + (x.usos === 1 ? ' vez usado' : ' veces usado')) : x.cat;
+                return '<div class="pf-rail-item pf-rail-clickable" onclick="' + goto + '">' + thumb + '<span><b>' + railEsc(x.nombre) + '</b><small>' + railEsc(sub) + '</small></span><span class="pf-rail-add" onclick="event.stopPropagation();' + goto + '">＋</span></div>';
             }).join('');
         }
         var _railAlumnosIntentos = 0;
@@ -21934,7 +21988,7 @@ self.addEventListener('fetch', event => {
             nav.insertAdjacentHTML('afterbegin', '<div id="pf-modern-brand" class="pf-modern-brand"><span class="pf-modern-brand-mark">PF</span><span>PONETE FIT<small>PROFESIONAL</small></span></div><div class="pf-sidebar-section">PRINCIPAL</div>');
             nav.insertAdjacentHTML('beforeend', '<div class="pf-sidebar-profile"><span class="pf-sidebar-avatar">R</span><span><b>Rafa</b><small>Profesor</small></span></div>');
             main.insertAdjacentHTML('afterbegin', '<div class="pf-modern-topbar"><div><h1>Entrenamientos</h1><p>Creá, editá y reutilizá entrenamientos de forma simple y rápida.</p></div><div class="pf-modern-actions"><a href="/alumno" target="_blank" class="text-sm text-azul hover:underline" style="white-space:nowrap;">Ver vista del alumno &rarr;</a><button class="pf-top-icon" onclick="toast(\'No hay notificaciones nuevas\')" aria-label="Notificaciones">♧</button><button class="pf-top-icon" onclick="showTab(\'videoteca\')" aria-label="Buscar en videoteca">⌕</button><span class="pf-top-user"><i>R</i> Rafa</span></div></div>');
-            main.insertAdjacentHTML('beforeend', '<aside class="pf-context-rail" aria-label="Accesos rápidos"><section class="pf-rail-card"><div class="pf-rail-head">Videoteca <span>ver todo</span></div><input id="pf-rail-buscar" class="pf-rail-search" placeholder="⌕ Buscar ejercicio..." oninput="pfRailFiltrarVideoteca(this.value)"><div id="pf-rail-videoteca-items"><p style="color:#5f7886;font-size:13px;padding:6px 0;">Cargando videoteca...</p></div><button class="pf-rail-link" onclick="showTab(\'videoteca\')">Ver videoteca completa</button></section><section class="pf-rail-card"><div class="pf-rail-head">Repositorio <span>ver todo</span></div><div class="pf-rail-item"><span class="pf-rail-thumb">▤</span><span><b>Rutinas guardadas</b><small>Usá tus plantillas</small></span></div><button class="pf-rail-link" onclick="showTab(\'repositorio\')">Abrir repositorio</button></section><section class="pf-rail-card"><div class="pf-rail-head">Otros alumnos <span>cargados</span></div><div id="pf-rail-alumnos-items"><p style="color:#5f7886;font-size:13px;padding:6px 0;">Cargando alumnos...</p></div></section></aside>');
+            main.insertAdjacentHTML('beforeend', '<aside class="pf-context-rail" aria-label="Accesos rápidos"><section class="pf-rail-card"><div class="pf-rail-head"><span id="pf-rail-videoteca-head">Videoteca</span> <span>ver todo</span></div><input id="pf-rail-buscar" class="pf-rail-search" placeholder="⌕ Buscar ejercicio..." oninput="pfRailFiltrarVideoteca(this.value)"><div id="pf-rail-videoteca-items"><p style="color:#5f7886;font-size:13px;padding:6px 0;">Cargando videoteca...</p></div><button class="pf-rail-link" onclick="showTab(\'videoteca\')">Ver videoteca completa</button></section><section class="pf-rail-card"><div class="pf-rail-head">Repositorio <span>ver todo</span></div><div class="pf-rail-item"><span class="pf-rail-thumb">▤</span><span><b>Rutinas guardadas</b><small>Usá tus plantillas</small></span></div><button class="pf-rail-link" onclick="showTab(\'repositorio\')">Abrir repositorio</button></section><section class="pf-rail-card"><div class="pf-rail-head">Otros alumnos <span>cargados</span></div><div id="pf-rail-alumnos-items"><p style="color:#5f7886;font-size:13px;padding:6px 0;">Cargando alumnos...</p></div></section></aside>');
             main.classList.toggle('pf-tab-dashboard', (typeof _pfActiveTab === 'undefined' || _pfActiveTab === 'dashboard' || _pfActiveTab === 'repositorio'));
             main.classList.toggle('pf-tab-historial', _pfActiveTab === 'historial');
             renderRailVideoteca();
