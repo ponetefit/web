@@ -13468,6 +13468,9 @@
     // Historial de cargas (peso) del alumno, juntando todas sus rutinas (codigos).
     // norm(ejercicio) -> [{v, t, fecha, metodo, codigo}], ordenado por fecha ascendente.
     let dashCargasHistorial = {};
+    // Tiempo total que tardo el alumno en completar bloques "Por Tiempo" / "Sumando Ejercicio":
+    // [{seg, t, fecha, metodo, vueltas, bloque, codigo}]
+    let dashTiemposBloque = [];
     let dashCargaChartInstance = null;
     // Set de fechas "YYYY-MM-DD" en las que el alumno registró alguna carga
     // (peso), derivado de dashCargasHistorial. Se usa para el calendario de
@@ -13582,6 +13585,7 @@
                 // usa, asi que para armar un historial completo hay que juntar el
                 // historial de todos sus codigos. Se pide en paralelo con las rutinas.
                 dashCargasHistorial = {};
+                dashTiemposBloque = [];
                 dashCargasFechas = new Set();
                 dashCargasFechaCodigo = new Set();
                 const fetchesCargas = codigos.map(async (cod) => {
@@ -13593,6 +13597,21 @@
                         Object.keys(remoto).forEach((normEj) => {
                             const registros = remoto[normEj];
                             if (!registros) return;
+                            // Tiempo total de bloque (Por Tiempo / Sumando): no es un ejercicio, va aparte.
+                            if (normEj.indexOf('__TB__') === 0) {
+                                Object.keys(registros).forEach((k) => {
+                                    const r = registros[k];
+                                    const seg = r && (r.tiempo || r.v);
+                                    if (!seg) return;
+                                    const fechaTb = r.fecha || (r.t ? new Date(r.t).toISOString().slice(0, 10) : '');
+                                    if (fechaTb) {
+                                        dashCargasFechas.add(fechaTb);
+                                        dashCargasFechaCodigo.add(fechaTb + '|' + cod);
+                                    }
+                                    dashTiemposBloque.push({ seg: seg, t: r.t || 0, fecha: fechaTb, metodo: r.metodo || 'Por Tiempo', vueltas: r.vueltas || null, bloque: r.bloque || 'Bloque', codigo: cod });
+                                });
+                                return;
+                            }
                             if (!dashCargasHistorial[normEj]) dashCargasHistorial[normEj] = [];
                             Object.keys(registros).forEach((k) => {
                                 const r = registros[k];
@@ -13963,11 +13982,52 @@
                 '</div>'
             );
         });
-        if (!filas.length) return '';
-        return '<div class="py-1 border-t border-borde mt-1">' +
+        const tiemposHtml = _pfTiemposBloqueDelDia(fechaISO);
+        if (!filas.length) return tiemposHtml;
+        return tiemposHtml + '<div class="py-1 border-t border-borde mt-1">' +
             '<span class="font-bold text-texto">Cargas registradas ese día:</span>' +
             filas.join('') +
             '</div>';
+    }
+
+    // "10:10" (mm:ss) y "10 min 10 s" a partir de segundos.
+    function _pfFmtTiempoTotal(seg) {
+        const h = Math.floor(seg / 3600), m = Math.floor((seg % 3600) / 60), s = seg % 60;
+        const dos = (n) => (n < 10 ? '0' : '') + n;
+        const reloj = h > 0 ? (h + ':' + dos(m) + ':' + dos(s)) : (dos(m) + ':' + dos(s));
+        const largo = (h > 0 ? h + ' h ' : '') + (m > 0 || h > 0 ? m + ' min ' : '') + s + ' s';
+        return { reloj: reloj, largo: largo };
+    }
+
+    // Tiempo total que tardo el alumno en cada bloque Por Tiempo / Sumando Ejercicio ese dia,
+    // comparado con la vez anterior que hizo ese mismo sistema.
+    function _pfTiemposBloqueDelDia(fechaISO) {
+        const delDia = dashTiemposBloque.filter(r => r.fecha === fechaISO).sort((a, b) => a.t - b.t);
+        if (!delDia.length) return '';
+        const filas = delDia.map((r) => {
+            const f = _pfFmtTiempoTotal(r.seg);
+            const previos = dashTiemposBloque.filter(x => x.metodo === r.metodo && x.bloque === r.bloque && x.t < r.t).sort((a, b) => b.t - a.t);
+            let comp = '';
+            if (previos.length) {
+                const dif = r.seg - previos[0].seg;
+                const ant = _pfFmtTiempoTotal(previos[0].seg).reloj;
+                if (dif < 0) comp = '<div class="text-[11px] text-verde mt-0.5">▲ ' + _pfFmtTiempoTotal(-dif).reloj + ' más rápido que la última vez (' + ant + ')</div>';
+                else if (dif > 0) comp = '<div class="text-[11px] text-rojo mt-0.5">▼ ' + _pfFmtTiempoTotal(dif).reloj + ' más lento que la última vez (' + ant + ')</div>';
+                else comp = '<div class="text-[11px] text-textoSuave mt-0.5">➖ Mismo tiempo que la última vez</div>';
+            } else {
+                comp = '<div class="text-[11px] text-textoSuave mt-0.5">Primera vez registrada</div>';
+            }
+            const detalle = (r.bloque === 'Calentamiento' ? 'Calentamiento · ' : '') + r.metodo + (r.vueltas ? ' · ' + r.vueltas + (r.metodo === 'Sumando Ejercicio' ? ' rondas' : ' vueltas') : '');
+            return '<div class="py-1 border-t border-borde first:border-t-0 first:pt-0">' +
+                '<div class="flex items-center justify-between gap-2 flex-wrap">' +
+                '<span class="font-bold text-texto">' + escapeHtml(detalle) + '</span>' +
+                '<span class="text-azul text-sm font-bold">⏱ ' + f.reloj + '</span>' +
+                '</div>' +
+                '<div class="text-[11px] text-texto mt-0.5">Tardó ' + f.largo + ' en completar el entrenamiento</div>' +
+                comp + '</div>';
+        }).join('');
+        return '<div class="py-1 border-t border-borde mt-1">' +
+            '<span class="font-bold text-texto">Tiempo total del bloque:</span>' + filas + '</div>';
     }
 
     // Muestra, debajo del calendario, qué rutina(s) hizo el alumno en el día
