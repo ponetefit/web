@@ -2413,13 +2413,29 @@
             /* Miniatura más chica para dar lugar al nombre */
             .exercise-chip .pf-ej-thumb { width: 44px; height: 44px; border-radius: 10px; }
         }
-        /* Mapa de calor (Dashboard) en celular/tablet: vista frontal y posterior UNA AL LADO DE LA OTRA
-           (antes quedaban apiladas y hacían un scroll larguísimo). */
+        /* Mapa de calor (Dashboard) en celular/tablet:
+           fila 1 = vista frontal + vista posterior (una al lado de la otra)
+           fila 2 = leyenda de intensidad en 3 columnas + detalle en 2 columnas (ya no queda una columna larga y vacía al costado) */
         @media (max-width: 1023px) {
-            #hm-alertas + .flex { flex-direction: row !important; align-items: flex-start !important; justify-content: center !important; gap: 6px !important; }
-            #hm-alertas + .flex > div { flex: 1 1 0; min-width: 0; max-width: 240px; }
-            #hm-alertas + .flex > div > p { font-size: 10px; margin-bottom: 4px; }
+            #hm-alertas + .flex { flex-direction: row !important; flex-wrap: wrap !important; align-items: flex-start !important; justify-content: center !important; gap: 10px 6px !important; }
+            #hm-alertas + .flex > div:nth-child(-n+2) { flex: 1 1 calc(50% - 6px); min-width: 0; max-width: 240px; }
+            #hm-alertas + .flex > div:nth-child(-n+2) > p { font-size: 10px; margin-bottom: 4px; }
             #body-front, #body-back { width: 100% !important; height: auto !important; max-height: 330px; }
+            /* Leyenda + detalle: panel a todo el ancho debajo de los muñecos */
+            #hm-alertas + .flex > div:last-child {
+                flex: 1 1 100%; max-width: none; width: 100%;
+                display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 8px 6px !important;
+                padding-top: 12px; border-top: 1px solid #22222b;
+            }
+            #hm-alertas + .flex > div:last-child > p:first-child { grid-column: 1 / -1; margin-bottom: 0; text-align: center; }
+            #hm-alertas + .flex > div:last-child > .flex.items-center { gap: 6px !important; min-width: 0; }
+            #hm-alertas + .flex > div:last-child > .flex.items-center > div { width: 16px; height: 16px; flex-shrink: 0; }
+            #hm-alertas + .flex > div:last-child > .flex.items-center > span { font-size: 11px; white-space: nowrap; }
+            #hm-detalle { grid-column: 1 / -1; margin-top: 4px !important; display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; text-align: left; }
+            #hm-detalle > p:first-child { grid-column: 1 / -1; text-align: center; margin-bottom: 4px; }
+            #hm-detalle .hm-det-row { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; padding: 5px 0; border-bottom: 1px solid #1c1c24; font-size: 12px; }
+            #hm-detalle .hm-det-nom { color: #d6d6e0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            #hm-detalle .hm-det-val { white-space: nowrap; font-size: 11px; flex-shrink: 0; }
         }
         @media (max-width: 639px) {
             /* Crear Alumno: los 4 botones (Feedback / Editar / Ficha / Eliminar) en 2x2, sin cortar palabras */
@@ -2444,6 +2460,24 @@
             }
             /* Si queda un botón suelto al final, ocupa toda la fila */
             #historial-lista .pf-hist-card-actions > button:last-child:nth-child(odd) { grid-column: 1 / -1; }
+        }
+        @media (max-width: 639px) {
+            /* Repositorio: botones de cada entrenamiento de a DOS por fila (igual que Historial) */
+            #repo-lista .pf-repo-card-row .pf-repo-full-info + div {
+                display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px !important; width: 100%;
+            }
+            /* Los dos grupos (principales y secundarios) se funden en una sola grilla, sin línea punteada */
+            #repo-lista .pf-repo-card-row .pf-repo-actions-main,
+            #repo-lista .pf-repo-card-row .pf-repo-actions-sec {
+                display: contents !important; border: 0 !important; padding: 0 !important; margin: 0 !important;
+            }
+            #repo-lista .pf-repo-card-row .pf-repo-actions-main button,
+            #repo-lista .pf-repo-card-row .pf-repo-actions-sec button {
+                width: 100% !important; min-width: 0 !important; min-height: 48px; margin: 0 !important;
+                padding: 10px 6px !important; font-size: 0.85rem !important; line-height: 1.15;
+                white-space: normal; word-break: normal; overflow-wrap: normal;
+                display: flex; align-items: center; justify-content: center; text-align: center; gap: 4px;
+            }
         }
         .pf-modern-brand {
             display: flex; align-items: center; gap: 9px; padding: 20px 19px 16px;
@@ -15142,7 +15176,7 @@
             const sorted = Object.entries(muscleCount).sort((a, b) => b[1] - a[1]);
             detalle.innerHTML = '<p class="font-bold text-texto mb-1">Detalle:</p>' +
                 sorted.map(([m, c]) => {
-                    return `<p>${m}: <span class="font-bold text-naranja">${Math.round(c)}</span> <span class="text-textoSuave/60">(${getHeatLabel(c / maxVal)})</span></p>`;
+                    return `<p class="hm-det-row"><span class="hm-det-nom">${m}: </span><span class="hm-det-val"><span class="font-bold text-naranja">${Math.round(c)}</span> <span class="text-textoSuave/60">(${getHeatLabel(c / maxVal)})</span></span></p>`;
                 }).join('');
         }
     }
