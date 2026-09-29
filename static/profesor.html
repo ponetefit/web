@@ -2374,6 +2374,77 @@
         @media (max-width: 639px) {
             #lista-ejercicios .pf-ej-thumb { width: 96px; height: 64px; }
         }
+        /* ── Selector de zona: un solo botón (escalón) que abre las zonas ── */
+        .ac-cat-header-btn {
+            width: 100%; background: #141418; border: 1.5px solid #2a2a35; border-radius: 14px;
+            padding: 12px 14px; min-height: 52px; text-align: left; touch-action: manipulation;
+        }
+        .ac-cat-header-btn:active { border-color: #FF6B35; }
+        .ac-cat-header-btn .ac-cat-header-label { color: #f0f0f5; font-size: 0.9rem; }
+        .ac-cat-header-btn .ac-cat-toggle { width: 32px; height: 32px; border: 0; background: rgba(255,107,53,.15); color: #FF6B35; }
+        .pf-paso2-siguiente { display: none; }
+        @media (max-width: 639px) {
+            /* Botón "Siguiente" fijo abajo en la pantalla de ejercicios (bloque y calentamiento) */
+            .pf-paso2-siguiente {
+                display: block; position: sticky; bottom: 0; z-index: 5;
+                margin: 12px -14px 0; padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+                background: linear-gradient(180deg, rgba(10,10,12,0) 0%, #0a0a0c 35%);
+            }
+            [id^="warmup-paso-2-"] .pt-3 {
+                position: sticky; bottom: 0; z-index: 5;
+                margin: 12px -14px 0; padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+                background: linear-gradient(180deg, rgba(10,10,12,0) 0%, #0a0a0c 35%);
+            }
+            /* La lista de ejercicios agregados no tiene scroll propio: crece con la pantalla */
+            #bloque-ejercicios-lista { max-height: none !important; overflow: visible !important; }
+            /* Fila de ejercicio agregado: el nombre usa TODO el ancho (ya no queda una letra por línea)
+               y los botones (Reemplazar / Repetir / ×) pasan a una segunda línea. */
+            .exercise-chip > .flex.items-center.justify-between { flex-wrap: wrap !important; row-gap: 6px; }
+            .exercise-chip > .flex.items-center.justify-between > :first-child { flex: 1 1 100% !important; min-width: 0 !important; }
+            .exercise-chip > .flex.items-center.justify-between > :not(:first-child) { flex: 1 1 100%; justify-content: flex-end; }
+            .exercise-chip .ej-hover-preview {
+                white-space: normal !important; word-break: normal !important;
+                overflow-wrap: anywhere; min-width: 0; letter-spacing: normal;
+            }
+            /* Calentamiento general: nombre completo arriba, botones abajo */
+            #warmup-ejercicios-lista .exercise-chip { flex-wrap: wrap !important; row-gap: 6px; }
+            #warmup-ejercicios-lista .exercise-chip > .flex.items-center.gap-3 { flex: 1 1 100% !important; }
+            #warmup-ejercicios-lista .exercise-chip > .flex.items-center.gap-3 .text-sm { white-space: normal !important; overflow: visible !important; }
+            /* Miniatura más chica para dar lugar al nombre */
+            .exercise-chip .pf-ej-thumb { width: 44px; height: 44px; border-radius: 10px; }
+        }
+        /* Mapa de calor (Dashboard) en celular/tablet: vista frontal y posterior UNA AL LADO DE LA OTRA
+           (antes quedaban apiladas y hacían un scroll larguísimo). */
+        @media (max-width: 1023px) {
+            #hm-alertas + .flex { flex-direction: row !important; align-items: flex-start !important; justify-content: center !important; gap: 6px !important; }
+            #hm-alertas + .flex > div { flex: 1 1 0; min-width: 0; max-width: 240px; }
+            #hm-alertas + .flex > div > p { font-size: 10px; margin-bottom: 4px; }
+            #body-front, #body-back { width: 100% !important; height: auto !important; max-height: 330px; }
+        }
+        @media (max-width: 639px) {
+            /* Crear Alumno: los 4 botones (Feedback / Editar / Ficha / Eliminar) en 2x2, sin cortar palabras */
+            #ca-lista-alumnos .pf-alumno-card-actions {
+                display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px !important; width: 100% !important;
+            }
+            #ca-lista-alumnos .pf-alumno-card-actions button {
+                width: 100% !important; min-width: 0; min-height: 52px; padding: 10px 6px !important;
+                font-size: 0.88rem !important; line-height: 1.15;
+                white-space: normal; word-break: normal !important; overflow-wrap: normal !important; hyphens: none;
+                display: flex; align-items: center; justify-content: center; text-align: center; gap: 4px;
+            }
+            /* Historial: botones de cada entrenamiento de a DOS por fila (antes uno debajo del otro) */
+            #historial-lista .pf-hist-card-actions {
+                display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px !important; margin-top: 12px !important;
+            }
+            #historial-lista .pf-hist-card-actions button {
+                width: 100% !important; min-width: 0 !important; min-height: 48px;
+                padding: 10px 6px !important; font-size: 0.85rem !important; line-height: 1.15;
+                white-space: normal; word-break: normal; overflow-wrap: normal;
+                display: flex; align-items: center; justify-content: center; text-align: center;
+            }
+            /* Si queda un botón suelto al final, ocupa toda la fila */
+            #historial-lista .pf-hist-card-actions > button:last-child:nth-child(odd) { grid-column: 1 / -1; }
+        }
         .pf-modern-brand {
             display: flex; align-items: center; gap: 9px; padding: 20px 19px 16px;
             color: #f7fbfd; font-size:16px; font-weight: 900; letter-spacing: .08em;
@@ -4387,6 +4458,10 @@
                         </div>
                         <div id="bloque-ejercicios-lista" class="space-y-2 max-h-96 overflow-y-auto">
                         </div>
+                        <!-- Boton fijo abajo (SOLO mobile): la pantalla de ejercicios tapa la barra de "Agregar Bloque" -->
+                        <div class="pf-paso2-siguiente sm:hidden">
+                            <button type="button" id="bloque-btn-agregar-sistema" onclick="confirmarBloque()" class="btn-primary pf-btn-paso-siguiente w-full py-3 rounded-xl text-white font-bold text-sm">Siguiente: agregar sistema →</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -4916,13 +4991,14 @@
             });
         }
 
+        let _pfColapsarCategorias = null;
         function renderCategorias() {
             catPanel.innerHTML =
-                '<div class="ac-cat-header">' +
-                    '<span class="ac-cat-header-label">📂 Elegir por categoría</span>' +
-                    '<button type="button" class="ac-cat-toggle" aria-label="Ocultar categorías">−</button>' +
-                '</div>' +
-                '<div class="ac-cat-chips">' +
+                '<button type="button" class="ac-cat-header ac-cat-header-btn" aria-expanded="false">' +
+                    '<span class="ac-cat-header-label">➕ Agregar ejercicio por zona</span>' +
+                    '<span class="ac-cat-toggle" aria-hidden="true">+</span>' +
+                '</button>' +
+                '<div class="ac-cat-chips hidden">' +
                     PF_ZONAS.map(z =>
                         '<button type="button" class="ac-cat-chip ac-cat-chip-zona" data-zona="' + z.id + '">' +
                             '<span class="ac-cat-chip-ico">' + z.emoji + '</span>' +
@@ -4947,16 +5023,26 @@
             const btnVolver = catPanel.querySelector('.ac-cat-volver');
             const chipsGrid = catPanel.querySelector('.ac-cat-chips');
             const btnToggle = catPanel.querySelector('.ac-cat-toggle');
+            const btnHeader = catPanel.querySelector('.ac-cat-header-btn');
             const buscadorZona = catPanel.querySelector('.ac-cat-buscador-zona');
 
             // Boton "−" que colapsa las 5 tarjetas de categoria: en rutinas con
             // muchos ejercicios, esas tarjetas tapan la lista de ejercicios ya
             // agregados, asi que el profe las puede minimizar y usar el buscador
             // de arriba (input de texto) para seguir agregando mas rapido.
-            btnToggle.addEventListener('click', () => {
+            // Un solo escalon: el boton entero abre/cierra las zonas (empieza cerrado
+            // para no ocupar pantalla). Al agregar un ejercicio se vuelve a cerrar solo.
+            function colapsarCategorias() {
+                chipsGrid.classList.add('hidden');
+                vistaDetalle.classList.add('hidden');
+                btnToggle.textContent = '+';
+                btnHeader.setAttribute('aria-expanded', 'false');
+            }
+            _pfColapsarCategorias = colapsarCategorias;
+            btnHeader.addEventListener('click', () => {
                 const colapsado = chipsGrid.classList.toggle('hidden');
                 btnToggle.textContent = colapsado ? '+' : '−';
-                btnToggle.setAttribute('aria-label', colapsado ? 'Mostrar categorías' : 'Ocultar categorías');
+                btnHeader.setAttribute('aria-expanded', colapsado ? 'false' : 'true');
             });
 
             function abrirZona(btn) {
@@ -5032,6 +5118,7 @@
             ocultar();
             agregarCallback();
             if (postAgregarCallback) postAgregarCallback();
+            if (_pfColapsarCategorias) _pfColapsarCategorias();
         }
 
         function mostrarMatches(q) {
@@ -22381,6 +22468,38 @@ self.addEventListener('fetch', event => {
             .pf-ref-athlete { flex-wrap:wrap; }
             .pf-ref-athlete .pf-ref-input { order:5; flex-basis:100%; }
             .pf-ref-bottom { grid-template-columns:1fr; }
+        }
+        /* ── Celular: vista compacta de los bloques cargados (menos scroll) ──
+           Antes: cada ejercicio era una tarjeta grande con foto, de a 2 por fila, y la cabecera
+           del sistema quedaba en una columna angosta. Ahora: una lista de filas chicas
+           (miniatura + nombre + reps) y la cabecera con el título a todo el ancho. */
+        @media (max-width:639px) {
+            /* Cabecera del sistema: título/detalle a todo el ancho, botones en una fila abajo */
+            .pf-ref-block-card-tipo { flex-wrap:wrap; row-gap:6px; }
+            .pf-ref-block-card-tipo > span:nth-child(2) { flex:1 1 0; min-width:0; }
+            .pf-ref-block-card-tipo .pf-ref-block-tools { flex:1 1 100%; justify-content:flex-end; }
+            .pf-ref-block-card-tipo .pf-ref-block-tools button { min-width:40px; min-height:32px; font-size:16px !important; }
+            .pf-ref-block-card small { font-size:11px; }
+            /* Ejercicios: una fila por ejercicio con miniatura chica */
+            .pf-ref-ex-grid { grid-template-columns:1fr !important; gap:6px !important; margin-top:8px; }
+            .pf-ref-ex-grid .pf-ref-exercise {
+                display:grid; grid-template-columns:68px minmax(0,1fr); grid-template-rows:auto auto;
+                column-gap:10px; align-items:center; min-height:0; border-radius:10px;
+            }
+            .pf-ref-ex-grid .pf-ref-exercise:hover { transform:none; }
+            .pf-ref-ex-grid .pf-ref-exercise-media { grid-column:1; grid-row:1 / span 2; width:68px; height:100%; min-height:54px; aspect-ratio:auto; }
+            .pf-ref-ex-grid .pf-ref-exercise-media:after { width:22px; height:22px; font-size:10px; }
+            .pf-ref-ex-grid .pf-ref-exercise strong { grid-column:2; grid-row:1; padding:6px 8px 0 0; font-size:13px; line-height:1.2; align-self:end; }
+            .pf-ref-ex-grid .pf-ref-exercise small { grid-column:2; grid-row:2; padding:2px 8px 6px 0; margin-top:0; font-size:12px; align-self:start; }
+            .pf-ref-ex-grid .pf-ref-exercise strong:last-child { grid-row:1 / span 2; align-self:center; padding-bottom:6px; }
+            /* Sin foto/video: sin miniatura, solo texto */
+            .pf-ref-ex-grid .pf-ref-exercise.sin-foto { grid-template-columns:1fr; }
+            .pf-ref-ex-grid .pf-ref-exercise.sin-foto .pf-ref-exercise-media { display:none; }
+            .pf-ref-ex-grid .pf-ref-exercise.sin-foto strong,
+            .pf-ref-ex-grid .pf-ref-exercise.sin-foto small { grid-column:1; padding-left:10px; }
+            .pf-ref-ex-grid .pf-ref-exercise.sin-foto strong:last-child { grid-row:auto; padding:8px 10px; }
+            /* EMOM: un minuto debajo del otro (cada uno con su lista compacta) */
+            .pf-ref-emom-grid { grid-template-columns:1fr !important; gap:8px !important; }
         }
     </style>
 
