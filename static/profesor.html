@@ -34,6 +34,25 @@
         }
         @keyframes pf-spin { to { transform: rotate(360deg); } }
     </style>
+
+    <style>
+        /* ── Skeleton loaders (shimmer) — reemplazan los "Cargando..." de texto plano ── */
+        @keyframes pf-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        .pf-skel {
+            display: inline-block;
+            background: linear-gradient(90deg, #1c1c22 25%, #2a2a34 37%, #1c1c22 63%);
+            background-size: 400% 100%;
+            animation: pf-shimmer 1.4s ease infinite;
+            border-radius: 6px;
+        }
+        .pf-skel-kpi { width: 44px; height: 1.6em; vertical-align: middle; }
+        .pf-skel-line { display: block; height: 12px; margin: 6px 0; }
+        .pf-skel-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+        .pf-skel-thumb { width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0; }
+        .pf-skel-row .pf-skel-lines { flex: 1; min-width: 0; }
+        .pf-skel-row .pf-skel-lines .pf-skel-line:first-child { width: 70%; }
+        .pf-skel-row .pf-skel-lines .pf-skel-line:last-child { width: 40%; height: 9px; margin-bottom: 0; }
+    </style>
     <script>document.documentElement.classList.add('pf-verificando-sesion');</script>
     <script>
         (async function _pfVerificarSesion() {
@@ -2320,7 +2339,7 @@
                 max-width: none !important;
                 margin: 0 !important;
                 min-height: 100vh;
-                padding: 0 268px 48px 30px !important;
+                padding: 0 30px 48px 30px !important;
                 background: var(--pf-bg);
                 position: relative;
             }
@@ -2330,7 +2349,8 @@
             #pf-tabs-nav.pf-sidebar-collapsed .pf-modern-brand { padding: 20px 0 16px; justify-content: center; }
             #pf-tabs-nav.pf-sidebar-collapsed .pf-modern-brand span:not(.pf-modern-brand-mark) { display: none; }
             #pf-tabs-nav.pf-sidebar-collapsed + #mob-bottom-nav + #pf-mobile-routine-actions + #pf-main-content { padding-left: 30px !important; }
-            #sec-rutina, #sec-dashboard, #sec-repositorio, #sec-videoteca, #sec-crear-alumno, #sec-historial { max-width: 1120px; margin: 0 auto; }
+            #sec-rutina, #sec-repositorio, #sec-videoteca, #sec-crear-alumno, #sec-historial { max-width: 1120px; margin: 0 auto; }
+            #sec-dashboard { max-width: none; width: 100%; margin: 0; }
         }
         .pf-modern-brand {
             display: flex; align-items: center; gap: 9px; padding: 20px 19px 16px;
@@ -2361,7 +2381,7 @@
         .pf-sidebar-profile small { color:#667d8b; font-size:12px; }
         .pf-modern-topbar {
             min-height: 80px; display:flex; align-items:center; justify-content:space-between; gap:18px;
-            border-bottom:1px solid #152a38; margin:0 -268px 27px -30px; padding:0 30px;
+            border-bottom:1px solid #152a38; margin:0 -30px 27px -30px; padding:0 30px;
             background: linear-gradient(180deg, rgba(13,26,37,.74), rgba(7,14,22,.72));
         }
         .pf-modern-topbar h1 { margin:0; font-size:20px; letter-spacing:-.02em; font-weight:800; color:#f0f6f8; }
@@ -3006,7 +3026,10 @@
                             </select>
                         </div>
                         <div id="lista-ejercicios" class="space-y-2 max-h-[500px] overflow-y-auto pr-2">
-                            <p class="text-textoSuave text-sm text-center py-8">Cargando...</p>
+                            <div class="pf-skel-row"><span class="pf-skel pf-skel-thumb"></span><span class="pf-skel-lines"><span class="pf-skel pf-skel-line"></span><span class="pf-skel pf-skel-line"></span></span></div>
+                            <div class="pf-skel-row"><span class="pf-skel pf-skel-thumb"></span><span class="pf-skel-lines"><span class="pf-skel pf-skel-line"></span><span class="pf-skel pf-skel-line"></span></span></div>
+                            <div class="pf-skel-row"><span class="pf-skel pf-skel-thumb"></span><span class="pf-skel-lines"><span class="pf-skel pf-skel-line"></span><span class="pf-skel pf-skel-line"></span></span></div>
+                            <div class="pf-skel-row"><span class="pf-skel pf-skel-thumb"></span><span class="pf-skel-lines"><span class="pf-skel pf-skel-line"></span><span class="pf-skel pf-skel-line"></span></span></div>
                         </div>
                     </div>
                 </div>
@@ -13596,7 +13619,7 @@
         // Mostrar loading
         contenido.classList.remove('hidden');
         ['kpi-total-rutinas','kpi-metodo-dominante','kpi-ejs-unicos','kpi-frecuencia'].forEach(id => {
-            const el = document.getElementById(id); if (el) el.textContent = '...';
+            const el = document.getElementById(id); if (el) el.innerHTML = '<span class="pf-skel pf-skel-kpi"></span>';
         });
 
         // Cargar lista de rutinas del alumno
@@ -21944,7 +21967,7 @@ self.addEventListener('fetch', event => {
             var cont = document.getElementById('pf-rail-videoteca-items');
             if (!cont) return;
             if (typeof videotecaCache === 'undefined' || !videotecaCache || !Object.keys(videotecaCache).length) {
-                cont.innerHTML = '<p style="color:#5f7886;font-size:13px;padding:6px 0;">Cargando videoteca...</p>';
+                cont.innerHTML = '<div class="pf-skel-row"><span class="pf-skel pf-skel-thumb"></span><span class="pf-skel-lines"><span class="pf-skel pf-skel-line"></span><span class="pf-skel pf-skel-line"></span></span></div><div class="pf-skel-row"><span class="pf-skel pf-skel-thumb"></span><span class="pf-skel-lines"><span class="pf-skel pf-skel-line"></span><span class="pf-skel pf-skel-line"></span></span></div><div class="pf-skel-row"><span class="pf-skel pf-skel-thumb"></span><span class="pf-skel-lines"><span class="pf-skel pf-skel-line"></span><span class="pf-skel pf-skel-line"></span></span></div>';
                 return;
             }
             var todos = [];
@@ -22006,7 +22029,7 @@ self.addEventListener('fetch', event => {
                     return;
                 }
                 _railAlumnosIntentos++;
-                cont.innerHTML='<p style="color:#5f7886;font-size:13px;padding:6px 0;">Cargando alumnos...</p>';
+                cont.innerHTML='<div class="pf-skel-row"><span class="pf-skel pf-skel-thumb" style="border-radius:50%;"></span><span class="pf-skel-lines"><span class="pf-skel pf-skel-line"></span></span></div><div class="pf-skel-row"><span class="pf-skel pf-skel-thumb" style="border-radius:50%;"></span><span class="pf-skel-lines"><span class="pf-skel pf-skel-line"></span></span></div><div class="pf-skel-row"><span class="pf-skel pf-skel-thumb" style="border-radius:50%;"></span><span class="pf-skel-lines"><span class="pf-skel pf-skel-line"></span></span></div>';
                 if(typeof _obtenerAlumnosCache==='function') setTimeout(function(){ _obtenerAlumnosCache().then(renderRailAlumnos).catch(function(){}); }, 500);
                 return;
             }
@@ -22056,7 +22079,7 @@ self.addEventListener('fetch', event => {
             nav.insertAdjacentHTML('afterbegin', '<div id="pf-modern-brand" class="pf-modern-brand"><span class="pf-modern-brand-mark">PF</span><span>PONETE FIT<small>PROFESIONAL</small></span></div><div class="pf-sidebar-section">PRINCIPAL</div>');
             nav.insertAdjacentHTML('beforeend', '<div class="pf-sidebar-profile"><span class="pf-sidebar-avatar">R</span><span><b>Rafa</b><small>Profesor</small></span></div>');
             main.insertAdjacentHTML('afterbegin', '<div class="pf-modern-topbar"><div><h1>Entrenamientos</h1><p>Creá, editá y reutilizá entrenamientos de forma simple y rápida.</p></div><div class="pf-modern-actions"><a href="/alumno" target="_blank" class="text-sm text-azul hover:underline" style="white-space:nowrap;">Ver vista del alumno &rarr;</a><button class="pf-top-icon" onclick="toast(\'No hay notificaciones nuevas\')" aria-label="Notificaciones">♧</button><button class="pf-top-icon" onclick="showTab(\'videoteca\')" aria-label="Buscar en videoteca">⌕</button><span class="pf-top-user"><i>R</i> Rafa</span></div></div>');
-            main.insertAdjacentHTML('beforeend', '<aside class="pf-context-rail" aria-label="Accesos rápidos"><section class="pf-rail-card"><div class="pf-rail-head"><span id="pf-rail-videoteca-head">Videoteca</span> <span>ver todo</span></div><input id="pf-rail-buscar" class="pf-rail-search" placeholder="⌕ Buscar ejercicio..." oninput="pfRailFiltrarVideoteca(this.value)"><div id="pf-rail-videoteca-items"><p style="color:#5f7886;font-size:13px;padding:6px 0;">Cargando videoteca...</p></div><button class="pf-rail-link" onclick="showTab(\'videoteca\')">Ver videoteca completa</button></section><section class="pf-rail-card"><div class="pf-rail-head">Repositorio <span>ver todo</span></div><div class="pf-rail-item"><span class="pf-rail-thumb">▤</span><span><b>Rutinas guardadas</b><small>Usá tus plantillas</small></span></div><button class="pf-rail-link" onclick="showTab(\'repositorio\')">Abrir repositorio</button></section><section class="pf-rail-card"><div class="pf-rail-head">Otros alumnos <span>cargados</span></div><div id="pf-rail-alumnos-items"><p style="color:#5f7886;font-size:13px;padding:6px 0;">Cargando alumnos...</p></div></section></aside>');
+            main.insertAdjacentHTML('beforeend', '<aside class="pf-context-rail" aria-label="Accesos rápidos"><section class="pf-rail-card"><div class="pf-rail-head"><span id="pf-rail-videoteca-head">Videoteca</span> <span>ver todo</span></div><input id="pf-rail-buscar" class="pf-rail-search" placeholder="⌕ Buscar ejercicio..." oninput="pfRailFiltrarVideoteca(this.value)"><div id="pf-rail-videoteca-items"><div class="pf-skel-row"><span class="pf-skel pf-skel-thumb"></span><span class="pf-skel-lines"><span class="pf-skel pf-skel-line"></span><span class="pf-skel pf-skel-line"></span></span></div><div class="pf-skel-row"><span class="pf-skel pf-skel-thumb"></span><span class="pf-skel-lines"><span class="pf-skel pf-skel-line"></span><span class="pf-skel pf-skel-line"></span></span></div><div class="pf-skel-row"><span class="pf-skel pf-skel-thumb"></span><span class="pf-skel-lines"><span class="pf-skel pf-skel-line"></span><span class="pf-skel pf-skel-line"></span></span></div></div><button class="pf-rail-link" onclick="showTab(\'videoteca\')">Ver videoteca completa</button></section><section class="pf-rail-card"><div class="pf-rail-head">Repositorio <span>ver todo</span></div><div class="pf-rail-item"><span class="pf-rail-thumb">▤</span><span><b>Rutinas guardadas</b><small>Usá tus plantillas</small></span></div><button class="pf-rail-link" onclick="showTab(\'repositorio\')">Abrir repositorio</button></section><section class="pf-rail-card"><div class="pf-rail-head">Otros alumnos <span>cargados</span></div><div id="pf-rail-alumnos-items"><div class="pf-skel-row"><span class="pf-skel pf-skel-thumb" style="border-radius:50%;"></span><span class="pf-skel-lines"><span class="pf-skel pf-skel-line"></span></span></div><div class="pf-skel-row"><span class="pf-skel pf-skel-thumb" style="border-radius:50%;"></span><span class="pf-skel-lines"><span class="pf-skel pf-skel-line"></span></span></div><div class="pf-skel-row"><span class="pf-skel pf-skel-thumb" style="border-radius:50%;"></span><span class="pf-skel-lines"><span class="pf-skel pf-skel-line"></span></span></div></div></section></aside>');
             main.classList.toggle('pf-tab-dashboard', (typeof _pfActiveTab === 'undefined' || _pfActiveTab === 'dashboard' || _pfActiveTab === 'repositorio' || _pfActiveTab === 'crear-alumno' || _pfActiveTab === 'videoteca'));
             main.classList.toggle('pf-tab-historial', _pfActiveTab === 'historial');
             renderRailVideoteca();
