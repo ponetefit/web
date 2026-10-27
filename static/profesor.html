@@ -8543,14 +8543,35 @@
                 <input id="bp-portiempo-vueltas" type="number" value="3" min="1" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
             <p class="text-xs text-textoSuave mt-2">El alumno tiene un cronómetro que cuenta hacia arriba y marca cada vuelta manualmente. Se registran y muestran los tiempos de cada vuelta.</p>`;
         } else if (tipo === 'Series') {
-            html = `<div class="grid grid-cols-3 gap-3">
+            html = `<input type="hidden" id="bp-ser-modo" value="igual">
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                <button type="button" id="bp-ser-btn-igual" onclick="_pfSerieSetModo('igual')" class="text-xs font-bold py-2 rounded-lg" style="cursor:pointer">Todas iguales</button>
+                <button type="button" id="bp-ser-btn-distinta" onclick="_pfSerieSetModo('distinta')" class="text-xs font-bold py-2 rounded-lg" style="cursor:pointer">Distinta por serie</button>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Series</label>
-                <input id="bp-ser-series" type="number" value="3" min="1" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
-                <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones</label>
+                <input id="bp-ser-series" type="number" value="3" min="1" max="10" oninput="_pfSerieCambioSeries()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+                <div id="bp-ser-reps-wrap"><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones</label>
                 <input id="bp-ser-reps" type="number" value="10" min="1" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
-                <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label>
+                <div id="bp-ser-pausa-wrap"><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label>
                 <input id="bp-ser-pausa" type="number" value="60" min="0" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
             </div>
+            <div id="bp-ser-gen" style="display:none" class="rounded-xl p-3 mt-3" style="background:#0f0f13;border:1px solid #2a2a35">
+                <p class="text-[10px] text-textoSuave uppercase tracking-wider mb-2">Armar progresión automática (después podés editar cada serie)</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="text-[10px] text-textoSuave uppercase tracking-wider block mb-1">Reps 1ª serie</label>
+                    <input id="bp-gen-r0" type="number" value="10" class="w-full rounded-lg px-3 py-2 text-sm"></div>
+                    <div><label class="text-[10px] text-textoSuave uppercase tracking-wider block mb-1">Reps: cambio por serie</label>
+                    <input id="bp-gen-rd" type="number" value="2" class="w-full rounded-lg px-3 py-2 text-sm"></div>
+                    <div><label class="text-[10px] text-textoSuave uppercase tracking-wider block mb-1">Pausa 1ª serie (seg)</label>
+                    <input id="bp-gen-p0" type="number" value="60" class="w-full rounded-lg px-3 py-2 text-sm"></div>
+                    <div><label class="text-[10px] text-textoSuave uppercase tracking-wider block mb-1">Pausa: cambio por serie</label>
+                    <input id="bp-gen-pd" type="number" value="-5" class="w-full rounded-lg px-3 py-2 text-sm"></div>
+                </div>
+                <p class="text-[10px] text-textoSuave mt-2">Positivo = sube, negativo = baja, 0 = queda igual. Ej: reps +2 y pausa -5 con 4 series → 10/12/14/16 reps y 60/55/50/45 seg.</p>
+                <button type="button" onclick="_pfSerieGenerar()" class="w-full mt-2 text-xs font-bold py-2 rounded-lg" style="background:rgba(105,240,174,.12);color:#69F0AE;border:1px solid rgba(105,240,174,.3);cursor:pointer">⟳ Generar series</button>
+            </div>
+            <div id="bp-ser-detalle" style="display:none"></div>
             <p class="text-xs text-textoSuave mt-2">Se aplica a los ejercicios nuevos que agregues. Podés ajustar series, repeticiones y pausa de cada ejercicio individualmente abajo.</p>
             <button type="button" onclick="_pfAplicarDefaultsSeriesATodosBloque()" class="w-full mt-2 text-xs font-bold py-2 rounded-lg" style="background:rgba(105,240,174,.12);color:#69F0AE;border:1px solid rgba(105,240,174,.3);cursor:pointer">⟳ Aplicar estos valores a TODOS los ejercicios ya cargados</button>`;
         } else if (tipo === 'Sumando Ejercicio') {
@@ -8560,6 +8581,7 @@
             <div id="se-vista-previa" class="mt-3 space-y-1"></div>`;
         }
         container.innerHTML = html;
+        if (tipo === 'Series') _pfSerieRefrescarUI();
         _pfAgregarSteppersMobileEnContenedor('bloque-params-container');
         if (tipo === 'Sumando Ejercicio') setTimeout(() => _pfRenderVistaPreviaSumando(), 0);
         // Ocultar el panel generico de ejercicios cuando el tipo es EMOM
@@ -9056,13 +9078,16 @@
         // default para los ejercicios nuevos (igual que Series usa bp-ser-reps).
         const _defCircReps  = _esBloqCircuito ? (document.getElementById('bp-circ-reps')?.value || '12') : '12';
         const _repsDefault = _esBloqCircuito ? _defCircReps : _defSerReps;
+        const _serD = _esBloqSeries ? _pfLeerDefaultsSeries() : null;
+        const _serDist = !!(_serD && _serD.modo === 'distinta');
         bloqueEjsTemp.push({
             nombre, link,
             reps: (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.reps) || _repsDefault,
             unit: (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.unit) || 'Reps',
             series: _defSerSeries, descanso: _defSerPausa,
             nota_tecnica: (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.nota_tecnica) || '',
-            con_carga, tip1, tip2, elemento
+            con_carga, tip1, tip2, elemento,
+            ...(_serDist ? { reps: _serD.reps[0], descanso: _serD.pausa[0], reps_por_serie: _serD.reps.slice(), pausa_por_serie: _serD.pausa.slice() } : {})
         });
         renderBloqueEjsTemp();
     }
@@ -9076,21 +9101,116 @@
     // a TODOS los ejercicios ya cargados en el bloque (útil al editar una rutina
     // existente -otra semana, Repositorio, Historial- donde ya hay ejercicios y
     // se quiere cambiar el esquema general de todos de una sola vez).
+    // ── Series: modo "Todas iguales" vs "Distinta por serie" ──
+    // En modo distinta se carga reps y pausa de cada serie (ej: S1 10 reps/60s,
+    // S2 12 reps/50s, S3 15 reps/45s). Se guarda en reps_por_serie / pausa_por_serie.
+    function _pfSerieSetModo(modo) {
+        const h = document.getElementById('bp-ser-modo');
+        if (h) h.value = modo;
+        _pfSerieRefrescarUI();
+        _pfActualizarDuracionViva();
+    }
+    // Rellena las filas por serie a partir de un valor inicial y un cambio por serie
+    // (positivo sube, negativo baja, 0 queda igual). Las filas siguen siendo editables.
+    function _pfSerieGenerar() {
+        _pfSerieRenderDetalle();
+        const n = Math.max(1, Math.min(10, parseInt(document.getElementById('bp-ser-series')?.value) || 3));
+        const num = (id, def) => { const v = parseFloat(document.getElementById(id)?.value); return isNaN(v) ? def : v; };
+        const r0 = num('bp-gen-r0', 10), rd = num('bp-gen-rd', 0);
+        const p0 = num('bp-gen-p0', 60), pd = num('bp-gen-pd', 0);
+        for (let i = 0; i < n; i++) {
+            const r = document.getElementById('bp-ser-reps-s' + i);
+            const p = document.getElementById('bp-ser-pausa-s' + i);
+            if (r) r.value = Math.max(1, Math.round(r0 + rd * i));
+            if (p) p.value = Math.max(0, Math.round(p0 + pd * i));
+        }
+        _pfActualizarDuracionViva();
+    }
+    function _pfSerieCambioSeries() {
+        if ((document.getElementById('bp-ser-modo')?.value || 'igual') === 'distinta') _pfSerieRenderDetalle();
+        _pfActualizarDuracionViva();
+    }
+    function _pfSerieRefrescarUI() {
+        const dist = (document.getElementById('bp-ser-modo')?.value || 'igual') === 'distinta';
+        ['bp-ser-reps-wrap', 'bp-ser-pausa-wrap'].forEach(id => {
+            const e = document.getElementById(id);
+            if (e) e.style.display = dist ? 'none' : '';
+        });
+        const on = 'background:rgba(105,240,174,.18);color:#69F0AE;border:1px solid rgba(105,240,174,.5);cursor:pointer';
+        const off = 'background:#0f0f13;color:#9a9aab;border:1px solid #2a2a35;cursor:pointer';
+        const bi = document.getElementById('bp-ser-btn-igual');
+        const bd = document.getElementById('bp-ser-btn-distinta');
+        if (bi) bi.setAttribute('style', dist ? off : on);
+        if (bd) bd.setAttribute('style', dist ? on : off);
+        const gen = document.getElementById('bp-ser-gen');
+        if (gen) { gen.style.display = dist ? '' : 'none'; gen.style.background = '#0f0f13'; gen.style.border = '1px solid #2a2a35'; }
+        const det = document.getElementById('bp-ser-detalle');
+        if (det) {
+            det.style.display = dist ? '' : 'none';
+            if (dist) _pfSerieRenderDetalle();
+        }
+    }
+    function _pfSerieRenderDetalle() {
+        const det = document.getElementById('bp-ser-detalle');
+        if (!det) return;
+        const n = Math.max(1, Math.min(10, parseInt(document.getElementById('bp-ser-series')?.value) || 3));
+        const prevR = [], prevP = [];
+        for (let i = 0; i < 10; i++) {
+            const r = document.getElementById('bp-ser-reps-s' + i);
+            const p = document.getElementById('bp-ser-pausa-s' + i);
+            if (r) prevR[i] = r.value;
+            if (p) prevP[i] = p.value;
+        }
+        let lastR = document.getElementById('bp-ser-reps')?.value || '10';
+        let lastP = document.getElementById('bp-ser-pausa')?.value || '60';
+        let h = '<div class="space-y-2">';
+        for (let i = 0; i < n; i++) {
+            const rv = (prevR[i] !== undefined) ? prevR[i] : lastR;
+            const pv = (prevP[i] !== undefined) ? prevP[i] : lastP;
+            lastR = rv; lastP = pv;
+            h += '<div class="grid grid-cols-3 gap-3 items-end">' +
+                '<div class="text-xs font-bold pb-2.5" style="color:#69F0AE">Serie ' + (i + 1) + '</div>' +
+                '<div><label class="text-[10px] text-textoSuave uppercase tracking-wider block mb-1">Reps</label>' +
+                '<input id="bp-ser-reps-s' + i + '" type="number" min="1" value="' + rv + '" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>' +
+                '<div><label class="text-[10px] text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label>' +
+                '<input id="bp-ser-pausa-s' + i + '" type="number" min="0" value="' + pv + '" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>' +
+                '</div>';
+        }
+        h += '</div>';
+        det.innerHTML = h;
+    }
+    // Devuelve la config de Series del panel: n, modo, reps[] y pausa[] (uno por serie)
+    function _pfLeerDefaultsSeries() {
+        const n = Math.max(1, parseInt(document.getElementById('bp-ser-series')?.value) || 3);
+        const modo = document.getElementById('bp-ser-modo')?.value || 'igual';
+        const baseR = document.getElementById('bp-ser-reps')?.value || '10';
+        const baseP = document.getElementById('bp-ser-pausa')?.value || '60';
+        const reps = [], pausa = [];
+        for (let i = 0; i < n; i++) {
+            if (modo === 'distinta') {
+                const r = document.getElementById('bp-ser-reps-s' + i);
+                const p = document.getElementById('bp-ser-pausa-s' + i);
+                reps.push(r && r.value !== '' ? r.value : baseR);
+                pausa.push(p && p.value !== '' ? p.value : baseP);
+            } else {
+                reps.push(baseR);
+                pausa.push(baseP);
+            }
+        }
+        return { n, modo, reps, pausa };
+    }
+
+    // Aplica los valores de Series/Repeticiones/Pausa del panel de configuración
+    // a TODOS los ejercicios ya cargados en el bloque (modo iguales o distinta por serie).
     function _pfAplicarDefaultsSeriesATodosBloque() {
         if (bloqueEjsTemp.length === 0) return;
-        const nSeries = parseInt(document.getElementById('bp-ser-series')?.value) || 3;
-        const nReps   = document.getElementById('bp-ser-reps')?.value || '10';
-        const nPausa  = document.getElementById('bp-ser-pausa')?.value || '60';
+        const d = _pfLeerDefaultsSeries();
         bloqueEjsTemp.forEach(ej => {
-            ej.series = nSeries;
-            ej.reps = nReps;
-            ej.descanso = nPausa;
-            ej.reps_por_serie = [];
-            ej.pausa_por_serie = [];
-            for (let s = 0; s < nSeries; s++) {
-                ej.reps_por_serie.push(nReps);
-                ej.pausa_por_serie.push(nPausa);
-            }
+            ej.series = d.n;
+            ej.reps = d.reps[0];
+            ej.descanso = d.pausa[0];
+            ej.reps_por_serie = d.reps.slice();
+            ej.pausa_por_serie = d.pausa.slice();
         });
         renderBloqueEjsTemp();
         toast('Series, repeticiones y pausa actualizadas en ' + bloqueEjsTemp.length + ' ejercicio(s)');
@@ -9849,6 +9969,20 @@
             const sSer = document.getElementById('bp-ser-series'); if(sSer) sSer.value = primerEj.series || 3;
             const sRep = document.getElementById('bp-ser-reps');   if(sRep) sRep.value = primerEj.reps || 10;
             const sPau = document.getElementById('bp-ser-pausa');  if(sPau) sPau.value = primerEj.descanso || 60;
+            // Si las series tienen reps/pausa distintas, abrir en modo "Distinta por serie"
+            const _rps = primerEj.reps_por_serie || [], _pps = primerEj.pausa_por_serie || [];
+            const _difArr = a => a.length > 1 && a.some(v => String(v) !== String(a[0]));
+            if (_difArr(_rps) || _difArr(_pps)) {
+                const hm = document.getElementById('bp-ser-modo'); if (hm) hm.value = 'distinta';
+                _pfSerieRefrescarUI();
+                const nS = parseInt(primerEj.series) || _rps.length || 3;
+                for (let i = 0; i < nS; i++) {
+                    const re = document.getElementById('bp-ser-reps-s' + i);
+                    const pe = document.getElementById('bp-ser-pausa-s' + i);
+                    if (re && _rps[i] !== undefined && _rps[i] !== '') re.value = _rps[i];
+                    if (pe && _pps[i] !== undefined && _pps[i] !== '') pe.value = _pps[i];
+                }
+            }
         } else if (b.tipo === 'EMOM') {
             const _mEl = document.getElementById('bp-minutos');
             const _cEl = document.getElementById('bp-emom-ciclo');
