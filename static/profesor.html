@@ -2756,7 +2756,7 @@
                     </div>
                     <div class="flex gap-3 items-center w-full md:w-auto">
                         <input id="dash-select-alumno" type="text" autocomplete="off" placeholder="Buscar alumno..." class="rounded-lg px-4 py-2.5 text-sm flex-1 md:min-w-[220px]">
-                        <button onclick="cargarAlumnosDash()" class="bg-naranja/20 text-naranja px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition whitespace-nowrap">Actualizar</button>
+                        <button onclick="cargarAlumnosDash(true)" class="bg-naranja/20 text-naranja px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-naranja/30 transition whitespace-nowrap">Actualizar</button>
                     </div>
                 </div>
                 <!-- Perfil -->
@@ -4812,19 +4812,30 @@
     let _alumnosCacheLoaded = false;
 
     // Trae (o refresca) la lista de alumnos desde el backend y la cachea.
-    async function _obtenerAlumnosCache(forzar) {
-        if (_alumnosCacheLoaded && !forzar) return _alumnosCache;
-        try {
-            const res = await fetch(API_BASE + '/api/alumnos');
-            const data = await res.json();
-            if (data.ok && data.alumnos) {
-                _alumnosCache = data.alumnos.slice().sort((a, b) => a.localeCompare(b));
-                _alumnosCacheLoaded = true;
+    // Si ya hay un pedido en curso, los demas llamadores esperan ese mismo pedido
+    // (antes, al abrir la pagina se disparaban 5-6 pedidos identicos a /api/alumnos a la vez).
+    let _alumnosCachePromise = null;
+    let _alumnosCacheTs = 0;
+    function _obtenerAlumnosCache(forzar) {
+        if (_alumnosCacheLoaded && !forzar) return Promise.resolve(_alumnosCache);
+        if (_alumnosCachePromise) return _alumnosCachePromise;
+        _alumnosCachePromise = (async () => {
+            try {
+                const res = await fetch(API_BASE + '/api/alumnos');
+                const data = await res.json();
+                if (data.ok && data.alumnos) {
+                    _alumnosCache = data.alumnos.slice().sort((a, b) => a.localeCompare(b));
+                    _alumnosCacheLoaded = true;
+                    _alumnosCacheTs = Date.now();
+                }
+            } catch (e) {
+                console.error('Error cargando cache de alumnos:', e);
+            } finally {
+                _alumnosCachePromise = null;
             }
-        } catch (e) {
-            console.error('Error cargando cache de alumnos:', e);
-        }
-        return _alumnosCache;
+            return _alumnosCache;
+        })();
+        return _alumnosCachePromise;
     }
 
     // Convierte un <input type="text"> en un buscador con autocompletado de alumnos.
@@ -5545,16 +5556,24 @@
     // Carga todas las fichas de alumnos guardadas (a traves del backend, que
     // resuelve a la base de datos de la cuenta logueada; ya no habla directo
     // con Firebase).
-    async function cargarPerfilesAlumnos() {
-        try {
-            const res = await fetch(API_BASE + '/api/alumnos_perfil');
-            const data = await res.json();
-            _perfilAlumnosCache = (data && data.ok) ? (data.perfiles || {}) : {};
-        } catch (e) {
-            console.error('Error cargando fichas de alumnos:', e);
-        }
-        await _obtenerAlumnosCache();
-        renderizarListaAlumnosPerfil();
+    // Llamadas simultaneas comparten un solo pedido, y alumnos + fichas se piden en paralelo.
+    let _perfilesPromise = null;
+    function cargarPerfilesAlumnos() {
+        if (_perfilesPromise) return _perfilesPromise;
+        _perfilesPromise = (async () => {
+            const pPerfiles = (async () => {
+                try {
+                    const res = await fetch(API_BASE + '/api/alumnos_perfil');
+                    const data = await res.json();
+                    _perfilAlumnosCache = (data && data.ok) ? (data.perfiles || {}) : {};
+                } catch (e) {
+                    console.error('Error cargando fichas de alumnos:', e);
+                }
+            })();
+            await Promise.all([pPerfiles, _obtenerAlumnosCache()]);
+            renderizarListaAlumnosPerfil();
+        })().finally(() => { _perfilesPromise = null; });
+        return _perfilesPromise;
     }
 
     function agregarEjercicioProhibidoAlumno() {
@@ -13899,11 +13918,14 @@
         try { localStorage.setItem(PF_ULTIMO_ALUMNO_KEY, nombre); } catch (e) {}
     }
 
-    async function cargarAlumnosDash() {
+    async function cargarAlumnosDash(forzar) {
         const inp = document.getElementById('dash-select-alumno');
         if (!inp) return;
         try {
-            await _obtenerAlumnosCache(true);
+            // Solo vuelve a pedir la lista si se pidio expresamente (boton Actualizar) o si
+            // la que hay tiene mas de 30 segundos; si no, usa la que ya esta en memoria.
+            const reciente = _alumnosCacheLoaded && (Date.now() - _alumnosCacheTs) < 30000;
+            await _obtenerAlumnosCache(forzar === true || !reciente);
             _initAutocompleteAlumno('dash-select-alumno', cargarDashboard, cargarDashboard);
         } catch (e) {
             console.error('Error cargando alumnos para dashboard:', e);
