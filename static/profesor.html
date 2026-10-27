@@ -8575,21 +8575,6 @@
                 <div id="bp-ser-pausa-wrap"><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa (seg)</label>
                 <input id="bp-ser-pausa" type="number" value="60" min="0" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
             </div>
-            <div id="bp-ser-gen" style="display:none" class="rounded-xl p-3 mt-3" style="background:#0f0f13;border:1px solid #2a2a35">
-                <p class="text-[10px] text-textoSuave uppercase tracking-wider mb-2">Armar progresión automática (después podés editar cada serie)</p>
-                <div class="grid grid-cols-2 gap-3">
-                    <div><label class="text-[10px] text-textoSuave uppercase tracking-wider block mb-1">Reps 1ª serie</label>
-                    <input id="bp-gen-r0" type="number" value="10" class="w-full rounded-lg px-3 py-2 text-sm"></div>
-                    <div><label class="text-[10px] text-textoSuave uppercase tracking-wider block mb-1">Reps: cambio por serie</label>
-                    <input id="bp-gen-rd" type="number" value="2" class="w-full rounded-lg px-3 py-2 text-sm"></div>
-                    <div><label class="text-[10px] text-textoSuave uppercase tracking-wider block mb-1">Pausa 1ª serie (seg)</label>
-                    <input id="bp-gen-p0" type="number" value="60" class="w-full rounded-lg px-3 py-2 text-sm"></div>
-                    <div><label class="text-[10px] text-textoSuave uppercase tracking-wider block mb-1">Pausa: cambio por serie</label>
-                    <input id="bp-gen-pd" type="number" value="-5" class="w-full rounded-lg px-3 py-2 text-sm"></div>
-                </div>
-                <p class="text-[10px] text-textoSuave mt-2">Positivo = sube, negativo = baja, 0 = queda igual. Ej: reps +2 y pausa -5 con 4 series → 10/12/14/16 reps y 60/55/50/45 seg.</p>
-                <button type="button" onclick="_pfSerieGenerar()" class="w-full mt-2 text-xs font-bold py-2 rounded-lg" style="background:rgba(105,240,174,.12);color:#69F0AE;border:1px solid rgba(105,240,174,.3);cursor:pointer">⟳ Generar series</button>
-            </div>
             <div id="bp-ser-detalle" style="display:none"></div>
             <p class="text-xs text-textoSuave mt-2">Se aplica a los ejercicios nuevos que agregues. Podés ajustar series, repeticiones y pausa de cada ejercicio individualmente abajo.</p>
             <button type="button" onclick="_pfAplicarDefaultsSeriesATodosBloque()" class="w-full mt-2 text-xs font-bold py-2 rounded-lg" style="background:rgba(105,240,174,.12);color:#69F0AE;border:1px solid rgba(105,240,174,.3);cursor:pointer">⟳ Aplicar estos valores a TODOS los ejercicios ya cargados</button>`;
@@ -9129,22 +9114,6 @@
         _pfSerieRefrescarUI();
         _pfActualizarDuracionViva();
     }
-    // Rellena las filas por serie a partir de un valor inicial y un cambio por serie
-    // (positivo sube, negativo baja, 0 queda igual). Las filas siguen siendo editables.
-    function _pfSerieGenerar() {
-        _pfSerieRenderDetalle();
-        const n = Math.max(1, Math.min(10, parseInt(document.getElementById('bp-ser-series')?.value) || 3));
-        const num = (id, def) => { const v = parseFloat(document.getElementById(id)?.value); return isNaN(v) ? def : v; };
-        const r0 = num('bp-gen-r0', 10), rd = num('bp-gen-rd', 0);
-        const p0 = num('bp-gen-p0', 60), pd = num('bp-gen-pd', 0);
-        for (let i = 0; i < n; i++) {
-            const r = document.getElementById('bp-ser-reps-s' + i);
-            const p = document.getElementById('bp-ser-pausa-s' + i);
-            if (r) r.value = Math.max(1, Math.round(r0 + rd * i));
-            if (p) p.value = Math.max(0, Math.round(p0 + pd * i));
-        }
-        _pfActualizarDuracionViva();
-    }
     function _pfSerieCambioSeries() {
         if ((document.getElementById('bp-ser-modo')?.value || 'igual') === 'distinta') _pfSerieRenderDetalle();
         _pfActualizarDuracionViva();
@@ -9161,8 +9130,6 @@
         const bd = document.getElementById('bp-ser-btn-distinta');
         if (bi) bi.setAttribute('style', dist ? off : on);
         if (bd) bd.setAttribute('style', dist ? on : off);
-        const gen = document.getElementById('bp-ser-gen');
-        if (gen) { gen.style.display = dist ? '' : 'none'; gen.style.background = '#0f0f13'; gen.style.border = '1px solid #2a2a35'; }
         const det = document.getElementById('bp-ser-detalle');
         if (det) {
             det.style.display = dist ? '' : 'none';
