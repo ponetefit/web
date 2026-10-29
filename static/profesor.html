@@ -8518,14 +8518,20 @@
         const ejPanel = document.getElementById('bloque-ejercicios-panel');
         let html = '';
         if (tipo === 'Circuito') {
-            html = `<div class="grid grid-cols-3 gap-3">
+            html = `<input type="hidden" id="bp-circ-modo" value="igual">
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                <button type="button" id="bp-circ-btn-igual" onclick="_pfCircSetModo('igual')" class="text-xs font-bold py-2 rounded-lg" style="cursor:pointer">Todas iguales</button>
+                <button type="button" id="bp-circ-btn-distinta" onclick="_pfCircSetModo('distinta')" class="text-xs font-bold py-2 rounded-lg" style="cursor:pointer">Distinta por vuelta</button>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Vueltas</label>
-                <input id="bp-vueltas" type="number" value="3" min="1" oninput="renderBloqueEjsTemp();_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
+                <input id="bp-vueltas" type="number" value="3" min="1" max="10" oninput="_pfCircCambioVueltas()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
                 <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Pausa entre vueltas (seg)</label>
                 <input id="bp-pausa-vuelta" type="number" value="60" min="0" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
-                <div><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones</label>
+                <div id="bp-circ-reps-wrap"><label class="text-xs text-textoSuave uppercase tracking-wider block mb-1">Repeticiones</label>
                 <input id="bp-circ-reps" type="text" value="12" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>
             </div>
+            <div id="bp-circ-detalle" style="display:none"></div>
             <p class="text-xs text-textoSuave mt-2">Se aplica a los ejercicios nuevos que agregues (todas las vueltas). Podés ajustar reps por vuelta de cada ejercicio individualmente abajo.</p>
             <button type="button" onclick="_pfAplicarDefaultsCircuitoATodosBloque()" class="w-full mt-2 text-xs font-bold py-2 rounded-lg" style="background:rgba(105,240,174,.12);color:#69F0AE;border:1px solid rgba(105,240,174,.3);cursor:pointer">⟳ Aplicar estos valores a TODOS los ejercicios ya cargados</button>`;
         } else if (tipo === 'Circuito por Tiempo') {
@@ -8586,6 +8592,7 @@
         }
         container.innerHTML = html;
         if (tipo === 'Series') _pfSerieRefrescarUI();
+        if (tipo === 'Circuito') _pfCircRefrescarUI();
         _pfAgregarSteppersMobileEnContenedor('bloque-params-container');
         if (tipo === 'Sumando Ejercicio') setTimeout(() => _pfRenderVistaPreviaSumando(), 0);
         // Ocultar el panel generico de ejercicios cuando el tipo es EMOM
@@ -9084,6 +9091,8 @@
         const _repsDefault = _esBloqCircuito ? _defCircReps : _defSerReps;
         const _serD = _esBloqSeries ? _pfLeerDefaultsSeries() : null;
         const _serDist = !!(_serD && _serD.modo === 'distinta');
+        const _circD = _esBloqCircuito ? _pfLeerDefaultsCircuito() : null;
+        const _circDist = !!(_circD && _circD.modo === 'distinta');
         bloqueEjsTemp.push({
             nombre, link,
             reps: (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.reps) || _repsDefault,
@@ -9091,7 +9100,8 @@
             series: _defSerSeries, descanso: _defSerPausa,
             nota_tecnica: (_pfConfigEjSeleccionado && _pfConfigEjSeleccionado.nota_tecnica) || '',
             con_carga, tip1, tip2, elemento,
-            ...(_serDist ? { reps: _serD.reps[0], descanso: _serD.pausa[0], reps_por_serie: _serD.reps.slice(), pausa_por_serie: _serD.pausa.slice() } : {})
+            ...(_serDist ? { reps: _serD.reps[0], descanso: _serD.pausa[0], reps_por_serie: _serD.reps.slice(), pausa_por_serie: _serD.pausa.slice() } : {}),
+            ...(_circDist ? { reps: _circD.reps[0], reps_por_vuelta: _circD.reps.slice() } : {})
         });
         renderBloqueEjsTemp();
     }
@@ -9202,21 +9212,84 @@
         toast('Series, repeticiones y pausa actualizadas en ' + bloqueEjsTemp.length + ' ejercicio(s)');
     }
 
-    // Aplica el valor de Repeticiones del panel de configuración de Circuito a
-    // TODOS los ejercicios ya cargados en el bloque (útil al editar una rutina
-    // existente -otra semana, Repositorio, Historial- donde ya hay ejercicios y
-    // se quiere cambiar las reps de todos de una sola vez, igual que hace Series
-    // con "Aplicar estos valores a TODOS los ejercicios ya cargados").
+    // ── Circuito: modo "Todas iguales" vs "Distinta por vuelta" ──
+    // En modo distinta se cargan las reps de cada vuelta (ej: V1 10, V2 12, V3 15).
+    // Se guarda en reps_por_vuelta de cada ejercicio.
+    function _pfCircSetModo(modo) {
+        const h = document.getElementById('bp-circ-modo');
+        if (h) h.value = modo;
+        _pfCircRefrescarUI();
+        _pfActualizarDuracionViva();
+    }
+    function _pfCircCambioVueltas() {
+        if ((document.getElementById('bp-circ-modo')?.value || 'igual') === 'distinta') _pfCircRenderDetalle();
+        renderBloqueEjsTemp();
+        _pfActualizarDuracionViva();
+    }
+    function _pfCircRefrescarUI() {
+        const dist = (document.getElementById('bp-circ-modo')?.value || 'igual') === 'distinta';
+        const w = document.getElementById('bp-circ-reps-wrap');
+        if (w) w.style.display = dist ? 'none' : '';
+        const on = 'background:rgba(105,240,174,.18);color:#69F0AE;border:1px solid rgba(105,240,174,.5);cursor:pointer';
+        const off = 'background:#0f0f13;color:#9a9aab;border:1px solid #2a2a35;cursor:pointer';
+        const bi = document.getElementById('bp-circ-btn-igual');
+        const bd = document.getElementById('bp-circ-btn-distinta');
+        if (bi) bi.setAttribute('style', dist ? off : on);
+        if (bd) bd.setAttribute('style', dist ? on : off);
+        const det = document.getElementById('bp-circ-detalle');
+        if (det) {
+            det.style.display = dist ? '' : 'none';
+            if (dist) _pfCircRenderDetalle();
+        }
+    }
+    function _pfCircRenderDetalle() {
+        const det = document.getElementById('bp-circ-detalle');
+        if (!det) return;
+        const n = Math.max(1, Math.min(10, parseInt(document.getElementById('bp-vueltas')?.value) || 3));
+        const prev = [];
+        for (let i = 0; i < 10; i++) {
+            const r = document.getElementById('bp-circ-reps-v' + i);
+            if (r) prev[i] = r.value;
+        }
+        let last = document.getElementById('bp-circ-reps')?.value || '12';
+        let h = '<div class="space-y-2 mt-3">';
+        for (let i = 0; i < n; i++) {
+            const rv = (prev[i] !== undefined) ? prev[i] : last;
+            last = rv;
+            h += '<div class="grid grid-cols-3 gap-3 items-end">' +
+                '<div class="text-xs font-bold pb-2.5" style="color:#69F0AE">Vuelta ' + (i + 1) + '</div>' +
+                '<div class="col-span-2"><label class="text-[10px] text-textoSuave uppercase tracking-wider block mb-1">Reps</label>' +
+                '<input id="bp-circ-reps-v' + i + '" type="text" value="' + String(rv).replace(/"/g, '&quot;') + '" oninput="_pfActualizarDuracionViva()" class="w-full rounded-lg px-3 py-2.5 text-sm"></div>' +
+                '</div>';
+        }
+        h += '</div>';
+        det.innerHTML = h;
+    }
+    // Devuelve la config de Circuito del panel: n (vueltas), modo y reps[] (una por vuelta)
+    function _pfLeerDefaultsCircuito() {
+        const n = Math.max(1, parseInt(document.getElementById('bp-vueltas')?.value) || 3);
+        const modo = document.getElementById('bp-circ-modo')?.value || 'igual';
+        const base = document.getElementById('bp-circ-reps')?.value || '12';
+        const reps = [];
+        for (let i = 0; i < n; i++) {
+            if (modo === 'distinta') {
+                const r = document.getElementById('bp-circ-reps-v' + i);
+                reps.push(r && r.value !== '' ? r.value : base);
+            } else {
+                reps.push(base);
+            }
+        }
+        return { n, modo, reps };
+    }
+
+    // Aplica las Repeticiones del panel de configuración de Circuito a TODOS los
+    // ejercicios ya cargados en el bloque (modo iguales o distinta por vuelta).
     function _pfAplicarDefaultsCircuitoATodosBloque() {
         if (bloqueEjsTemp.length === 0) return;
-        const numVueltas = parseInt(document.getElementById('bp-vueltas')?.value) || 3;
-        const nReps = document.getElementById('bp-circ-reps')?.value || '12';
+        const d = _pfLeerDefaultsCircuito();
         bloqueEjsTemp.forEach(ej => {
-            ej.reps = nReps;
-            ej.reps_por_vuelta = [];
-            for (let v = 0; v < numVueltas; v++) {
-                ej.reps_por_vuelta.push(nReps);
-            }
+            ej.reps = d.reps[0];
+            ej.reps_por_vuelta = d.reps.slice();
         });
         renderBloqueEjsTemp();
         toast('Repeticiones actualizadas en ' + bloqueEjsTemp.length + ' ejercicio(s)');
@@ -9938,6 +10011,17 @@
             const primerEjC = (b.ejercicios && b.ejercicios[0]) || {};
             const primerRepC = (primerEjC.reps_por_vuelta && primerEjC.reps_por_vuelta[0]) || primerEjC.reps || 12;
             const rC = document.getElementById('bp-circ-reps'); if(rC) rC.value = primerRepC;
+            // Si las vueltas tienen reps distintas, abrir en modo "Distinta por vuelta"
+            const _rpv = (primerEjC.reps_por_vuelta || []);
+            if (_rpv.length > 1 && _rpv.some(v => String(v) !== String(_rpv[0]))) {
+                const hm = document.getElementById('bp-circ-modo'); if (hm) hm.value = 'distinta';
+                _pfCircRefrescarUI();
+                const nV = parseInt(b.vueltas) || _rpv.length || 3;
+                for (let i = 0; i < nV; i++) {
+                    const re = document.getElementById('bp-circ-reps-v' + i);
+                    if (re && _rpv[i] !== undefined && _rpv[i] !== '') re.value = _rpv[i];
+                }
+            }
         } else if (b.tipo === 'Por Tiempo') {
             const v = document.getElementById('bp-portiempo-vueltas'); if(v) v.value = b.vueltas || 3;
         } else if (b.tipo === 'Circuito por Tiempo') {
