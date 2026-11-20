@@ -1695,14 +1695,14 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
     o.setAttribute("role","dialog");o.setAttribute("aria-modal","true");o.setAttribute("aria-labelledby","pf-notif-titulo");
     o.innerHTML=
       '<div class="pf-notif-card">'+
-        '<div class="pf-notif-head"><span class="pf-notif-ico" aria-hidden="true">🔔</span><h2 id="pf-notif-titulo">Mensaje de tu profesor</h2></div>'+
+        '<div class="pf-notif-head"><span class="pf-notif-ico" aria-hidden="true">🔔</span><h2 id="pf-notif-titulo">Notificaciones</h2></div>'+
         '<div class="pf-notif-hilo" id="pf-notif-hilo"></div>'+
         '<div class="pf-notif-nota">Los mensajes se ocultan 12 horas después de verlos o responderlos.</div>'+
         '<div class="pf-notif-resp">'+
-          '<label class="pf-notif-lbl" for="pf-notif-texto">Respondele a tu profe</label>'+
-          '<textarea id="pf-notif-texto" maxlength="500" rows="3" placeholder="Escribí tu respuesta..."></textarea>'+
+          '<label class="pf-notif-lbl" id="pf-notif-lbl" for="pf-notif-texto">Dejale una nota a tu profe</label>'+
+          '<textarea id="pf-notif-texto" maxlength="500" rows="3" placeholder="Escribí tu nota..."></textarea>'+
           '<div class="pf-notif-err" id="pf-notif-err" hidden></div>'+
-          '<button type="button" class="pf-notif-btn pf-notif-enviar" id="pf-notif-enviar">Enviar respuesta</button>'+
+          '<button type="button" class="pf-notif-btn pf-notif-enviar" id="pf-notif-enviar">Enviar nota</button>'+
         '</div>'+
         '<button type="button" class="pf-notif-btn pf-notif-cerrar" id="pf-notif-cerrar">Cerrar notificación</button>'+
       '</div>';
@@ -1713,13 +1713,25 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
     return o;
   }
 
+  /* Hay mensaje del profe en el hilo => "responder"; si no => el alumno arranca la conversación con una nota */
+  function hayMensajeProfe(){return visibles().some(function(m){return m.de==="profesor"})}
+  function aplicarEtiquetas(){
+    if(!overlay)return;
+    var resp=hayMensajeProfe();
+    var t=overlay.querySelector("#pf-notif-titulo");if(t)t.textContent=resp?"Mensaje de tu profesor":"Notificaciones";
+    var l=overlay.querySelector("#pf-notif-lbl");if(l)l.textContent=resp?"Respondele a tu profe":"Dejale una nota a tu profe";
+    var ta=overlay.querySelector("#pf-notif-texto");if(ta)ta.placeholder=resp?"Escribí tu respuesta...":"Escribí tu nota...";
+    var b=overlay.querySelector("#pf-notif-enviar");if(b&&!enviando)b.textContent=resp?"Enviar respuesta":"Enviar nota";
+  }
+
   function renderModal(){
     if(!overlay)return;
     var hilo=overlay.querySelector("#pf-notif-hilo");
     noLeidas().forEach(function(m){nuevos[m.id]=true});
     var lista=visibles();
+    aplicarEtiquetas();
     if(!lista.length){
-      hilo.innerHTML='<div class="pf-notif-vacio">No tenés mensajes nuevos.</div>';
+      hilo.innerHTML='<div class="pf-notif-vacio">Todavía no tenés mensajes. Si querés, dejale una nota a tu profe acá abajo.</div>';
     }else{
       hilo.innerHTML=lista.map(function(m){
         var esProf=m.de==="profesor";
@@ -1741,9 +1753,8 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
   }
 
   function abrir(){
-    if(!clave()){toast("No tenés notificaciones nuevas");return}
+    if(!clave()){toast("Entrá a tu entrenamiento para dejarle una nota a tu profe");return}
     refrescar(true).then(function(){
-      if(!visibles().length){toast("No tenés notificaciones nuevas");return}
       if(!overlay)overlay=crearModal();
       nuevos={};
       mostrarError("");
@@ -1751,6 +1762,7 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
       overlay.hidden=false;
       modalAbierto=true;
       renderModal();
+      if(!hayMensajeProfe()){try{overlay.querySelector("#pf-notif-texto").focus()}catch(e){}}
     });
   }
 
@@ -1789,10 +1801,10 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
     _mailForm._fMensaje=campo("Mensaje");
     document.body.appendChild(_mailForm);
   }
-  function _avisarMailProfesor(texto){
+  function _avisarMailProfesor(texto,esNota){
     try{
       _prepararEnvioMail();
-      _mailForm._fSubject.value="Ponete Fit - "+codigo()+" te respondió una notificación";
+      _mailForm._fSubject.value="Ponete Fit - "+codigo()+(esNota?" te dejó una nota":" te respondió una notificación");
       _mailForm._fAlumno.value=codigo();
       _mailForm._fMensaje.value=texto;
       _mailForm.submit();
@@ -1800,14 +1812,25 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
     }catch(e){try{console.warn("[notificaciones] no se pudo avisar por mail",e)}catch(_){}}
   }
 
+  /* Índice liviano para la campanita del profesor: notificaciones/_avisos/{alumno} = {ts, texto, nombre}
+     (si falla no pasa nada: el mensaje igual queda guardado en el hilo y el profe lo ve en su Dashboard) */
+  function publicarAviso(k,texto,ts){
+    try{
+      var nom=(typeof nombreUsuario!=="undefined"&&nombreUsuario)?nombreUsuario:k;
+      fetch("/api/fb/"+encodeURIComponent(codigo())+"/notificaciones/_avisos/"+encodeURIComponent(k)+".json",
+        {method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({ts:ts,texto:String(texto).slice(0,200),nombre:nom})}).catch(function(){});
+    }catch(e){}
+  }
+
   function enviar(){
     if(enviando||!overlay)return;
     var ta=overlay.querySelector("#pf-notif-texto");
     var texto=(ta.value||"").trim();
-    if(!texto){mostrarError("Escribí tu respuesta antes de enviar.");return}
+    if(!texto){mostrarError("Escribí tu nota antes de enviar.");return}
     var k=clave();
     if(!k)return;
     var btn=overlay.querySelector("#pf-notif-enviar");
+    var esNota=!hayMensajeProfe();
     enviando=true;btn.disabled=true;btn.textContent="Enviando...";mostrarError("");
     var ts=Date.now();
     var id=ts+"_"+Math.random().toString(36).slice(2,6);
@@ -1819,14 +1842,15 @@ window._pfMostrarHeader=function(){_mostrar();_ultimoScrollTop=_scrollElHdr.scro
         msgs.push({id:id,de:"alumno",texto:msg.texto,ts:ts});
         ta.value="";
         renderModal();
-        toast("Respuesta enviada");
-        _avisarMailProfesor(msg.texto);
+        toast(esNota?"Nota enviada a tu profe":"Respuesta enviada");
+        publicarAviso(k,msg.texto,ts);
+        _avisarMailProfesor(msg.texto,esNota);
       })
       .catch(function(e){
         try{console.warn("[notificaciones] no se pudo enviar la respuesta",e)}catch(_){}
         mostrarError("No se pudo enviar. Revisá tu conexión e intentá de nuevo.");
       })
-      .then(function(){enviando=false;btn.disabled=false;btn.textContent="Enviar respuesta"});
+      .then(function(){enviando=false;btn.disabled=false;aplicarEtiquetas()});
   }
 
   document.addEventListener("keydown",function(e){if(e.key==="Escape"&&modalAbierto)cerrar()});
