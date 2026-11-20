@@ -2630,7 +2630,24 @@
                 <h1 onclick="_pfLogoClick()" class="text-3xl font-black text-naranja glow-orange tracking-tight sm:cursor-pointer" title="Ir al Dashboard">PONETE FIT</h1>
                 <p class="text-xs text-textoSuave tracking-[4px] uppercase">Panel del Profesor</p>
             </div>
-            <a href="/alumno" target="_blank" class="text-sm text-azul hover:underline">Ver vista del alumno &rarr;</a>
+            <div class="flex items-center gap-3">
+                <div id="pf-bell-wrap" style="position:relative">
+                    <button type="button" id="pf-bell-prof" aria-label="Notas de tus alumnos" aria-haspopup="true" aria-expanded="false" title="Notas de tus alumnos"
+                        style="position:relative;width:42px;height:42px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#0f0f13;border:1px solid #2a2a35;border-radius:12px;color:#f0f0f5">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M12 22a2.2 2.2 0 0 0 2.15-1.8h-4.3A2.2 2.2 0 0 0 12 22zm7.2-5.2-1.7-1.9V10.5c0-3.1-1.8-5.4-4.6-6.1V3.7a.9.9 0 0 0-1.8 0v.7c-2.8.7-4.6 3-4.6 6.1v4.4l-1.7 1.9a1 1 0 0 0 .8 1.7h13.8a1 1 0 0 0 .8-1.7z"/></svg>
+                        <span id="pf-bell-prof-badge" hidden style="position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#FF1744;color:#fff;font-size:11px;font-weight:900;line-height:18px;text-align:center;box-sizing:border-box;box-shadow:0 0 0 2px #141418;pointer-events:none"></span>
+                    </button>
+                    <div id="pf-bell-panel" hidden role="dialog" aria-label="Notas de tus alumnos"
+                        style="position:absolute;right:0;top:50px;width:min(360px,calc(100vw - 24px));max-height:70vh;overflow:hidden;display:flex;flex-direction:column;background:#141418;border:1px solid #2a2a35;border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.6);z-index:70">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px;border-bottom:1px solid #2a2a35">
+                            <span style="font-size:12px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;color:#FF6B35">🔔 Notas de tus alumnos</span>
+                            <button type="button" id="pf-bell-todas" style="font-size:11px;font-weight:700;color:#4FC3F7;background:none;border:none;cursor:pointer;white-space:nowrap">Marcar todas</button>
+                        </div>
+                        <div id="pf-bell-lista" style="overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:6px"></div>
+                    </div>
+                </div>
+                <a href="/alumno" target="_blank" class="text-sm text-azul hover:underline">Ver vista del alumno &rarr;</a>
+            </div>
         </div>
         <!-- ─── Barra de cuenta (login multi-cuenta): segunda fila, dentro del flujo normal, no flota ni tapa nada ─── -->
         <div class="max-w-6xl mx-auto flex items-center justify-end gap-3 mt-3 pt-3 border-t border-borde" id="pf-barra-cuenta">
@@ -2805,7 +2822,7 @@
                         </h3>
                         <button type="button" onclick="pfNotifRecargar()" class="text-xs text-azul font-bold hover:underline">Actualizar</button>
                     </div>
-                    <p class="text-xs text-textoSuave mb-3">Le llega a la campanita de su app. Si te responde, ves la respuesta acá abajo.</p>
+                    <p class="text-xs text-textoSuave mb-3">Le llega a la campanita de su app. Si te responde o te deja una nota, la ves acá abajo y en la campanita de arriba.</p>
                     <textarea id="pf-notif-texto" rows="3" maxlength="500" class="w-full rounded-lg px-4 py-2.5 text-sm" placeholder="Escribí el mensaje para tu alumno..."></textarea>
                     <div class="flex items-center justify-between gap-2 mt-2 flex-wrap">
                         <span id="pf-notif-contador" class="text-xs text-textoSuave">0/500</span>
@@ -22403,6 +22420,200 @@ self.addEventListener('fetch', event => {
         document.addEventListener('visibilitychange', function () {
             if (document.visibilityState === 'visible') refrescar(false);
         });
+    })();
+    </script>
+
+    <script id="pf-bell-profesor">
+    /* Campanita del PROFESOR: avisa cuando un alumno le deja una nota (o le responde) desde la campanita de su app.
+       El alumno, al enviar, además de guardar el mensaje en su hilo escribe un resumen en:
+         /api/fb/{codigo}/notificaciones/_avisos/{alumno} = {ts, texto, nombre}
+       El profesor lee ese índice (una sola consulta liviana) y, al ver una nota, guarda vistoTs en el mismo nodo.
+       Al tocar una nota se abre el Dashboard de ese alumno, donde está el hilo completo para responder. */
+    (function pfBellProfesor() {
+        var POLL_MS = 45000, VENTANA_MS = 24 * 60 * 60 * 1000;
+        var codigo = '', avisos = {}, cargado = false, ultimoNotificado = 0, buscandoCodigo = null, abierto = false;
+
+        function el(id) { return document.getElementById(id); }
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+        function claveDe(c) { return String(c || '').split('-')[0].toLowerCase().trim().replace(/[.#$\[\]\/]/g, '_'); }
+        function fmt(ts) {
+            try { return new Date(ts).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; }
+        }
+        function urlAvisos(resto) {
+            return API_BASE + '/api/fb/' + encodeURIComponent(codigo) + '/notificaciones/_avisos' + (resto || '') + '.json';
+        }
+        // Nombre del alumno tal como figura en la lista de la app (para poder abrir su Dashboard)
+        function nombreReal(k) {
+            try {
+                var lista = (typeof _alumnosCache !== 'undefined' && _alumnosCache) ? _alumnosCache : [];
+                for (var i = 0; i < lista.length; i++) if (claveDe(lista[i]) === k) return lista[i];
+            } catch (e) {}
+            return (avisos[k] && avisos[k].nombre) || k;
+        }
+
+        // Para hablar con el proxy hace falta un código real de algún alumno de esta cuenta
+        function obtenerCodigo() {
+            if (codigo) return Promise.resolve(codigo);
+            if (buscandoCodigo) return buscandoCodigo;
+            var primero = (typeof _obtenerAlumnosCache === 'function') ? _obtenerAlumnosCache(false) : Promise.resolve([]);
+            buscandoCodigo = Promise.resolve(primero).then(function (lista) {
+                lista = (lista || []).slice(0, 8);
+                var i = 0;
+                function siguiente() {
+                    if (i >= lista.length) return Promise.resolve('');
+                    var nombre = lista[i++];
+                    return fetch(API_BASE + '/api/rutinas/alumno/' + encodeURIComponent(nombre))
+                        .then(function (r) { return r.json(); })
+                        .then(function (d) {
+                            var cods = (d && d.ok && d.rutinas) ? Object.keys(d.rutinas).sort() : [];
+                            return cods.length ? cods[0] : siguiente();
+                        })
+                        .catch(function () { return siguiente(); });
+                }
+                return siguiente();
+            }).then(function (c) { codigo = c || ''; buscandoCodigo = null; return codigo; })
+              .catch(function () { buscandoCodigo = null; return ''; });
+            return buscandoCodigo;
+        }
+
+        function normalizar(obj) {
+            var out = {};
+            if (!obj || typeof obj !== 'object') return out;
+            Object.keys(obj).forEach(function (k) {
+                var a = obj[k] || {};
+                var ts = Number(a.ts) || 0;
+                var texto = typeof a.texto === 'string' ? a.texto : '';
+                if (!ts || !texto) return;
+                out[k] = { clave: k, ts: ts, texto: texto, nombre: typeof a.nombre === 'string' && a.nombre ? a.nombre : k, vistoTs: Number(a.vistoTs) || 0 };
+            });
+            return out;
+        }
+        function sinLeer(a) { return a.ts > a.vistoTs; }
+        function lista() {
+            var ahora = Date.now();
+            return Object.keys(avisos).map(function (k) { return avisos[k]; })
+                .filter(function (a) { return sinLeer(a) || ahora < a.ts + VENTANA_MS; })
+                .sort(function (a, b) { return b.ts - a.ts; });
+        }
+        function cantidadSinLeer() { return Object.keys(avisos).filter(function (k) { return sinLeer(avisos[k]); }).length; }
+
+        function render() {
+            var n = cantidadSinLeer();
+            var badge = el('pf-bell-prof-badge'), btn = el('pf-bell-prof');
+            if (badge) { if (n > 0) { badge.textContent = n > 9 ? '9+' : String(n); badge.hidden = false; } else { badge.hidden = true; } }
+            if (btn) {
+                btn.setAttribute('aria-label', n > 0 ? 'Notas de tus alumnos (' + n + (n === 1 ? ' nueva)' : ' nuevas)') : 'Notas de tus alumnos');
+                btn.style.borderColor = n > 0 ? '#FF6B35' : '#2a2a35';
+                btn.style.color = n > 0 ? '#FF6B35' : '#f0f0f5';
+            }
+            var cont = el('pf-bell-lista');
+            if (!cont || !abierto) return;
+            var items = lista();
+            if (!items.length) {
+                cont.innerHTML = '<p style="font-size:12px;color:#8a8a9a;text-align:center;padding:18px 8px;margin:0">No hay notas de tus alumnos por ahora.</p>';
+                return;
+            }
+            cont.innerHTML = items.map(function (a) {
+                var nueva = sinLeer(a);
+                return '<button type="button" data-k="' + esc(a.clave) + '" style="text-align:left;cursor:pointer;width:100%;padding:9px 12px;border-radius:12px;color:#f0f0f5;' +
+                    'background:' + (nueva ? 'rgba(79,195,247,.10)' : '#0f0f13') + ';border:1px solid ' + (nueva ? '#FFD54F' : '#2a2a35') + ';opacity:' + (nueva ? '1' : '.7') + '">' +
+                    '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:3px">' +
+                        '<span style="font-size:11px;font-weight:900;letter-spacing:1.4px;text-transform:uppercase;color:#4FC3F7">' + esc(nombreReal(a.clave).toUpperCase()) +
+                        (nueva ? '<span style="background:#FFD54F;color:#000;border-radius:6px;padding:1px 6px;font-size:9px;letter-spacing:1px;margin-left:6px">NUEVA</span>' : '') + '</span>' +
+                        '<span style="font-size:10px;color:#8a8a9a;white-space:nowrap">' + esc(fmt(a.ts)) + '</span>' +
+                    '</div>' +
+                    '<div style="white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.4">' + esc(a.texto) + '</div>' +
+                    '<div style="margin-top:4px;font-size:10px;color:#8a8a9a">Tocá para abrir el Dashboard y responder</div>' +
+                '</button>';
+            }).join('');
+        }
+
+        function marcarVisto(k) {
+            var a = avisos[k];
+            if (!a || !sinLeer(a)) return;
+            a.vistoTs = a.ts;
+            render();
+            if (!codigo) return;
+            try {
+                fetch(urlAvisos('/' + encodeURIComponent(k) + '/vistoTs'), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(a.ts) }).catch(function () {});
+            } catch (e) {}
+        }
+
+        function refrescar(forzar) {
+            if (!forzar && document.visibilityState === 'hidden') return Promise.resolve();
+            return obtenerCodigo().then(function (c) {
+                if (!c) return;
+                return fetch(urlAvisos('')).then(function (r) { return r.ok ? r.json() : null; }).then(function (res) {
+                    var nuevo = normalizar(res);
+                    Object.keys(nuevo).forEach(function (k) {
+                        var a = nuevo[k];
+                        if (cargado && sinLeer(a) && a.ts > ultimoNotificado && typeof toast === 'function') toast('🔔 Nota de ' + nombreReal(k).toUpperCase());
+                        if (a.ts > ultimoNotificado) ultimoNotificado = a.ts;
+                    });
+                    avisos = nuevo; cargado = true;
+                    render();
+                });
+            }).catch(function () {});
+        }
+
+        function abrirPanel() {
+            var p = el('pf-bell-panel'), b = el('pf-bell-prof');
+            if (!p) return;
+            abierto = true; p.hidden = false;
+            if (b) b.setAttribute('aria-expanded', 'true');
+            render();
+            refrescar(true);
+        }
+        function cerrarPanel() {
+            var p = el('pf-bell-panel'), b = el('pf-bell-prof');
+            abierto = false;
+            if (p) p.hidden = true;
+            if (b) b.setAttribute('aria-expanded', 'false');
+        }
+
+        function abrirAlumno(k) {
+            cerrarPanel();
+            marcarVisto(k);
+            var nombre = nombreReal(k);
+            if (typeof showTab === 'function') showTab('dashboard');
+            var inp = el('dash-select-alumno');
+            if (inp) {
+                inp.value = nombre;
+                if (typeof cargarDashboard === 'function') cargarDashboard();
+                var card = el('pf-notif-card');
+                setTimeout(function () { try { (card || inp).scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {} }, 400);
+            }
+        }
+
+        var btn = el('pf-bell-prof'), panel = el('pf-bell-panel');
+        if (!btn || !panel) return;
+        btn.addEventListener('click', function (e) { e.stopPropagation(); if (abierto) cerrarPanel(); else abrirPanel(); });
+        panel.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var item = e.target.closest ? e.target.closest('button[data-k]') : null;
+            if (item) abrirAlumno(item.getAttribute('data-k'));
+        });
+        var todas = el('pf-bell-todas');
+        if (todas) todas.addEventListener('click', function () { Object.keys(avisos).forEach(marcarVisto); });
+        document.addEventListener('click', function () { if (abierto) cerrarPanel(); });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && abierto) cerrarPanel(); });
+        document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') refrescar(false); });
+
+        // Si el profesor abre al alumno desde el buscador del Dashboard, sus notas pasan a "vistas" también en la campanita
+        var original = window.pfNotifProfSeleccionar;
+        if (typeof original === 'function') {
+            window.pfNotifProfSeleccionar = function (nombre) {
+                var r = original.apply(this, arguments);
+                try { var k = claveDe(nombre); if (nombre && avisos[k]) marcarVisto(k); } catch (e) {}
+                return r;
+            };
+        }
+
+        setTimeout(function () { refrescar(true); }, 1500);
+        setInterval(function () { refrescar(false); }, POLL_MS);
+        window.pfBellProfesorRefrescar = function () { return refrescar(true); };
     })();
     </script>
 
