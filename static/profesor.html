@@ -2624,13 +2624,32 @@
 <body class="bg-fondo text-texto min-h-screen">
     <div id="pf-boot-loader" aria-hidden="true"><div class="pf-boot-badge"><div class="pf-boot-circle">PF</div></div></div>
     <!-- HEADER -->
+    <style id="pf-bell-responsive">
+        /* Celular: la campanita queda en la misma línea que el título (a la derecha),
+           el link "Ver vista del alumno" pasa abajo y el panel ocupa el ancho de la pantalla */
+        #pf-bell-prof { min-width: 44px; min-height: 44px; }
+        @media (max-width: 639px) {
+            #pf-head-right { display: contents; }
+            #pf-bell-wrap { margin-left: auto; }
+            #pf-head-right > a { order: 3; flex-basis: 100%; }
+            #pf-bell-wrap { position: static !important; }
+            #pf-bell-panel {
+                position: fixed !important;
+                left: 12px !important; right: 12px !important;
+                width: auto !important;
+                top: 64px; /* se recalcula al abrir */
+                max-height: calc(100vh - 80px);
+                max-height: calc(100dvh - 80px);
+            }
+        }
+    </style>
     <header id="pf-main-header" class="bg-tarjeta border-b border-borde px-6 py-4">
         <div class="max-w-6xl mx-auto flex items-center justify-between flex-wrap gap-3">
             <div>
                 <h1 onclick="_pfLogoClick()" class="text-3xl font-black text-naranja glow-orange tracking-tight sm:cursor-pointer" title="Ir al Dashboard">PONETE FIT</h1>
                 <p class="text-xs text-textoSuave tracking-[4px] uppercase">Panel del Profesor</p>
             </div>
-            <div class="flex items-center gap-3">
+            <div id="pf-head-right" class="flex items-center gap-3">
                 <div id="pf-bell-wrap" style="position:relative">
                     <button type="button" id="pf-bell-prof" aria-label="Notas de tus alumnos" aria-haspopup="true" aria-expanded="false" title="Notas de tus alumnos"
                         style="position:relative;width:42px;height:42px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#0f0f13;border:1px solid #2a2a35;border-radius:12px;color:#f0f0f5">
@@ -22558,11 +22577,24 @@ self.addEventListener('fetch', event => {
             }).catch(function () {});
         }
 
+        function posicionarPanel() {
+            var p = el('pf-bell-panel'), b = el('pf-bell-prof');
+            if (!p || !b) return;
+            if (window.innerWidth < 640) {
+                var top = Math.round(b.getBoundingClientRect().bottom + 8);
+                p.style.top = top + 'px';
+                p.style.maxHeight = 'calc(100vh - ' + (top + 12) + 'px)';
+            } else {
+                p.style.top = ''; p.style.maxHeight = '';
+            }
+        }
+        window.addEventListener('resize', function () { if (abierto) posicionarPanel(); });
         function abrirPanel() {
             var p = el('pf-bell-panel'), b = el('pf-bell-prof');
             if (!p) return;
             abierto = true; p.hidden = false;
             if (b) b.setAttribute('aria-expanded', 'true');
+            posicionarPanel();
             render();
             refrescar(true);
         }
